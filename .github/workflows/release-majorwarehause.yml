@@ -48,8 +48,35 @@ jobs:
 
       - name: Build desktop package and setup
         shell: pwsh
+        env:
+          MAJORWAREHAUSE_CODESIGN_PFX_BASE64: ${{ secrets.MAJORWAREHAUSE_CODESIGN_PFX_BASE64 }}
+          MAJORWAREHAUSE_CODESIGN_PFX_PASSWORD: ${{ secrets.MAJORWAREHAUSE_CODESIGN_PFX_PASSWORD }}
+          MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER: ${{ vars.MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER }}
         run: |
-          powershell -ExecutionPolicy Bypass -File .\scripts\build-majorwarehause-setup.ps1 -Version '${{ steps.version.outputs.value }}'
+          $buildArguments = @(
+              '-ExecutionPolicy'
+              'Bypass'
+              '-File'
+              '.\scripts\build-majorwarehause-setup.ps1'
+              '-Version'
+              '${{ steps.version.outputs.value }}'
+          )
+
+          if (-not [string]::IsNullOrWhiteSpace($env:MAJORWAREHAUSE_CODESIGN_PFX_BASE64)) {
+              $certificatePath = Join-Path $env:RUNNER_TEMP 'majorwarehause-codesign.pfx'
+              [IO.File]::WriteAllBytes(
+                  $certificatePath,
+                  [Convert]::FromBase64String($env:MAJORWAREHAUSE_CODESIGN_PFX_BASE64))
+
+              $buildArguments += @('-CodeSigningCertificatePath', $certificatePath)
+              $buildArguments += @('-CodeSigningCertificatePassword', $env:MAJORWAREHAUSE_CODESIGN_PFX_PASSWORD)
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($env:MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER)) {
+              $buildArguments += @('-CodeSigningTimestampServer', $env:MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER)
+          }
+
+          powershell @buildArguments
 
       - name: Create or update GitHub release
         shell: pwsh

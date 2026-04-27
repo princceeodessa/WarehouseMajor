@@ -19,7 +19,7 @@ Main working folders in this workspace:
 - `docs/`
   Project notes and migration docs.
 - `scripts/`
-  Helper scripts for MySQL, 1C import and MajorWarehause installer builds.
+  Helper scripts for MySQL, 1C import, installer builds and Authenticode signing.
 - `model_schema/`
   Extracted 1C object schemas.
 - `exports_sales_docs_20260323/`
@@ -52,3 +52,4 @@ How to build a release:
 1. Run `powershell -ExecutionPolicy Bypass -File .\\scripts\\build-majorwarehause-setup.ps1 -Version 1.0.0`
 2. Send `artifacts\\installers\\MajorWarehauseSetup.exe` to the user for first install.
 3. Publish `artifacts\\publish\\majorwarehause-win-x64.zip` in GitHub Releases for in-app updates.
+4. For signed builds, pass `-CodeSigningCertificateThumbprint <thumbprint>` or configure PFX secrets in GitHub Actions.

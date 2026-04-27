@@ -2,6 +2,11 @@ param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
     [string]$Version = "1.0.0",
+    [string]$CodeSigningCertificateThumbprint = $env:MAJORWAREHAUSE_CODESIGN_THUMBPRINT,
+    [string]$CodeSigningCertificatePath = $env:MAJORWAREHAUSE_CODESIGN_PFX_PATH,
+    [string]$CodeSigningCertificatePassword = $env:MAJORWAREHAUSE_CODESIGN_PFX_PASSWORD,
+    [string]$CodeSigningTimestampServer = $env:MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER,
+    [switch]$RequireCodeSigning,
     [switch]$SkipPublish
 )
 
@@ -9,6 +14,7 @@ $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
 $publishScript = Join-Path $root "WarehouseAutomatisaion.Desktop.Wpf\publish-win-x64.ps1"
+$signScript = Join-Path $root "scripts\sign-authenticode.ps1"
 $publishAssetName = "majorwarehause-$Runtime"
 $publishRoot = Join-Path $root "artifacts\publish"
 $publishZipPath = Join-Path $publishRoot "$publishAssetName.zip"
@@ -17,10 +23,40 @@ $stagingRoot = Join-Path $root "artifacts\installer-staging"
 $setupPath = Join-Path $installerRoot "MajorWarehauseSetup.exe"
 
 if (-not $SkipPublish) {
-    & powershell -ExecutionPolicy Bypass -File $publishScript `
-        -Configuration $Configuration `
-        -Runtime $Runtime `
-        -Version $Version
+    $publishArguments = @(
+        "-ExecutionPolicy"
+        "Bypass"
+        "-File"
+        $publishScript
+        "-Configuration"
+        $Configuration
+        "-Runtime"
+        $Runtime
+        "-Version"
+        $Version
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningCertificateThumbprint)) {
+        $publishArguments += @("-CodeSigningCertificateThumbprint", $CodeSigningCertificateThumbprint)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningCertificatePath)) {
+        $publishArguments += @("-CodeSigningCertificatePath", $CodeSigningCertificatePath)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningCertificatePassword)) {
+        $publishArguments += @("-CodeSigningCertificatePassword", $CodeSigningCertificatePassword)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningTimestampServer)) {
+        $publishArguments += @("-CodeSigningTimestampServer", $CodeSigningTimestampServer)
+    }
+
+    if ($RequireCodeSigning) {
+        $publishArguments += "-RequireCodeSigning"
+    }
+
+    & powershell @publishArguments
 
     if ($LASTEXITCODE -ne 0) {
         throw "Publish failed with exit code $LASTEXITCODE"
@@ -232,6 +268,46 @@ if (-not (Test-Path $setupPath)) {
 
 if ($null -ne $iexpressExitCode -and $iexpressExitCode -ne 0) {
     Write-Warning "IExpress returned exit code $iexpressExitCode, but setup executable was created."
+}
+
+$hasCodeSigningCertificate =
+    -not [string]::IsNullOrWhiteSpace($CodeSigningCertificateThumbprint) -or
+    -not [string]::IsNullOrWhiteSpace($CodeSigningCertificatePath)
+
+if ($RequireCodeSigning -or $hasCodeSigningCertificate) {
+    $signArguments = @(
+        "-ExecutionPolicy"
+        "Bypass"
+        "-File"
+        $signScript
+        "-Path"
+        $setupPath
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningCertificateThumbprint)) {
+        $signArguments += @("-CertificateThumbprint", $CodeSigningCertificateThumbprint)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningCertificatePath)) {
+        $signArguments += @("-CertificatePath", $CodeSigningCertificatePath)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningCertificatePassword)) {
+        $signArguments += @("-CertificatePassword", $CodeSigningCertificatePassword)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningTimestampServer)) {
+        $signArguments += @("-TimestampServer", $CodeSigningTimestampServer)
+    }
+
+    if (-not $RequireCodeSigning) {
+        $signArguments += "-SkipIfNoCertificate"
+    }
+
+    & powershell @signArguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Setup code signing failed with exit code $LASTEXITCODE"
+    }
 }
 
 Write-Host "Installer created at $setupPath"

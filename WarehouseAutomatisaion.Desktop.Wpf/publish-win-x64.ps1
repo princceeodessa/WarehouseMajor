@@ -2,7 +2,12 @@ param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
     [switch]$CreateZip = $true,
-    [string]$Version = "1.0.0"
+    [string]$Version = "1.0.0",
+    [string]$CodeSigningCertificateThumbprint = $env:MAJORWAREHAUSE_CODESIGN_THUMBPRINT,
+    [string]$CodeSigningCertificatePath = $env:MAJORWAREHAUSE_CODESIGN_PFX_PATH,
+    [string]$CodeSigningCertificatePassword = $env:MAJORWAREHAUSE_CODESIGN_PFX_PASSWORD,
+    [string]$CodeSigningTimestampServer = $env:MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER,
+    [switch]$RequireCodeSigning
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,6 +18,7 @@ $assetBaseName = "majorwarehause-$Runtime"
 $outputPath = Join-Path $projectPath "..\\artifacts\\publish\\$assetBaseName"
 $readmePath = Join-Path $projectPath "..\\docs\\shared-client-deployment.md"
 $zipPath = Join-Path $projectPath "..\\artifacts\\publish\\$assetBaseName.zip"
+$signScript = Join-Path $projectPath "..\\scripts\\sign-authenticode.ps1"
 
 $normalizedVersion = $Version.Trim()
 if ($normalizedVersion.StartsWith("v")) {
@@ -67,6 +73,47 @@ if ($LASTEXITCODE -ne 0) {
 
 if (Test-Path $readmePath) {
     Copy-Item -Path $readmePath -Destination (Join-Path $outputPath 'README_DEPLOY.md') -Force
+}
+
+$publishedExePath = Join-Path $outputPath "MajorWarehause.exe"
+$hasCodeSigningCertificate =
+    -not [string]::IsNullOrWhiteSpace($CodeSigningCertificateThumbprint) -or
+    -not [string]::IsNullOrWhiteSpace($CodeSigningCertificatePath)
+
+if ($RequireCodeSigning -or $hasCodeSigningCertificate) {
+    $signArguments = @(
+        "-ExecutionPolicy"
+        "Bypass"
+        "-File"
+        $signScript
+        "-Path"
+        $publishedExePath
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningCertificateThumbprint)) {
+        $signArguments += @("-CertificateThumbprint", $CodeSigningCertificateThumbprint)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningCertificatePath)) {
+        $signArguments += @("-CertificatePath", $CodeSigningCertificatePath)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningCertificatePassword)) {
+        $signArguments += @("-CertificatePassword", $CodeSigningCertificatePassword)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($CodeSigningTimestampServer)) {
+        $signArguments += @("-TimestampServer", $CodeSigningTimestampServer)
+    }
+
+    if (-not $RequireCodeSigning) {
+        $signArguments += "-SkipIfNoCertificate"
+    }
+
+    & powershell @signArguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Code signing failed with exit code $LASTEXITCODE"
+    }
 }
 
 if ($CreateZip) {
