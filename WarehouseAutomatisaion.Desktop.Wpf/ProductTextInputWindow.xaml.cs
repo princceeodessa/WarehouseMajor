@@ -1,5 +1,5 @@
 ﻿using System.Windows;
-using WarehouseAutomatisaion.Desktop.Controls;
+using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 

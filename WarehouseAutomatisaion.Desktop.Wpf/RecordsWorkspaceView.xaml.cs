@@ -4,7 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-using WarehouseAutomatisaion.Desktop.Controls;
+using WarehouseAutomatisaion.Desktop.Text;
 using WpfButton = System.Windows.Controls.Button;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;

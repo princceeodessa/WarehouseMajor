@@ -1,3 +1,4 @@
+using System.Drawing;
 using WarehouseAutomatisaion.Domain.Entities;
 
 namespace WarehouseAutomatisaion.Desktop.Model;

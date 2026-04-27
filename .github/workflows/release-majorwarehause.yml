@@ -46,10 +46,10 @@ jobs:
 
           "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Publish desktop package
+      - name: Build desktop package and setup
         shell: pwsh
         run: |
-          powershell -ExecutionPolicy Bypass -File .\WarehouseAutomatisaion.Desktop.Wpf\publish-win-x64.ps1 -Version '${{ steps.version.outputs.value }}'
+          powershell -ExecutionPolicy Bypass -File .\scripts\build-majorwarehause-setup.ps1 -Version '${{ steps.version.outputs.value }}'
 
       - name: Create or update GitHub release
         shell: pwsh
@@ -58,14 +58,16 @@ jobs:
         run: |
           $version = '${{ steps.version.outputs.value }}'
           $tag = "v$version"
-          $assetPath = '.\artifacts\publish\majorwarehause-win-x64.zip'
+          $assetPaths = @(
+              '.\artifacts\installers\MajorWarehauseSetup.exe',
+              '.\artifacts\publish\majorwarehause-win-x64.zip'
+          )
           $title = "MajorWarehause v$version"
 
           gh release view $tag 1>$null 2>$null
           if ($LASTEXITCODE -eq 0) {
-              gh release upload $tag $assetPath --clobber
+              gh release upload $tag $assetPaths --clobber
               exit $LASTEXITCODE
           }
 
-          gh release create $tag $assetPath --title $title --notes "Desktop release for MajorWarehause $version."
-
+          gh release create $tag $assetPaths --title $title --notes "Desktop release for MajorWarehause $version."

@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Reflection;
 using System.Windows.Controls;
 using System.Windows.Data;
-using WarehouseAutomatisaion.Desktop.Controls;
+using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 

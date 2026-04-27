@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Windows;
-using WarehouseAutomatisaion.Desktop.Controls;
 using WarehouseAutomatisaion.Desktop.Data;
+using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 

@@ -6,7 +6,7 @@ using System.Text;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using QRCoder;
-using WarehouseAutomatisaion.Desktop.Controls;
+using WarehouseAutomatisaion.Desktop.Text;
 using ZXing;
 using ZXing.Common;
 

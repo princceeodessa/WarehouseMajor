@@ -1,14 +1,14 @@
-﻿# Shared client deployment
+# Развертывание клиента MajorWarehause
 
 ## Цель
-Один центральный MySQL на VPS и несколько WPF-клиентов, которые работают с одной общей базой без локального fallback.
+Один центральный MySQL на VPS и несколько WPF-клиентов MajorWarehause, которые работают с общей базой. Пользователю для первой установки отдается один файл `MajorWarehauseSetup.exe`, а последующие обновления ставятся кнопкой `Обновить` внутри приложения.
 
 ## 1. Что должно быть на VPS
-- Linux VPS с SSH-доступом
-- MySQL 8+ или MariaDB с совместимой схемой
-- открытый порт MySQL только для нужных IP или через защищенный контур
-- отдельная база, например `warehouse_automation`
-- отдельный пользователь приложения с правами на эту базу
+- Linux VPS с SSH-доступом.
+- MySQL 8+ или MariaDB с совместимой схемой.
+- Открытый порт MySQL только для нужных IP или через защищенный контур.
+- Отдельная база, например `warehouse_automation`.
+- Отдельный пользователь приложения с правами на эту базу.
 
 ## 2. Развертывание схемы на сервере
 Из рабочей машины с установленным `mysql.exe` можно применить схему так:
@@ -22,11 +22,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\apply-mysql-operational-schem
   -Password <db-password>
 ```
 
-Скрипт применяет файл:
-- `WarehouseAutomatisaion.Infrastructure/Persistence/Sql/mysql-operational-schema.sql`
+Скрипт применяет файл `WarehouseAutomatisaion.Infrastructure/Persistence/Sql/mysql-operational-schema.sql`.
 
 ## 3. Настройка клиента
-Рядом с `MajorWarehause.exe` должен лежать файл `appsettings.local.json`.
+Рядом с установленным `MajorWarehause.exe` должен лежать файл `appsettings.local.json`.
 
 Пример:
 
@@ -51,54 +50,57 @@ powershell -ExecutionPolicy Bypass -File .\scripts\apply-mysql-operational-schem
 ```
 
 Важно:
-- если `Enabled = true`, клиент работает только в серверном режиме
-- тихий откат в локальный JSON отключен
-- при недоступности сервера клиент не стартует
-- внешний `mysql.exe` клиенту больше не нужен
+- Если `RemoteDatabase.Enabled = true`, клиент работает только в серверном режиме.
+- Тихий откат в локальный JSON отключен.
+- При недоступности сервера клиент не стартует.
+- Внешний `mysql.exe` клиенту больше не нужен.
+- Установщик и обновление сохраняют `appsettings.local.json` и папку `app_data`.
 
-## 4. Публикация клиента
+## 4. Сборка одного установщика
+Локально установщик собирается командой:
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\WarehouseAutomatisaion.Desktop.Wpf\publish-win-x64.ps1 -Version 1.0.0
+powershell -ExecutionPolicy Bypass -File .\scripts\build-majorwarehause-setup.ps1 -Version 1.0.0
 ```
 
-Артефакты будут в:
-- `artifacts/publish/majorwarehause-win-x64`
-- `artifacts/publish/majorwarehause-win-x64.zip`
+Скрипт сначала собирает WPF-клиент, затем создает артефакты:
+- `artifacts/installers/MajorWarehauseSetup.exe` - один файл для первой установки пользователю.
+- `artifacts/publish/majorwarehause-win-x64.zip` - архив, который приложение скачивает при обновлении.
 
-## 5. Что отправлять пользователю
-Пользователю отправляется вся папка publish или zip-архив, а не только один exe-файл.
+Установщик ставит приложение в `%LOCALAPPDATA%\Programs\MajorWarehause`, создает ярлыки на рабочем столе и в меню Пуск, затем запускает приложение.
 
-Минимальный состав:
-- `MajorWarehause.exe`
-- `appsettings.json`
-- `appsettings.local.json`
-- `README_DEPLOY.md`
+## 5. GitHub Releases
+Основной release-flow:
 
-## 6. GitHub Releases и кнопка "Обновить"
-В клиент встроена кнопка ручного обновления. Она проверяет последний GitHub Release и скачивает архив `majorwarehause-win-x64.zip`.
+```powershell
+git tag v1.0.1
+git push origin v1.0.1
+```
 
-Что нужно настроить один раз:
+После пуша тега workflow `.github/workflows/release-majorwarehause.yml` собирает и прикрепляет к Release два файла:
+- `MajorWarehauseSetup.exe` - для первой установки или ручной переустановки.
+- `majorwarehause-win-x64.zip` - для кнопки `Обновить` внутри приложения.
 
-1. Создать GitHub-репозиторий и запушить туда этот проект.
-2. Убедиться, что в репозитории есть workflow `.github/workflows/release-majorwarehause.yml`.
-3. Заполнять `ApplicationUpdate` в `appsettings.local.json` на машине клиента.
-4. Выпускать новую версию через git tag `vX.Y.Z`.
-5. После пуша тега GitHub Actions соберет архив и прикрепит его к Release.
-6. Пользователь нажимает `Обновить` в приложении и получает новую версию без ручной пересылки файлов.
+Можно также запустить workflow вручную через GitHub Actions и указать версию в параметре `version`.
 
-Важно:
-- лучше использовать публичный Release-канал без приватных токенов внутри клиента
-- обновление сохраняет `appsettings.local.json` и папку `app_data`
-- приложение должно лежать в папке, куда у пользователя есть права на запись
+## 6. Что отправлять пользователю
+Для первой установки отправляется только `MajorWarehauseSetup.exe`.
 
-## 7. Следующий этап
+Для следующих версий вручную ничего отправлять не нужно: пользователь открывает MajorWarehause и нажимает `Обновить`. Клиент проверяет последний GitHub Release, скачивает `majorwarehause-win-x64.zip`, заменяет файлы приложения и перезапускается.
+
+Практические правила:
+- Лучше использовать публичный Release-канал без приватных токенов внутри клиента.
+- Если репозиторий приватный, нужен отдельный безопасный сервер обновлений, а не GitHub token в приложении.
+- Приложение должно лежать в папке, куда у пользователя есть права на запись; текущая схема использует `%LOCALAPPDATA%`.
+
+## 7. Следующий этап данных
 После поднятия VPS-базы туда нужно загрузить данные из 1С:
-- товары
-- штрихкоды
-- цены
-- остатки
-- контрагенты
-- продажи
-- закупки
+- Товары.
+- Штрихкоды.
+- Цены.
+- Остатки.
+- Контрагенты.
+- Продажи.
+- Закупки.
 
 Только после этого клиенты начнут видеть рабочие данные из общего контура.

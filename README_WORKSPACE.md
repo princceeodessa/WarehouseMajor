@@ -13,11 +13,13 @@ Main working folders in this workspace:
 - `WarehouseAutomatisaion.Infrastructure/`
   Import, projection and persistence.
 - `WarehouseAutomatisaion.Desktop/`
-  Windows desktop client.
+  Shared desktop services used by the WPF client: data access, printing, model metadata and text helpers. This project is no longer a WinForms executable.
+- `WarehouseAutomatisaion.Desktop.Wpf/`
+  Main WPF client application. The executable name is `MajorWarehause.exe`.
 - `docs/`
   Project notes and migration docs.
 - `scripts/`
-  Helper scripts for MySQL and 1C import.
+  Helper scripts for MySQL, 1C import and MajorWarehause installer builds.
 - `model_schema/`
   Extracted 1C object schemas.
 - `exports_sales_docs_20260323/`
@@ -44,3 +46,9 @@ How to run the desktop:
 
 1. Double-click `StartDesktop.cmd`
 2. Or run `WarehouseAutomatisaion.Desktop.Wpf\\bin\\Debug\\net8.0-windows\\MajorWarehause.exe`
+
+How to build a release:
+
+1. Run `powershell -ExecutionPolicy Bypass -File .\\scripts\\build-majorwarehause-setup.ps1 -Version 1.0.0`
+2. Send `artifacts\\installers\\MajorWarehauseSetup.exe` to the user for first install.
+3. Publish `artifacts\\publish\\majorwarehause-win-x64.zip` in GitHub Releases for in-app updates.

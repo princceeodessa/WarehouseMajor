@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Drawing;
 
 namespace WarehouseAutomatisaion.Desktop.Data;
 

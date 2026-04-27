@@ -3,8 +3,8 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-using WarehouseAutomatisaion.Desktop.Controls;
 using WarehouseAutomatisaion.Desktop.Data;
+using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
