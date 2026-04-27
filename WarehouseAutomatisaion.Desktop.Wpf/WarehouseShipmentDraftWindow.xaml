@@ -1,0 +1,167 @@
+<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.WarehouseShipmentDraftWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="880"
+        Height="640"
+        MinWidth="760"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="#F7F9FD"
+        Title="Подготовка отгрузки">
+    <Window.Resources>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="#6E7B98" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style x:Key="InputStyle" TargetType="Control">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Padding" Value="20,0" />
+            <Setter Property="Background" Value="#4F5BFF" />
+            <Setter Property="BorderBrush" Value="#4F5BFF" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="GhostButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Padding" Value="18,0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#DDE5F4" />
+            <Setter Property="Foreground" Value="#17213A" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Margin="0,0,0,18">
+            <TextBlock x:Name="HeaderTitleText"
+                       Text="Подготовка отгрузки"
+                       FontSize="25"
+                       FontWeight="SemiBold"
+                       Foreground="#17213A" />
+            <TextBlock x:Name="HeaderSubtitleText"
+                       Text="Выберите клиента и уточните количество по складским позициям."
+                       Margin="0,6,0,0"
+                       FontSize="13"
+                       Foreground="#6E7B98" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Background="#FFFFFF"
+                BorderBrush="#E4EAF5"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="16"
+                Margin="0,0,0,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="Клиент" Style="{StaticResource FieldLabelStyle}" />
+                    <ComboBox x:Name="CustomerComboBox"
+                              Style="{StaticResource InputStyle}"
+                              DisplayMemberPath="Label" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Склад" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox x:Name="WarehouseTextBox"
+                             Style="{StaticResource InputStyle}"
+                             IsReadOnly="True"
+                             Background="#F4F7FC"
+                             BorderBrush="#DDE5F4" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
+                Background="#FFFFFF"
+                BorderBrush="#E4EAF5"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Margin="16,14,16,10">
+                    <TextBlock Text="Позиции отгрузки"
+                               FontSize="17"
+                               FontWeight="SemiBold"
+                               Foreground="#17213A" />
+                    <TextBlock x:Name="TotalText"
+                               HorizontalAlignment="Right"
+                               FontSize="13"
+                               Foreground="#6E7B98"
+                               VerticalAlignment="Center" />
+                </Grid>
+
+                <DataGrid x:Name="LinesGrid"
+                          Grid.Row="1"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          RowHeaderWidth="0"
+                          BorderThickness="0"
+                          Background="#FFFFFF"
+                          AlternatingRowBackground="#F8FAFF"
+                          RowHeight="44"
+                          SelectionMode="Single"
+                          CellEditEnding="HandleCellEditEnding">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="120" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Товар" Binding="{Binding Name}" Width="2*" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="130" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Доступно" Binding="{Binding AvailableDisplay}" Width="95" IsReadOnly="True" />
+                        <DataGridTextColumn Header="К отгрузке" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Width="105" />
+                        <DataGridTextColumn Header="Ед." Binding="{Binding Unit}" Width="65" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Цена" Binding="{Binding PriceDisplay}" Width="105" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Сумма" Binding="{Binding AmountDisplay}" Width="120" IsReadOnly="True" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <TextBlock Grid.Row="2"
+                           Margin="16,10,16,14"
+                           Text="Количество должно быть больше нуля и не больше свободного остатка."
+                           Foreground="#6E7B98"
+                           FontSize="12" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="3" Margin="0,18,0,0">
+            <TextBlock x:Name="ValidationText"
+                       Foreground="#D92D20"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Отмена"
+                        Style="{StaticResource GhostButtonStyle}"
+                        Margin="0,0,10,0"
+                        Click="HandleCancelClick" />
+                <Button x:Name="SaveButton"
+                        Content="Создать отгрузку"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Click="HandleSaveClick" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

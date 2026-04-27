@@ -1,0 +1,618 @@
+using System.Collections.ObjectModel;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Media;
+using WarehouseAutomatisaion.Desktop.Controls;
+using WpfButton = System.Windows.Controls.Button;
+
+namespace WarehouseAutomatisaion.Desktop.Wpf;
+
+public partial class RecordsWorkspaceView : UserControl
+{
+    private const int PageSize = 10;
+
+    private readonly RecordsWorkspaceDefinition _definition;
+    private readonly ObservableCollection<WorkspaceMetricCardViewModel> _metrics = [];
+    private readonly System.Windows.Threading.DispatcherTimer _searchDebounceTimer;
+    private IReadOnlyList<RecordsGridItem> _allRows = Array.Empty<RecordsGridItem>();
+    private IReadOnlyList<RecordsGridItem> _filteredRows = Array.Empty<RecordsGridItem>();
+    private int _currentPage = 1;
+
+    public RecordsWorkspaceView(RecordsWorkspaceDefinition definition)
+    {
+        _definition = definition;
+        _searchDebounceTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(180)
+        };
+        _searchDebounceTimer.Tick += HandleSearchDebounceTick;
+
+        InitializeComponent();
+
+        TitleText.Text = Clean(definition.Title);
+        SubtitleText.Text = Clean(definition.Subtitle);
+        HeaderSearchPlaceholderText.Text = Clean(definition.SearchPlaceholder);
+        PrimaryActionButton.Content = Clean(definition.PrimaryActionText);
+        PrimaryActionButton.Visibility = definition.ShowPrimaryAction && !string.IsNullOrWhiteSpace(definition.PrimaryActionText) ? Visibility.Visible : Visibility.Collapsed;
+        PrimaryActionButton.IsEnabled = definition.PrimaryAction is not null;
+        PrimaryActionButton.Opacity = PrimaryActionButton.IsEnabled ? 1d : 0.55d;
+        ImportButton.Visibility = definition.ShowImportAction && definition.ImportAction is not null ? Visibility.Visible : Visibility.Collapsed;
+        ImportButton.IsEnabled = definition.ImportAction is not null;
+        ImportButton.Opacity = ImportButton.IsEnabled ? 1d : 0.55d;
+        DateRangePanel.Visibility = definition.ShowDateRange ? Visibility.Visible : Visibility.Collapsed;
+
+        MetricsItemsControl.ItemsSource = _metrics;
+        PrimaryFilterCombo.ItemsSource = definition.PrimaryFilterOptions.Select(Clean).ToArray();
+        PrimaryFilterCombo.SelectedIndex = 0;
+
+        BuildColumns();
+        Loaded += HandleLoaded;
+        Unloaded += HandleUnloaded;
+        SizeChanged += HandleSizeChanged;
+    }
+
+    private void HandleLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= HandleLoaded;
+        RefreshView();
+        UpdateResponsiveLayout();
+    }
+
+    private void HandleUnloaded(object sender, RoutedEventArgs e)
+    {
+        _searchDebounceTimer.Stop();
+    }
+
+    private void HandleSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateResponsiveLayout();
+    }
+
+    private void RefreshView(bool forceRefresh = false)
+    {
+        if (forceRefresh)
+        {
+            _definition.RefreshAction?.Invoke();
+        }
+
+        RenderMetrics();
+        _allRows = _definition.RowsFactory();
+        ApplyFilters(resetPage: true);
+        UpdateResponsiveLayout();
+    }
+
+    private void UpdateResponsiveLayout()
+    {
+        if (ActualWidth < 1220)
+        {
+            Grid.SetColumn(HeaderActionsPanel, 0);
+            Grid.SetRow(HeaderActionsPanel, 1);
+            Grid.SetColumnSpan(HeaderActionsPanel, 2);
+            HeaderActionsPanel.Margin = new Thickness(0, 16, 0, 0);
+            HeaderActionsPanel.HorizontalAlignment = HorizontalAlignment.Stretch;
+            HeaderSearchBorder.Width = 260;
+        }
+        else
+        {
+            Grid.SetColumn(HeaderActionsPanel, 1);
+            Grid.SetRow(HeaderActionsPanel, 0);
+            Grid.SetColumnSpan(HeaderActionsPanel, 1);
+            HeaderActionsPanel.Margin = new Thickness(0);
+            HeaderActionsPanel.HorizontalAlignment = HorizontalAlignment.Right;
+            HeaderSearchBorder.Width = 320;
+        }
+    }
+
+    private void RenderMetrics()
+    {
+        _metrics.Clear();
+        foreach (var metric in _definition.MetricsFactory())
+        {
+            _metrics.Add(new WorkspaceMetricCardViewModel(
+                Clean(metric.Title),
+                Clean(metric.Value),
+                Clean(metric.Delta),
+                Clean(metric.Hint),
+                BrushPalette.FromHex(metric.AccentHex),
+                BrushPalette.FromHex(metric.IconBackgroundHex),
+                BrushPalette.FromHex(metric.DeltaHex),
+                Clean(metric.IconGlyph)));
+        }
+    }
+
+    private void BuildColumns()
+    {
+        RecordsGrid.Columns.Clear();
+
+        foreach (var column in _definition.Columns)
+        {
+            DataGridColumn built = column.Kind switch
+            {
+                RecordsColumnKind.Status => CreateStatusColumn(column),
+                RecordsColumnKind.Action => CreateActionColumn(column),
+                _ => CreateTextColumn(column)
+            };
+
+            RecordsGrid.Columns.Add(built);
+        }
+    }
+
+    private DataGridColumn CreateTextColumn(RecordsGridColumnDefinition column)
+    {
+        var template = new DataTemplate();
+        var text = new FrameworkElementFactory(typeof(TextBlock));
+        text.SetBinding(TextBlock.TextProperty, new Binding($"Cells[{column.CellIndex}].Text"));
+        text.SetBinding(TextBlock.ForegroundProperty, new Binding($"Cells[{column.CellIndex}].ForegroundBrush"));
+        text.SetBinding(TextBlock.FontWeightProperty, new Binding($"Cells[{column.CellIndex}].Weight"));
+        text.SetValue(TextBlock.MarginProperty, new Thickness(8, 0, 8, 0));
+        text.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+        text.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+        text.SetValue(TextBlock.TextAlignmentProperty, column.Alignment);
+        template.VisualTree = text;
+
+        return new DataGridTemplateColumn
+        {
+            Header = Clean(column.Header),
+            Width = column.ToDataGridLength(),
+            CellTemplate = template
+        };
+    }
+
+    private DataGridColumn CreateStatusColumn(RecordsGridColumnDefinition column)
+    {
+        var template = new DataTemplate();
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.SetBinding(Border.BackgroundProperty, new Binding($"Cells[{column.CellIndex}].BackgroundBrush"));
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
+        border.SetValue(Border.PaddingProperty, new Thickness(10, 4, 10, 4));
+        border.SetValue(Border.HorizontalAlignmentProperty, HorizontalAlignment.Left);
+        border.SetValue(Border.VerticalAlignmentProperty, VerticalAlignment.Center);
+
+        var text = new FrameworkElementFactory(typeof(TextBlock));
+        text.SetBinding(TextBlock.TextProperty, new Binding($"Cells[{column.CellIndex}].Text"));
+        text.SetBinding(TextBlock.ForegroundProperty, new Binding($"Cells[{column.CellIndex}].ForegroundBrush"));
+        text.SetValue(TextBlock.FontSizeProperty, 12d);
+        text.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold);
+        text.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+        border.AppendChild(text);
+
+        template.VisualTree = border;
+
+        return new DataGridTemplateColumn
+        {
+            Header = Clean(column.Header),
+            Width = column.ToDataGridLength(),
+            CellTemplate = template
+        };
+    }
+
+    private DataGridColumn CreateActionColumn(RecordsGridColumnDefinition column)
+    {
+        var template = new DataTemplate();
+        var button = new FrameworkElementFactory(typeof(WpfButton));
+        button.SetBinding(ContentControl.ContentProperty, new Binding($"Cells[{column.CellIndex}].Text"));
+        button.SetBinding(FrameworkElement.TagProperty, new Binding("."));
+        button.SetValue(Control.ForegroundProperty, BrushPalette.FromHex("#7180A0"));
+        button.SetValue(Control.BackgroundProperty, Brushes.Transparent);
+        button.SetValue(Control.BorderBrushProperty, Brushes.Transparent);
+        button.SetValue(Control.BorderThicknessProperty, new Thickness(0));
+        button.SetValue(Control.FontSizeProperty, 18d);
+        button.SetValue(Control.PaddingProperty, new Thickness(0));
+        button.SetValue(FrameworkElement.WidthProperty, 36d);
+        button.SetValue(FrameworkElement.HeightProperty, 28d);
+        button.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        button.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        button.SetValue(FrameworkElement.CursorProperty, Cursors.Hand);
+        button.AddHandler(WpfButton.ClickEvent, new RoutedEventHandler(HandleRowActionsClick));
+        template.VisualTree = button;
+
+        return new DataGridTemplateColumn
+        {
+            Header = Clean(column.Header),
+            Width = column.ToDataGridLength(),
+            CellTemplate = template
+        };
+    }
+
+    private void HandleRowActionsClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfButton button || button.Tag is not RecordsGridItem row || row.Actions.Count == 0)
+        {
+            return;
+        }
+
+        RecordsGrid.SelectedItem = row;
+
+        var menu = new ContextMenu
+        {
+            PlacementTarget = button
+        };
+
+        foreach (var action in row.Actions)
+        {
+            var item = new MenuItem
+            {
+                Header = Clean(action.Title),
+                Foreground = action.IsDanger ? BrushPalette.FromHex("#F15B5B") : BrushPalette.FromHex("#1B2440"),
+                FontWeight = action.IsDanger ? FontWeights.SemiBold : FontWeights.Normal,
+                Padding = new Thickness(12, 8, 18, 8)
+            };
+            item.Click += (_, _) =>
+            {
+                action.Execute();
+                RefreshView(forceRefresh: true);
+            };
+            menu.Items.Add(item);
+        }
+
+        menu.IsOpen = true;
+        e.Handled = true;
+    }
+
+    private void ApplyFilters(bool resetPage = false)
+    {
+        var search = Clean(HeaderSearchBox.Text).Trim();
+        var allFilter = Clean(_definition.PrimaryFilterOptions.FirstOrDefault());
+        var selectedFilter = PrimaryFilterCombo.SelectedItem?.ToString() ?? allFilter;
+        var start = StartDatePicker.SelectedDate?.Date;
+        var end = EndDatePicker.SelectedDate?.Date;
+
+        var rows = _allRows.Where(row =>
+        {
+            if (!string.IsNullOrWhiteSpace(search)
+                && !row.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedFilter)
+                && !selectedFilter.Equals(allFilter, StringComparison.OrdinalIgnoreCase)
+                && !row.FilterValue.Equals(selectedFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (start.HasValue && row.DateValue.HasValue && row.DateValue.Value.Date < start.Value)
+            {
+                return false;
+            }
+
+            if (end.HasValue && row.DateValue.HasValue && row.DateValue.Value.Date > end.Value)
+            {
+                return false;
+            }
+
+            return true;
+        }).ToArray();
+
+        _filteredRows = rows;
+
+        if (resetPage)
+        {
+            _currentPage = 1;
+        }
+
+        var totalPages = Math.Max(1, (int)Math.Ceiling(_filteredRows.Count / (double)PageSize));
+        _currentPage = Math.Max(1, Math.Min(_currentPage, totalPages));
+        RenderCurrentPage(totalPages);
+    }
+
+    private void RenderCurrentPage(int totalPages)
+    {
+        var pageRows = _filteredRows
+            .Skip((_currentPage - 1) * PageSize)
+            .Take(PageSize)
+            .ToArray();
+
+        RecordsGrid.ItemsSource = pageRows;
+        EmptyStateText.Visibility = pageRows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        EmptyStateText.Text = _definition.EmptyStateText;
+
+        var from = _filteredRows.Count == 0 ? 0 : ((_currentPage - 1) * PageSize) + 1;
+        var to = Math.Min(_currentPage * PageSize, _filteredRows.Count);
+        FooterCountText.Text = $"Показано {from}-{to} из {_filteredRows.Count}";
+
+        RebuildPagination(totalPages);
+    }
+
+    private void RebuildPagination(int totalPages)
+    {
+        PaginationPanel.Children.Clear();
+        if (totalPages <= 1)
+        {
+            return;
+        }
+
+        PaginationPanel.Children.Add(CreatePageButton("<", _currentPage - 1, _currentPage == 1));
+
+        var pages = BuildVisiblePages(totalPages, _currentPage);
+        foreach (var page in pages)
+        {
+            if (page < 0)
+            {
+                PaginationPanel.Children.Add(new TextBlock
+                {
+                    Text = "...",
+                    Margin = new Thickness(8, 10, 8, 0),
+                    Foreground = BrushPalette.FromHex("#98A3BC"),
+                    FontSize = 13
+                });
+                continue;
+            }
+
+            PaginationPanel.Children.Add(CreatePageButton(page.ToString(), page, false, page == _currentPage));
+        }
+
+        PaginationPanel.Children.Add(CreatePageButton(">", _currentPage + 1, _currentPage == totalPages));
+    }
+
+    private static IReadOnlyList<int> BuildVisiblePages(int totalPages, int currentPage)
+    {
+        if (totalPages <= 5)
+        {
+            return Enumerable.Range(1, totalPages).ToArray();
+        }
+
+        var pages = new List<int> { 1 };
+        if (currentPage > 3)
+        {
+            pages.Add(-1);
+        }
+
+        var start = Math.Max(2, currentPage - 1);
+        var end = Math.Min(totalPages - 1, currentPage + 1);
+        for (var page = start; page <= end; page++)
+        {
+            pages.Add(page);
+        }
+
+        if (currentPage < totalPages - 2)
+        {
+            pages.Add(-1);
+        }
+
+        pages.Add(totalPages);
+        return pages.Distinct().ToArray();
+    }
+
+    private Button CreatePageButton(string text, int targetPage, bool disabled, bool active = false)
+    {
+        var button = new Button
+        {
+            Content = text,
+            Width = 30,
+            Height = 30,
+            Margin = new Thickness(0, 0, 8, 0),
+            Cursor = System.Windows.Input.Cursors.Hand,
+            BorderThickness = new Thickness(1),
+            BorderBrush = active ? BrushPalette.FromHex("#C9D3F7") : BrushPalette.FromHex("#E4EAF5"),
+            Background = active ? BrushPalette.FromHex("#EEF2FF") : Brushes.White,
+            Foreground = active ? BrushPalette.FromHex("#2F45D3") : BrushPalette.FromHex("#7180A0"),
+            FontSize = 12,
+            FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal,
+            IsEnabled = !disabled,
+            Tag = targetPage
+        };
+        button.Click += HandlePageClick;
+        return button;
+    }
+
+    private void HandlePageClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.Tag is not int targetPage)
+        {
+            return;
+        }
+
+        _currentPage = targetPage;
+        var totalPages = Math.Max(1, (int)Math.Ceiling(_filteredRows.Count / (double)PageSize));
+        RenderCurrentPage(totalPages);
+    }
+
+    private void HandleHeaderSearchTextChanged(object sender, TextChangedEventArgs e)
+    {
+        HeaderSearchPlaceholderText.Visibility = string.IsNullOrWhiteSpace(HeaderSearchBox.Text)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Start();
+    }
+
+    private void HandleSearchDebounceTick(object? sender, EventArgs e)
+    {
+        _searchDebounceTimer.Stop();
+        ApplyFilters(resetPage: true);
+    }
+
+    private void HandleFilterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        ApplyFilters(resetPage: true);
+    }
+
+    private void HandleDateFilterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        ApplyFilters(resetPage: true);
+    }
+
+    private void HandleFilterButtonClick(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu();
+
+        var resetItem = new MenuItem { Header = "Сбросить фильтры" };
+        resetItem.Click += (_, _) =>
+        {
+            PrimaryFilterCombo.SelectedIndex = 0;
+            StartDatePicker.SelectedDate = null;
+            EndDatePicker.SelectedDate = null;
+            HeaderSearchBox.Clear();
+            ApplyFilters(resetPage: true);
+        };
+        menu.Items.Add(resetItem);
+
+        if (_definition.ShowDateRange)
+        {
+            var last30Item = new MenuItem { Header = "Последние 30 дней" };
+            last30Item.Click += (_, _) =>
+            {
+                EndDatePicker.SelectedDate = DateTime.Today;
+                StartDatePicker.SelectedDate = DateTime.Today.AddDays(-30);
+                ApplyFilters(resetPage: true);
+            };
+            menu.Items.Add(last30Item);
+
+            var currentMonthItem = new MenuItem { Header = "Текущий месяц" };
+            currentMonthItem.Click += (_, _) =>
+            {
+                var start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+                StartDatePicker.SelectedDate = start;
+                EndDatePicker.SelectedDate = start.AddMonths(1).AddDays(-1);
+                ApplyFilters(resetPage: true);
+            };
+            menu.Items.Add(currentMonthItem);
+        }
+
+        menu.PlacementTarget = FilterButton;
+        menu.IsOpen = true;
+    }
+
+    private void HandlePrimaryActionClick(object sender, RoutedEventArgs e)
+    {
+        _definition.PrimaryAction?.Invoke();
+        RefreshView(forceRefresh: true);
+    }
+
+    private void HandleImportClick(object sender, RoutedEventArgs e)
+    {
+        _definition.ImportAction?.Invoke();
+        RefreshView(forceRefresh: true);
+    }
+
+    private static string Clean(string? value)
+    {
+        return TextMojibakeFixer.NormalizeText(value);
+    }
+}
+
+public sealed record RecordsWorkspaceDefinition(
+    string Title,
+    string Subtitle,
+    string SearchPlaceholder,
+    string PrimaryActionText,
+    IReadOnlyList<string> PrimaryFilterOptions,
+    bool ShowDateRange,
+    Func<IReadOnlyList<WorkspaceMetricCardDefinition>> MetricsFactory,
+    Func<IReadOnlyList<RecordsGridItem>> RowsFactory,
+    IReadOnlyList<RecordsGridColumnDefinition> Columns,
+    string EmptyStateText = "Нет данных",
+    Action? RefreshAction = null,
+    Action? PrimaryAction = null,
+    Action? ImportAction = null,
+    bool ShowPrimaryAction = true,
+    bool ShowImportAction = true);
+
+public sealed record WorkspaceMetricCardDefinition(
+    string Title,
+    string Value,
+    string Delta,
+    string Hint,
+    string AccentHex,
+    string IconBackgroundHex,
+    string DeltaHex,
+    string IconGlyph);
+
+public sealed record WorkspaceMetricCardViewModel(
+    string Title,
+    string Value,
+    string Delta,
+    string Hint,
+    Brush AccentBrush,
+    Brush IconBackground,
+    Brush DeltaBrush,
+    string IconGlyph);
+
+public sealed record RecordsGridColumnDefinition(
+    string Header,
+    int CellIndex,
+    RecordsColumnKind Kind = RecordsColumnKind.Text,
+    double WidthValue = 1,
+    bool IsStar = true,
+    TextAlignment Alignment = TextAlignment.Left)
+{
+    public DataGridLength ToDataGridLength()
+    {
+        return IsStar
+            ? new DataGridLength(WidthValue, DataGridLengthUnitType.Star)
+            : new DataGridLength(WidthValue, DataGridLengthUnitType.Pixel);
+    }
+}
+
+public enum RecordsColumnKind
+{
+    Text,
+    Status,
+    Action
+}
+
+public sealed record RecordsGridItem(
+    string SearchText,
+    string FilterValue,
+    DateTime? DateValue,
+    IReadOnlyList<RecordsGridCellDefinition> Cells,
+    IReadOnlyList<RecordsGridActionDefinition>? RowActions = null)
+{
+    public IReadOnlyList<RecordsGridActionDefinition> Actions => RowActions ?? Array.Empty<RecordsGridActionDefinition>();
+}
+
+public sealed record RecordsGridActionDefinition(
+    string Title,
+    Action Execute,
+    bool IsDanger = false);
+
+public sealed record RecordsGridCellDefinition(
+    string Text,
+    string ForegroundHex = "#1B2440",
+    string BackgroundHex = "Transparent",
+    bool SemiBold = false)
+{
+    public Brush ForegroundBrush => BrushPalette.FromHex(ForegroundHex);
+
+    public Brush BackgroundBrush => BrushPalette.FromHex(BackgroundHex);
+
+    public FontWeight Weight => SemiBold ? FontWeights.SemiBold : FontWeights.Normal;
+}
+
+internal static class BrushPalette
+{
+    private static readonly Dictionary<string, Brush> Cache = new(StringComparer.OrdinalIgnoreCase);
+
+    public static Brush FromHex(string hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex))
+        {
+            return Brushes.Transparent;
+        }
+
+        if (Cache.TryGetValue(hex, out var brush))
+        {
+            return brush;
+        }
+
+        brush = (Brush)new BrushConverter().ConvertFromString(hex)!;
+        brush.Freeze();
+        Cache[hex] = brush;
+        return brush;
+    }
+}

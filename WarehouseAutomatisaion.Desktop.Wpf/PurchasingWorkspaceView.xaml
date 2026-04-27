@@ -1,0 +1,761 @@
+<UserControl x:Class="WarehouseAutomatisaion.Desktop.Wpf.PurchasingWorkspaceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Background="#F7F9FD">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="PageBrush" Color="#F7F9FD" />
+        <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="LineBrush" Color="#E7ECF7" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#4F5BFF" />
+        <SolidColorBrush x:Key="PrimarySoftBrush" Color="#EEF2FF" />
+        <SolidColorBrush x:Key="TextBrush" Color="#17213A" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
+        <SolidColorBrush x:Key="SubtleBrush" Color="#98A3BC" />
+
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="18" />
+        </Style>
+
+        <Style x:Key="GhostButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#DDE5F4" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#34415F" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
+        <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#F4B7BE" />
+            <Setter Property="Foreground" Value="#E14B5A" />
+        </Style>
+
+        <Style x:Key="MiniButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style x:Key="MiniPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style x:Key="SectionTabStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+            <Setter Property="Foreground" Value="#6E7B98" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="0,0,0,12" />
+            <Setter Property="Margin" Value="0,0,30,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FilterComboStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="40" />
+            <Setter Property="MinWidth" Value="112" />
+            <Setter Property="Padding" Value="12,0,8,0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#DDE5F4" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#1B2440" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+
+        <Style x:Key="ToggleStyle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#4D5A78" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <StackPanel Orientation="Horizontal">
+                            <Border x:Name="Track" Width="34" Height="20" CornerRadius="10" Background="#D8DEEC" Margin="0,0,8,0">
+                                <Ellipse x:Name="Thumb" Width="14" Height="14" Fill="#FFFFFF" HorizontalAlignment="Left" Margin="3,3,0,3" />
+                            </Border>
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="#4F5BFF" />
+                                <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
+                                <Setter TargetName="Thumb" Property="Margin" Value="0,3,3,3" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PurchasingGridStyle" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="CanUserResizeRows" Value="False" />
+            <Setter Property="CanUserResizeColumns" Value="False" />
+            <Setter Property="CanUserSortColumns" Value="False" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="#EEF2FA" />
+            <Setter Property="VerticalGridLinesBrush" Value="#EEF2FA" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="RowHeight" Value="54" />
+            <Setter Property="ColumnHeaderHeight" Value="42" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="IsReadOnly" Value="False" />
+            <Setter Property="RowHeaderWidth" Value="0" />
+        </Style>
+
+        <Style x:Key="GridHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#EEF2FA" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Foreground" Value="#7B86A0" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="10,0,10,0" />
+        </Style>
+
+        <Style x:Key="GridRowStyle" TargetType="DataGridRow">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#EEF2FA" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Foreground" Value="#1B2440" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FAFBFF" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#F2F5FF" />
+                </Trigger>
+                <DataTrigger Binding="{Binding IsDisabled}" Value="True">
+                    <Setter Property="Opacity" Value="0.48" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="GridCellStyle" TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Background="{StaticResource PageBrush}">
+        <Grid Margin="28,24,28,30">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="0,0,0,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Margin="0,0,20,0">
+                    <TextBlock Text="Закупки" FontSize="34" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                    <TextBlock Text="Поставщики, заказы поставщику, счета, приемка и оплаты" Margin="0,8,0,0" FontSize="15" Foreground="{StaticResource MutedBrush}" />
+                </StackPanel>
+
+                <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                        <Border Width="320" Height="40" Background="#FFFFFF" BorderBrush="#DDE5F4" BorderThickness="1" CornerRadius="12" Padding="14,0,12,0" Margin="0,0,10,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="20" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="HeaderSearchBox" Grid.Column="0" BorderThickness="0" Background="Transparent" FontSize="12.5" VerticalContentAlignment="Center" TextChanged="HandleSearchTextChanged" />
+                            <TextBlock x:Name="HeaderSearchPlaceholderText" Grid.Column="0" Text="Поиск по номеру, поставщику, товару или коду..." FontSize="12.5" Foreground="#97A2BB" VerticalAlignment="Center" IsHitTestVisible="False" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="1" FontFamily="Segoe Fluent Icons" Text="&#xE721;" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#7E8AA6" FontSize="13" />
+                        </Grid>
+                    </Border>
+                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,0" Click="HandleImportClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE896;" FontSize="12" />
+                            <TextBlock Text="Импорт" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,0" Click="HandleExportClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEDE1;" FontSize="12" />
+                            <TextBlock Text="Экспорт" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="NewPurchaseButton" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,10,0" Click="HandleNewPurchaseClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
+                            <TextBlock Text="Новая закупка" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ActionsButton" Style="{StaticResource GhostButtonStyle}" Click="HandleActionsClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Действия" />
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="11" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </Grid>
+
+            <Border x:Name="LockBannerBorder" Grid.Row="1" Style="{StaticResource CardStyle}" BorderBrush="#AFC2FF" Background="#F7FAFF" Padding="16,12" Margin="0,0,0,18" Visibility="Collapsed">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE946;" FontSize="16" Foreground="#4F5BFF" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <StackPanel>
+                            <TextBlock Text="Редактирование временно недоступно" FontSize="13.5" FontWeight="SemiBold" Foreground="#3151DB" />
+                            <TextBlock x:Name="LockBannerText" Text="Недостаточно прав или документ заблокирован." FontSize="12.5" Foreground="#6B7DAE" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Button Grid.Column="1" Width="28" Height="28" Background="Transparent" BorderBrush="Transparent" Foreground="#5A6FA8" FontFamily="Segoe Fluent Icons" Content="&#xE711;" Click="HandleDismissLockBannerClick" />
+                </Grid>
+            </Border>
+
+            <Grid x:Name="WorkspaceLayoutGrid" Grid.Row="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="344" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel x:Name="WorkspaceLeftPanel" Grid.Row="0" Grid.Column="0" Margin="0,0,24,0">
+                                        <UniformGrid x:Name="MetricsGrid" Columns="5" Margin="-6,0,-6,18">
+                        <Border Style="{StaticResource CardStyle}" MinHeight="108" Padding="16,14" Margin="6,0,6,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Активные&#x0a;поставщики" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
+                                <TextBlock x:Name="ActiveSuppliersMetricText" Grid.Row="1" VerticalAlignment="Bottom" FontSize="28" FontWeight="SemiBold" Foreground="#26A85B" />
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource CardStyle}" MinHeight="108" Padding="16,14" Margin="6,0,6,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Открытые&#x0a;заказы" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
+                                <TextBlock x:Name="OpenOrdersMetricText" Grid.Row="1" VerticalAlignment="Bottom" FontSize="28" FontWeight="SemiBold" Foreground="#4F5BFF" />
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource CardStyle}" MinHeight="108" Padding="16,14" Margin="6,0,6,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Ожидают&#x0a;счет" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
+                                <TextBlock x:Name="PendingInvoiceMetricText" Grid.Row="1" VerticalAlignment="Bottom" FontSize="28" FontWeight="SemiBold" Foreground="#FF9F1A" />
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource CardStyle}" MinHeight="108" Padding="16,14" Margin="6,0,6,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Ожидают&#x0a;приемку" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
+                                <TextBlock x:Name="PendingReceiptMetricText" Grid.Row="1" VerticalAlignment="Bottom" FontSize="28" FontWeight="SemiBold" Foreground="#FF9F1A" />
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource CardStyle}" MinHeight="108" Padding="16,14" Margin="6,0,6,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Просроченные&#x0a;поставки" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
+                                <TextBlock x:Name="OverdueMetricText" Grid.Row="1" VerticalAlignment="Bottom" FontSize="28" FontWeight="SemiBold" Foreground="#FF5B5B" />
+                            </Grid>
+                        </Border>
+                    </UniformGrid>
+
+                                        <UniformGrid x:Name="IssueChipsGrid" Columns="5" Margin="-6,0,-6,18">
+                        <Button x:Name="MissingInvoiceChip" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="missing-invoice">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Без счета" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock x:Name="MissingInvoiceChipText" Grid.Column="1" Margin="14,0,0,0" FontWeight="SemiBold" />
+                            </Grid>
+                        </Button>
+                        <Button x:Name="MissingReceiptChip" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="missing-receipt">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Без приемки" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="MissingReceiptChipText" Grid.Column="1" Margin="14,0,0,0" FontWeight="SemiBold" />
+                            </Grid>
+                        </Button>
+                        <Button x:Name="OverdueChip" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="overdue">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Просрочено" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="OverdueChipText" Grid.Column="1" Margin="14,0,0,0" FontWeight="SemiBold" />
+                            </Grid>
+                        </Button>
+                        <Button x:Name="UnpaidChip" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="unpaid">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Частично оплачено" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="UnpaidChipText" Grid.Column="1" Margin="14,0,0,0" FontWeight="SemiBold" />
+                            </Grid>
+                        </Button>
+                        <Button x:Name="DiscrepancyChip" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="discrepancy">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Есть расхождения" TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="DiscrepancyChipText" Grid.Column="1" Margin="14,0,0,0" FontWeight="SemiBold" />
+                            </Grid>
+                        </Button>
+                    </UniformGrid>
+
+                    <WrapPanel x:Name="SectionTabsPanel" Margin="0,0,0,12">
+                        <Button x:Name="OrdersTabButton" Content="Заказы" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="orders" />
+                        <Button x:Name="SuppliersTabButton" Content="Поставщики" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="suppliers" />
+                        <Button x:Name="InvoicesTabButton" Content="Счета" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="invoices" />
+                        <Button x:Name="ReceiptsTabButton" Content="Приемки" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="receipts" />
+                        <Button x:Name="PaymentsTabButton" Content="Оплаты" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="payments" />
+                        <Button x:Name="DiscrepanciesTabButton" Content="Расхождения" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="discrepancies" />
+                        <Button x:Name="JournalTabButton" Content="Журнал" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="journal" />
+                    </WrapPanel>
+
+                    <Border Style="{StaticResource CardStyle}" Padding="14,14,14,12" Margin="0,0,0,14">
+                        <StackPanel>
+                                                        <WrapPanel Margin="0,0,0,10">
+                                <Border Width="210" Height="38" Background="#FFFFFF" BorderBrush="#DDE5F4" BorderThickness="1" CornerRadius="10" Padding="12,0,12,0" Margin="0,0,10,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="18" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="TableSearchBox" Grid.Column="0" BorderThickness="0" Background="Transparent" FontSize="12.5" VerticalContentAlignment="Center" TextChanged="HandleSearchTextChanged" />
+                                        <TextBlock x:Name="TableSearchPlaceholderText" Grid.Column="0" Text="Поиск по номеру, поставщику, товару..." FontSize="12.5" Foreground="#97A2BB" VerticalAlignment="Center" IsHitTestVisible="False" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" FontFamily="Segoe Fluent Icons" Text="&#xE721;" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#7E8AA6" FontSize="13" />
+                                    </Grid>
+                                </Border>
+                                <ComboBox x:Name="StatusFilterCombo" Style="{StaticResource FilterComboStyle}" Width="110" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
+                                <ComboBox x:Name="SupplierFilterCombo" Style="{StaticResource FilterComboStyle}" Width="118" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
+                                <ComboBox x:Name="WarehouseFilterCombo" Style="{StaticResource FilterComboStyle}" Width="110" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
+                                <ComboBox x:Name="DocumentTypeFilterCombo" Style="{StaticResource FilterComboStyle}" Width="122" Margin="0,0,0,10" SelectionChanged="HandleFilterChanged" />
+                            </WrapPanel>
+                            <WrapPanel Margin="0,0,0,10">
+                                <DatePicker x:Name="DateFromPicker" Width="132" Height="38" FontSize="12.5" Margin="0,0,10,10" SelectedDateChanged="HandleFilterChanged" />
+                                <DatePicker x:Name="DateToPicker" Width="132" Height="38" FontSize="12.5" Margin="0,0,10,10" SelectedDateChanged="HandleFilterChanged" />
+                                <Button Style="{StaticResource GhostButtonStyle}" Width="104" Height="38" Padding="14,0" Click="HandleResetFiltersClick" Margin="0,0,0,10">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE72B;" FontSize="12" />
+                                        <TextBlock Text="Сбросить" Margin="8,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                            </WrapPanel>
+                            <WrapPanel>
+                                <CheckBox x:Name="OverdueOnlyCheckBox" Style="{StaticResource ToggleStyle}" Margin="0,0,16,0" Click="HandleFilterChanged">Только просроченные</CheckBox>
+                                <CheckBox x:Name="MissingInvoiceOnlyCheckBox" Style="{StaticResource ToggleStyle}" Margin="0,0,16,0" Click="HandleFilterChanged">Только без счета</CheckBox>
+                                <CheckBox x:Name="MissingReceiptOnlyCheckBox" Style="{StaticResource ToggleStyle}" Margin="0,0,16,0" Click="HandleFilterChanged">Только без приемки</CheckBox>
+                                <CheckBox x:Name="UnpaidOnlyCheckBox" Style="{StaticResource ToggleStyle}" Click="HandleFilterChanged">Только неоплаченные</CheckBox>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="BulkBarBorder" Style="{StaticResource CardStyle}" Padding="12" Margin="0,0,0,14" Visibility="Collapsed">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Width="28" Height="28" Background="Transparent" BorderBrush="Transparent" Foreground="#677699" FontFamily="Segoe Fluent Icons" Content="&#xE711;" Click="HandleClearSelectionClick" />
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                                <TextBlock x:Name="BulkSelectionText" Margin="0,0,12,0" VerticalAlignment="Center" FontSize="12.5" FontWeight="SemiBold" Foreground="#2C3957" />
+                                <Button Style="{StaticResource MiniButtonStyle}" Margin="0,0,10,0" Click="HandleExportSelectedClick">Экспорт выбранных</Button>
+                                <Button Style="{StaticResource MiniButtonStyle}" Margin="0,0,10,0" Click="HandleBulkStatusClick">Изменить статус</Button>
+                                <Button Style="{StaticResource MiniButtonStyle}" Margin="0,0,10,0" Click="HandleBulkWarehouseClick">Назначить склад</Button>
+                                <Button Style="{StaticResource MiniButtonStyle}" Margin="0,0,10,0" Click="HandleBulkPrintClick">Печать</Button>
+                                <Button Style="{StaticResource MiniButtonStyle}" Click="HandleBulkArchiveClick">Архивировать</Button>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Padding="0,0,0,10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" MinHeight="520">
+                                <DataGrid x:Name="PurchasingGrid"
+                                          Style="{StaticResource PurchasingGridStyle}"
+                                          SelectionChanged="HandleGridSelectionChanged"
+                                          MouseDoubleClick="HandleGridDoubleClick"
+                                          CellEditEnding="HandleGridCellEditEnding"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.RowStyle>
+                                        <StaticResource ResourceKey="GridRowStyle" />
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.CellStyle>
+                                        <StaticResource ResourceKey="GridCellStyle" />
+                                    </DataGrid.CellStyle>
+                                    <DataGrid.ColumnHeaderStyle>
+                                        <StaticResource ResourceKey="GridHeaderStyle" />
+                                    </DataGrid.ColumnHeaderStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridCheckBoxColumn x:Name="SelectionColumn" Binding="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="44" />
+                                        <DataGridTextColumn x:Name="Column1" Binding="{Binding Col1}" Width="100" IsReadOnly="True" />
+                                        <DataGridTextColumn x:Name="Column2" Binding="{Binding Col2}" Width="200" IsReadOnly="True" />
+                                        <DataGridTextColumn x:Name="Column3" Binding="{Binding Col3}" Width="110" IsReadOnly="True" />
+                                        <DataGridTextColumn x:Name="Column4" Binding="{Binding Col4}" Width="120" IsReadOnly="True" />
+                                        <DataGridTextColumn x:Name="Column5" Binding="{Binding Col5}" Width="120" IsReadOnly="True" />
+                                        <DataGridTextColumn x:Name="Column6" Binding="{Binding Col6}" Width="110" IsReadOnly="True" />
+                                        <DataGridTextColumn x:Name="Column7" Binding="{Binding Col7}" Width="100" IsReadOnly="True" />
+                                        <DataGridTextColumn x:Name="Column8" Binding="{Binding Col8}" Width="100" IsReadOnly="True" />
+                                        <DataGridTemplateColumn x:Name="StatusColumn" Width="126" IsReadOnly="True">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{Binding StatusBackground}" CornerRadius="8" Padding="10,4" HorizontalAlignment="Left">
+                                                        <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusForeground}" FontSize="11.5" FontWeight="SemiBold" />
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn x:Name="Column9" Binding="{Binding Col9}" Width="118" IsReadOnly="True" />
+                                        <DataGridTemplateColumn x:Name="ActionsColumn" Width="56" IsReadOnly="True">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Button Width="28" Height="28" Background="Transparent" BorderBrush="Transparent" Foreground="#7A86A5" FontFamily="Segoe Fluent Icons" Content="&#xE712;" Tag="{Binding}" Click="HandleRowActionsClick" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <Grid x:Name="EmptyStatePanel" Visibility="Collapsed" Background="#FFFFFF">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="420">
+                                        <Border Width="124" Height="124" Background="#F3F6FF" CornerRadius="62" HorizontalAlignment="Center">
+                                            <TextBlock Text="&#xE8B7;" FontFamily="Segoe Fluent Icons" FontSize="58" Foreground="#93A6F5" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <TextBlock x:Name="EmptyStateTitleText" Text="Нет закупочных документов" Margin="0,22,0,0" FontSize="22" FontWeight="SemiBold" Foreground="#21304B" HorizontalAlignment="Center" />
+                                            <TextBlock x:Name="EmptyStateHintText" Text="Создайте первый документ вручную или импортируйте данные." Margin="0,10,0,0" TextAlignment="Center" FontSize="13.5" Foreground="#7A86A5" TextWrapping="Wrap" />
+                                        <Button Style="{StaticResource PrimaryButtonStyle}" Width="220" HorizontalAlignment="Center" Margin="0,22,0,0" Click="HandleNewPurchaseClick">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
+                                                <TextBlock Text="Создать первую закупку" Margin="8,0,0,0" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource GhostButtonStyle}" Width="220" HorizontalAlignment="Center" Margin="0,12,0,0" Click="HandleImportClick">Импортировать данные</Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+
+                            <DockPanel Grid.Row="1" Margin="16,12,16,0">
+                                <TextBlock x:Name="PagerSummaryText" DockPanel.Dock="Left" VerticalAlignment="Center" FontSize="12.5" Foreground="#7A86A5" />
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Button Style="{StaticResource MiniButtonStyle}" Width="34" Padding="0" Margin="0,0,8,0" Tag="prev" Click="HandlePageNavigationClick">‹</Button>
+                                    <TextBlock x:Name="PagerIndexText" VerticalAlignment="Center" FontSize="12.5" FontWeight="SemiBold" Foreground="#405070" Margin="0,0,10,0" />
+                                    <Button Style="{StaticResource MiniButtonStyle}" Width="34" Padding="0" Margin="0,0,12,0" Tag="next" Click="HandlePageNavigationClick">›</Button>
+                                    <ComboBox x:Name="PageSizeCombo" Style="{StaticResource FilterComboStyle}" Width="92" SelectionChanged="HandlePageSizeChanged">
+                                        <ComboBoxItem Content="10 / стр." />
+                                        <ComboBoxItem Content="20 / стр." />
+                                        <ComboBoxItem Content="30 / стр." />
+                                    </ComboBox>
+                                </StackPanel>
+                            </DockPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <Border x:Name="DetailsCard" Grid.Row="0" Grid.Column="1" Style="{StaticResource CardStyle}" Padding="18">
+                    <Grid>
+                                                <Grid x:Name="DetailsPlaceholderPanel">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Выберите документ" FontSize="18" FontWeight="SemiBold" Foreground="#27344D" />
+                            <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="240" Margin="0,-40,0,0">
+                                <Border Width="120" Height="120" Background="#F5F7FC" CornerRadius="60" HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE8A5;" FontFamily="Segoe Fluent Icons" FontSize="54" Foreground="#B5C0DC" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="Выберите документ из списка" Margin="0,18,0,0" FontSize="18" FontWeight="SemiBold" Foreground="#27344D" HorizontalAlignment="Center" />
+                                <TextBlock Text="Здесь будет отображаться информация о выбранном заказе, счете, приемке, оплате или поставщике." TextWrapping="Wrap" TextAlignment="Center" Margin="0,10,0,0" FontSize="13" Foreground="#8B97B2" />
+                            </StackPanel>
+                        </Grid>
+
+                        <ScrollViewer x:Name="DetailsScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock x:Name="DetailsTitleText" FontSize="19" FontWeight="SemiBold" Foreground="#21304B" TextWrapping="Wrap" />
+                                        <TextBlock x:Name="DetailsSubtitleText" Margin="0,6,0,0" FontSize="13" Foreground="#7A86A5" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                        <Border x:Name="DetailsStatusBadge" Background="#EEF2FF" CornerRadius="8" Padding="10,4" Margin="0,0,8,0">
+                                            <TextBlock x:Name="DetailsStatusBadgeText" FontSize="11.5" FontWeight="SemiBold" Foreground="#4F5BFF" />
+                                        </Border>
+                                        <Button Width="28" Height="28" Background="Transparent" BorderBrush="Transparent" Foreground="#7A86A5" FontFamily="Segoe Fluent Icons" Content="&#xE712;" Click="HandleDetailsActionsClick" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,10">
+                                        <TextBlock Text="Поставщик" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsSupplierText" Margin="0,4,0,0" FontSize="13.5" Foreground="#25334F" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="12,0,0,10">
+                                        <TextBlock Text="Склад" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsWarehouseText" Margin="0,4,0,0" FontSize="13.5" Foreground="#25334F" TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,12,10">
+                                        <TextBlock Text="Дата создания" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsCreatedText" Margin="0,4,0,0" FontSize="13.5" Foreground="#25334F" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="12,0,0,10">
+                                        <TextBlock Text="Плановая дата поставки" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsPlannedText" Margin="0,4,0,0" FontSize="13.5" Foreground="#25334F" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,12,10">
+                                        <TextBlock Text="Документ" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsNumberText" Margin="0,4,0,0" FontSize="13.5" Foreground="#25334F" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Margin="12,0,0,10">
+                                        <TextBlock Text="Ответственный" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsResponsibleText" Margin="0,4,0,0" FontSize="13.5" Foreground="#25334F" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,12,0">
+                                        <TextBlock Text="Источник" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsSourceText" Margin="0,4,0,0" FontSize="13.5" Foreground="#25334F" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="3" Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="Договор" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsContractText" Margin="0,4,0,0" FontSize="13.5" Foreground="#25334F" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Style="{StaticResource CardStyle}" Background="#FAFBFF" Padding="14" Margin="0,0,0,14">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Сумма" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsAmountText" Grid.Row="0" Grid.Column="1" FontSize="16" FontWeight="SemiBold" Foreground="#25334F" />
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Оплачено" FontSize="12" Foreground="#8C98B3" Margin="0,8,0,0" />
+                                        <TextBlock x:Name="DetailsPaidText" Grid.Row="1" Grid.Column="1" FontSize="15" FontWeight="SemiBold" Foreground="#25334F" Margin="0,8,0,0" />
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Остаток" FontSize="12" Foreground="#8C98B3" Margin="0,8,0,0" />
+                                        <TextBlock x:Name="DetailsBalanceText" Grid.Row="2" Grid.Column="1" FontSize="15" FontWeight="SemiBold" Foreground="#FF5B5B" Margin="0,8,0,0" />
+                                    </Grid>
+                                </Border>
+
+                                <TextBlock Text="Цепочка документов" FontSize="13.5" FontWeight="SemiBold" Foreground="#25334F" />
+                                <Grid Margin="0,12,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="22" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="22" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="22" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <Border x:Name="OrderStepCircle" Width="28" Height="28" CornerRadius="14" Background="#EEF2FF" HorizontalAlignment="Left">
+                                            <TextBlock x:Name="OrderStepCircleText" Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#4F5BFF" />
+                                        </Border>
+                                        <TextBlock Text="Заказ" Margin="0,8,0,0" FontSize="12.5" Foreground="#25334F" FontWeight="SemiBold" />
+                                        <Border x:Name="OrderStepBadge" Background="#EEF2FF" CornerRadius="8" Padding="8,3" Margin="0,6,0,0" HorizontalAlignment="Left"><TextBlock x:Name="OrderStepBadgeText" FontSize="11" Foreground="#4F5BFF" /></Border>
+                                        <TextBlock x:Name="OrderStepMetaText" Margin="0,6,0,0" FontSize="11.5" Foreground="#7A86A5" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="→" FontSize="16" Foreground="#C2CCDF" VerticalAlignment="Top" Margin="0,6,0,0" HorizontalAlignment="Center" />
+                                    <StackPanel Grid.Column="2">
+                                        <Border x:Name="InvoiceStepCircle" Width="28" Height="28" CornerRadius="14" Background="#F5F7FC" HorizontalAlignment="Left">
+                                            <TextBlock x:Name="InvoiceStepCircleText" Text="2" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#7F8AA7" />
+                                        </Border>
+                                        <TextBlock Text="Счет" Margin="0,8,0,0" FontSize="12.5" Foreground="#25334F" FontWeight="SemiBold" />
+                                        <Border x:Name="InvoiceStepBadge" Background="#F5F7FC" CornerRadius="8" Padding="8,3" Margin="0,6,0,0" HorizontalAlignment="Left"><TextBlock x:Name="InvoiceStepBadgeText" FontSize="11" Foreground="#7F8AA7" /></Border>
+                                        <TextBlock x:Name="InvoiceStepMetaText" Margin="0,6,0,0" FontSize="11.5" Foreground="#7A86A5" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="3" Text="→" FontSize="16" Foreground="#C2CCDF" VerticalAlignment="Top" Margin="0,6,0,0" HorizontalAlignment="Center" />
+                                    <StackPanel Grid.Column="4">
+                                        <Border x:Name="ReceiptStepCircle" Width="28" Height="28" CornerRadius="14" Background="#F5F7FC" HorizontalAlignment="Left">
+                                            <TextBlock x:Name="ReceiptStepCircleText" Text="3" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#7F8AA7" />
+                                        </Border>
+                                        <TextBlock Text="Приемка" Margin="0,8,0,0" FontSize="12.5" Foreground="#25334F" FontWeight="SemiBold" />
+                                        <Border x:Name="ReceiptStepBadge" Background="#F5F7FC" CornerRadius="8" Padding="8,3" Margin="0,6,0,0" HorizontalAlignment="Left"><TextBlock x:Name="ReceiptStepBadgeText" FontSize="11" Foreground="#7F8AA7" /></Border>
+                                        <TextBlock x:Name="ReceiptStepMetaText" Margin="0,6,0,0" FontSize="11.5" Foreground="#7A86A5" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="5" Text="→" FontSize="16" Foreground="#C2CCDF" VerticalAlignment="Top" Margin="0,6,0,0" HorizontalAlignment="Center" />
+                                    <StackPanel Grid.Column="6">
+                                        <Border x:Name="PaymentStepCircle" Width="28" Height="28" CornerRadius="14" Background="#F5F7FC" HorizontalAlignment="Left">
+                                            <TextBlock x:Name="PaymentStepCircleText" Text="4" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#7F8AA7" />
+                                        </Border>
+                                        <TextBlock Text="Оплата" Margin="0,8,0,0" FontSize="12.5" Foreground="#25334F" FontWeight="SemiBold" />
+                                        <Border x:Name="PaymentStepBadge" Background="#F5F7FC" CornerRadius="8" Padding="8,3" Margin="0,6,0,0" HorizontalAlignment="Left"><TextBlock x:Name="PaymentStepBadgeText" FontSize="11" Foreground="#7F8AA7" /></Border>
+                                        <TextBlock x:Name="PaymentStepMetaText" Margin="0,6,0,0" FontSize="11.5" Foreground="#7A86A5" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="Связанные документы" FontSize="13.5" FontWeight="SemiBold" Foreground="#25334F" />
+                                <WrapPanel Margin="0,10,0,14">
+                                    <Button x:Name="LinkedOrderButton" Style="{StaticResource MiniButtonStyle}" Margin="0,0,8,8" Click="HandleLinkedDocumentClick" />
+                                    <Button x:Name="LinkedInvoiceButton" Style="{StaticResource MiniButtonStyle}" Margin="0,0,8,8" Click="HandleLinkedDocumentClick" />
+                                    <Button x:Name="LinkedReceiptButton" Style="{StaticResource MiniButtonStyle}" Margin="0,0,8,8" Click="HandleLinkedDocumentClick" />
+                                    <Button x:Name="LinkedPaymentButton" Style="{StaticResource MiniButtonStyle}" Margin="0,0,8,8" Click="HandleLinkedDocumentClick" />
+                                </WrapPanel>
+
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="PositionsTitleText" Text="Позиции" FontSize="13.5" FontWeight="SemiBold" Foreground="#25334F" />
+                                    <TextBlock x:Name="ShowAllPositionsText" Grid.Column="1" Text="Показать все" FontSize="11.5" Foreground="#4F5BFF" VerticalAlignment="Center" />
+                                </Grid>
+                                <DataGrid x:Name="DetailLinesGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeColumns="False" CanUserResizeRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#EEF2FA" BorderThickness="0" Background="#FFFFFF" RowHeight="34" ColumnHeaderHeight="34" IsReadOnly="True" MaxHeight="170">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Товар" Binding="{Binding ItemName}" Width="*" />
+                                        <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityText}" Width="70" />
+                                        <DataGridTextColumn Header="Ед." Binding="{Binding Unit}" Width="48" />
+                                        <DataGridTextColumn Header="Цена" Binding="{Binding PriceText}" Width="78" />
+                                        <DataGridTextColumn Header="Сумма" Binding="{Binding AmountText}" Width="78" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <TextBlock Text="Примечание" FontSize="13.5" FontWeight="SemiBold" Foreground="#25334F" Margin="0,14,0,0" />
+                                <TextBlock x:Name="DetailsCommentText" Margin="0,8,0,0" FontSize="12.5" Foreground="#6D7A98" TextWrapping="Wrap" />
+
+                                <Grid Margin="0,16,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Ответственный" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsMetaResponsibleText" Margin="0,4,0,0" FontSize="12.5" Foreground="#25334F" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="Создал заказ" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsCreatedByText" Margin="0,4,0,0" FontSize="12.5" Foreground="#25334F" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Margin="12,0,0,0">
+                                        <TextBlock Text="Последнее обновление" FontSize="12" Foreground="#8C98B3" />
+                                        <TextBlock x:Name="DetailsUpdatedText" Margin="0,4,0,0" FontSize="12.5" Foreground="#25334F" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <UniformGrid x:Name="CardActionsGrid" Columns="3" Margin="0,4,0,0">
+                                    <Button x:Name="PrimaryCardActionButton" Style="{StaticResource MiniPrimaryButtonStyle}" Margin="0,0,10,10" Click="HandlePrimaryCardActionClick" />
+                                    <Button x:Name="CardCreateReceiptButton" Style="{StaticResource MiniPrimaryButtonStyle}" Margin="0,0,10,10" Click="HandleCreateReceiptClick" />
+                                    <Button x:Name="CardPayButton" Style="{StaticResource MiniPrimaryButtonStyle}" Margin="0,0,0,10" Click="HandlePaySelectedClick" />
+                                    <Button x:Name="CardEditButton" Style="{StaticResource MiniButtonStyle}" Margin="0,0,10,10" Click="HandleEditSelectedClick">Изменить</Button>
+                                    <Button x:Name="CardSendButton" Style="{StaticResource MiniButtonStyle}" Margin="0,0,10,10" Click="HandleSendSupplierClick">Отправить поставщику</Button>
+                                    <Button x:Name="CardDiscrepancyButton" Style="{StaticResource MiniButtonStyle}" Margin="0,0,0,10" Click="HandleCreateDiscrepancyClick">Создать расхождение</Button>
+                                    <Button x:Name="CardPrintButton" Style="{StaticResource MiniButtonStyle}" Margin="0,0,10,0" Click="HandlePrintSelectedClick">Печать</Button>
+                                    <Button x:Name="CardCloseButton" Style="{StaticResource MiniButtonStyle}" Margin="0,0,10,0" Click="HandleCloseSelectedClick">Закрыть</Button>
+                                    <Button x:Name="CardCancelButton" Style="{StaticResource DangerButtonStyle}" Margin="0,0,0,0" Click="HandleCancelSelectedClick">Отменить</Button>
+                                </UniformGrid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+</UserControl>
+
+

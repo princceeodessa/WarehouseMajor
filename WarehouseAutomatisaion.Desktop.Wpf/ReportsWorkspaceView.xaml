@@ -1,0 +1,794 @@
+<UserControl x:Class="WarehouseAutomatisaion.Desktop.Wpf.ReportsWorkspaceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Background="#F7F9FD">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="PageBrush" Color="#F7F9FD" />
+        <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="LineBrush" Color="#E7ECF7" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#4F5BFF" />
+        <SolidColorBrush x:Key="TextBrush" Color="#17213A" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
+
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="18" />
+        </Style>
+
+        <Style x:Key="GhostButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#DDE5F4" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#34415F" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
+        <Style x:Key="MiniButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+
+        <Style x:Key="IconButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="10,0" />
+        </Style>
+
+        <Style x:Key="SectionTabStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+            <Setter Property="Foreground" Value="#6E7B98" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="0,0,0,12" />
+            <Setter Property="Margin" Value="0,0,28,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FilterComboStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="40" />
+            <Setter Property="MinWidth" Value="130" />
+            <Setter Property="Padding" Value="12,0,8,0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#DDE5F4" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#1B2440" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+
+        <Style x:Key="DatePickerStyle" TargetType="DatePicker">
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="8,0,8,0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#DDE5F4" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#1B2440" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+
+        <Style x:Key="ReportsGridStyle" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="CanUserResizeRows" Value="False" />
+            <Setter Property="CanUserResizeColumns" Value="False" />
+            <Setter Property="CanUserSortColumns" Value="False" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="#EEF2FA" />
+            <Setter Property="VerticalGridLinesBrush" Value="#EEF2FA" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="RowHeight" Value="48" />
+            <Setter Property="ColumnHeaderHeight" Value="42" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="RowHeaderWidth" Value="0" />
+            <Setter Property="IsReadOnly" Value="False" />
+        </Style>
+
+        <Style x:Key="GridHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#EEF2FA" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Foreground" Value="#7B86A0" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="10,0,10,0" />
+        </Style>
+
+        <Style x:Key="GridRowStyle" TargetType="DataGridRow">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#EEF2FA" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Foreground" Value="#1B2440" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FAFBFF" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#F2F5FF" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="GridCellStyle" TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Background="{StaticResource PageBrush}">
+        <Grid Margin="28,24,28,30">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="0,0,0,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Margin="0,0,20,0">
+                    <TextBlock Text="Отчеты" FontSize="34" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                    <TextBlock Text="Продажи, статусы и ключевая аналитика по модулям" Margin="0,8,0,0" FontSize="15" Foreground="{StaticResource MutedBrush}" />
+                </StackPanel>
+
+                <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <Border Width="330" Height="40" Background="#FFFFFF" BorderBrush="#DDE5F4" BorderThickness="1" CornerRadius="12" Padding="14,0,12,0" Margin="0,0,10,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="20" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="HeaderSearchBox" Grid.Column="0" BorderThickness="0" Background="Transparent" FontSize="12.5" VerticalContentAlignment="Center" TextChanged="HandleSearchTextChanged" />
+                            <TextBlock x:Name="HeaderSearchPlaceholderText" Grid.Column="0" Text="Поиск по отчетам, клиентам, заказам" FontSize="12.5" Foreground="#97A2BB" VerticalAlignment="Center" IsHitTestVisible="False" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="1" FontFamily="Segoe Fluent Icons" Text="&#xE721;" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#7E8AA6" FontSize="13" />
+                        </Grid>
+                    </Border>
+
+                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,0" Click="HandleHeaderPeriodClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="HeaderPeriodButtonText" Text="01.03.2026 - 24.04.2026" />
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE787;" FontSize="11" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,0" Click="HandleExportClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEDE1;" FontSize="12" />
+                            <TextBlock Text="Экспорт" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,0" Click="HandlePrintClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="12" />
+                            <TextBlock Text="Печать" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource PrimaryButtonStyle}" Click="HandleGenerateReportClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
+                            <TextBlock Text="Сформировать отчет" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </Grid>
+
+            <StackPanel x:Name="SectionTabsPanel" Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16">
+                <Button Style="{StaticResource SectionTabStyle}" Content="Продажи" Tag="sales" Click="HandleSectionTabClick" />
+                <Button Style="{StaticResource SectionTabStyle}" Content="Заказы" Tag="orders" Click="HandleSectionTabClick" />
+                <Button Style="{StaticResource SectionTabStyle}" Content="Счета" Tag="invoices" Click="HandleSectionTabClick" />
+                <Button Style="{StaticResource SectionTabStyle}" Content="Отгрузки" Tag="shipments" Click="HandleSectionTabClick" />
+                <Button Style="{StaticResource SectionTabStyle}" Content="Клиенты" Tag="customers" Click="HandleSectionTabClick" />
+                <Button Style="{StaticResource SectionTabStyle}" Content="Товары" Tag="catalog" Click="HandleSectionTabClick" />
+            </StackPanel>
+
+            <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="14" Margin="0,0,0,16">
+                <ItemsControl x:Name="MetricCardsItemsControl">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="6" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#EEF2FA" BorderThickness="0,0,1,0" Padding="14,8,14,8">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="34" Height="34" CornerRadius="12" Background="{Binding AccentBackground}" VerticalAlignment="Top">
+                                        <TextBlock Text="{Binding Glyph}" FontFamily="Segoe Fluent Icons" FontSize="15" Foreground="{Binding AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Margin="12,2,0,0" Text="{Binding Caption}" FontSize="12.5" Foreground="#6E7B98" TextWrapping="Wrap" />
+                                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Margin="0,16,0,0" Text="{Binding ValueText}" FontSize="17" FontWeight="SemiBold" Foreground="#17213A" />
+                                    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Text="{Binding DeltaText}" FontSize="12.5" Foreground="{Binding DeltaBrush}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+
+            <Border Grid.Row="3" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,0,16">
+                <WrapPanel>
+                    <DatePicker x:Name="PeriodFromDatePicker" Style="{StaticResource DatePickerStyle}" SelectedDateChanged="HandleFilterChanged" Margin="0,0,10,10" />
+                    <DatePicker x:Name="PeriodToDatePicker" Style="{StaticResource DatePickerStyle}" SelectedDateChanged="HandleFilterChanged" Margin="0,0,10,10" />
+                    <ComboBox x:Name="ModuleFilterComboBox" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleModuleFilterChanged" />
+                    <ComboBox x:Name="ManagerFilterComboBox" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
+                    <ComboBox x:Name="WarehouseFilterComboBox" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
+                    <ComboBox x:Name="StatusFilterComboBox" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
+                    <ComboBox x:Name="ClientFilterComboBox" Style="{StaticResource FilterComboStyle}" MinWidth="170" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
+                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,0,10" Click="HandleResetFiltersClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE777;" FontSize="12" />
+                            <TextBlock Text="Сбросить" Margin="8,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </Border>
+
+            <Grid Grid.Row="4" Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2.2*" />
+                    <ColumnDefinition Width="1.45*" />
+                    <ColumnDefinition Width="1.1*" />
+                    <ColumnDefinition Width="1.1*" />
+                    <ColumnDefinition Width="1.1*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="TrendChartTitleText" Text="Динамика выручки" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                <StackPanel Orientation="Horizontal" Margin="18,1,0,0">
+                                    <Rectangle Width="14" Height="2" Fill="#4F5BFF" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Текущий период" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,0,14,0" />
+                                    <Rectangle Width="14" Height="2" Fill="#CBD4E8" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Прошлый период" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Width="34" Click="HandleGenerateReportClick">
+                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" Foreground="#7C87A3" />
+                            </Button>
+                        </Grid>
+                        <Canvas x:Name="RevenueChartCanvas" Grid.Row="1" Height="230" Margin="0,16,0,0" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="DonutCardTitleText" Text="Статусы заказов" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                        <Grid Grid.Row="1" Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="132" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Canvas x:Name="DonutChartCanvas" Width="132" Height="132" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                            <ItemsControl x:Name="DonutLegendItemsControl" Grid.Column="1" Margin="12,0,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Ellipse Width="10" Height="10" Fill="{Binding ColorBrush}" Margin="0,4,8,0" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="12.5" Foreground="#4C5978" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="2" Text="{Binding ValueText}" FontSize="12" Foreground="#7C87A3" Margin="10,0,0,0" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,12,0">
+                    <StackPanel>
+                        <TextBlock Text="Сравнение с прошлым периодом" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                        <ItemsControl x:Name="ComparisonItemsControl" Margin="0,14,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Label}" FontSize="12" Foreground="#7A86A5" />
+                                            <TextBlock Text="{Binding ValueText}" FontSize="14" FontWeight="SemiBold" Foreground="#17213A" Margin="0,3,0,0" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding DeltaText}" FontSize="12.5" Foreground="{Binding DeltaBrush}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="3" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,12,0">
+                    <StackPanel>
+                        <TextBlock Text="Сигналы" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                        <ItemsControl x:Name="SignalsItemsControl" Margin="0,14,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Label}" FontSize="12.5" Foreground="#4C5978" TextWrapping="Wrap" />
+                                        <Border Grid.Column="1" Background="{Binding BackgroundBrush}" CornerRadius="10" Padding="7,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding CountText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{Binding AccentBrush}" />
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="4" Style="{StaticResource CardStyle}" Padding="16">
+                    <StackPanel>
+                        <TextBlock x:Name="MonthlyChartTitleText" Text="Выручка по месяцам" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                        <ItemsControl x:Name="MonthlyBarsItemsControl" Margin="0,18,0,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Columns="6" Rows="1" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel VerticalAlignment="Bottom" Margin="0,0,10,0">
+                                        <TextBlock Text="{Binding ValueLabel}" FontSize="11" Foreground="#7C87A3" HorizontalAlignment="Center" Margin="0,0,0,6" />
+                                        <Border Height="{Binding Height}" Width="22" CornerRadius="7,7,0,0" Background="{Binding FillBrush}" HorizontalAlignment="Center" VerticalAlignment="Bottom" />
+                                        <TextBlock Text="{Binding Label}" Margin="0,8,0,0" HorizontalAlignment="Center" FontSize="11.5" Foreground="#7A86A5" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="5" Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="TopClientsTitleText" Text="Топ клиентов" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                            <Border Grid.Column="1" Background="#F6F8FE" BorderBrush="#E6EBF7" BorderThickness="1" CornerRadius="10" Padding="10,4">
+                                <TextBlock Text="По выручке" FontSize="11.5" Foreground="#63718E" />
+                            </Border>
+                        </Grid>
+                        <ItemsControl x:Name="TopClientsItemsControl" Grid.Row="1" Margin="0,14,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="22" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Rank}" FontSize="12.5" Foreground="#7A86A5" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="12.5" Foreground="#1C2944" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="2" Text="{Binding ValueText}" FontSize="12.5" Foreground="#586582" Margin="8,0,0,0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="TopProductsTitleText" Text="Топ товаров" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                            <Border Grid.Column="1" Background="#F6F8FE" BorderBrush="#E6EBF7" BorderThickness="1" CornerRadius="10" Padding="10,4">
+                                <TextBlock Text="По выручке" FontSize="11.5" Foreground="#63718E" />
+                            </Border>
+                        </Grid>
+                        <ItemsControl x:Name="TopProductsItemsControl" Grid.Row="1" Margin="0,14,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="22" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Rank}" FontSize="12.5" Foreground="#7A86A5" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="12.5" Foreground="#1C2944" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="2" Text="{Binding ValueText}" FontSize="12.5" Foreground="#586582" Margin="8,0,0,0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="OverdueCardTitleText" Text="Просроченные счета" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                        <ItemsControl x:Name="OverdueItemsControl" Grid.Row="1" Margin="0,14,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Label}" FontSize="12.5" Foreground="#1C2944" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Subtitle}" FontSize="11.5" Foreground="#7A86A5" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="12" Foreground="{Binding ValueBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="3" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="DelayedShipmentsTitleText" Text="Отгрузки с задержкой" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                        <ItemsControl x:Name="DelayedShipmentsItemsControl" Grid.Row="1" Margin="0,14,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Label}" FontSize="12.5" Foreground="#1C2944" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Subtitle}" FontSize="11.5" Foreground="#7A86A5" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="12" Foreground="{Binding ValueBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="4" Style="{StaticResource CardStyle}" Padding="16">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Последние важные события" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                        <ItemsControl x:Name="RecentEventsItemsControl" Grid.Row="1" Margin="0,14,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,12">
+                                        <TextBlock Text="{Binding TimestampText}" FontSize="11.5" Foreground="#7A86A5" />
+                                        <TextBlock Text="{Binding Title}" FontSize="12.5" Foreground="#1C2944" Margin="0,2,0,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Grid x:Name="BottomSectionGrid" Grid.Row="6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="304" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border x:Name="RegistryCard" Grid.Column="0" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,16,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="RegistryTitleText" Text="Реестр продаж" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                                <TextBlock x:Name="RegistryCountText" Text="Всего 0 записей" Margin="16,2,0,0" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
+                            </StackPanel>
+                            <Button x:Name="RegistryColumnsButton" Grid.Column="1" Style="{StaticResource MiniButtonStyle}" Margin="0,0,10,0" Click="HandleColumnsClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" FontSize="12" />
+                                    <TextBlock Text="Настроить столбцы" Margin="8,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" Width="34" Click="HandleGenerateReportClick">
+                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" Foreground="#7C87A3" />
+                            </Button>
+                        </Grid>
+
+                        <Grid Grid.Row="1" Margin="0,16,0,0">
+                            <DataGrid x:Name="ReportRegistryGrid"
+                                      Style="{StaticResource ReportsGridStyle}"
+                                      ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                      RowStyle="{StaticResource GridRowStyle}"
+                                      CellStyle="{StaticResource GridCellStyle}">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Width="42">
+                                        <DataGridTemplateColumn.Header>
+                                            <CheckBox x:Name="RegistrySelectAllCheckBox" Checked="HandleSelectAllChecked" Unchecked="HandleSelectAllChecked" />
+                                        </DataGridTemplateColumn.Header>
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Checked="HandleRowSelectionChanged" Unchecked="HandleRowSelectionChanged" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn x:Name="DateColumn" Binding="{Binding DateText}" Header="Дата" Width="112" />
+                                    <DataGridTextColumn x:Name="DocumentColumn" Binding="{Binding DocumentText}" Header="Заказ" Width="170" />
+                                    <DataGridTextColumn x:Name="CounterpartyColumn" Binding="{Binding CounterpartyText}" Header="Клиент" Width="*" />
+                                    <DataGridTextColumn x:Name="ValueColumn" Binding="{Binding ValueText}" Header="Выручка" Width="120" />
+                                    <DataGridTemplateColumn x:Name="StatusColumn" Header="Статус" Width="130">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{Binding StatusBackground}" CornerRadius="10" Padding="8,3" HorizontalAlignment="Left">
+                                                    <TextBlock Text="{Binding StatusText}" FontSize="11.5" Foreground="{Binding StatusBrush}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn x:Name="OwnerColumn" Binding="{Binding OwnerText}" Header="Менеджер" Width="140" />
+                                    <DataGridTemplateColumn Width="46">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource IconButtonStyle}" Width="30" Height="30" Padding="0" Click="HandleRowActionsClick" Tag="{Binding}">
+                                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" Foreground="#7C87A3" />
+                                                </Button>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <Border x:Name="RegistryEmptyStateBorder" Background="#FFFFFF" Visibility="Collapsed">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Border Width="86" Height="86" Background="#F7F9FF" CornerRadius="43" Margin="0,20,0,18">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7C3;" FontSize="36" Foreground="#C0CAE2" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="Нет данных по выбранным фильтрам" FontSize="20" FontWeight="SemiBold" Foreground="#1C2944" HorizontalAlignment="Center" />
+                                    <TextBlock Text="Измените период или переключите вкладку реестра." FontSize="13.5" Foreground="#7A86A5" Margin="0,10,0,0" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Grid Grid.Row="2" Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="RegistryFooterText" Text="Показано 0 записей" FontSize="12" Foreground="#7A86A5" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Style="{StaticResource MiniButtonStyle}" Width="34" Padding="0" Click="HandlePrevPageClick">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76B;" />
+                                </Button>
+                                <Border Background="#EEF2FF" BorderBrush="#D7DFFE" BorderThickness="1" CornerRadius="10" Padding="10,6" Margin="8,0,8,0">
+                                    <TextBlock x:Name="PageIndicatorText" Text="1" FontSize="12" Foreground="#4F5BFF" />
+                                </Border>
+                                <Button Style="{StaticResource MiniButtonStyle}" Width="34" Padding="0" Click="HandleNextPageClick">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76C;" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border x:Name="SummaryCard" Grid.Column="1" Style="{StaticResource CardStyle}" Padding="16">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="Сводка" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+
+                        <Grid Grid.Row="1" Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Период" FontSize="12" Foreground="#7A86A5" />
+                                <TextBlock x:Name="SummaryPeriodText" Text="01.03.2026 - 24.04.2026" FontSize="12.5" Foreground="#1C2944" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                <TextBlock Text="Модуль" FontSize="12" Foreground="#7A86A5" HorizontalAlignment="Right" />
+                                <TextBlock x:Name="SummaryModuleText" Text="Продажи" FontSize="12.5" Foreground="#1C2944" Margin="0,3,0,0" HorizontalAlignment="Right" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Grid.Row="2" Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Обновлено" FontSize="12" Foreground="#7A86A5" />
+                                <TextBlock x:Name="SummaryUpdatedText" Text="24.04.2026 11:42" FontSize="12.5" Foreground="#1C2944" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Width="34" Click="HandleGenerateReportClick">
+                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE777;" Foreground="#7C87A3" />
+                            </Button>
+                        </Grid>
+
+                        <StackPanel Grid.Row="3" Margin="0,18,0,0">
+                            <TextBlock Text="Ключевые отклонения" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                            <ItemsControl x:Name="SummaryDeviationsItemsControl" Margin="0,12,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Label}" FontSize="12.5" Foreground="#4C5978" />
+                                            <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="12.5" Foreground="{Binding ValueBrush}" Margin="10,0,0,0" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="4" Margin="0,20,0,0">
+                            <TextBlock Text="Быстрые действия" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                            <UniformGrid Columns="2" Margin="0,12,0,0">
+                                <Button Style="{StaticResource MiniButtonStyle}" Margin="0,0,8,8" Click="HandleExportClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEDE1;" FontSize="11" />
+                                        <TextBlock Text="Экспорт в Excel" Margin="8,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource MiniButtonStyle}" Margin="8,0,0,8" Click="HandlePrintClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="11" />
+                                        <TextBlock Text="Печать отчета" Margin="8,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource MiniButtonStyle}" Margin="0,0,8,0" Click="HandleOpenProblemDocumentsClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEA39;" FontSize="11" />
+                                        <TextBlock Text="Открыть проблемные" Margin="8,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource MiniButtonStyle}" Margin="8,0,0,0" Click="HandleNavigateModuleClick">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8A7;" FontSize="11" />
+                                        <TextBlock x:Name="NavigateModuleButtonText" Text="Перейти в модуль" Margin="8,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

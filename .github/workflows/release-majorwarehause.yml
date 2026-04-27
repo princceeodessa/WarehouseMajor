@@ -1,0 +1,71 @@
+name: Release MajorWarehause
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 1.0.1"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $version = '${{ github.event.inputs.version }}'
+          if ([string]::IsNullOrWhiteSpace($version)) {
+              $version = '${{ github.ref_name }}'
+          }
+
+          if ($version.StartsWith('v')) {
+              $version = $version.Substring(1)
+          }
+
+          if ([string]::IsNullOrWhiteSpace($version)) {
+              throw 'Release version is empty.'
+          }
+
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Publish desktop package
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File .\WarehouseAutomatisaion.Desktop.Wpf\publish-win-x64.ps1 -Version '${{ steps.version.outputs.value }}'
+
+      - name: Create or update GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = '${{ steps.version.outputs.value }}'
+          $tag = "v$version"
+          $assetPath = '.\artifacts\publish\majorwarehause-win-x64.zip'
+          $title = "MajorWarehause v$version"
+
+          gh release view $tag 1>$null 2>$null
+          if ($LASTEXITCODE -eq 0) {
+              gh release upload $tag $assetPath --clobber
+              exit $LASTEXITCODE
+          }
+
+          gh release create $tag $assetPath --title $title --notes "Desktop release for MajorWarehause $version."
+
