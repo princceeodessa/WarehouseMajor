@@ -54,14 +54,16 @@ internal static class RecordsWorkspaceCatalog
                 .ToArray(),
             Columns:
             [
+                new RecordsGridColumnDefinition("Действия", 6, RecordsColumnKind.Action, 72, false),
                 new RecordsGridColumnDefinition("№ заказа", 0, WidthValue: 1.15),
                 new RecordsGridColumnDefinition("Клиент", 1, WidthValue: 1.7),
                 new RecordsGridColumnDefinition("Дата заказа", 2, WidthValue: 1.0),
                 new RecordsGridColumnDefinition("Сумма", 3, WidthValue: 1.0, Alignment: TextAlignment.Right),
                 new RecordsGridColumnDefinition("Статус", 4, RecordsColumnKind.Status, WidthValue: 1.0),
-                new RecordsGridColumnDefinition("Срок отгрузки", 5, WidthValue: 1.0),
-                new RecordsGridColumnDefinition("Действия", 6, RecordsColumnKind.Action, 72, false)
-            ]);
+                new RecordsGridColumnDefinition("Срок отгрузки", 5, WidthValue: 1.0)
+            ],
+            SubscribeToChanges: handler => salesWorkspace.Changed += handler,
+            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler);
     }
 
     public static RecordsWorkspaceDefinition CreateCustomers(SalesWorkspace salesWorkspace)
@@ -84,18 +86,18 @@ internal static class RecordsWorkspaceCatalog
             RowsFactory: () => salesWorkspace.Customers
                 .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
                 .Select(item => new RecordsGridItem(
-                    SearchText: SearchIndex(item.Name, item.Phone, item.Email, item.Manager, item.ContractNumber),
+                    SearchText: SearchIndex(item.Name, item.Phone, item.Email, item.Manager, item.ContractNumber, item.Inn, item.Region, item.City, item.Source, item.Tags),
                     FilterValue: NormalizeCustomerFilter(item.Status),
                     DateValue: null,
                     Cells:
                     [
                         Cell(Clean(item.Name), semiBold: true),
-                        Cell(GetCustomerType(item.Name)),
-                        Cell(BuildPseudoInn(item.Code, item.Name)),
-                        Cell(Clean(item.Manager)),
+                        Cell(GetCustomerType(item)),
+                        Cell(GetCustomerInn(item)),
+                        Cell(GetCustomerResponsible(item)),
                         Cell(Clean(item.Phone)),
                         Cell(Clean(item.Email), "#4F5BFF"),
-                        Cell(GetCustomerCity(item.Name)),
+                        Cell(GetCustomerLocation(item)),
                         StatusCell(NormalizeCustomerStatusLabel(item.Status)),
                         ActionCell()
                     ],
@@ -103,16 +105,18 @@ internal static class RecordsWorkspaceCatalog
                 .ToArray(),
             Columns:
             [
+                new RecordsGridColumnDefinition("Действия", 8, RecordsColumnKind.Action, 72, false),
                 new RecordsGridColumnDefinition("Клиент", 0, WidthValue: 1.55),
                 new RecordsGridColumnDefinition("Тип", 1, WidthValue: 0.7),
                 new RecordsGridColumnDefinition("ИНН", 2, WidthValue: 0.9),
-                new RecordsGridColumnDefinition("Контактное лицо", 3, WidthValue: 1.05),
+                new RecordsGridColumnDefinition("Ответственный", 3, WidthValue: 1.05),
                 new RecordsGridColumnDefinition("Телефон", 4, WidthValue: 1.0),
                 new RecordsGridColumnDefinition("E-mail", 5, WidthValue: 1.05),
-                new RecordsGridColumnDefinition("Город", 6, WidthValue: 0.95),
-                new RecordsGridColumnDefinition("Статус", 7, RecordsColumnKind.Status, WidthValue: 0.85),
-                new RecordsGridColumnDefinition("Действия", 8, RecordsColumnKind.Action, 72, false)
-            ]);
+                new RecordsGridColumnDefinition("Регион / город", 6, WidthValue: 1.1),
+                new RecordsGridColumnDefinition("Статус", 7, RecordsColumnKind.Status, WidthValue: 0.85)
+            ],
+            SubscribeToChanges: handler => salesWorkspace.Changed += handler,
+            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler);
     }
 
     public static RecordsWorkspaceDefinition CreateInvoices(SalesWorkspace salesWorkspace)
@@ -155,6 +159,7 @@ internal static class RecordsWorkspaceCatalog
                 .ToArray(),
             Columns:
             [
+                new RecordsGridColumnDefinition("Действия", 8, RecordsColumnKind.Action, 72, false),
                 new RecordsGridColumnDefinition("№ счета", 0, WidthValue: 1.0),
                 new RecordsGridColumnDefinition("Заказ", 1, WidthValue: 0.95),
                 new RecordsGridColumnDefinition("Клиент", 2, WidthValue: 1.35),
@@ -162,9 +167,10 @@ internal static class RecordsWorkspaceCatalog
                 new RecordsGridColumnDefinition("Сумма", 4, WidthValue: 0.95, Alignment: TextAlignment.Right),
                 new RecordsGridColumnDefinition("Оплачено", 5, WidthValue: 0.95, Alignment: TextAlignment.Right),
                 new RecordsGridColumnDefinition("Статус", 6, RecordsColumnKind.Status, WidthValue: 0.95),
-                new RecordsGridColumnDefinition("Срок оплаты", 7, WidthValue: 0.9),
-                new RecordsGridColumnDefinition("Действия", 8, RecordsColumnKind.Action, 72, false)
-            ]);
+                new RecordsGridColumnDefinition("Срок оплаты", 7, WidthValue: 0.9)
+            ],
+            SubscribeToChanges: handler => salesWorkspace.Changed += handler,
+            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler);
     }
 
     public static RecordsWorkspaceDefinition CreateShipments(SalesWorkspace salesWorkspace)
@@ -206,15 +212,17 @@ internal static class RecordsWorkspaceCatalog
                 .ToArray(),
             Columns:
             [
+                new RecordsGridColumnDefinition("Действия", 7, RecordsColumnKind.Action, 72, false),
                 new RecordsGridColumnDefinition("№ отгрузки", 0, WidthValue: 1.0),
                 new RecordsGridColumnDefinition("Заказ", 1, WidthValue: 0.95),
                 new RecordsGridColumnDefinition("Клиент", 2, WidthValue: 1.35),
                 new RecordsGridColumnDefinition("Дата отгрузки", 3, WidthValue: 0.95),
                 new RecordsGridColumnDefinition("Сумма", 4, WidthValue: 0.9, Alignment: TextAlignment.Right),
                 new RecordsGridColumnDefinition("Статус", 5, RecordsColumnKind.Status, WidthValue: 0.95),
-                new RecordsGridColumnDefinition("Дата доставки", 6, WidthValue: 0.95),
-                new RecordsGridColumnDefinition("Действия", 7, RecordsColumnKind.Action, 72, false)
-            ]);
+                new RecordsGridColumnDefinition("Дата доставки", 6, WidthValue: 0.95)
+            ],
+            SubscribeToChanges: handler => salesWorkspace.Changed += handler,
+            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler);
     }
 
     public static RecordsWorkspaceDefinition CreatePurchasing(SalesWorkspace salesWorkspace)
@@ -494,6 +502,11 @@ internal static class RecordsWorkspaceCatalog
 
     private static void EditCustomer(SalesWorkspace salesWorkspace, SalesCustomerRecord customer)
     {
+        if (TryOpenCustomerEditorTab(salesWorkspace, customer))
+        {
+            return;
+        }
+
         var dialog = new SalesCustomerEditorWindow(salesWorkspace, customer);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
@@ -510,6 +523,11 @@ internal static class RecordsWorkspaceCatalog
 
     private static void EditOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
     {
+        if (TryOpenOrderEditorTab(salesWorkspace, order))
+        {
+            return;
+        }
+
         var dialog = new SalesDocumentEditorWindow(salesWorkspace, order);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
@@ -526,6 +544,11 @@ internal static class RecordsWorkspaceCatalog
 
     private static void EditInvoice(SalesWorkspace salesWorkspace, SalesInvoiceRecord invoice)
     {
+        if (TryOpenInvoiceEditorTab(salesWorkspace, invoice))
+        {
+            return;
+        }
+
         var dialog = new SalesDocumentEditorWindow(salesWorkspace, invoice);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
@@ -542,6 +565,11 @@ internal static class RecordsWorkspaceCatalog
 
     private static void EditShipment(SalesWorkspace salesWorkspace, SalesShipmentRecord shipment)
     {
+        if (TryOpenShipmentEditorTab(salesWorkspace, shipment))
+        {
+            return;
+        }
+
         var dialog = new SalesDocumentEditorWindow(salesWorkspace, shipment);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
@@ -607,6 +635,11 @@ internal static class RecordsWorkspaceCatalog
 
     private static void CreateCustomer(SalesWorkspace salesWorkspace)
     {
+        if (TryOpenCustomerEditorTab(salesWorkspace, null))
+        {
+            return;
+        }
+
         var dialog = new SalesCustomerEditorWindow(salesWorkspace);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
@@ -626,6 +659,11 @@ internal static class RecordsWorkspaceCatalog
         if (salesWorkspace.Customers.Count == 0)
         {
             ShowMessage("Заказы", "Сначала добавьте клиента для нового заказа.", MessageBoxImage.Information);
+            return;
+        }
+
+        if (TryOpenOrderEditorTab(salesWorkspace, null))
+        {
             return;
         }
 
@@ -651,6 +689,11 @@ internal static class RecordsWorkspaceCatalog
             return;
         }
 
+        if (TryOpenInvoiceEditorTab(salesWorkspace, null))
+        {
+            return;
+        }
+
         var dialog = new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Invoice);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
@@ -673,6 +716,11 @@ internal static class RecordsWorkspaceCatalog
             return;
         }
 
+        if (TryOpenShipmentEditorTab(salesWorkspace, null))
+        {
+            return;
+        }
+
         var dialog = new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Shipment);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
@@ -685,6 +733,190 @@ internal static class RecordsWorkspaceCatalog
             salesWorkspace.AddShipment(dialog.ResultShipment);
             ShowMessage("Отгрузки", $"Создана отгрузка {dialog.ResultShipment.Number}.");
         }
+    }
+
+    private static bool TryOpenCustomerEditorTab(SalesWorkspace salesWorkspace, SalesCustomerRecord? customer)
+    {
+        var mainWindow = ResolveMainWindow();
+        if (mainWindow is null)
+        {
+            return false;
+        }
+
+        var isNew = customer is null;
+        var key = isNew ? $"customer-new-{Guid.NewGuid():N}" : $"customer-{customer!.Id:N}";
+        var caption = isNew ? "Новый клиент" : $"Клиент {Clean(customer!.Code)}";
+        var subtitle = isNew
+            ? "Создание карточки контрагента без блокировки основного окна."
+            : $"Карточка, контакты и документы контрагента {Clean(customer!.Name)}.";
+
+        return mainWindow.OpenWorkspaceEditorTab(key, caption, subtitle, () =>
+        {
+            var editor = isNew
+                ? new SalesCustomerEditorWindow(salesWorkspace)
+                : new SalesCustomerEditorWindow(salesWorkspace, customer);
+
+            editor.HostedSaved += (_, _) =>
+            {
+                if (editor.ResultCustomer is null)
+                {
+                    return;
+                }
+
+                if (isNew)
+                {
+                    salesWorkspace.AddCustomer(editor.ResultCustomer);
+                    ShowMessage("Клиенты", $"Создан клиент {editor.ResultCustomer.Name}.");
+                }
+                else
+                {
+                    salesWorkspace.UpdateCustomer(editor.ResultCustomer);
+                    ShowMessage("Клиенты", $"Обновлена карточка {editor.ResultCustomer.Name}.");
+                }
+
+                mainWindow.CloseWorkspaceTab(key);
+            };
+            editor.HostedCanceled += (_, _) => mainWindow.CloseWorkspaceTab(key);
+            return editor.DetachContentForWorkspaceTab();
+        });
+    }
+
+    private static bool TryOpenOrderEditorTab(SalesWorkspace salesWorkspace, SalesOrderRecord? order)
+    {
+        var mainWindow = ResolveMainWindow();
+        if (mainWindow is null)
+        {
+            return false;
+        }
+
+        var isNew = order is null;
+        var key = isNew ? $"sales-order-new-{Guid.NewGuid():N}" : $"sales-order-{order!.Id:N}";
+        var caption = isNew ? "Новый заказ" : $"Заказ {Clean(order!.Number)}";
+        var subtitle = isNew
+            ? "Создание заказа покупателя в рабочей вкладке."
+            : $"Заказ покупателя {Clean(order!.CustomerName)}.";
+
+        return mainWindow.OpenWorkspaceEditorTab(key, caption, subtitle, () =>
+        {
+            var editor = isNew
+                ? new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Order)
+                : new SalesDocumentEditorWindow(salesWorkspace, order!);
+
+            editor.HostedSaved += (_, _) =>
+            {
+                if (editor.ResultOrder is null)
+                {
+                    return;
+                }
+
+                if (isNew)
+                {
+                    salesWorkspace.AddOrder(editor.ResultOrder);
+                    ShowMessage("Заказы", $"Создан заказ {editor.ResultOrder.Number}.");
+                }
+                else
+                {
+                    salesWorkspace.UpdateOrder(editor.ResultOrder);
+                    ShowMessage("Заказы", $"Обновлен заказ {editor.ResultOrder.Number}.");
+                }
+
+                mainWindow.CloseWorkspaceTab(key);
+            };
+            editor.HostedCanceled += (_, _) => mainWindow.CloseWorkspaceTab(key);
+            return editor.DetachContentForWorkspaceTab();
+        });
+    }
+
+    private static bool TryOpenInvoiceEditorTab(SalesWorkspace salesWorkspace, SalesInvoiceRecord? invoice)
+    {
+        var mainWindow = ResolveMainWindow();
+        if (mainWindow is null)
+        {
+            return false;
+        }
+
+        var isNew = invoice is null;
+        var key = isNew ? $"sales-invoice-new-{Guid.NewGuid():N}" : $"sales-invoice-{invoice!.Id:N}";
+        var caption = isNew ? "Новый счет" : $"Счет {Clean(invoice!.Number)}";
+        var subtitle = isNew
+            ? "Создание счета на основании заказа."
+            : $"Счет покупателя {Clean(invoice!.CustomerName)}.";
+
+        return mainWindow.OpenWorkspaceEditorTab(key, caption, subtitle, () =>
+        {
+            var editor = isNew
+                ? new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Invoice)
+                : new SalesDocumentEditorWindow(salesWorkspace, invoice!);
+
+            editor.HostedSaved += (_, _) =>
+            {
+                if (editor.ResultInvoice is null)
+                {
+                    return;
+                }
+
+                if (isNew)
+                {
+                    salesWorkspace.AddInvoice(editor.ResultInvoice);
+                    ShowMessage("Счета", $"Создан счет {editor.ResultInvoice.Number}.");
+                }
+                else
+                {
+                    salesWorkspace.UpdateInvoice(editor.ResultInvoice);
+                    ShowMessage("Счета", $"Обновлен счет {editor.ResultInvoice.Number}.");
+                }
+
+                mainWindow.CloseWorkspaceTab(key);
+            };
+            editor.HostedCanceled += (_, _) => mainWindow.CloseWorkspaceTab(key);
+            return editor.DetachContentForWorkspaceTab();
+        });
+    }
+
+    private static bool TryOpenShipmentEditorTab(SalesWorkspace salesWorkspace, SalesShipmentRecord? shipment)
+    {
+        var mainWindow = ResolveMainWindow();
+        if (mainWindow is null)
+        {
+            return false;
+        }
+
+        var isNew = shipment is null;
+        var key = isNew ? $"sales-shipment-new-{Guid.NewGuid():N}" : $"sales-shipment-{shipment!.Id:N}";
+        var caption = isNew ? "Новая отгрузка" : $"Отгрузка {Clean(shipment!.Number)}";
+        var subtitle = isNew
+            ? "Создание отгрузки на основании заказа."
+            : $"Отгрузка покупателя {Clean(shipment!.CustomerName)}.";
+
+        return mainWindow.OpenWorkspaceEditorTab(key, caption, subtitle, () =>
+        {
+            var editor = isNew
+                ? new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Shipment)
+                : new SalesDocumentEditorWindow(salesWorkspace, shipment!);
+
+            editor.HostedSaved += (_, _) =>
+            {
+                if (editor.ResultShipment is null)
+                {
+                    return;
+                }
+
+                if (isNew)
+                {
+                    salesWorkspace.AddShipment(editor.ResultShipment);
+                    ShowMessage("Отгрузки", $"Создана отгрузка {editor.ResultShipment.Number}.");
+                }
+                else
+                {
+                    salesWorkspace.UpdateShipment(editor.ResultShipment);
+                    ShowMessage("Отгрузки", $"Обновлена отгрузка {editor.ResultShipment.Number}.");
+                }
+
+                mainWindow.CloseWorkspaceTab(key);
+            };
+            editor.HostedCanceled += (_, _) => mainWindow.CloseWorkspaceTab(key);
+            return editor.DetachContentForWorkspaceTab();
+        });
     }
 
     private static string? PromptValue(string title, string prompt, string? initialValue = null, IEnumerable<string>? options = null)
@@ -705,6 +937,11 @@ internal static class RecordsWorkspaceCatalog
             .OfType<Window>()
             .FirstOrDefault(window => window.IsActive)
             ?? System.Windows.Application.Current?.MainWindow;
+    }
+
+    private static MainWindow? ResolveMainWindow()
+    {
+        return System.Windows.Application.Current?.MainWindow as MainWindow;
     }
 
     private static void ShowMessage(string title, string message, MessageBoxImage image = MessageBoxImage.Information)
@@ -907,9 +1144,36 @@ internal static class RecordsWorkspaceCatalog
         };
     }
 
-    private static string GetCustomerType(string name)
+    private static string GetCustomerType(SalesCustomerRecord customer)
     {
-        return Clean(name).Contains("ИП", StringComparison.OrdinalIgnoreCase) ? "ИП" : "Юр. лицо";
+        var type = Clean(customer.CounterpartyType);
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            return type switch
+            {
+                "Индивидуальный предприниматель" => "ИП",
+                "Юридическое лицо" => "Юр. лицо",
+                "Физическое лицо" => "Физ. лицо",
+                "Государственный орган" => "Госорган",
+                _ => type
+            };
+        }
+
+        return Clean(customer.Name).Contains("ИП", StringComparison.OrdinalIgnoreCase) ? "ИП" : "Юр. лицо";
+    }
+
+    private static string GetCustomerInn(SalesCustomerRecord customer)
+    {
+        return string.IsNullOrWhiteSpace(customer.Inn)
+            ? BuildPseudoInn(customer.Code, customer.Name)
+            : Clean(customer.Inn);
+    }
+
+    private static string GetCustomerResponsible(SalesCustomerRecord customer)
+    {
+        return string.IsNullOrWhiteSpace(customer.Responsible)
+            ? Clean(customer.Manager)
+            : Clean(customer.Responsible);
     }
 
     private static string BuildPseudoInn(string code, string name)
@@ -922,6 +1186,18 @@ internal static class RecordsWorkspaceCatalog
         }
 
         return accumulator.ToString(CultureInfo.InvariantCulture).PadLeft(10, '7')[..10];
+    }
+
+    private static string GetCustomerLocation(SalesCustomerRecord customer)
+    {
+        var region = Clean(customer.Region);
+        var city = Clean(customer.City);
+        if (!string.IsNullOrWhiteSpace(region) && !string.IsNullOrWhiteSpace(city))
+        {
+            return $"{region} / {city}";
+        }
+
+        return !string.IsNullOrWhiteSpace(city) ? city : GetCustomerCity(customer.Name);
     }
 
     private static string GetCustomerCity(string name)

@@ -171,52 +171,128 @@ public sealed class SalesWorkspace
                 Id = Guid.NewGuid(),
                 Code = "C-001",
                 Name = "ООО Атриум Дизайн",
+                CounterpartyType = "Юридическое лицо",
+                IsBuyer = true,
+                IsSupplier = false,
+                IsOther = false,
                 ContractNumber = "AT-24/11",
                 CurrencyCode = "RUB",
                 Manager = "Ирина Киселева",
                 Status = "Активен",
                 Phone = "+7 (937) 333-10-20",
                 Email = "atrium@major-flow.local",
-                Notes = "Дизайн-студия. Часто просит отгрузку поэтапно."
+                Inn = "6312001001",
+                Kpp = "631201001",
+                Ogrn = "1246300001010",
+                LegalAddress = "443099, Самарская область, г. Самара, ул. Ленинградская, 12",
+                ActualAddress = "443099, Самара, ул. Ленинградская, 12",
+                Region = "Самарская область",
+                City = "Самара",
+                Source = "Рекомендация",
+                Responsible = "Ирина Киселева",
+                Tags = "дизайн, поэтапная отгрузка",
+                BankAccount = "40702810900000001001",
+                Notes = "Дизайн-студия. Часто просит отгрузку поэтапно.",
+                Contacts = new BindingList<SalesCustomerContactRecord>
+                {
+                    new() { Name = "Елена Орлова", Role = "Закупки", Phone = "+7 (937) 333-10-20", Email = "atrium@major-flow.local", Comment = "Основной контакт" }
+                }
             },
             new()
             {
                 Id = Guid.NewGuid(),
                 Code = "C-002",
                 Name = "Студия Линия Света",
+                CounterpartyType = "Юридическое лицо",
+                IsBuyer = true,
+                IsSupplier = false,
+                IsOther = false,
                 ContractNumber = "LS-25/02",
                 CurrencyCode = "RUB",
                 Manager = "Антон Мельников",
                 Status = "Активен",
                 Phone = "+7 (917) 777-44-11",
                 Email = "linea@major-flow.local",
-                Notes = "Быстрые сделки, любят счет в день заказа."
+                Inn = "6312001002",
+                Kpp = "631201002",
+                Ogrn = "1246300001020",
+                LegalAddress = "443010, Самарская область, г. Самара, ул. Молодогвардейская, 45",
+                ActualAddress = "443010, Самара, ул. Молодогвардейская, 45",
+                Region = "Самарская область",
+                City = "Самара",
+                Source = "Сайт",
+                Responsible = "Антон Мельников",
+                Tags = "быстрый счет, монтаж",
+                BankAccount = "40702810900000001002",
+                Notes = "Быстрые сделки, любят счет в день заказа.",
+                Contacts = new BindingList<SalesCustomerContactRecord>
+                {
+                    new() { Name = "Мария Белова", Role = "Руководитель проекта", Phone = "+7 (917) 777-44-11", Email = "linea@major-flow.local", Comment = "Согласует счета" }
+                }
             },
             new()
             {
                 Id = Guid.NewGuid(),
                 Code = "C-003",
                 Name = "ИП Мир Потолков",
+                CounterpartyType = "Индивидуальный предприниматель",
+                IsBuyer = true,
+                IsSupplier = true,
+                IsOther = false,
                 ContractNumber = "MP-25/01",
                 CurrencyCode = "RUB",
                 Manager = "Ирина Киселева",
                 Status = "Активен",
                 Phone = "+7 (927) 444-12-33",
                 Email = "potolok@major-flow.local",
-                Notes = "Регулярные монтажные заказы."
+                Inn = "631200100303",
+                Ogrn = "324630000103001",
+                LegalAddress = "450000, Республика Башкортостан, г. Уфа, ул. Коммунистическая, 8",
+                ActualAddress = "450000, Уфа, ул. Коммунистическая, 8",
+                Region = "Республика Башкортостан",
+                City = "Уфа",
+                Source = "Повторные продажи",
+                Responsible = "Ирина Киселева",
+                Tags = "монтаж, постоянный клиент",
+                BankAccount = "40802810900000001003",
+                Notes = "Регулярные монтажные заказы.",
+                Contacts = new BindingList<SalesCustomerContactRecord>
+                {
+                    new() { Name = "Алексей Потолков", Role = "ИП / владелец", Phone = "+7 (927) 444-12-33", Email = "potolok@major-flow.local", Comment = "Решает по оплате и отгрузке" },
+                    new() { Name = "Сергей", Role = "Монтаж", Phone = "+7 (927) 444-12-34", Email = "", Comment = "Принимает товар на объекте" }
+                }
             },
             new()
             {
                 Id = Guid.NewGuid(),
                 Code = "C-004",
                 Name = "ООО Периметр Девелопмент",
+                CounterpartyType = "Юридическое лицо",
+                IsBuyer = true,
+                IsSupplier = false,
+                IsOther = false,
                 ContractNumber = "PD-25/03",
                 CurrencyCode = "RUB",
                 Manager = "Антон Мельников",
                 Status = "На проверке",
                 Phone = "+7 (8452) 40-12-54",
                 Email = "perimeter@major-flow.local",
-                Notes = "Нужна предварительная верификация лимита."
+                Inn = "6452001004",
+                Kpp = "645201004",
+                Ogrn = "1246400001040",
+                LegalAddress = "410012, Саратовская область, г. Саратов, ул. Вольская, 31",
+                ActualAddress = "410012, Саратов, ул. Вольская, 31",
+                Region = "Саратовская область",
+                City = "Саратов",
+                Source = "Холодный звонок",
+                Responsible = "Антон Мельников",
+                Tags = "девелопмент, проверка лимита",
+                BankAccount = "40702810900000001004",
+                Notes = "Нужна предварительная верификация лимита.",
+                Contacts = new BindingList<SalesCustomerContactRecord>
+                {
+                    new() { Name = "Дмитрий Романов", Role = "Снабжение", Phone = "+7 (8452) 40-12-54", Email = "perimeter@major-flow.local", Comment = "Ждет проверку лимита" }
+                }
             }
         };
 
@@ -923,6 +999,14 @@ public sealed class SalesCustomerRecord
 
     public string Name { get; set; } = string.Empty;
 
+    public string CounterpartyType { get; set; } = "Юридическое лицо";
+
+    public bool IsBuyer { get; set; } = true;
+
+    public bool IsSupplier { get; set; }
+
+    public bool IsOther { get; set; }
+
     public string ContractNumber { get; set; } = string.Empty;
 
     public string CurrencyCode { get; set; } = "RUB";
@@ -935,7 +1019,31 @@ public sealed class SalesCustomerRecord
 
     public string Email { get; set; } = string.Empty;
 
+    public string Inn { get; set; } = string.Empty;
+
+    public string Kpp { get; set; } = string.Empty;
+
+    public string Ogrn { get; set; } = string.Empty;
+
+    public string LegalAddress { get; set; } = string.Empty;
+
+    public string ActualAddress { get; set; } = string.Empty;
+
+    public string Region { get; set; } = string.Empty;
+
+    public string City { get; set; } = string.Empty;
+
+    public string Source { get; set; } = string.Empty;
+
+    public string Responsible { get; set; } = string.Empty;
+
+    public string Tags { get; set; } = string.Empty;
+
+    public string BankAccount { get; set; } = string.Empty;
+
     public string Notes { get; set; } = string.Empty;
+
+    public BindingList<SalesCustomerContactRecord> Contacts { get; set; } = new();
 
     public SalesCustomerRecord Clone()
     {
@@ -944,13 +1052,29 @@ public sealed class SalesCustomerRecord
             Id = Id,
             Code = Code,
             Name = Name,
+            CounterpartyType = CounterpartyType,
+            IsBuyer = IsBuyer,
+            IsSupplier = IsSupplier,
+            IsOther = IsOther,
             ContractNumber = ContractNumber,
             CurrencyCode = CurrencyCode,
             Manager = Manager,
             Status = Status,
             Phone = Phone,
             Email = Email,
-            Notes = Notes
+            Inn = Inn,
+            Kpp = Kpp,
+            Ogrn = Ogrn,
+            LegalAddress = LegalAddress,
+            ActualAddress = ActualAddress,
+            Region = Region,
+            City = City,
+            Source = Source,
+            Responsible = Responsible,
+            Tags = Tags,
+            BankAccount = BankAccount,
+            Notes = Notes,
+            Contacts = CloneContacts(Contacts)
         };
     }
 
@@ -958,13 +1082,61 @@ public sealed class SalesCustomerRecord
     {
         Code = source.Code;
         Name = source.Name;
+        CounterpartyType = source.CounterpartyType;
+        IsBuyer = source.IsBuyer;
+        IsSupplier = source.IsSupplier;
+        IsOther = source.IsOther;
         ContractNumber = source.ContractNumber;
         CurrencyCode = source.CurrencyCode;
         Manager = source.Manager;
         Status = source.Status;
         Phone = source.Phone;
         Email = source.Email;
+        Inn = source.Inn;
+        Kpp = source.Kpp;
+        Ogrn = source.Ogrn;
+        LegalAddress = source.LegalAddress;
+        ActualAddress = source.ActualAddress;
+        Region = source.Region;
+        City = source.City;
+        Source = source.Source;
+        Responsible = source.Responsible;
+        Tags = source.Tags;
+        BankAccount = source.BankAccount;
         Notes = source.Notes;
+        Contacts = CloneContacts(source.Contacts);
+    }
+
+    private static BindingList<SalesCustomerContactRecord> CloneContacts(IEnumerable<SalesCustomerContactRecord>? contacts)
+    {
+        return new BindingList<SalesCustomerContactRecord>((contacts ?? Array.Empty<SalesCustomerContactRecord>())
+            .Select(contact => contact.Clone())
+            .ToList());
+    }
+}
+
+public sealed class SalesCustomerContactRecord
+{
+    public string Name { get; set; } = string.Empty;
+
+    public string Role { get; set; } = string.Empty;
+
+    public string Phone { get; set; } = string.Empty;
+
+    public string Email { get; set; } = string.Empty;
+
+    public string Comment { get; set; } = string.Empty;
+
+    public SalesCustomerContactRecord Clone()
+    {
+        return new SalesCustomerContactRecord
+        {
+            Name = Name,
+            Role = Role,
+            Phone = Phone,
+            Email = Email,
+            Comment = Comment
+        };
     }
 }
 

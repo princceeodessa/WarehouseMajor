@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -9,7 +10,7 @@ using WpfButton = System.Windows.Controls.Button;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class RecordsWorkspaceView : UserControl
+public partial class RecordsWorkspaceView : UserControl, IDisposable
 {
     private const int PageSize = 10;
 
@@ -19,6 +20,7 @@ public partial class RecordsWorkspaceView : UserControl
     private IReadOnlyList<RecordsGridItem> _allRows = Array.Empty<RecordsGridItem>();
     private IReadOnlyList<RecordsGridItem> _filteredRows = Array.Empty<RecordsGridItem>();
     private int _currentPage = 1;
+    private bool _disposed;
 
     public RecordsWorkspaceView(RecordsWorkspaceDefinition definition)
     {
@@ -46,6 +48,9 @@ public partial class RecordsWorkspaceView : UserControl
         MetricsItemsControl.ItemsSource = _metrics;
         PrimaryFilterCombo.ItemsSource = definition.PrimaryFilterOptions.Select(Clean).ToArray();
         PrimaryFilterCombo.SelectedIndex = 0;
+        _definition.SubscribeToChanges?.Invoke(HandleWorkspaceChanged);
+        RecordsGrid.PreviewMouseLeftButtonUp += HandleRecordsGridMouseLeftButtonUp;
+        RecordsGrid.KeyDown += HandleRecordsGridKeyDown;
 
         BuildColumns();
         Loaded += HandleLoaded;
@@ -63,6 +68,25 @@ public partial class RecordsWorkspaceView : UserControl
     private void HandleUnloaded(object sender, RoutedEventArgs e)
     {
         _searchDebounceTimer.Stop();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _searchDebounceTimer.Stop();
+        RecordsGrid.PreviewMouseLeftButtonUp -= HandleRecordsGridMouseLeftButtonUp;
+        RecordsGrid.KeyDown -= HandleRecordsGridKeyDown;
+        _definition.UnsubscribeFromChanges?.Invoke(HandleWorkspaceChanged);
+    }
+
+    private void HandleWorkspaceChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => RefreshView());
     }
 
     private void HandleSizeChanged(object sender, SizeChangedEventArgs e)
@@ -241,6 +265,66 @@ public partial class RecordsWorkspaceView : UserControl
 
         menu.IsOpen = true;
         e.Handled = true;
+    }
+
+    private void HandleRecordsGridMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left || e.OriginalSource is not DependencyObject source)
+        {
+            return;
+        }
+
+        if (FindVisualParent<WpfButton>(source) is not null
+            || FindVisualParent<DataGridColumnHeader>(source) is not null)
+        {
+            return;
+        }
+
+        var row = FindVisualParent<DataGridRow>(source);
+        if (row?.Item is RecordsGridItem item)
+        {
+            ExecutePrimaryRowAction(item);
+        }
+    }
+
+    private void HandleRecordsGridKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || RecordsGrid.SelectedItem is not RecordsGridItem item)
+        {
+            return;
+        }
+
+        ExecutePrimaryRowAction(item);
+        e.Handled = true;
+    }
+
+    private void ExecutePrimaryRowAction(RecordsGridItem item)
+    {
+        var primaryAction = item.Actions.FirstOrDefault();
+        if (primaryAction is null)
+        {
+            return;
+        }
+
+        RecordsGrid.SelectedItem = item;
+        primaryAction.Execute();
+        RefreshView(forceRefresh: true);
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject? source)
+        where T : DependencyObject
+    {
+        while (source is not null)
+        {
+            if (source is T match)
+            {
+                return match;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return null;
     }
 
     private void ApplyFilters(bool resetPage = false)
@@ -504,7 +588,9 @@ public sealed record RecordsWorkspaceDefinition(
     Action? PrimaryAction = null,
     Action? ImportAction = null,
     bool ShowPrimaryAction = true,
-    bool ShowImportAction = true);
+    bool ShowImportAction = true,
+    Action<EventHandler>? SubscribeToChanges = null,
+    Action<EventHandler>? UnsubscribeFromChanges = null);
 
 public sealed record WorkspaceMetricCardDefinition(
     string Title,

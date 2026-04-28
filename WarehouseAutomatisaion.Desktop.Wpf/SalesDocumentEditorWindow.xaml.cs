@@ -25,6 +25,7 @@ public partial class SalesDocumentEditorWindow : Window
     private readonly Dictionary<string, SalesOrderRecord> _orderOptions = new(StringComparer.CurrentCultureIgnoreCase);
     private readonly bool _editingExistingDocument;
     private bool _loading;
+    private bool _hostedInWorkspace;
     private SalesOrderRecord? _orderDraft;
     private SalesInvoiceRecord? _invoiceDraft;
     private SalesShipmentRecord? _shipmentDraft;
@@ -77,6 +78,19 @@ public partial class SalesDocumentEditorWindow : Window
     public SalesInvoiceRecord? ResultInvoice { get; private set; }
 
     public SalesShipmentRecord? ResultShipment { get; private set; }
+
+    public event EventHandler? HostedSaved;
+
+    public event EventHandler? HostedCanceled;
+
+    public FrameworkElement DetachContentForWorkspaceTab()
+    {
+        _hostedInWorkspace = true;
+        var content = Content as FrameworkElement
+            ?? throw new InvalidOperationException("Editor content is not available.");
+        Content = null;
+        return content;
+    }
 
     private static string Ui(string? value) => TextMojibakeFixer.NormalizeText(value);
 
@@ -445,7 +459,7 @@ public partial class SalesDocumentEditorWindow : Window
         order.Lines = ToSalesLines();
 
         ResultOrder = order;
-        DialogResult = true;
+        CompleteEditing(success: true);
     }
 
     private void SaveInvoice()
@@ -474,7 +488,7 @@ public partial class SalesDocumentEditorWindow : Window
         invoice.Lines = ToSalesLines();
 
         ResultInvoice = invoice;
-        DialogResult = true;
+        CompleteEditing(success: true);
     }
 
     private void SaveShipment()
@@ -497,12 +511,31 @@ public partial class SalesDocumentEditorWindow : Window
         shipment.Lines = ToSalesLines();
 
         ResultShipment = shipment;
-        DialogResult = true;
+        CompleteEditing(success: true);
     }
 
     private void HandleCancelClick(object sender, RoutedEventArgs e)
     {
-        DialogResult = false;
+        CompleteEditing(success: false);
+    }
+
+    private void CompleteEditing(bool success)
+    {
+        if (_hostedInWorkspace)
+        {
+            if (success)
+            {
+                HostedSaved?.Invoke(this, EventArgs.Empty);
+            }
+            else
+            {
+                HostedCanceled?.Invoke(this, EventArgs.Empty);
+            }
+
+            return;
+        }
+
+        DialogResult = success;
     }
 
     private SalesCustomerRecord? GetSelectedCustomer()
@@ -554,10 +587,12 @@ public partial class SalesDocumentEditorWindow : Window
 
     private string? PromptValue(string title, string prompt, string? initialValue = null, IEnumerable<string>? options = null)
     {
-        var dialog = new ProductTextInputWindow(title, prompt, initialValue, options)
+        var dialog = new ProductTextInputWindow(title, prompt, initialValue, options);
+        var owner = ResolvePromptOwner();
+        if (owner is not null && !ReferenceEquals(owner, dialog))
         {
-            Owner = this
-        };
+            dialog.Owner = owner;
+        }
 
         return dialog.ShowDialog() == true ? dialog.ResultText : null;
     }
@@ -575,8 +610,30 @@ public partial class SalesDocumentEditorWindow : Window
             return value;
         }
 
-        MessageBox.Show(this, "Введите корректное число.", title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        var owner = ResolvePromptOwner();
+        if (owner is null)
+        {
+            MessageBox.Show("Введите корректное число.", title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        else
+        {
+            MessageBox.Show(owner, "Введите корректное число.", title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
         return -1m;
+    }
+
+    private Window? ResolvePromptOwner()
+    {
+        if (!_hostedInWorkspace)
+        {
+            return this;
+        }
+
+        return System.Windows.Application.Current?.MainWindow
+            ?? System.Windows.Application.Current?.Windows
+                .OfType<Window>()
+                .FirstOrDefault(window => window.IsActive);
     }
 
     private void RefreshTotal()

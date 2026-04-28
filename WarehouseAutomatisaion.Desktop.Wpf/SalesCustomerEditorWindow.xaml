@@ -2,15 +2,39 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Клиент"
-        Width="760"
-        Height="620"
-        MinWidth="700"
-        MinHeight="560"
+        Width="1120"
+        Height="800"
+        MinWidth="980"
+        MinHeight="700"
         WindowStartupLocation="CenterOwner"
         Background="#F6F8FC">
     <Window.Resources>
         <Style x:Key="FieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource DialogFieldLabelStyle}" />
         <Style x:Key="InputStyle" TargetType="Control" BasedOn="{StaticResource DialogInputStyle}" />
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="17" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#17213A" />
+        </Style>
+        <Style x:Key="SectionHintStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#6E7B98" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="SummaryCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E7ECF7" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="MinWidth" Value="180" />
+            <Setter Property="Margin" Value="0,0,12,12" />
+        </Style>
+        <Style TargetType="DataGrid" BasedOn="{StaticResource DialogDataGridStyle}">
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+        </Style>
+        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DialogDataGridHeaderStyle}" />
     </Window.Resources>
 
     <Grid Margin="24">
@@ -20,13 +44,14 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Margin="0,0,0,18">
+        <StackPanel Margin="0,0,0,16">
             <TextBlock x:Name="HeaderTitleText"
                        Text="Новый клиент"
-                       FontSize="26"
+                       FontSize="28"
                        FontWeight="SemiBold"
                        Foreground="#17213A" />
-            <TextBlock Text="Карточка клиента для заказов, счетов и отгрузок."
+            <TextBlock x:Name="HeaderSubtitleText"
+                       Text="Карточка контрагента: реквизиты, контакты, классификация и документы."
                        Margin="0,6,0,0"
                        FontSize="13.5"
                        Foreground="#6E7B98" />
@@ -35,66 +60,319 @@
         <Border Grid.Row="1"
                 Style="{StaticResource DialogCardStyle}"
                 Padding="18">
-            <ScrollViewer VerticalScrollBarVisibility="Hidden">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="18" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,14">
-                        <TextBlock Text="Код" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox x:Name="CodeTextBox" Style="{StaticResource InputStyle}" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,14">
-                        <TextBlock Text="Название" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox x:Name="NameTextBox" Style="{StaticResource InputStyle}" />
-                    </StackPanel>
+                <WrapPanel Margin="0,0,0,14">
+                    <Border Style="{StaticResource SummaryCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Мы должны" Style="{StaticResource SectionHintStyle}" />
+                            <TextBlock x:Name="CustomerDebtText" Margin="0,7,0,0" FontSize="20" FontWeight="SemiBold" Foreground="#17213A" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource SummaryCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Продажи" Style="{StaticResource SectionHintStyle}" />
+                            <TextBlock x:Name="CustomerSalesText" Margin="0,7,0,0" FontSize="20" FontWeight="SemiBold" Foreground="#17213A" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource SummaryCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Последняя продажа" Style="{StaticResource SectionHintStyle}" />
+                            <TextBlock x:Name="CustomerLastSaleText" Margin="0,7,0,0" FontSize="20" FontWeight="SemiBold" Foreground="#17213A" />
+                        </StackPanel>
+                    </Border>
+                </WrapPanel>
 
-                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,14">
-                        <TextBlock Text="Договор" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox x:Name="ContractTextBox" Style="{StaticResource InputStyle}" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,14">
-                        <TextBlock Text="Статус" Style="{StaticResource FieldLabelStyle}" />
-                        <ComboBox x:Name="StatusComboBox" Style="{StaticResource InputStyle}" />
-                    </StackPanel>
+                <TabControl Grid.Row="1">
+                    <TabItem Header="Основное">
+                        <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
+                            <Grid Margin="0,16,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.08*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="1*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,14">
-                        <TextBlock Text="Менеджер" Style="{StaticResource FieldLabelStyle}" />
-                        <ComboBox x:Name="ManagerComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,14">
-                        <TextBlock Text="Валюта" Style="{StaticResource FieldLabelStyle}" />
-                        <ComboBox x:Name="CurrencyComboBox" Style="{StaticResource InputStyle}" />
-                    </StackPanel>
+                                <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource DialogCardStyle}" Padding="16" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="О контрагенте" Style="{StaticResource SectionTitleStyle}" />
+                                        <TextBlock Text="Тип и роли влияют на набор реквизитов и отчетность." Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
 
-                    <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,0,14">
-                        <TextBlock Text="Телефон" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox x:Name="PhoneTextBox" Style="{StaticResource InputStyle}" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="3" Grid.Column="2" Margin="0,0,0,14">
-                        <TextBlock Text="E-mail" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox x:Name="EmailTextBox" Style="{StaticResource InputStyle}" />
-                    </StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
-                        <TextBlock Text="Комментарий" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox x:Name="NotesTextBox"
-                                 Style="{StaticResource DialogMultilineTextBoxStyle}"
-                                 Height="100"
-                                 VerticalScrollBarVisibility="Hidden" />
-                    </StackPanel>
-                </Grid>
-            </ScrollViewer>
+                                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
+                                                <TextBlock Text="Код" Style="{StaticResource FieldLabelStyle}" />
+                                                <TextBox x:Name="CodeTextBox" Style="{StaticResource InputStyle}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
+                                                <TextBlock Text="Тип контрагента" Style="{StaticResource FieldLabelStyle}" />
+                                                <ComboBox x:Name="CounterpartyTypeComboBox" Style="{StaticResource InputStyle}" SelectionChanged="HandleCounterpartyTypeChanged" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,12">
+                                                <TextBlock Text="Название" Style="{StaticResource FieldLabelStyle}" />
+                                                <TextBox x:Name="NameTextBox" Style="{StaticResource InputStyle}" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                                                <TextBlock Text="Роли" Style="{StaticResource FieldLabelStyle}" />
+                                                <WrapPanel Margin="0,4,0,0">
+                                                    <CheckBox x:Name="BuyerCheckBox" Content="Покупатель" Margin="0,0,16,8" />
+                                                    <CheckBox x:Name="SupplierCheckBox" Content="Поставщик" Margin="0,0,16,8" />
+                                                    <CheckBox x:Name="OtherRoleCheckBox" Content="Прочие" Margin="0,0,16,8" />
+                                                </WrapPanel>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,4,0,0">
+                                                <TextBlock Text="Статус" Style="{StaticResource FieldLabelStyle}" />
+                                                <ComboBox x:Name="StatusComboBox" Style="{StaticResource InputStyle}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="3" Grid.Column="2" Margin="0,4,0,0">
+                                                <TextBlock Text="Валюта" Style="{StaticResource FieldLabelStyle}" />
+                                                <ComboBox x:Name="CurrencyComboBox" Style="{StaticResource InputStyle}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource DialogCardStyle}" Padding="16" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="Классификация" Style="{StaticResource SectionTitleStyle}" />
+                                        <TextBlock Text="Регион и город работают как будущая структура папок покупателей." Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
+                                                <TextBlock Text="Регион / республика / край" Style="{StaticResource FieldLabelStyle}" />
+                                                <ComboBox x:Name="RegionComboBox" Style="{StaticResource InputStyle}" IsEditable="True" SelectionChanged="HandleRegionChanged" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
+                                                <TextBlock Text="Город" Style="{StaticResource FieldLabelStyle}" />
+                                                <ComboBox x:Name="CityComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,12">
+                                                <TextBlock Text="Источник" Style="{StaticResource FieldLabelStyle}" />
+                                                <ComboBox x:Name="SourceComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,12">
+                                                <TextBlock Text="Ответственный" Style="{StaticResource FieldLabelStyle}" />
+                                                <ComboBox x:Name="ResponsibleComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                                                <TextBlock Text="Теги" Style="{StaticResource FieldLabelStyle}" />
+                                                <TextBox x:Name="TagsTextBox" Style="{StaticResource InputStyle}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource DialogCardStyle}" Padding="16" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock x:Name="LegalDetailsTitleText" Text="Юридические данные" Style="{StaticResource SectionTitleStyle}" />
+                                        <TextBlock Text="Набор полей меняется от типа контрагента." Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
+                                                <TextBlock Text="ИНН" Style="{StaticResource FieldLabelStyle}" />
+                                                <TextBox x:Name="InnTextBox" Style="{StaticResource InputStyle}" />
+                                            </StackPanel>
+                                            <StackPanel x:Name="KppPanel" Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
+                                                <TextBlock Text="КПП" Style="{StaticResource FieldLabelStyle}" />
+                                                <TextBox x:Name="KppTextBox" Style="{StaticResource InputStyle}" />
+                                            </StackPanel>
+
+                                            <StackPanel x:Name="OgrnPanel" Grid.Row="1" Grid.Column="0" Margin="0,0,0,12">
+                                                <TextBlock x:Name="OgrnLabelText" Text="ОГРН" Style="{StaticResource FieldLabelStyle}" />
+                                                <TextBox x:Name="OgrnTextBox" Style="{StaticResource InputStyle}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,12">
+                                                <TextBlock Text="Договор" Style="{StaticResource FieldLabelStyle}" />
+                                                <TextBox x:Name="ContractTextBox" Style="{StaticResource InputStyle}" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                                                <TextBlock Text="Юр. адрес" Style="{StaticResource FieldLabelStyle}" />
+                                                <TextBox x:Name="LegalAddressTextBox" Style="{StaticResource InputStyle}" Margin="0,0,0,10" />
+                                                <TextBlock Text="Факт. адрес" Style="{StaticResource FieldLabelStyle}" />
+                                                <TextBox x:Name="ActualAddressTextBox" Style="{StaticResource InputStyle}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource DialogCardStyle}" Padding="16" Margin="0,0,0,16">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                        </Grid.RowDefinitions>
+                                        <Grid Margin="0,0,0,12">
+                                            <StackPanel>
+                                                <TextBlock Text="Контакты" Style="{StaticResource SectionTitleStyle}" />
+                                                <TextBlock Text="Можно вести несколько телефонов, e-mail и контактных лиц." Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Content="+ контакт" Style="{StaticResource DialogSecondaryButtonStyle}" Width="108" Margin="0,0,8,0" Click="HandleAddContactClick" />
+                                                <Button Content="Удалить" Style="{StaticResource DialogSecondaryButtonStyle}" Width="98" Click="HandleRemoveContactClick" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <DataGrid x:Name="ContactsGrid"
+                                                  Grid.Row="1"
+                                                  MinHeight="220"
+                                                  IsReadOnly="False"
+                                                  CanUserAddRows="False"
+                                                  ScrollViewer.VerticalScrollBarVisibility="Hidden">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Имя" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="1.2*" />
+                                                <DataGridTextColumn Header="Роль" Binding="{Binding Role, UpdateSourceTrigger=PropertyChanged}" Width="1*" />
+                                                <DataGridTextColumn Header="Телефон" Binding="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" Width="1*" />
+                                                <DataGridTextColumn Header="E-mail" Binding="{Binding Email, UpdateSourceTrigger=PropertyChanged}" Width="1.2*" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </Grid>
+                                </Border>
+
+                                <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Style="{StaticResource DialogCardStyle}" Padding="16">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1*" />
+                                            <ColumnDefinition Width="16" />
+                                            <ColumnDefinition Width="1*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Основные контакты" Style="{StaticResource SectionTitleStyle}" />
+                                            <TextBlock Text="Эти поля остаются для быстрых списков и старой совместимости." Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
+                                            <TextBlock Text="Телефон" Style="{StaticResource FieldLabelStyle}" />
+                                            <TextBox x:Name="PhoneTextBox" Style="{StaticResource InputStyle}" Margin="0,0,0,10" />
+                                            <TextBlock Text="E-mail" Style="{StaticResource FieldLabelStyle}" />
+                                            <TextBox x:Name="EmailTextBox" Style="{StaticResource InputStyle}" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Заметка о клиенте" Style="{StaticResource SectionTitleStyle}" />
+                                            <TextBlock Text="Источник, теги и заметка помогают быстро понять историю отношений." Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
+                                            <TextBox x:Name="NotesTextBox"
+                                                     Style="{StaticResource DialogMultilineTextBoxStyle}"
+                                                     Height="126"
+                                                     VerticalScrollBarVisibility="Hidden" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="Документы">
+                        <Grid Margin="0,16,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="DocumentsSummaryText" Style="{StaticResource SectionHintStyle}" Margin="4,0,0,12" />
+                            <DataGrid x:Name="DocumentsGrid" Grid.Row="1" IsReadOnly="True" MinHeight="360">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Раздел" Binding="{Binding Section}" Width="1*" />
+                                    <DataGridTextColumn Header="Документ" Binding="{Binding Number}" Width="1.1*" />
+                                    <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="0.8*" />
+                                    <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="1*" />
+                                    <DataGridTextColumn Header="Сумма" Binding="{Binding Amount}" Width="1*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="Договоры">
+                        <StackPanel Margin="0,16,0,0">
+                            <TextBlock Text="Договоры" Style="{StaticResource SectionTitleStyle}" />
+                            <TextBlock Text="Основной договор хранится в карточке и используется в заказах, счетах и отгрузках." Margin="0,4,0,16" Style="{StaticResource SectionHintStyle}" />
+                            <TextBlock Text="Основной договор" Style="{StaticResource FieldLabelStyle}" />
+                            <TextBox Text="{Binding Text, ElementName=ContractTextBox}" Style="{StaticResource InputStyle}" IsReadOnly="True" />
+                        </StackPanel>
+                    </TabItem>
+
+                    <TabItem Header="Банковские счета">
+                        <StackPanel Margin="0,16,0,0">
+                            <TextBlock Text="Банковские счета" Style="{StaticResource SectionTitleStyle}" />
+                            <TextBlock Text="Сейчас используется основной расчетный счет. Позже можно расширить до списка счетов." Margin="0,4,0,16" Style="{StaticResource SectionHintStyle}" />
+                            <TextBlock Text="Основной счет" Style="{StaticResource FieldLabelStyle}" />
+                            <TextBox x:Name="BankAccountTextBox" Style="{StaticResource InputStyle}" />
+                        </StackPanel>
+                    </TabItem>
+
+                    <TabItem Header="События">
+                        <StackPanel Margin="0,16,0,0">
+                            <TextBlock Text="События" Style="{StaticResource SectionTitleStyle}" />
+                            <TextBlock x:Name="EventsSummaryText" Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
+                        </StackPanel>
+                    </TabItem>
+
+                    <TabItem Header="Файлы">
+                        <StackPanel Margin="0,16,0,0">
+                            <TextBlock Text="Файлы" Style="{StaticResource SectionTitleStyle}" />
+                            <TextBlock Text="Раздел подготовлен под хранение договоров, сканов и вложений контрагента." Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
+                        </StackPanel>
+                    </TabItem>
+
+                    <TabItem Header="Отчеты">
+                        <StackPanel Margin="0,16,0,0">
+                            <TextBlock Text="Отчеты" Style="{StaticResource SectionTitleStyle}" />
+                            <TextBlock x:Name="ReportsSummaryText" Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
+                        </StackPanel>
+                    </TabItem>
+
+                    <TabItem Header="Персональные данные">
+                        <StackPanel Margin="0,16,0,0">
+                            <TextBlock Text="Персональные данные" Style="{StaticResource SectionTitleStyle}" />
+                            <TextBlock Text="Для физлиц и контактных лиц здесь фиксируется, какие персональные данные используются в карточке." Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
+                        </StackPanel>
+                    </TabItem>
+                </TabControl>
+            </Grid>
         </Border>
 
         <Grid Grid.Row="2" Margin="0,18,0,0">

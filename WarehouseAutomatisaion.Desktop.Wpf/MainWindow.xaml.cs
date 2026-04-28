@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, SectionDefinition> _sections = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, TabItem> _tabsByKey = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, WpfButton> _navButtonsByKey = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DynamicTabDefinition> _dynamicTabsByKey = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly DemoWorkspace _demoWorkspace;
     private readonly SalesWorkspaceStore _salesWorkspaceStore;
@@ -355,12 +356,57 @@ public partial class MainWindow : Window
 
     private TabItem CreateSectionTab(SectionDefinition section)
     {
-        return new TabItem
+        var tab = new TabItem
         {
             Tag = section.Key,
-            Header = CreateTabHeader(section),
+            Header = CreateTabHeader(section.Key, section.Caption, section.Closable),
             Content = CreateSectionContent(section)
         };
+        System.Windows.Automation.AutomationProperties.SetName(tab, section.Caption);
+        return tab;
+    }
+
+    internal bool OpenWorkspaceEditorTab(
+        string key,
+        string caption,
+        string subtitle,
+        Func<FrameworkElement> contentFactory)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return false;
+        }
+
+        if (_tabsByKey.TryGetValue(key, out var existingTab))
+        {
+            WorkspaceTabs.SelectedItem = existingTab;
+            ApplySelection(key);
+            return true;
+        }
+
+        var content = contentFactory();
+        WpfTextNormalizer.NormalizeTree(content);
+        content.Loaded += (_, _) => WpfTextNormalizer.NormalizeTree(content);
+
+        var tab = new TabItem
+        {
+            Tag = key,
+            Header = CreateTabHeader(key, caption, closable: true),
+            Content = content
+        };
+        System.Windows.Automation.AutomationProperties.SetName(tab, caption);
+
+        _dynamicTabsByKey[key] = new DynamicTabDefinition(caption, subtitle);
+        _tabsByKey[key] = tab;
+        WorkspaceTabs.Items.Add(tab);
+        WorkspaceTabs.SelectedItem = tab;
+        ApplySelection(key);
+        return true;
+    }
+
+    internal void CloseWorkspaceTab(string key)
+    {
+        CloseSection(key);
     }
 
     private object CreateSectionContent(SectionDefinition section)
@@ -416,7 +462,7 @@ public partial class MainWindow : Window
         throw new InvalidOperationException($"Unsupported section content type for '{section.Key}'.");
     }
 
-    private object CreateTabHeader(SectionDefinition section)
+    private object CreateTabHeader(string key, string caption, bool closable)
     {
         var panel = new DockPanel
         {
@@ -426,7 +472,7 @@ public partial class MainWindow : Window
 
         var title = new TextBlock
         {
-            Text = section.Caption,
+            Text = caption,
             Margin = new Thickness(8, 4, 6, 4),
             VerticalAlignment = VerticalAlignment.Center,
             FontSize = 14,
@@ -435,11 +481,11 @@ public partial class MainWindow : Window
 
         panel.Children.Add(title);
 
-        if (section.Closable)
+        if (closable)
         {
             var closeButton = new WpfButton
             {
-                Tag = section.Key,
+                Tag = key,
                 Content = "×",
                 Width = 22,
                 Height = 22,
@@ -477,6 +523,7 @@ public partial class MainWindow : Window
 
         WorkspaceTabs.Items.Remove(tab);
         _tabsByKey.Remove(sectionKey);
+        _dynamicTabsByKey.Remove(sectionKey);
 
         if (WorkspaceTabs.Items.Count == 0)
         {
@@ -500,6 +547,11 @@ public partial class MainWindow : Window
         {
             CurrentSectionTitleText.Text = section.Caption;
             CurrentSectionSubtitleText.Text = section.Subtitle;
+        }
+        else if (_dynamicTabsByKey.TryGetValue(sectionKey, out var dynamicTab))
+        {
+            CurrentSectionTitleText.Text = dynamicTab.Caption;
+            CurrentSectionSubtitleText.Text = dynamicTab.Subtitle;
         }
 
         foreach (var pair in _navButtonsByKey)
@@ -600,4 +652,8 @@ public partial class MainWindow : Window
         string Subtitle,
         bool Closable,
         Func<Control> Factory);
+
+    private sealed record DynamicTabDefinition(
+        string Caption,
+        string Subtitle);
 }
