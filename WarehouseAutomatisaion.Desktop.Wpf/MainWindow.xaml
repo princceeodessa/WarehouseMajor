@@ -23,6 +23,7 @@
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -33,7 +34,8 @@
                                 CornerRadius="12">
                             <ContentPresenter Margin="{TemplateBinding Padding}"
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="Center" />
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -125,11 +127,12 @@
                                Foreground="#7A86A5" />
 
                     <ScrollViewer Grid.Row="1"
-                                  VerticalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Hidden"
                                   HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
                             <Button x:Name="NavDashboardButton"
                                     Tag="dashboard"
+                                    AutomationProperties.Name="Главная"
                                     Style="{StaticResource SidebarNavButtonStyle}"
                                     Click="HandleNavButtonClick">
                                 <StackPanel Orientation="Horizontal">
@@ -140,6 +143,7 @@
 
                             <Button x:Name="NavSalesButton"
                                     Tag="sales"
+                                    AutomationProperties.Name="Заказы"
                                     Style="{StaticResource SidebarNavButtonStyle}"
                                     Click="HandleNavButtonClick">
                                 <StackPanel Orientation="Horizontal">
@@ -150,6 +154,7 @@
 
                             <Button x:Name="NavCustomersButton"
                                     Tag="customers"
+                                    AutomationProperties.Name="Клиенты"
                                     Style="{StaticResource SidebarNavButtonStyle}"
                                     Click="HandleNavButtonClick">
                                 <StackPanel Orientation="Horizontal">
@@ -160,6 +165,7 @@
 
                             <Button x:Name="NavInvoicesButton"
                                     Tag="invoices"
+                                    AutomationProperties.Name="Счета"
                                     Style="{StaticResource SidebarNavButtonStyle}"
                                     Click="HandleNavButtonClick">
                                 <StackPanel Orientation="Horizontal">
@@ -170,6 +176,7 @@
 
                             <Button x:Name="NavShipmentsButton"
                                     Tag="shipments"
+                                    AutomationProperties.Name="Отгрузки"
                                     Style="{StaticResource SidebarNavButtonStyle}"
                                     Click="HandleNavButtonClick">
                                 <StackPanel Orientation="Horizontal">
@@ -180,6 +187,7 @@
 
                             <Button x:Name="NavPurchasingButton"
                                     Tag="purchasing"
+                                    AutomationProperties.Name="Закупки"
                                     Style="{StaticResource SidebarNavButtonStyle}"
                                     Click="HandleNavButtonClick">
                                 <StackPanel Orientation="Horizontal">
@@ -190,6 +198,7 @@
 
                             <Button x:Name="NavWarehouseButton"
                                     Tag="warehouse"
+                                    AutomationProperties.Name="Склад"
                                     Style="{StaticResource SidebarNavButtonStyle}"
                                     Click="HandleNavButtonClick">
                                 <StackPanel Orientation="Horizontal">
@@ -200,6 +209,7 @@
 
                             <Button x:Name="NavCatalogButton"
                                     Tag="catalog"
+                                    AutomationProperties.Name="Товары"
                                     Style="{StaticResource SidebarNavButtonStyle}"
                                     Click="HandleNavButtonClick">
                                 <StackPanel Orientation="Horizontal">
@@ -210,6 +220,7 @@
 
                             <Button x:Name="NavAuditButton"
                                     Tag="audit"
+                                    AutomationProperties.Name="Отчеты"
                                     Style="{StaticResource SidebarNavButtonStyle}"
                                     Click="HandleNavButtonClick">
                                 <StackPanel Orientation="Horizontal">
@@ -220,6 +231,7 @@
 
                             <Button x:Name="NavModelButton"
                                     Tag="model"
+                                    AutomationProperties.Name="Связи данных"
                                     Style="{StaticResource SidebarNavButtonStyle}"
                                     Click="HandleNavButtonClick">
                                 <StackPanel Orientation="Horizontal">

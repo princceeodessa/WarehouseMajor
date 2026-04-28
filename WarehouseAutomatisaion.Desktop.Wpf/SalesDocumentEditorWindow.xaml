@@ -9,62 +9,15 @@
         WindowStartupLocation="CenterOwner"
         Background="#F6F8FC">
     <Window.Resources>
-        <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#E4EAF5" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="16" />
-        </Style>
-        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#6E7B98" />
-            <Setter Property="Margin" Value="0,0,0,5" />
-        </Style>
-        <Style x:Key="InputStyle" TargetType="Control">
-            <Setter Property="Height" Value="38" />
-            <Setter Property="FontSize" Value="13.5" />
-        </Style>
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="18,0" />
-            <Setter Property="Background" Value="#4F5BFF" />
-            <Setter Property="BorderBrush" Value="#4F5BFF" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-        <Style x:Key="GhostButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="18,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#D8DFF0" />
-            <Setter Property="Foreground" Value="#25324A" />
-        </Style>
-        <Style TargetType="DataGrid">
-            <Setter Property="AutoGenerateColumns" Value="False" />
-            <Setter Property="CanUserAddRows" Value="False" />
-            <Setter Property="CanUserDeleteRows" Value="False" />
-            <Setter Property="CanUserResizeRows" Value="False" />
-            <Setter Property="HeadersVisibility" Value="Column" />
-            <Setter Property="GridLinesVisibility" Value="Horizontal" />
-            <Setter Property="HorizontalGridLinesBrush" Value="#EEF2FA" />
-            <Setter Property="VerticalGridLinesBrush" Value="#EEF2FA" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="RowHeight" Value="46" />
-            <Setter Property="ColumnHeaderHeight" Value="40" />
-            <Setter Property="SelectionMode" Value="Single" />
-            <Setter Property="SelectionUnit" Value="FullRow" />
+        <Style x:Key="CardStyle" TargetType="Border" BasedOn="{StaticResource DialogCardStyle}" />
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource DialogFieldLabelStyle}" />
+        <Style x:Key="InputStyle" TargetType="Control" BasedOn="{StaticResource DialogInputStyle}" />
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogPrimaryButtonStyle}" />
+        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogSecondaryButtonStyle}" />
+        <Style TargetType="DataGrid" BasedOn="{StaticResource DialogDataGridStyle}">
             <Setter Property="IsReadOnly" Value="True" />
-            <Setter Property="RowHeaderWidth" Value="0" />
         </Style>
-        <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#EEF2FA" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="Foreground" Value="#73809C" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Padding" Value="14,0" />
-        </Style>
+        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DialogDataGridHeaderStyle}" />
     </Window.Resources>
 
     <Grid Margin="24">
@@ -151,10 +104,9 @@
                 <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="5">
                     <TextBlock Text="Комментарий" Style="{StaticResource FieldLabelStyle}" />
                     <TextBox x:Name="CommentTextBox"
+                             Style="{StaticResource DialogMultilineTextBoxStyle}"
                              Height="78"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto" />
+                             VerticalScrollBarVisibility="Hidden" />
                 </StackPanel>
             </Grid>
         </Border>

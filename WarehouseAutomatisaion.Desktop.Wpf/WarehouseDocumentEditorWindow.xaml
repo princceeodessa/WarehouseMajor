@@ -9,86 +9,29 @@
         WindowStartupLocation="CenterOwner"
         Background="#F6F8FC">
     <Window.Resources>
-        <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="#FFFFFF" />
+        <Style x:Key="CardStyle" TargetType="Border" BasedOn="{StaticResource DialogCardStyle}">
             <Setter Property="BorderBrush" Value="#E8EDF7" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="18" />
         </Style>
 
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="42" />
-            <Setter Property="Padding" Value="20,0" />
-            <Setter Property="Background" Value="#4F5BFF" />
-            <Setter Property="BorderBrush" Value="#4F5BFF" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="12">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource DialogFieldLabelStyle}" />
 
-        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#D8DFF0" />
-            <Setter Property="Foreground" Value="#25324A" />
-        </Style>
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogPrimaryButtonStyle}" />
 
-        <Style TargetType="TextBox">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="BorderBrush" Value="#D8DFF0" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Background" Value="#FFFFFF" />
-        </Style>
+        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogSecondaryButtonStyle}" />
 
-        <Style TargetType="ComboBox">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="10,6" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="BorderBrush" Value="#D8DFF0" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Background" Value="#FFFFFF" />
-        </Style>
+        <Style TargetType="TextBox" BasedOn="{StaticResource DialogTextBoxStyle}" />
 
-        <Style TargetType="DataGrid">
-            <Setter Property="AutoGenerateColumns" Value="False" />
-            <Setter Property="CanUserAddRows" Value="False" />
-            <Setter Property="CanUserDeleteRows" Value="False" />
-            <Setter Property="CanUserResizeRows" Value="False" />
-            <Setter Property="HeadersVisibility" Value="Column" />
-            <Setter Property="GridLinesVisibility" Value="Horizontal" />
-            <Setter Property="HorizontalGridLinesBrush" Value="#EEF2FA" />
-            <Setter Property="VerticalGridLinesBrush" Value="#EEF2FA" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Background" Value="#FFFFFF" />
+        <Style TargetType="ComboBox" BasedOn="{StaticResource DialogComboBoxStyle}" />
+
+        <Style TargetType="DataGrid" BasedOn="{StaticResource DialogDataGridStyle}">
             <Setter Property="RowHeight" Value="48" />
             <Setter Property="ColumnHeaderHeight" Value="42" />
-            <Setter Property="SelectionMode" Value="Single" />
-            <Setter Property="SelectionUnit" Value="FullRow" />
             <Setter Property="IsReadOnly" Value="True" />
-            <Setter Property="RowHeaderWidth" Value="0" />
         </Style>
 
-        <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#EEF2FA" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="Foreground" Value="#73809C" />
+        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DialogDataGridHeaderStyle}">
             <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Padding" Value="16,0,16,0" />
         </Style>
     </Window.Resources>
@@ -127,38 +70,38 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,16">
-                    <TextBlock Text="Номер" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
+                    <TextBlock Text="Номер" Style="{StaticResource FieldLabelStyle}" />
                     <TextBox x:Name="NumberTextBox" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="0" Grid.Column="1" Margin="12,0,12,16">
-                    <TextBlock Text="Дата" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
-                    <DatePicker x:Name="DocumentDatePicker" Height="40" FontSize="14" />
+                    <TextBlock Text="Дата" Style="{StaticResource FieldLabelStyle}" />
+                    <DatePicker x:Name="DocumentDatePicker" Style="{StaticResource DialogDatePickerStyle}" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="0" Grid.Column="2" Margin="12,0,0,16">
-                    <TextBlock Text="Статус" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
+                    <TextBlock Text="Статус" Style="{StaticResource FieldLabelStyle}" />
                     <ComboBox x:Name="StatusComboBox" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,12,16">
-                    <TextBlock Text="Склад-источник" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
+                    <TextBlock Text="Склад-источник" Style="{StaticResource FieldLabelStyle}" />
                     <ComboBox x:Name="SourceWarehouseComboBox" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="12,0,12,16">
-                    <TextBlock x:Name="TargetWarehouseLabelText" Text="Склад-получатель" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
+                    <TextBlock x:Name="TargetWarehouseLabelText" Text="Склад-получатель" Style="{StaticResource FieldLabelStyle}" />
                     <ComboBox x:Name="TargetWarehouseComboBox" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="2" Margin="12,0,0,16">
-                    <TextBlock Text="Основание / ссылка" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
+                    <TextBlock Text="Основание / ссылка" Style="{StaticResource FieldLabelStyle}" />
                     <TextBox x:Name="RelatedDocumentTextBox" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                    <TextBlock Text="Комментарий" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
-                    <TextBox x:Name="CommentTextBox" Height="86" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top" />
+                    <TextBlock Text="Комментарий" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox x:Name="CommentTextBox" Style="{StaticResource DialogMultilineTextBoxStyle}" Height="86" />
                 </StackPanel>
             </Grid>
         </Border>

@@ -9,15 +9,8 @@
         WindowStartupLocation="CenterOwner"
         Background="#F6F8FC">
     <Window.Resources>
-        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#6E7B98" />
-            <Setter Property="Margin" Value="0,0,0,5" />
-        </Style>
-        <Style x:Key="InputStyle" TargetType="Control">
-            <Setter Property="Height" Value="38" />
-            <Setter Property="FontSize" Value="13.5" />
-        </Style>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource DialogFieldLabelStyle}" />
+        <Style x:Key="InputStyle" TargetType="Control" BasedOn="{StaticResource DialogInputStyle}" />
     </Window.Resources>
 
     <Grid Margin="24">
@@ -40,12 +33,9 @@
         </StackPanel>
 
         <Border Grid.Row="1"
-                Background="#FFFFFF"
-                BorderBrush="#E4EAF5"
-                BorderThickness="1"
-                CornerRadius="16"
+                Style="{StaticResource DialogCardStyle}"
                 Padding="18">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ScrollViewer VerticalScrollBarVisibility="Hidden">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -99,10 +89,9 @@
                     <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3">
                         <TextBlock Text="Комментарий" Style="{StaticResource FieldLabelStyle}" />
                         <TextBox x:Name="NotesTextBox"
+                                 Style="{StaticResource DialogMultilineTextBoxStyle}"
                                  Height="100"
-                                 AcceptsReturn="True"
-                                 TextWrapping="Wrap"
-                                 VerticalScrollBarVisibility="Auto" />
+                                 VerticalScrollBarVisibility="Hidden" />
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
@@ -114,17 +103,13 @@
                        VerticalAlignment="Center" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Отмена"
+                        Style="{StaticResource DialogSecondaryButtonStyle}"
                         Width="120"
-                        Height="40"
                         Margin="0,0,10,0"
                         Click="HandleCancelClick" />
                 <Button Content="Сохранить"
+                        Style="{StaticResource DialogPrimaryButtonStyle}"
                         Width="150"
-                        Height="40"
-                        Background="#4F5BFF"
-                        BorderBrush="#4F5BFF"
-                        Foreground="#FFFFFF"
-                        FontWeight="SemiBold"
                         Click="HandleSaveClick" />
             </StackPanel>
         </Grid>

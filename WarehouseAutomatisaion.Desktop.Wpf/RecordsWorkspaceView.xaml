@@ -23,6 +23,8 @@
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -30,7 +32,10 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="12">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -52,6 +57,8 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Foreground" Value="#6A7898" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -59,7 +66,9 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="17">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -86,6 +95,7 @@
             <Setter Property="EnableRowVirtualization" Value="True" />
             <Setter Property="EnableColumnVirtualization" Value="True" />
             <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden" />
             <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
             <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
         </Style>
@@ -117,7 +127,7 @@
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Background="#F7F9FF">
+    <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Background="#F7F9FF">
         <Grid Margin="28,22,28,28">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -214,46 +224,36 @@
                         <Border Width="176"
                                 MinHeight="118"
                                 Margin="0,0,14,14"
-                                Padding="18,16"
-                                Style="{StaticResource PageCardStyle}">
+                                Style="{StaticResource MetricCardStyle}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <Border Width="34"
-                                            Height="34"
+                                    <Border Style="{StaticResource MetricIconBoxStyle}"
                                             Background="{Binding IconBackground}"
-                                            CornerRadius="12">
+                                            Width="34"
+                                            Height="34">
                                         <TextBlock Text="{Binding IconGlyph}"
-                                                   FontFamily="Segoe Fluent Icons"
+                                                   Style="{StaticResource MetricIconTextStyle}"
                                                    FontSize="16"
-                                                   Foreground="{Binding AccentBrush}"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center" />
+                                                   Foreground="{Binding AccentBrush}" />
                                     </Border>
                                     <TextBlock Text="{Binding Title}"
                                                Margin="12,6,0,0"
-                                               FontSize="12"
-                                               Foreground="#7E8AA7"
-                                               TextWrapping="Wrap"
-                                               TextTrimming="CharacterEllipsis"
-                                               MaxHeight="34" />
+                                               MaxHeight="34"
+                                               Style="{StaticResource MetricCaptionStyle}" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding Value}"
                                            Margin="0,12,0,0"
-                                           FontSize="26"
-                                           FontWeight="SemiBold"
-                                           Foreground="#17213D" />
+                                           Style="{StaticResource MetricValueStyle}" />
                                 <TextBlock Text="{Binding Delta}"
                                            Margin="0,10,0,0"
-                                           FontSize="13"
                                            FontWeight="SemiBold"
-                                           Foreground="{Binding DeltaBrush}" />
+                                           Foreground="{Binding DeltaBrush}"
+                                           Style="{StaticResource MetricHintStyle}" />
                                 <TextBlock Text="{Binding Hint}"
                                            Margin="0,2,0,0"
-                                           FontSize="11"
-                                           Foreground="#A0ABC1"
                                            TextWrapping="Wrap"
-                                           TextTrimming="CharacterEllipsis"
-                                           MaxHeight="32" />
+                                           MaxHeight="32"
+                                           Style="{StaticResource MetricHintStyle}" />
                             </StackPanel>
                         </Border>
                     </DataTemplate>
@@ -271,49 +271,46 @@
                     <WrapPanel Margin="18,16,18,16" VerticalAlignment="Center">
                         <ComboBox x:Name="PrimaryFilterCombo"
                                   Width="150"
-                                  Height="36"
+                                  Style="{StaticResource TableFilterComboBoxStyle}"
                                   SelectionChanged="HandleFilterChanged" />
                         <StackPanel x:Name="DateRangePanel" Orientation="Horizontal" Margin="12,0,0,0" Visibility="Collapsed">
                             <DatePicker x:Name="StartDatePicker"
                                         Width="128"
-                                        Height="36"
+                                        Style="{StaticResource TableFilterDatePickerStyle}"
                                         SelectedDateChanged="HandleDateFilterChanged" />
                             <DatePicker x:Name="EndDatePicker"
                                         Width="128"
-                                        Height="36"
+                                        Style="{StaticResource TableFilterDatePickerStyle}"
                                         Margin="10,0,0,0"
                                         SelectedDateChanged="HandleDateFilterChanged" />
                         </StackPanel>
                         <Button x:Name="FilterButton"
                                 Margin="12,0,0,0"
-                                Style="{StaticResource GhostButtonStyle}"
+                                Style="{StaticResource TableFilterActionButtonStyle}"
                                 Content="Фильтры"
                                 Click="HandleFilterButtonClick" />
                     </WrapPanel>
 
                     <Grid Grid.Row="1">
                         <DataGrid x:Name="RecordsGrid"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Hidden"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto" />
                         <TextBlock x:Name="EmptyStateText"
                                    Text="Нет данных"
-                                   FontSize="15"
-                                   Foreground="#9AA5BD"
+                                   Style="{StaticResource TableEmptyTitleStyle}"
                                    Visibility="Collapsed"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center" />
                     </Grid>
 
-                    <Grid Grid.Row="2" Margin="18,0,18,0">
+                    <Grid Grid.Row="2" Style="{StaticResource TableFooterGridStyle}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <TextBlock x:Name="FooterCountText"
-                                   VerticalAlignment="Center"
-                                   FontSize="12"
-                                   Foreground="#8C97B0" />
+                                   Style="{StaticResource TableFooterTextStyle}" />
 
                         <WrapPanel x:Name="PaginationPanel"
                                    Grid.Column="1"

@@ -192,19 +192,11 @@ public partial class RecordsWorkspaceView : UserControl
     {
         var template = new DataTemplate();
         var button = new FrameworkElementFactory(typeof(WpfButton));
-        button.SetBinding(ContentControl.ContentProperty, new Binding($"Cells[{column.CellIndex}].Text"));
+        button.SetValue(ContentControl.ContentProperty, "\uE712");
         button.SetBinding(FrameworkElement.TagProperty, new Binding("."));
-        button.SetValue(Control.ForegroundProperty, BrushPalette.FromHex("#7180A0"));
-        button.SetValue(Control.BackgroundProperty, Brushes.Transparent);
-        button.SetValue(Control.BorderBrushProperty, Brushes.Transparent);
-        button.SetValue(Control.BorderThicknessProperty, new Thickness(0));
-        button.SetValue(Control.FontSizeProperty, 18d);
-        button.SetValue(Control.PaddingProperty, new Thickness(0));
-        button.SetValue(FrameworkElement.WidthProperty, 36d);
-        button.SetValue(FrameworkElement.HeightProperty, 28d);
+        button.SetValue(FrameworkElement.StyleProperty, TryFindResource("TableRowActionButtonStyle") as Style);
         button.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
         button.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
-        button.SetValue(FrameworkElement.CursorProperty, Cursors.Hand);
         button.AddHandler(WpfButton.ClickEvent, new RoutedEventHandler(HandleRowActionsClick));
         template.VisualTree = button;
 
@@ -335,9 +327,7 @@ public partial class RecordsWorkspaceView : UserControl
                 PaginationPanel.Children.Add(new TextBlock
                 {
                     Text = "...",
-                    Margin = new Thickness(8, 10, 8, 0),
-                    Foreground = BrushPalette.FromHex("#98A3BC"),
-                    FontSize = 13
+                    Style = TryFindResource("TablePagerEllipsisTextStyle") as Style
                 });
                 continue;
             }
@@ -382,17 +372,10 @@ public partial class RecordsWorkspaceView : UserControl
         var button = new Button
         {
             Content = text,
-            Width = 30,
-            Height = 30,
-            Margin = new Thickness(0, 0, 8, 0),
-            Cursor = System.Windows.Input.Cursors.Hand,
-            BorderThickness = new Thickness(1),
-            BorderBrush = active ? BrushPalette.FromHex("#C9D3F7") : BrushPalette.FromHex("#E4EAF5"),
-            Background = active ? BrushPalette.FromHex("#EEF2FF") : Brushes.White,
-            Foreground = active ? BrushPalette.FromHex("#2F45D3") : BrushPalette.FromHex("#7180A0"),
-            FontSize = 12,
-            FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal,
+            Style = TryFindResource(active ? "TablePagerActiveButtonStyle" : "TablePagerButtonStyle") as Style,
+            Cursor = disabled ? Cursors.Arrow : Cursors.Hand,
             IsEnabled = !disabled,
+            Opacity = disabled ? 0.45d : 1d,
             Tag = targetPage
         };
         button.Click += HandlePageClick;

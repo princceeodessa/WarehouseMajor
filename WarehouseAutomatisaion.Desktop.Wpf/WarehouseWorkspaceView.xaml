@@ -36,6 +36,8 @@
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -43,7 +45,10 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="12">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -66,29 +71,26 @@
             <Setter Property="Padding" Value="0,0,0,15" />
             <Setter Property="Margin" Value="0,0,34,0" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 Background="{TemplateBinding Background}">
-                            <ContentPresenter />
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <Style x:Key="FilterComboStyle" TargetType="ComboBox">
-            <Setter Property="Height" Value="38" />
+        <Style x:Key="FilterComboStyle" TargetType="ComboBox" BasedOn="{StaticResource TableFilterComboBoxStyle}">
             <Setter Property="MinWidth" Value="118" />
-            <Setter Property="Padding" Value="12,0,8,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#E4EAF5" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#1B2440" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="StockGridStyle" TargetType="DataGrid">
@@ -113,6 +115,7 @@
             <Setter Property="EnableRowVirtualization" Value="True" />
             <Setter Property="EnableColumnVirtualization" Value="True" />
             <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden" />
             <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
             <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
         </Style>
@@ -183,7 +186,7 @@
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto"
+    <ScrollViewer VerticalScrollBarVisibility="Hidden"
                   HorizontalScrollBarVisibility="Disabled"
                   Background="{StaticResource PageBrush}">
         <Grid Margin="28,24,28,30">
@@ -194,7 +197,7 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Grid x:Name="HeroGrid" Grid.Row="0" Margin="0,0,0,24">
+            <Grid x:Name="HeroGrid" Grid.Row="0" Style="{StaticResource TopHeaderGridStyle}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="760" />
@@ -204,15 +207,11 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,24,0">
+                <StackPanel Grid.Row="0" Grid.Column="0" Style="{StaticResource TopHeaderTextPanelStyle}">
                     <TextBlock Text="Склад"
-                               FontSize="34"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource TextBrush}" />
+                               Style="{StaticResource TopHeaderTitleStyle}" />
                     <TextBlock Text="Остатки, перемещения, резервы и инвентаризация"
-                               Margin="0,8,0,0"
-                               FontSize="15"
-                               Foreground="{StaticResource SubtleBrush}" />
+                               Style="{StaticResource TopHeaderSubtitleStyle}" />
 
                     <StackPanel Orientation="Horizontal" Margin="0,22,0,0" VerticalAlignment="Center">
                         <TextBlock FontFamily="Segoe Fluent Icons"
@@ -247,7 +246,7 @@
                     </StackPanel>
                 </StackPanel>
 
-                <Grid x:Name="HeroActionsGrid" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Right">
+                <Grid x:Name="HeroActionsGrid" Grid.Row="0" Grid.Column="1" Style="{StaticResource TopHeaderActionsGridStyle}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -257,12 +256,7 @@
                     </Grid.ColumnDefinitions>
 
                     <Border Grid.Column="0"
-                            Height="42"
-                            Background="#FFFFFF"
-                            BorderBrush="#E4EAF5"
-                            BorderThickness="1"
-                            CornerRadius="12"
-                            Padding="16,0,14,0"
+                            Style="{StaticResource TopSearchContainerStyle}"
                             Margin="0,0,12,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -270,24 +264,13 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="HeroSearchBox"
-                                     BorderThickness="0"
-                                     Background="Transparent"
-                                     FontSize="14"
-                                     Foreground="#1B2440"
-                                     VerticalContentAlignment="Center"
+                                     Style="{StaticResource TopSearchTextBoxStyle}"
                                      TextChanged="HandleHeroSearchTextChanged" />
                             <TextBlock x:Name="HeroSearchPlaceholder"
                                        Text="Поиск по товару, коду или штрихкоду..."
-                                       FontSize="14"
-                                       Foreground="#98A3BC"
-                                       VerticalAlignment="Center"
-                                       IsHitTestVisible="False" />
+                                       Style="{StaticResource TopSearchPlaceholderStyle}" />
                             <TextBlock Grid.Column="1"
-                                       FontFamily="Segoe Fluent Icons"
-                                       Text="&#xE721;"
-                                       FontSize="15"
-                                       Foreground="#73809C"
-                                       VerticalAlignment="Center" />
+                                       Style="{StaticResource TopSearchIconStyle}" />
                         </Grid>
                     </Border>
 
@@ -295,7 +278,7 @@
                             Grid.Column="1"
                             Width="104"
                             Margin="0,0,12,0"
-                            Style="{StaticResource GhostButtonStyle}"
+                            Style="{StaticResource TopActionButtonStyle}"
                             Click="HandleImportClick">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock FontFamily="Segoe Fluent Icons"
@@ -311,7 +294,7 @@
                             Grid.Column="2"
                             Width="104"
                             Margin="0,0,12,0"
-                            Style="{StaticResource GhostButtonStyle}"
+                            Style="{StaticResource TopActionButtonStyle}"
                             Click="HandleExportClick">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock FontFamily="Segoe Fluent Icons"
@@ -327,7 +310,7 @@
                             Grid.Column="3"
                             Width="170"
                             Margin="0,0,12,0"
-                            Style="{StaticResource PrimaryButtonStyle}"
+                            Style="{StaticResource TopPrimaryActionButtonStyle}"
                             Click="HandleCreateClick">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock FontFamily="Segoe Fluent Icons"
@@ -342,7 +325,7 @@
                     <Button x:Name="ActionsButton"
                             Grid.Column="4"
                             Width="116"
-                            Style="{StaticResource GhostButtonStyle}"
+                            Style="{StaticResource TopActionButtonStyle}"
                             Click="HandleActionsClick">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="Действия" VerticalAlignment="Center" />
@@ -358,10 +341,8 @@
 
             <WrapPanel x:Name="MetricsPanel" Grid.Row="1" Margin="0,0,0,22">
                 <Border Width="252"
-                        Height="102"
                         Margin="0,0,14,14"
-                        Padding="16"
-                        Style="{StaticResource CardStyle}"
+                        Style="{StaticResource MetricCardStyle}"
                         Cursor="Hand"
                         Tag="critical"
                         MouseLeftButtonUp="HandleMetricCardClick">
@@ -371,28 +352,23 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="40" Height="40" CornerRadius="14" Background="#FFF2F2">
-                            <TextBlock FontFamily="Segoe Fluent Icons"
+                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#FFF2F2">
+                            <TextBlock Style="{StaticResource MetricIconTextStyle}"
                                        Text="&#xE814;"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontSize="18"
                                        Foreground="#FF5B5B" />
                         </Border>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                            <TextBlock x:Name="CriticalMetricText" FontSize="19" FontWeight="SemiBold" Foreground="#FF5B5B" />
-                            <TextBlock Text="Критичных остатков" Margin="0,5,0,0" FontSize="14" FontWeight="SemiBold" Foreground="#1B2440" />
-                            <TextBlock Text="Требуют внимания" Margin="0,2,0,0" FontSize="13" Foreground="#6E7B98" />
+                            <TextBlock x:Name="CriticalMetricText" Foreground="#FF5B5B" Style="{StaticResource MetricValueStyle}" />
+                            <TextBlock Text="Критичных остатков" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="Требуют внимания" Style="{StaticResource MetricHintStyle}" />
                         </StackPanel>
                         <TextBlock Grid.Column="2" FontFamily="Segoe Fluent Icons" Text="&#xE76C;" FontSize="14" Foreground="#A1ABC1" VerticalAlignment="Center" />
                     </Grid>
                 </Border>
 
                 <Border Width="252"
-                        Height="102"
                         Margin="0,0,14,14"
-                        Padding="16"
-                        Style="{StaticResource CardStyle}"
+                        Style="{StaticResource MetricCardStyle}"
                         Cursor="Hand"
                         Tag="transfers"
                         MouseLeftButtonUp="HandleMetricCardClick">
@@ -402,28 +378,24 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="40" Height="40" CornerRadius="14" Background="#FFF7EC">
-                            <TextBlock FontFamily="Segoe Fluent Icons"
+                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#FFF7EC">
+                            <TextBlock Style="{StaticResource MetricIconTextStyle}"
                                        Text="&#xE8AB;"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
                                        FontSize="16"
                                        Foreground="#FF9F1A" />
                         </Border>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                            <TextBlock x:Name="TransfersMetricText" FontSize="19" FontWeight="SemiBold" Foreground="#FF9F1A" />
-                            <TextBlock Text="Перемещений в работе" Margin="0,5,0,0" FontSize="14" FontWeight="SemiBold" Foreground="#1B2440" />
-                            <TextBlock Text="Идет выполнение" Margin="0,2,0,0" FontSize="13" Foreground="#6E7B98" />
+                            <TextBlock x:Name="TransfersMetricText" Foreground="#FF9F1A" Style="{StaticResource MetricValueStyle}" />
+                            <TextBlock Text="Перемещений в работе" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="Идет выполнение" Style="{StaticResource MetricHintStyle}" />
                         </StackPanel>
                         <TextBlock Grid.Column="2" FontFamily="Segoe Fluent Icons" Text="&#xE76C;" FontSize="14" Foreground="#A1ABC1" VerticalAlignment="Center" />
                     </Grid>
                 </Border>
 
                 <Border Width="252"
-                        Height="102"
                         Margin="0,0,14,14"
-                        Padding="16"
-                        Style="{StaticResource CardStyle}"
+                        Style="{StaticResource MetricCardStyle}"
                         Cursor="Hand"
                         Tag="reservations"
                         MouseLeftButtonUp="HandleMetricCardClick">
@@ -433,28 +405,23 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="40" Height="40" CornerRadius="14" Background="#EEF2FF">
-                            <TextBlock FontFamily="Segoe Fluent Icons"
+                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#EEF2FF">
+                            <TextBlock Style="{StaticResource MetricIconTextStyle}"
                                        Text="&#xE7C3;"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontSize="18"
                                        Foreground="#4F5BFF" />
                         </Border>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                            <TextBlock x:Name="ReservationsMetricText" FontSize="19" FontWeight="SemiBold" Foreground="#4F5BFF" />
-                            <TextBlock Text="Резервов к сборке" Margin="0,5,0,0" FontSize="14" FontWeight="SemiBold" Foreground="#1B2440" />
-                            <TextBlock Text="Ожидают отгрузки" Margin="0,2,0,0" FontSize="13" Foreground="#6E7B98" />
+                            <TextBlock x:Name="ReservationsMetricText" Foreground="#4F5BFF" Style="{StaticResource MetricValueStyle}" />
+                            <TextBlock Text="Резервов к сборке" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="Ожидают отгрузки" Style="{StaticResource MetricHintStyle}" />
                         </StackPanel>
                         <TextBlock Grid.Column="2" FontFamily="Segoe Fluent Icons" Text="&#xE76C;" FontSize="14" Foreground="#A1ABC1" VerticalAlignment="Center" />
                     </Grid>
                 </Border>
 
                 <Border Width="300"
-                        Height="102"
                         Margin="0,0,0,14"
-                        Padding="16"
-                        Style="{StaticResource CardStyle}"
+                        Style="{StaticResource MetricCardStyle}"
                         Cursor="Hand"
                         Tag="inventory"
                         MouseLeftButtonUp="HandleMetricCardClick">
@@ -463,18 +430,15 @@
                             <ColumnDefinition Width="50" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="40" Height="40" CornerRadius="14" Background="#F0FAF4">
-                            <TextBlock FontFamily="Segoe Fluent Icons"
+                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#F0FAF4">
+                            <TextBlock Style="{StaticResource MetricIconTextStyle}"
                                        Text="&#xE73E;"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontSize="18"
                                        Foreground="#26A85B" />
                         </Border>
                         <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                            <TextBlock x:Name="InventoryMetricText" FontSize="19" FontWeight="SemiBold" Foreground="#26A85B" />
-                            <TextBlock Text="Расхождений инвентаризации" Margin="0,5,0,0" FontSize="14" FontWeight="SemiBold" Foreground="#1B2440" />
-                            <TextBlock Text="Требуют проверки" Margin="0,2,0,0" FontSize="13" Foreground="#6E7B98" />
+                            <TextBlock x:Name="InventoryMetricText" Foreground="#26A85B" Style="{StaticResource MetricValueStyle}" />
+                            <TextBlock Text="Расхождений инвентаризации" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="Требуют проверки" Style="{StaticResource MetricHintStyle}" />
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -508,37 +472,21 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0"
-                                Height="38"
+                                Style="{StaticResource TableFilterSearchContainerStyle}"
                                 Margin="0,0,12,0"
-                                Background="#FFFFFF"
-                                BorderBrush="#E4EAF5"
-                                BorderThickness="1"
-                                CornerRadius="12"
-                                Padding="14,0,12,0">
+                                CornerRadius="12">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="StockSearchBox"
-                                         BorderThickness="0"
-                                         Background="Transparent"
-                                         FontSize="13"
-                                         Foreground="#1B2440"
-                                         VerticalContentAlignment="Center"
+                                         Style="{StaticResource TableFilterSearchTextBoxStyle}"
                                          TextChanged="HandleStockSearchTextChanged" />
                                 <TextBlock x:Name="StockSearchPlaceholder"
                                            Text="Поиск по товару, коду или штрихкоду..."
-                                           FontSize="13"
-                                           Foreground="#98A3BC"
-                                           VerticalAlignment="Center"
-                                           IsHitTestVisible="False" />
-                                <TextBlock Grid.Column="1"
-                                           FontFamily="Segoe Fluent Icons"
-                                           Text="&#xE721;"
-                                           FontSize="14"
-                                           Foreground="#73809C"
-                                           VerticalAlignment="Center" />
+                                           Style="{StaticResource TableFilterSearchPlaceholderStyle}" />
+                                <TextBlock Grid.Column="1" Style="{StaticResource TableFilterSearchIconStyle}" />
                             </Grid>
                         </Border>
 
@@ -570,7 +518,7 @@
                         <Button x:Name="FiltersButton"
                                 Grid.Column="5"
                                 Width="96"
-                                Style="{StaticResource GhostButtonStyle}"
+                                Style="{StaticResource TableFilterActionButtonStyle}"
                                 Click="HandleFiltersButtonClick">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                 <TextBlock FontFamily="Segoe Fluent Icons"
@@ -584,7 +532,7 @@
                         <Button x:Name="TableSettingsButton"
                                 Grid.Column="6"
                                 Width="42"
-                                Style="{StaticResource GhostButtonStyle}"
+                                Style="{StaticResource TableFilterActionButtonStyle}"
                                 Click="HandleFiltersButtonClick">
                             <TextBlock FontFamily="Segoe Fluent Icons"
                                        Text="&#xE713;"
@@ -597,11 +545,7 @@
                     <Border x:Name="BulkActionsPanel"
                             Grid.Row="1"
                             Margin="0,0,0,16"
-                            Padding="14,10"
-                            Background="#F4F6FF"
-                            BorderBrush="#E7EBFF"
-                            BorderThickness="1"
-                            CornerRadius="14"
+                            Style="{StaticResource TableBulkBarStyle}"
                             Visibility="Collapsed">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -612,10 +556,7 @@
 
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock x:Name="BulkSelectedCountText"
-                                           FontSize="13"
-                                           FontWeight="SemiBold"
-                                           Foreground="#1B2440"
-                                           VerticalAlignment="Center" />
+                                           Style="{StaticResource TableBulkTextStyle}" />
                                 <Button Margin="12,0,0,0"
                                         Padding="0"
                                         Background="Transparent"
@@ -629,24 +570,16 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="22,0,0,0" VerticalAlignment="Center">
-                                <Button Margin="0,0,8,0" Style="{StaticResource GhostButtonStyle}" Click="HandleBulkTransferClick" Content="Переместить" />
-                                <Button Margin="0,0,8,0" Style="{StaticResource GhostButtonStyle}" Click="HandleBulkReserveClick" Content="Зарезервировать" />
-                                <Button Margin="0,0,8,0" Style="{StaticResource GhostButtonStyle}" Click="HandleBulkShipClick" Content="Отгрузить" />
-                                <Button Margin="0,0,8,0" Style="{StaticResource GhostButtonStyle}" Click="HandleBulkWriteOffClick" Content="Списать" />
-                                <Button Margin="0,0,8,0" Style="{StaticResource GhostButtonStyle}" Click="HandleBulkInventoryClick" Content="Создать инвентаризацию" />
-                                <Button Width="42" Style="{StaticResource GhostButtonStyle}" Click="HandleBulkMoreClick" Content="..." />
+                                <Button Margin="0,0,8,0" Style="{StaticResource TableBulkActionButtonStyle}" Click="HandleBulkTransferClick" Content="Переместить" />
+                                <Button Margin="0,0,8,0" Style="{StaticResource TableBulkActionButtonStyle}" Click="HandleBulkReserveClick" Content="Зарезервировать" />
+                                <Button Margin="0,0,8,0" Style="{StaticResource TableBulkActionButtonStyle}" Click="HandleBulkShipClick" Content="Отгрузить" />
+                                <Button Margin="0,0,8,0" Style="{StaticResource TableBulkActionButtonStyle}" Click="HandleBulkWriteOffClick" Content="Списать" />
+                                <Button Margin="0,0,8,0" Style="{StaticResource TableBulkActionButtonStyle}" Click="HandleBulkInventoryClick" Content="Создать инвентаризацию" />
+                                <Button Width="42" Style="{StaticResource TableBulkActionButtonStyle}" FontFamily="Segoe Fluent Icons" Click="HandleBulkMoreClick" Content="&#xE712;" />
                             </StackPanel>
 
                             <Button Grid.Column="2"
-                                    Width="32"
-                                    Height="32"
-                                    Padding="0"
-                                    Background="Transparent"
-                                    BorderBrush="Transparent"
-                                    BorderThickness="0"
-                                    Foreground="#6E7B98"
-                                    FontSize="16"
-                                    Cursor="Hand"
+                                    Style="{StaticResource TableBulkCloseButtonStyle}"
                                     Click="HandleBulkCloseClick"
                                     Content="×" />
                         </Grid>
@@ -679,7 +612,7 @@
                                           ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
                                           RowStyle="{StaticResource GridRowStyle}"
                                           SelectionChanged="HandleStockSelectionChanged"
-                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          ScrollViewer.VerticalScrollBarVisibility="Hidden"
                                           ScrollViewer.HorizontalScrollBarVisibility="Auto">
                                     <DataGrid.Columns>
                                         <DataGridTemplateColumn Width="42">
@@ -767,25 +700,17 @@
                                         <DataGridTemplateColumn Header="" Width="42">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Button Width="28"
-                                                            Height="28"
-                                                            Padding="0"
-                                                            Background="Transparent"
-                                                            BorderBrush="Transparent"
-                                                            BorderThickness="0"
-                                                            Foreground="#6E7B98"
-                                                            FontSize="18"
-                                                            Cursor="Hand"
+                                                    <Button Style="{StaticResource TableRowActionButtonStyle}"
                                                             Tag="{Binding}"
                                                             Click="HandleStockRowActionsClick"
-                                                            Content="..." />
+                                                            Content="&#xE712;" />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
                                     </DataGrid.Columns>
                                 </DataGrid>
 
-                                <Grid Grid.Row="1" Margin="18,0,18,0">
+                                <Grid Grid.Row="1" Style="{StaticResource TableFooterGridStyle}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
@@ -793,9 +718,7 @@
 
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock x:Name="ShownCountText"
-                                                   FontSize="14"
-                                                   Foreground="#5B6A89"
-                                                   VerticalAlignment="Center" />
+                                                   Style="{StaticResource TableFooterTextStyle}" />
                                         <StackPanel Orientation="Horizontal" Margin="20,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="●" FontSize="10" Foreground="#26A85B" VerticalAlignment="Center" />
                                             <TextBlock Text="Свободно" Margin="7,0,16,0" FontSize="14" Foreground="#5B6A89" VerticalAlignment="Center" />
@@ -806,11 +729,11 @@
                                         </StackPanel>
                                     </StackPanel>
 
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <StackPanel x:Name="PagerPanel" Orientation="Horizontal" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" Style="{StaticResource TablePagerPanelStyle}">
+                                        <StackPanel x:Name="PagerPanel" Style="{StaticResource TablePagerPanelStyle}" />
                                         <ComboBox x:Name="RowsPerPageComboBox"
                                                   Width="82"
-                                                  Height="32"
+                                                  Style="{StaticResource TablePageSizeComboBoxStyle}"
                                                   Margin="14,0,0,0"
                                                   SelectedIndex="0">
                                             <ComboBoxItem Content="8 / стр." />
@@ -827,7 +750,7 @@
                                 Grid.Column="1"
                                 Padding="20"
                                 Style="{StaticResource CardStyle}">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
                                 <StackPanel>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -875,18 +798,10 @@
                                         </Border>
                                         <Button x:Name="DetailsActionsButton"
                                                 Grid.Column="3"
-                                                Width="28"
-                                                Height="28"
                                                 Margin="12,0,0,0"
-                                                Padding="0"
-                                                Background="Transparent"
-                                                BorderBrush="Transparent"
-                                                BorderThickness="0"
-                                                Foreground="#98A3BC"
-                                                FontSize="18"
-                                                Cursor="Hand"
+                                                Style="{StaticResource TableRowActionButtonStyle}"
                                                 Click="HandleDetailsActionsClick"
-                                                Content="..." />
+                                                Content="&#xE712;" />
                                     </Grid>
 
                                     <TextBlock x:Name="SelectedWarehouseText"
@@ -1121,7 +1036,7 @@
                                       ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
                                       RowStyle="{StaticResource GridRowStyle}"
                                       MouseDoubleClick="HandleDocumentsGridDoubleClick"
-                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                      ScrollViewer.VerticalScrollBarVisibility="Hidden"
                                       ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="№ документа" Binding="{Binding Number}" Width="180" />
@@ -1141,19 +1056,16 @@
                                 </DataGrid.Columns>
                             </DataGrid>
 
-                            <Grid Grid.Row="2" Margin="18,0,18,0">
+                            <Grid Grid.Row="2" Style="{StaticResource TableFooterGridStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock x:Name="DocumentsShownCountText"
-                                           FontSize="14"
-                                           Foreground="#5B6A89"
-                                           VerticalAlignment="Center" />
+                                           Style="{StaticResource TableFooterTextStyle}" />
                                 <StackPanel x:Name="DocumentsPagerPanel"
                                             Grid.Column="1"
-                                            Orientation="Horizontal"
-                                            VerticalAlignment="Center" />
+                                            Style="{StaticResource TablePagerPanelStyle}" />
                             </Grid>
                         </Grid>
                     </Border>

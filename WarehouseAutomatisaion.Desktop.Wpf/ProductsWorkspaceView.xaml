@@ -30,6 +30,8 @@
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -37,7 +39,10 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="9">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -56,16 +61,8 @@
             <Setter Property="FontSize" Value="12" />
         </Style>
 
-        <Style x:Key="FilterComboStyle" TargetType="ComboBox">
-            <Setter Property="Height" Value="38" />
+        <Style x:Key="FilterComboStyle" TargetType="ComboBox" BasedOn="{StaticResource TableFilterComboBoxStyle}">
             <Setter Property="MinWidth" Value="116" />
-            <Setter Property="Padding" Value="12,0,8,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#DDE5F4" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#1B2440" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="ModuleTabStyle" TargetType="Button">
@@ -78,13 +75,18 @@
             <Setter Property="Padding" Value="0,0,0,13" />
             <Setter Property="Margin" Value="0,0,34,0" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 Background="{TemplateBinding Background}">
-                            <ContentPresenter />
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -112,6 +114,10 @@
             <Setter Property="RowHeaderWidth" Value="0" />
             <Setter Property="EnableRowVirtualization" Value="True" />
             <Setter Property="EnableColumnVirtualization" Value="True" />
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden" />
+            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
         </Style>
 
         <Style x:Key="GridHeaderStyle" TargetType="DataGridColumnHeader">
@@ -190,88 +196,76 @@
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Background="{StaticResource PageBrush}">
-        <Grid Margin="28,24,28,28">
+    <Grid Background="{StaticResource PageBrush}" Margin="28,24,28,28">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" MinHeight="360" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" Margin="0,0,0,22">
+            <Grid Grid.Row="0" Style="{StaticResource TopHeaderGridStyle}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel>
+                <StackPanel Style="{StaticResource TopHeaderTextPanelStyle}">
                     <TextBlock Text="Товары"
-                               FontSize="28"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource TextBrush}" />
+                               Style="{StaticResource TopHeaderTitleStyle}" />
                     <TextBlock Text="Каталог товаров, качество данных и доступность на складах."
-                               Margin="0,6,0,0"
-                               FontSize="13.5"
-                               Foreground="{StaticResource MutedBrush}" />
+                               Style="{StaticResource TopHeaderSubtitleStyle}" />
                 </StackPanel>
 
-                <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top">
-                    <Border Width="342"
-                            Height="38"
-                            Background="#FFFFFF"
-                            BorderBrush="#DDE5F4"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Padding="14,0,12,0"
-                            Margin="0,0,12,0">
+                <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" Style="{StaticResource TopHeaderActionsWrapPanelStyle}">
+                    <Border Width="330"
+                            Style="{StaticResource TopSearchContainerStyle}"
+                            Margin="0,0,10,0">
                         <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="20" />
+                            </Grid.ColumnDefinitions>
                             <TextBox x:Name="HeaderSearchBox"
-                                     BorderThickness="0"
-                                     Background="Transparent"
-                                     FontSize="12.5"
-                                     Foreground="#1B2440"
-                                     VerticalContentAlignment="Center"
+                                     Grid.Column="0"
+                                     Style="{StaticResource TopSearchTextBoxStyle}"
                                      TextChanged="HandleSearchTextChanged" />
                             <TextBlock x:Name="HeaderSearchPlaceholderText"
+                                       Grid.Column="0"
                                        Text="Поиск по коду, названию или штрихкоду..."
-                                       FontSize="12.5"
-                                       Foreground="#97A2BB"
-                                       VerticalAlignment="Center"
-                                       IsHitTestVisible="False" />
-                            <TextBlock FontFamily="Segoe Fluent Icons"
-                                       Text="&#xE721;"
-                                       HorizontalAlignment="Right"
-                                       VerticalAlignment="Center"
-                                       Foreground="#7E8AA6"
-                                       FontSize="13" />
+                                       Style="{StaticResource TopSearchPlaceholderStyle}" />
+                            <TextBlock Grid.Column="1"
+                                       Style="{StaticResource TopSearchIconStyle}" />
                         </Grid>
                     </Border>
 
-                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,0" Click="HandleImportClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" Margin="0,0,10,0" Click="HandleImportClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE896;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Импорт" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,0" Click="HandleExportClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" Margin="0,0,10,0" Click="HandleExportClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74D;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Экспорт" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,10,0" Click="HandleNewProductClick">
+                    <Button Style="{StaticResource TopPrimaryActionButtonStyle}" Margin="0,0,10,0" Click="HandleNewProductClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Новый товар" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <Button x:Name="ActionsButton" Style="{StaticResource GhostButtonStyle}" Click="HandleActionsClick">
+                    <Button x:Name="ActionsButton"
+                            AutomationProperties.Name="Действия товаров"
+                            Style="{StaticResource TopActionButtonStyle}"
+                            Click="HandleActionsClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Действия" VerticalAlignment="Center" />
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70D;" Margin="10,0,0,0" FontSize="10" VerticalAlignment="Center" />
@@ -281,71 +275,71 @@
             </Grid>
 
             <UniformGrid x:Name="MetricCardsGrid" Grid.Row="1" Columns="4" Margin="0,0,0,24">
-                <Border Style="{StaticResource CardStyle}" Padding="18" Height="94" Margin="0,0,12,0">
+                <Border Style="{StaticResource MetricCardStyle}" Margin="0,0,12,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="52" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="40" Height="40" CornerRadius="12" Background="#FFF3E8">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEA39;" Foreground="#FF8A00" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#FFF3E8">
+                            <TextBlock Style="{StaticResource MetricIconTextStyle}" Text="&#xEA39;" Foreground="#FF8A00" />
                         </Border>
                         <StackPanel Grid.Column="1">
-                            <TextBlock x:Name="MissingPriceMetricText" Text="0" Foreground="#FF3045" FontSize="22" FontWeight="SemiBold" />
-                            <TextBlock Text="Без цены" Foreground="#17213A" FontSize="12.5" FontWeight="SemiBold" />
-                            <TextBlock Text="Товарам не назначена цена" Foreground="#7A86A5" FontSize="11.5" Margin="0,4,0,0" />
+                            <TextBlock x:Name="MissingPriceMetricText" Text="0" Foreground="#FF3045" Style="{StaticResource MetricValueStyle}" />
+                            <TextBlock Text="Без цены" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="Товарам не назначена цена" Style="{StaticResource MetricHintStyle}" />
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource CardStyle}" Padding="18" Height="94" Margin="0,0,12,0">
+                <Border Style="{StaticResource MetricCardStyle}" Margin="0,0,12,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="52" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="40" Height="40" CornerRadius="12" Background="#FFF0F3">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7BA;" Foreground="#FF4D5C" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#FFF0F3">
+                            <TextBlock Style="{StaticResource MetricIconTextStyle}" Text="&#xE7BA;" Foreground="#FF4D5C" />
                         </Border>
                         <StackPanel Grid.Column="1">
-                            <TextBlock x:Name="MissingBarcodeMetricText" Text="0" Foreground="#FF3045" FontSize="22" FontWeight="SemiBold" />
-                            <TextBlock Text="Без штрихкода" Foreground="#17213A" FontSize="12.5" FontWeight="SemiBold" />
-                            <TextBlock Text="Не заполнен штрихкод" Foreground="#7A86A5" FontSize="11.5" Margin="0,4,0,0" />
+                            <TextBlock x:Name="MissingBarcodeMetricText" Text="0" Foreground="#FF3045" Style="{StaticResource MetricValueStyle}" />
+                            <TextBlock Text="Без штрихкода" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="Не заполнен штрихкод" Style="{StaticResource MetricHintStyle}" />
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource CardStyle}" Padding="18" Height="94" Margin="0,0,12,0">
+                <Border Style="{StaticResource MetricCardStyle}" Margin="0,0,12,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="52" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="40" Height="40" CornerRadius="12" Background="#FFF4E5">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7C1;" Foreground="#FF9500" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#FFF4E5">
+                            <TextBlock Style="{StaticResource MetricIconTextStyle}" Text="&#xE7C1;" Foreground="#FF9500" />
                         </Border>
                         <StackPanel Grid.Column="1">
-                            <TextBlock x:Name="LowStockMetricText" Text="0" Foreground="#FF9500" FontSize="22" FontWeight="SemiBold" />
-                            <TextBlock Text="Низкий остаток" Foreground="#17213A" FontSize="12.5" FontWeight="SemiBold" />
-                            <TextBlock Text="Ниже минимального" Foreground="#7A86A5" FontSize="11.5" Margin="0,4,0,0" />
+                            <TextBlock x:Name="LowStockMetricText" Text="0" Foreground="#FF9500" Style="{StaticResource MetricValueStyle}" />
+                            <TextBlock Text="Низкий остаток" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="Ниже минимального" Style="{StaticResource MetricHintStyle}" />
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource CardStyle}" Padding="18" Height="94">
+                <Border Style="{StaticResource MetricCardStyle}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="52" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Border Width="40" Height="40" CornerRadius="12" Background="#EEF2FF">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEECA;" Foreground="#4F5BFF" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#EEF2FF">
+                            <TextBlock Style="{StaticResource MetricIconTextStyle}" Text="&#xEECA;" Foreground="#4F5BFF" />
                         </Border>
                         <StackPanel Grid.Column="1">
-                            <TextBlock x:Name="MissingSupplierMetricText" Text="0" Foreground="#4F5BFF" FontSize="22" FontWeight="SemiBold" />
-                            <TextBlock Text="Без поставщика" Foreground="#17213A" FontSize="12.5" FontWeight="SemiBold" />
-                            <TextBlock Text="Не указан поставщик" Foreground="#7A86A5" FontSize="11.5" Margin="0,4,0,0" />
+                            <TextBlock x:Name="MissingSupplierMetricText" Text="0" Foreground="#4F5BFF" Style="{StaticResource MetricValueStyle}" />
+                            <TextBlock Text="Без поставщика" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="Не указан поставщик" Style="{StaticResource MetricHintStyle}" />
                         </StackPanel>
                         <Button Grid.Column="2" Content="Все проблемы  →" Style="{StaticResource MiniActionButtonStyle}" BorderThickness="0" Foreground="#4F5BFF" Click="HandleShowProblemsClick" />
                     </Grid>
@@ -363,33 +357,16 @@
             <Grid Grid.Row="3" Margin="0,0,0,14">
                 <WrapPanel x:Name="ProductsFilterPanel">
                     <Border Width="270"
-                            Height="38"
-                            Background="#FFFFFF"
-                            BorderBrush="#DDE5F4"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Padding="14,0,12,0"
+                            Style="{StaticResource TableFilterSearchContainerStyle}"
                             Margin="0,0,10,10">
                         <Grid>
                             <TextBox x:Name="TableSearchBox"
-                                     BorderThickness="0"
-                                     Background="Transparent"
-                                     FontSize="12.5"
-                                     Foreground="#1B2440"
-                                     VerticalContentAlignment="Center"
+                                     Style="{StaticResource TableFilterSearchTextBoxStyle}"
                                      TextChanged="HandleSearchTextChanged" />
                             <TextBlock x:Name="TableSearchPlaceholderText"
-                                       Text="Поиск по коду, названию или штрихкоду..."
-                                       FontSize="12.5"
-                                       Foreground="#97A2BB"
-                                       VerticalAlignment="Center"
-                                       IsHitTestVisible="False" />
-                            <TextBlock FontFamily="Segoe Fluent Icons"
-                                       Text="&#xE721;"
-                                       HorizontalAlignment="Right"
-                                       VerticalAlignment="Center"
-                                       Foreground="#7E8AA6"
-                                       FontSize="13" />
+                                        Text="Поиск по коду, названию или штрихкоду..."
+                                        Style="{StaticResource TableFilterSearchPlaceholderStyle}" />
+                            <TextBlock Style="{StaticResource TableFilterSearchIconStyle}" />
                         </Grid>
                     </Border>
                     <ComboBox x:Name="CategoryFilterCombo" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
@@ -397,7 +374,7 @@
                     <ComboBox x:Name="SupplierFilterCombo" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                     <ComboBox x:Name="StatusFilterCombo" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                     <CheckBox x:Name="OnlyProblemsCheckBox" Content="Только проблемные" Style="{StaticResource ProblemsOnlyStyle}" Margin="2,0,18,10" Checked="HandleFilterChanged" Unchecked="HandleFilterChanged" />
-                    <Button Content="Сбросить" Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,10" Click="HandleResetFiltersClick" />
+                    <Button Content="Сбросить" Style="{StaticResource TableFilterResetButtonStyle}" Margin="0,0,10,10" Click="HandleResetFiltersClick" />
                 </WrapPanel>
 
                 <StackPanel x:Name="SecondaryToolbarPanel" Visibility="Collapsed" Orientation="Horizontal">
@@ -409,34 +386,28 @@
 
             <Border x:Name="BulkActionsPanel"
                     Grid.Row="4"
-                    Background="#F3F6FF"
-                    BorderBrush="#E5EAFA"
-                    BorderThickness="1"
+                    Style="{StaticResource TableBulkBarStyle}"
                     CornerRadius="12,12,0,0"
-                    Padding="14"
                     Visibility="Collapsed">
                 <WrapPanel>
                     <TextBlock x:Name="SelectedCountText"
                                Text="Выбрано 0 товаров"
                                Margin="0,0,18,0"
-                               FontSize="12.5"
-                               FontWeight="SemiBold"
-                               Foreground="#1B2440"
-                               VerticalAlignment="Center" />
-                    <Button Content="Экспорт выбранных" Style="{StaticResource MiniActionButtonStyle}" Margin="0,0,8,0" Click="HandleExportSelectedClick" />
-                    <Button Content="Печать этикеток" Style="{StaticResource MiniActionButtonStyle}" Margin="0,0,8,0" Click="HandlePrintLabelsClick" />
-                    <Button Content="Изменить категорию" Style="{StaticResource MiniActionButtonStyle}" Margin="0,0,8,0" Click="HandleChangeCategoryClick" />
-                    <Button Content="Изменить статус" Style="{StaticResource MiniActionButtonStyle}" Margin="0,0,8,0" Click="HandleChangeStatusClick" />
-                    <Button Content="Обновить цены" Style="{StaticResource MiniActionButtonStyle}" Margin="0,0,8,0" Click="HandleUpdatePricesClick" />
-                    <Button Content="Архивировать" Style="{StaticResource MiniActionButtonStyle}" Margin="0,0,8,0" Click="HandleArchiveSelectedClick" />
-                    <Button Content="×" Style="{StaticResource MiniActionButtonStyle}" Width="36" Padding="0" Click="HandleClearSelectionClick" />
+                               Style="{StaticResource TableBulkTextStyle}" />
+                    <Button Content="Экспорт выбранных" Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,8,0" Click="HandleExportSelectedClick" />
+                    <Button Content="Печать этикеток" Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,8,0" Click="HandlePrintLabelsClick" />
+                    <Button Content="Изменить категорию" Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,8,0" Click="HandleChangeCategoryClick" />
+                    <Button Content="Изменить статус" Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,8,0" Click="HandleChangeStatusClick" />
+                    <Button Content="Обновить цены" Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,8,0" Click="HandleUpdatePricesClick" />
+                    <Button Content="Архивировать" Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,8,0" Click="HandleArchiveSelectedClick" />
+                    <Button Content="×" Style="{StaticResource TableBulkCloseButtonStyle}" Click="HandleClearSelectionClick" />
                 </WrapPanel>
             </Border>
 
             <Grid Grid.Row="5">
                 <Grid x:Name="ProductsContentGrid">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
@@ -445,7 +416,7 @@
                         <ColumnDefinition Width="330" />
                     </Grid.ColumnDefinitions>
 
-                    <Border x:Name="ProductsTableCard" Grid.Row="0" Grid.Column="0" Style="{StaticResource CardStyle}" Padding="0" MinHeight="560">
+                    <Border x:Name="ProductsTableCard" Grid.Row="0" Grid.Column="0" Style="{StaticResource CardStyle}" Padding="0" MinHeight="0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
@@ -518,33 +489,28 @@
                                     <DataGridTemplateColumn Header="Действия" Width="66" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Button Content="..." Tag="{Binding}" BorderThickness="0" Background="Transparent" Foreground="#425075" FontWeight="SemiBold" Click="HandleRowActionsClick" />
+                                                <Button Content="&#xE712;" Tag="{Binding}" Style="{StaticResource TableRowActionButtonStyle}" Click="HandleRowActionsClick" />
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
 
-                            <Grid Grid.Row="1" Margin="14,12,14,12">
+                            <Grid Grid.Row="1" Style="{StaticResource TableFooterGridStyle}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="ProductsCountText" Foreground="#6E7B98" FontSize="12" VerticalAlignment="Center" />
-                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                    <TextBlock Text="1" Background="#EEF2FF" Foreground="#4F5BFF" Padding="10,5" Margin="0,0,8,0" />
-                                    <TextBlock Text="2" Padding="10,5" Margin="0,0,8,0" Foreground="#53617E" />
-                                    <TextBlock Text="3" Padding="10,5" Margin="0,0,8,0" Foreground="#53617E" />
-                                    <TextBlock Text="..." Padding="10,5" Margin="0,0,8,0" Foreground="#53617E" />
-                                    <TextBlock x:Name="LastPageText" Text="1" Padding="10,5" Margin="0,0,8,0" Foreground="#53617E" />
-                                    <TextBlock Text="›" Padding="10,5" Foreground="#53617E" />
+                                <TextBlock x:Name="ProductsCountText" Style="{StaticResource TableFooterTextStyle}" />
+                                <StackPanel Grid.Column="1" Style="{StaticResource TablePagerPanelStyle}">
+                                    <TextBlock Text="Прокрутка колесом" Style="{StaticResource TableFooterTextStyle}" />
                                 </StackPanel>
                             </Grid>
                         </Grid>
                     </Border>
 
-                    <Border x:Name="ProductDetailsCard" Grid.Row="0" Grid.Column="2" Style="{StaticResource CardStyle}" Padding="16" MinHeight="560">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Border x:Name="ProductDetailsCard" Grid.Row="0" Grid.Column="2" Style="{StaticResource CardStyle}" Padding="16" MinHeight="0">
+                        <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -556,7 +522,7 @@
                                         <Border x:Name="DetailStatusPill" CornerRadius="7" Padding="8,4" Background="#EAF9F0" VerticalAlignment="Top">
                                             <TextBlock x:Name="DetailStatusText" Text="Активный" Foreground="#1AA65F" FontSize="11" FontWeight="SemiBold" />
                                         </Border>
-                                        <Button Content="..." Margin="8,0,0,0" BorderThickness="0" Background="Transparent" Foreground="#425075" Click="HandleDetailActionsClick" />
+                                        <Button Content="&#xE712;" Margin="8,0,0,0" Style="{StaticResource TableRowActionButtonStyle}" Click="HandleDetailActionsClick" />
                                     </StackPanel>
                                 </Grid>
 
@@ -702,7 +668,7 @@
                     </Border>
                 </Grid>
 
-                <Border x:Name="SecondaryContentPanel" Visibility="Collapsed" Style="{StaticResource CardStyle}" Padding="18" MinHeight="560">
+                <Border x:Name="SecondaryContentPanel" Visibility="Collapsed" Style="{StaticResource CardStyle}" Padding="18" MinHeight="0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -722,6 +688,5 @@
                     </Grid>
                 </Border>
             </Grid>
-        </Grid>
-    </ScrollViewer>
+    </Grid>
 </UserControl>

@@ -8,6 +8,8 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 public partial class ProductPriceUpdateWindow : Window
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
+    private const string SetPriceMode = "Установить цену";
+    private const string ChangePercentMode = "Изменить на процент";
 
     private readonly CatalogWorkspace _workspace;
     private readonly IReadOnlyList<ProductsWorkspaceView.ProductRowViewModel> _products;
@@ -20,6 +22,7 @@ public partial class ProductPriceUpdateWindow : Window
         _products = products;
 
         InitializeComponent();
+        WpfTextNormalizer.NormalizeTree(this);
 
         PriceTypeComboBox.ItemsSource = workspace.PriceTypes
             .Select(item => Ui(item.Name))
@@ -33,10 +36,10 @@ public partial class ProductPriceUpdateWindow : Window
             PriceTypeComboBox.SelectedIndex = 0;
         }
 
-        ModeComboBox.ItemsSource = new[] { "Установить цену", "Изменить на процент" };
+        ModeComboBox.ItemsSource = new[] { SetPriceMode, ChangePercentMode };
         ModeComboBox.SelectedIndex = 0;
         ValueTextBox.Text = products.Count == 1 ? products[0].Price.ToString("N2", RuCulture) : "0";
-        ProductsCountText.Text = $"Позиций к обновлению: {products.Count:N0}";
+        ProductsCountText.Text = Ui($"Позиций к обновлению: {products.Count:N0}");
     }
 
     public CatalogPriceRegistrationRecord? ResultDocument { get; private set; }
@@ -52,23 +55,23 @@ public partial class ProductPriceUpdateWindow : Window
 
         if (_products.Count == 0)
         {
-            ValidationText.Text = "Выберите товары для обновления цены.";
+            ValidationText.Text = Ui("Выберите товары для обновления цены.");
             return;
         }
 
         if (!TryParseDecimal(ValueTextBox.Text, out var value))
         {
-            ValidationText.Text = "Введите корректное число.";
+            ValidationText.Text = Ui("Введите корректное число.");
             return;
         }
 
-        var isPercent = string.Equals(ModeComboBox.SelectedItem?.ToString(), "Изменить на процент", StringComparison.OrdinalIgnoreCase);
+        var isPercent = string.Equals(ModeComboBox.SelectedItem?.ToString(), ChangePercentMode, StringComparison.OrdinalIgnoreCase);
         var document = _workspace.CreatePriceRegistrationDraft();
         document.PriceTypeName = PriceTypeComboBox.SelectedItem?.ToString() ?? _workspace.GetDefaultPriceTypeName();
-        document.Status = ApplyImmediatelyCheckBox.IsChecked == true ? "Проведен" : "Подготовлен";
+        document.Status = ApplyImmediatelyCheckBox.IsChecked == true ? Ui("Проведен") : Ui("Подготовлен");
         document.Comment = isPercent
-            ? $"Массовое изменение цены на {value:N2}%."
-            : "Установка цены из модуля Товары.";
+            ? Ui($"Массовое изменение цены на {value:N2}%.")
+            : Ui("Установка цены из модуля Товары.");
         document.Lines.Clear();
 
         foreach (var product in _products)
@@ -79,7 +82,7 @@ public partial class ProductPriceUpdateWindow : Window
 
             if (newPrice < 0m)
             {
-                ValidationText.Text = "Цена не может быть отрицательной.";
+                ValidationText.Text = Ui("Цена не может быть отрицательной.");
                 return;
             }
 

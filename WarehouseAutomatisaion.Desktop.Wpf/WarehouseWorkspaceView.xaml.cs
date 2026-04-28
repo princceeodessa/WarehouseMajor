@@ -653,45 +653,30 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         yield return pageCount;
     }
 
-    private static FrameworkElement CreatePagerLabel(string text)
+    private FrameworkElement CreatePagerLabel(string text)
     {
         return new TextBlock
         {
             Text = text,
-            Margin = new Thickness(6, 0, 2, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Foreground = TextSecondaryBrush,
-            FontSize = 13
+            Style = TryFindResource("TablePagerEllipsisTextStyle") as Style
         };
     }
 
-    private static WpfButton CreatePagerButton(string text, int? targetPage, bool active, Action<int> setPage)
+    private WpfButton CreatePagerButton(string text, int? targetPage, bool active, Action<int> setPage)
     {
         var button = new WpfButton
         {
-            Width = 28,
-            Height = 28,
-            Margin = new Thickness(4, 0, 0, 0),
-            BorderThickness = new Thickness(1),
-            BorderBrush = active ? PrimarySoftBrush : WpfBrushes.Transparent,
-            Background = active ? PrimarySoftBrush : WpfBrushes.Transparent,
-            Foreground = active ? PrimaryBrush : TextSecondaryBrush,
-            FontSize = 13,
-            FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal,
             Content = text,
+            Style = TryFindResource(active ? "TablePagerActiveButtonStyle" : "TablePagerButtonStyle") as Style,
             Cursor = targetPage.HasValue ? System.Windows.Input.Cursors.Hand : System.Windows.Input.Cursors.Arrow,
-            IsEnabled = targetPage.HasValue
+            IsEnabled = targetPage.HasValue,
+            Opacity = targetPage.HasValue ? 1d : 0.45d
         };
 
         if (targetPage.HasValue)
         {
             button.Click += (_, _) => setPage(targetPage.Value);
         }
-        else
-        {
-            button.Opacity = 0.45;
-        }
-
         return button;
     }
 

@@ -313,9 +313,9 @@ public partial class MainWindow : Window
         _sections["model"] = new SectionDefinition(
             Key: "model",
             Caption: "Связи данных",
-            Subtitle: "Функциональные сценарии и карта покрытия системы.",
+            Subtitle: "Сценарии, связи и проверка целостности данных.",
             Closable: true,
-            Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateModel(_coverage)));
+            Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateModel(_coverage, _salesWorkspace)));
     }
 
     private DashboardWorkspaceView CreateDashboardView()

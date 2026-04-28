@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using WarehouseAutomatisaion.Desktop.Data;
+using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
@@ -26,12 +27,14 @@ public partial class WarehouseDocumentEditorWindow : Window
         _lines = new ObservableCollection<OperationalWarehouseLineRecord>(_draft.Lines.Select(line => line.Clone()));
 
         InitializeComponent();
+        WpfTextNormalizer.NormalizeTree(this);
 
-        Title = document is null ? BuildHeaderCaption() : $"{BuildHeaderCaption()} {document.Number}";
-        HeaderTitleText.Text = BuildHeaderCaption();
-        HeaderSubtitleText.Text = BuildSubtitle();
-        LinesSubtitleText.Text = BuildLinesSubtitle();
-        TargetWarehouseLabelText.Text = _mode == WarehouseDocumentEditorMode.Transfer ? "Склад-получатель" : "Склад-получатель";
+        var headerCaption = Ui(BuildHeaderCaption());
+        Title = document is null ? headerCaption : $"{headerCaption} {document.Number}";
+        HeaderTitleText.Text = headerCaption;
+        HeaderSubtitleText.Text = Ui(BuildSubtitle());
+        LinesSubtitleText.Text = Ui(BuildLinesSubtitle());
+        TargetWarehouseLabelText.Text = _mode == WarehouseDocumentEditorMode.Transfer ? Ui("Склад-получатель") : Ui("Не используется");
 
         SourceWarehouseComboBox.ItemsSource = _workspace.Warehouses.ToArray();
         TargetWarehouseComboBox.ItemsSource = _workspace.Warehouses.ToArray();
@@ -49,22 +52,33 @@ public partial class WarehouseDocumentEditorWindow : Window
 
     public OperationalWarehouseDocumentRecord? ResultDocument { get; private set; }
 
+    private static string Ui(string? value) => TextMojibakeFixer.NormalizeText(value);
+
     private void LoadDraft()
     {
         NumberTextBox.Text = _draft.Number;
         DocumentDatePicker.SelectedDate = _draft.DocumentDate == default ? DateTime.Today : _draft.DocumentDate;
         SelectComboValue(SourceWarehouseComboBox, _draft.SourceWarehouse);
-        SelectComboValue(TargetWarehouseComboBox, _draft.TargetWarehouse);
+        if (_mode == WarehouseDocumentEditorMode.Transfer)
+        {
+            SelectComboValue(TargetWarehouseComboBox, _draft.TargetWarehouse);
+        }
+        else
+        {
+            TargetWarehouseComboBox.SelectedItem = null;
+            TargetWarehouseComboBox.Text = string.Empty;
+        }
+
         SelectComboValue(StatusComboBox, _draft.Status);
-        RelatedDocumentTextBox.Text = _draft.RelatedDocument;
-        CommentTextBox.Text = _draft.Comment;
+        RelatedDocumentTextBox.Text = Ui(_draft.RelatedDocument);
+        CommentTextBox.Text = Ui(_draft.Comment);
     }
 
     private void HandleAddLineClick(object sender, RoutedEventArgs e)
     {
         var dialog = new WarehouseLineEditorWindow(
-        BuildLineTitle(),
-        BuildLineSubtitle(),
+        Ui(BuildLineTitle()),
+        Ui(BuildLineSubtitle()),
         _workspace.CatalogItems,
         allowNegativeQuantity: _mode == WarehouseDocumentEditorMode.Inventory,
         allowTargetLocation: _mode == WarehouseDocumentEditorMode.Transfer)
@@ -86,13 +100,13 @@ public partial class WarehouseDocumentEditorWindow : Window
     {
         if (LinesGrid.SelectedItem is not OperationalWarehouseLineRecord line)
         {
-            ValidationText.Text = "Укажите название товара.";
+            ValidationText.Text = Ui("Выберите позицию документа.");
             return;
         }
 
         var dialog = new WarehouseLineEditorWindow(
-            BuildLineTitle(),
-            BuildLineSubtitle(),
+            Ui(BuildLineTitle()),
+            Ui(BuildLineSubtitle()),
             _workspace.CatalogItems,
             line,
             allowNegativeQuantity: _mode == WarehouseDocumentEditorMode.Inventory,
@@ -119,14 +133,14 @@ public partial class WarehouseDocumentEditorWindow : Window
     {
         if (LinesGrid.SelectedItem is not OperationalWarehouseLineRecord line)
         {
-            ValidationText.Text = "Укажите название товара.";
+            ValidationText.Text = Ui("Выберите позицию документа.");
             return;
         }
 
         var result = MessageBox.Show(
             this,
-            "Удалить выбранную позицию?",
-            "Документ склада",
+            Ui("Удалить выбранную позицию?"),
+            Ui("Документ склада"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (result != MessageBoxResult.Yes)
@@ -150,8 +164,8 @@ public partial class WarehouseDocumentEditorWindow : Window
     {
         var total = _lines.Sum(item => item.Quantity);
         TotalText.Text = _mode == WarehouseDocumentEditorMode.Inventory
-            ? $"Итоговая корректировка: {total:N2}"
-            : $"Всего к движению: {total:N2}";
+            ? Ui($"Итоговая корректировка: {total:N2}")
+            : Ui($"Всего к движению: {total:N2}");
     }
 
     private void HandleSaveClick(object sender, RoutedEventArgs e)
@@ -163,13 +177,13 @@ public partial class WarehouseDocumentEditorWindow : Window
 
         if (string.IsNullOrWhiteSpace(NumberTextBox.Text))
         {
-            ValidationText.Text = "Укажите номер документа.";
+            ValidationText.Text = Ui("Укажите номер документа.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(sourceWarehouse))
         {
-            ValidationText.Text = "Укажите склад-источник.";
+            ValidationText.Text = Ui("Укажите склад-источник.");
             return;
         }
 
@@ -177,20 +191,20 @@ public partial class WarehouseDocumentEditorWindow : Window
         {
             if (string.IsNullOrWhiteSpace(targetWarehouse))
             {
-                ValidationText.Text = "Укажите склад-получатель.";
+                ValidationText.Text = Ui("Укажите склад-получатель.");
                 return;
             }
 
             if (sourceWarehouse.Equals(targetWarehouse, StringComparison.OrdinalIgnoreCase))
             {
-            ValidationText.Text = "Склад-источник и склад-получатель должны отличаться.";
+                ValidationText.Text = Ui("Склад-источник и склад-получатель должны отличаться.");
                 return;
             }
         }
 
         if (_lines.Count == 0)
         {
-            ValidationText.Text = "Добавьте хотя бы одну позицию.";
+            ValidationText.Text = Ui("Добавьте хотя бы одну позицию.");
             return;
         }
 
@@ -205,7 +219,7 @@ public partial class WarehouseDocumentEditorWindow : Window
             TargetWarehouse = _mode == WarehouseDocumentEditorMode.Transfer ? targetWarehouse : string.Empty,
             RelatedDocument = RelatedDocumentTextBox.Text.Trim(),
             Comment = CommentTextBox.Text.Trim(),
-            SourceLabel = string.IsNullOrWhiteSpace(_draft.SourceLabel) ? "Локальный контур" : _draft.SourceLabel,
+            SourceLabel = string.IsNullOrWhiteSpace(_draft.SourceLabel) ? Ui("Локальный контур") : Ui(_draft.SourceLabel),
             Fields = _draft.Fields.ToArray(),
             Lines = new BindingList<OperationalWarehouseLineRecord>(_lines.Select(item => item.Clone()).ToList())
         };

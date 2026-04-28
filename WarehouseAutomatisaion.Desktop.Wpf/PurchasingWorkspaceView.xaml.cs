@@ -487,6 +487,10 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         PurchasingGrid.Visibility = _filteredRows.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         PagerSummaryText.Text = BuildPagerSummary(pageRows.Length);
         PagerIndexText.Text = $"{_page:N0} / {totalPages:N0}";
+        PagerPrevButton.IsEnabled = _page > 1;
+        PagerPrevButton.Opacity = PagerPrevButton.IsEnabled ? 1d : 0.45d;
+        PagerNextButton.IsEnabled = _page < totalPages;
+        PagerNextButton.Opacity = PagerNextButton.IsEnabled ? 1d : 0.45d;
 
         PurchasingGrid.SelectedItem = null;
         PurchasingGrid.Items.Refresh();

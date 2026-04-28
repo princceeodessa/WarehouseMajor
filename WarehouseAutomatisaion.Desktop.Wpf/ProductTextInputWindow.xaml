@@ -30,10 +30,8 @@
 
         <ComboBox x:Name="ValueComboBox"
                   Grid.Row="2"
-                  Height="38"
+                  Style="{StaticResource DialogComboBoxStyle}"
                   IsEditable="True"
-                  FontSize="13"
-                  Padding="10,0"
                   VerticalContentAlignment="Center" />
 
         <StackPanel Grid.Row="3"
@@ -41,17 +39,13 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right">
             <Button Content="Отмена"
+                    Style="{StaticResource DialogSecondaryButtonStyle}"
                     Width="110"
-                    Height="36"
                     Margin="0,0,10,0"
                     Click="HandleCancelClick" />
             <Button Content="Сохранить"
+                    Style="{StaticResource DialogPrimaryButtonStyle}"
                     Width="130"
-                    Height="36"
-                    Background="#4F5BFF"
-                    BorderBrush="#4F5BFF"
-                    Foreground="#FFFFFF"
-                    FontWeight="SemiBold"
                     Click="HandleSaveClick" />
         </StackPanel>
     </Grid>

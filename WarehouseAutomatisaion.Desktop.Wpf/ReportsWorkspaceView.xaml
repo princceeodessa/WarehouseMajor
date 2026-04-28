@@ -30,6 +30,8 @@
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -37,7 +39,10 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="10">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -71,39 +76,29 @@
             <Setter Property="Padding" Value="0,0,0,12" />
             <Setter Property="Margin" Value="0,0,28,0" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter />
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <Style x:Key="FilterComboStyle" TargetType="ComboBox">
-            <Setter Property="Height" Value="40" />
+        <Style x:Key="FilterComboStyle" TargetType="ComboBox" BasedOn="{StaticResource TableFilterComboBoxStyle}">
             <Setter Property="MinWidth" Value="130" />
-            <Setter Property="Padding" Value="12,0,8,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#DDE5F4" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#1B2440" />
-            <Setter Property="FontSize" Value="12.5" />
         </Style>
 
-        <Style x:Key="DatePickerStyle" TargetType="DatePicker">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="8,0,8,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#DDE5F4" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#1B2440" />
-            <Setter Property="FontSize" Value="12.5" />
-        </Style>
+        <Style x:Key="DatePickerStyle" TargetType="DatePicker" BasedOn="{StaticResource TableFilterDatePickerStyle}" />
 
         <Style x:Key="ReportsGridStyle" TargetType="DataGrid">
             <Setter Property="AutoGenerateColumns" Value="False" />
@@ -124,6 +119,7 @@
             <Setter Property="SelectionUnit" Value="FullRow" />
             <Setter Property="RowHeaderWidth" Value="0" />
             <Setter Property="IsReadOnly" Value="False" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden" />
         </Style>
 
         <Style x:Key="GridHeaderStyle" TargetType="DataGridColumnHeader">
@@ -167,7 +163,7 @@
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Background="{StaticResource PageBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Background="{StaticResource PageBrush}">
         <Grid Margin="28,24,28,30">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -179,55 +175,55 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" Margin="0,0,0,18">
+            <Grid Grid.Row="0" Style="{StaticResource TopHeaderGridStyle}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Margin="0,0,20,0">
-                    <TextBlock Text="Отчеты" FontSize="34" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
-                    <TextBlock Text="Продажи, статусы и ключевая аналитика по модулям" Margin="0,8,0,0" FontSize="15" Foreground="{StaticResource MutedBrush}" />
+                <StackPanel Style="{StaticResource TopHeaderTextPanelStyle}">
+                    <TextBlock Text="Отчеты" Style="{StaticResource TopHeaderTitleStyle}" />
+                    <TextBlock Text="Продажи, статусы и ключевая аналитика по модулям" Style="{StaticResource TopHeaderSubtitleStyle}" />
                 </StackPanel>
 
-                <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top">
-                    <Border Width="330" Height="40" Background="#FFFFFF" BorderBrush="#DDE5F4" BorderThickness="1" CornerRadius="12" Padding="14,0,12,0" Margin="0,0,10,0">
+                <WrapPanel Grid.Column="1" Style="{StaticResource TopHeaderActionsWrapPanelStyle}">
+                    <Border Width="330" Style="{StaticResource TopSearchContainerStyle}" Margin="0,0,10,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="20" />
                             </Grid.ColumnDefinitions>
-                            <TextBox x:Name="HeaderSearchBox" Grid.Column="0" BorderThickness="0" Background="Transparent" FontSize="12.5" VerticalContentAlignment="Center" TextChanged="HandleSearchTextChanged" />
-                            <TextBlock x:Name="HeaderSearchPlaceholderText" Grid.Column="0" Text="Поиск по отчетам, клиентам, заказам" FontSize="12.5" Foreground="#97A2BB" VerticalAlignment="Center" IsHitTestVisible="False" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="1" FontFamily="Segoe Fluent Icons" Text="&#xE721;" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#7E8AA6" FontSize="13" />
+                            <TextBox x:Name="HeaderSearchBox" Grid.Column="0" Style="{StaticResource TopSearchTextBoxStyle}" TextChanged="HandleSearchTextChanged" />
+                            <TextBlock x:Name="HeaderSearchPlaceholderText" Grid.Column="0" Text="Поиск по отчетам, клиентам, заказам" Style="{StaticResource TopSearchPlaceholderStyle}" />
+                            <TextBlock Grid.Column="1" Style="{StaticResource TopSearchIconStyle}" />
                         </Grid>
                     </Border>
 
-                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,0" Click="HandleHeaderPeriodClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" Margin="0,0,10,0" Click="HandleHeaderPeriodClick">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock x:Name="HeaderPeriodButtonText" Text="01.03.2026 - 24.04.2026" />
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE787;" FontSize="11" Margin="8,0,0,0" />
+                            <TextBlock x:Name="HeaderPeriodButtonText" Text="01.03.2026 - 24.04.2026" VerticalAlignment="Center" />
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE787;" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,0" Click="HandleExportClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" Margin="0,0,10,0" Click="HandleExportClick">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEDE1;" FontSize="12" />
-                            <TextBlock Text="Экспорт" Margin="8,0,0,0" />
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEDE1;" FontSize="12" VerticalAlignment="Center" />
+                            <TextBlock Text="Экспорт" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,10,0" Click="HandlePrintClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" Margin="0,0,10,0" Click="HandlePrintClick">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="12" />
-                            <TextBlock Text="Печать" Margin="8,0,0,0" />
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="12" VerticalAlignment="Center" />
+                            <TextBlock Text="Печать" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource PrimaryButtonStyle}" Click="HandleGenerateReportClick">
+                    <Button Style="{StaticResource TopPrimaryActionButtonStyle}" Click="HandleGenerateReportClick">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
-                            <TextBlock Text="Сформировать отчет" Margin="8,0,0,0" />
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" VerticalAlignment="Center" />
+                            <TextBlock Text="Сформировать отчет" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </WrapPanel>
@@ -262,12 +258,12 @@
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Border Width="34" Height="34" CornerRadius="12" Background="{Binding AccentBackground}" VerticalAlignment="Top">
-                                        <TextBlock Text="{Binding Glyph}" FontFamily="Segoe Fluent Icons" FontSize="15" Foreground="{Binding AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Border Style="{StaticResource MetricIconBoxStyle}" Background="{Binding AccentBackground}">
+                                        <TextBlock Text="{Binding Glyph}" Style="{StaticResource MetricIconTextStyle}" FontSize="15" Foreground="{Binding AccentBrush}" />
                                     </Border>
-                                    <TextBlock Grid.Column="1" Margin="12,2,0,0" Text="{Binding Caption}" FontSize="12.5" Foreground="#6E7B98" TextWrapping="Wrap" />
-                                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Margin="0,16,0,0" Text="{Binding ValueText}" FontSize="17" FontWeight="SemiBold" Foreground="#17213A" />
-                                    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Text="{Binding DeltaText}" FontSize="12.5" Foreground="{Binding DeltaBrush}" />
+                                    <TextBlock Grid.Column="1" Margin="12,2,0,0" Text="{Binding Caption}" Style="{StaticResource MetricCaptionStyle}" />
+                                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Margin="0,16,0,0" Text="{Binding ValueText}" Style="{StaticResource MetricValueCompactStyle}" />
+                                    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0" Text="{Binding DeltaText}" Foreground="{Binding DeltaBrush}" Style="{StaticResource MetricHintStyle}" />
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -284,7 +280,7 @@
                     <ComboBox x:Name="WarehouseFilterComboBox" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                     <ComboBox x:Name="StatusFilterComboBox" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                     <ComboBox x:Name="ClientFilterComboBox" Style="{StaticResource FilterComboStyle}" MinWidth="170" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
-                    <Button Style="{StaticResource GhostButtonStyle}" Margin="0,0,0,10" Click="HandleResetFiltersClick">
+                    <Button Style="{StaticResource TableFilterResetButtonStyle}" Margin="0,0,0,10" Click="HandleResetFiltersClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE777;" FontSize="12" />
                             <TextBlock Text="Сбросить" Margin="8,0,0,0" />
@@ -657,8 +653,8 @@
                                     <DataGridTemplateColumn Width="46">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Button Style="{StaticResource IconButtonStyle}" Width="30" Height="30" Padding="0" Click="HandleRowActionsClick" Tag="{Binding}">
-                                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" Foreground="#7C87A3" />
+                                                <Button Style="{StaticResource TableRowActionButtonStyle}" Click="HandleRowActionsClick" Tag="{Binding}">
+                                                    <TextBlock Style="{StaticResource TableRowActionIconStyle}" />
                                                 </Button>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
@@ -666,31 +662,31 @@
                                 </DataGrid.Columns>
                             </DataGrid>
 
-                            <Border x:Name="RegistryEmptyStateBorder" Background="#FFFFFF" Visibility="Collapsed">
+                            <Border x:Name="RegistryEmptyStateBorder" Style="{StaticResource TableEmptyOverlayStyle}" Visibility="Collapsed">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Border Width="86" Height="86" Background="#F7F9FF" CornerRadius="43" Margin="0,20,0,18">
-                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7C3;" FontSize="36" Foreground="#C0CAE2" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Border Style="{StaticResource TableEmptyIconBoxStyle}">
+                                        <TextBlock Text="&#xE7C3;" Style="{StaticResource TableEmptyIconTextStyle}" />
                                     </Border>
-                                    <TextBlock Text="Нет данных по выбранным фильтрам" FontSize="20" FontWeight="SemiBold" Foreground="#1C2944" HorizontalAlignment="Center" />
-                                    <TextBlock Text="Измените период или переключите вкладку реестра." FontSize="13.5" Foreground="#7A86A5" Margin="0,10,0,0" HorizontalAlignment="Center" />
+                                    <TextBlock Text="Нет данных по выбранным фильтрам" Style="{StaticResource TableEmptyTitleStyle}" />
+                                    <TextBlock Text="Измените период или переключите вкладку реестра." Style="{StaticResource TableEmptyHintStyle}" />
                                 </StackPanel>
                             </Border>
                         </Grid>
 
-                        <Grid Grid.Row="2" Margin="0,16,0,0">
+                        <Grid Grid.Row="2" Style="{StaticResource TableFooterGridStyle}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="RegistryFooterText" Text="Показано 0 записей" FontSize="12" Foreground="#7A86A5" VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <Button Style="{StaticResource MiniButtonStyle}" Width="34" Padding="0" Click="HandlePrevPageClick">
+                            <TextBlock x:Name="RegistryFooterText" Text="Показано 0 записей" Style="{StaticResource TableFooterTextStyle}" />
+                            <StackPanel Grid.Column="1" Style="{StaticResource TablePagerPanelStyle}">
+                                <Button x:Name="RegistryPrevPageButton" Style="{StaticResource TablePagerButtonStyle}" Click="HandlePrevPageClick">
                                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76B;" />
                                 </Button>
-                                <Border Background="#EEF2FF" BorderBrush="#D7DFFE" BorderThickness="1" CornerRadius="10" Padding="10,6" Margin="8,0,8,0">
-                                    <TextBlock x:Name="PageIndicatorText" Text="1" FontSize="12" Foreground="#4F5BFF" />
+                                <Border Style="{StaticResource TablePagerIndicatorStyle}">
+                                    <TextBlock x:Name="PageIndicatorText" Text="1" Style="{StaticResource TablePagerIndicatorTextStyle}" />
                                 </Border>
-                                <Button Style="{StaticResource MiniButtonStyle}" Width="34" Padding="0" Click="HandleNextPageClick">
+                                <Button x:Name="RegistryNextPageButton" Style="{StaticResource TablePagerButtonStyle}" Click="HandleNextPageClick">
                                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76C;" />
                                 </Button>
                             </StackPanel>

@@ -15,66 +15,23 @@
         <SolidColorBrush x:Key="TextBrush" Color="#17213A" />
         <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
 
-        <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource CardBrush}" />
+        <Style x:Key="CardStyle" TargetType="Border" BasedOn="{StaticResource DialogCardStyle}">
             <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="16" />
         </Style>
 
-        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#6E7B98" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="Margin" Value="0,0,0,6" />
-        </Style>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource DialogFieldLabelStyle}" />
 
-        <Style x:Key="InputStyle" TargetType="Control">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="FontSize" Value="13.5" />
-            <Setter Property="Foreground" Value="#17213A" />
-        </Style>
+        <Style x:Key="InputStyle" TargetType="Control" BasedOn="{StaticResource DialogInputStyle}" />
 
-        <Style x:Key="TextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource InputStyle}">
-            <Setter Property="Padding" Value="12,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#DDE5F4" />
-            <Setter Property="BorderThickness" Value="1" />
-        </Style>
+        <Style x:Key="TextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource DialogTextBoxStyle}" />
 
-        <Style x:Key="ComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource InputStyle}">
-            <Setter Property="Padding" Value="12,0,8,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#DDE5F4" />
-            <Setter Property="BorderThickness" Value="1" />
+        <Style x:Key="ComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource DialogComboBoxStyle}">
             <Setter Property="IsEditable" Value="False" />
         </Style>
 
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="18,0" />
-            <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogPrimaryButtonStyle}" />
 
-        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#DDE5F4" />
-            <Setter Property="Foreground" Value="#34415F" />
-        </Style>
+        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogSecondaryButtonStyle}" />
     </Window.Resources>
 
     <Grid Background="{StaticResource PageBrush}" Margin="20">
@@ -130,7 +87,7 @@
 
                 <StackPanel Grid.Row="2" Grid.Column="1" Margin="10,0,0,14">
                     <TextBlock Text="Плановая дата" Style="{StaticResource FieldLabelStyle}" />
-                    <DatePicker x:Name="PlannedDatePicker" Height="40" FontSize="13.5" />
+                    <DatePicker x:Name="PlannedDatePicker" Style="{StaticResource DialogDatePickerStyle}" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Margin="0,0,0,14">

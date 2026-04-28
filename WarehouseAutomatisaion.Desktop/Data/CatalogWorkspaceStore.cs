@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using WarehouseAutomatisaion.Desktop.Text;
 using WarehouseAutomatisaion.Infrastructure.Importing;
 
 namespace WarehouseAutomatisaion.Desktop.Data;
@@ -37,7 +38,13 @@ public sealed class CatalogWorkspaceStore
         var backplaneSnapshot = _backplane?.TryLoadModuleSnapshot<CatalogWorkspaceSnapshot>("catalog");
         if (backplaneSnapshot is not null)
         {
+            var normalized = NormalizeSnapshot(backplaneSnapshot);
             workspace.ReplaceFrom(backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
+            if (normalized)
+            {
+                _backplane?.TrySaveModuleSnapshot("catalog", backplaneSnapshot, currentOperator, CreateAuditSeeds(backplaneSnapshot.OperationLog));
+            }
+
             return workspace;
         }
 
@@ -55,7 +62,13 @@ public sealed class CatalogWorkspaceStore
                 return workspace;
             }
 
+            var normalized = NormalizeSnapshot(snapshot);
             workspace.ReplaceFrom(snapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
+            if (normalized)
+            {
+                WriteSnapshot(snapshot);
+            }
+
             _backplane?.TrySaveModuleSnapshot("catalog", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog));
             return workspace;
         }
@@ -75,6 +88,7 @@ public sealed class CatalogWorkspaceStore
         var backplaneSnapshot = _backplane?.TryLoadModuleSnapshot<CatalogWorkspaceSnapshot>("catalog");
         if (backplaneSnapshot is not null)
         {
+            NormalizeSnapshot(backplaneSnapshot);
             return backplaneSnapshot.ToWorkspace(currentOperator, currencies, warehouses);
         }
 
@@ -87,6 +101,11 @@ public sealed class CatalogWorkspaceStore
         {
             var json = File.ReadAllText(StoragePath, Encoding.UTF8);
             var snapshot = JsonSerializer.Deserialize<CatalogWorkspaceSnapshot>(json, SerializerOptions);
+            if (snapshot is not null)
+            {
+                NormalizeSnapshot(snapshot);
+            }
+
             return snapshot?.ToWorkspace(currentOperator, currencies, warehouses);
         }
         catch
@@ -105,15 +124,121 @@ public sealed class CatalogWorkspaceStore
 
         Directory.CreateDirectory(directory);
         var snapshot = CatalogWorkspaceSnapshot.FromWorkspace(workspace);
+        NormalizeSnapshot(snapshot);
         if (_backplane?.TrySaveModuleSnapshot("catalog", snapshot, workspace.CurrentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
         {
             return;
         }
 
+        WriteSnapshot(snapshot);
+    }
+
+    private void WriteSnapshot(CatalogWorkspaceSnapshot snapshot)
+    {
+        var directory = Path.GetDirectoryName(StoragePath);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            throw new InvalidOperationException("Storage directory is not configured.");
+        }
+
+        Directory.CreateDirectory(directory);
         var tempPath = $"{StoragePath}.tmp";
         var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
         File.WriteAllText(tempPath, json, Encoding.UTF8);
         File.Move(tempPath, StoragePath, true);
+    }
+
+    private static bool NormalizeSnapshot(CatalogWorkspaceSnapshot snapshot)
+    {
+        var changed = false;
+
+        snapshot.CurrentOperator = Normalize(snapshot.CurrentOperator, ref changed);
+        NormalizeList(snapshot.Currencies, ref changed);
+        NormalizeList(snapshot.Warehouses, ref changed);
+
+        foreach (var item in snapshot.Items)
+        {
+            item.Code = Normalize(item.Code, ref changed);
+            item.Name = Normalize(item.Name, ref changed);
+            item.Unit = Normalize(item.Unit, ref changed);
+            item.Category = Normalize(item.Category, ref changed);
+            item.Supplier = Normalize(item.Supplier, ref changed);
+            item.DefaultWarehouse = Normalize(item.DefaultWarehouse, ref changed);
+            item.Status = Normalize(item.Status, ref changed);
+            item.CurrencyCode = Normalize(item.CurrencyCode, ref changed);
+            item.BarcodeValue = Normalize(item.BarcodeValue, ref changed);
+            item.BarcodeFormat = Normalize(item.BarcodeFormat, ref changed);
+            item.QrPayload = Normalize(item.QrPayload, ref changed);
+            item.Notes = Normalize(item.Notes, ref changed);
+            item.SourceLabel = Normalize(item.SourceLabel, ref changed);
+        }
+
+        foreach (var priceType in snapshot.PriceTypes)
+        {
+            priceType.Code = Normalize(priceType.Code, ref changed);
+            priceType.Name = Normalize(priceType.Name, ref changed);
+            priceType.CurrencyCode = Normalize(priceType.CurrencyCode, ref changed);
+            priceType.BasePriceTypeName = Normalize(priceType.BasePriceTypeName, ref changed);
+            priceType.RoundingRule = Normalize(priceType.RoundingRule, ref changed);
+            priceType.Status = Normalize(priceType.Status, ref changed);
+        }
+
+        foreach (var discount in snapshot.Discounts)
+        {
+            discount.Name = Normalize(discount.Name, ref changed);
+            discount.PriceTypeName = Normalize(discount.PriceTypeName, ref changed);
+            discount.Period = Normalize(discount.Period, ref changed);
+            discount.Scope = Normalize(discount.Scope, ref changed);
+            discount.Status = Normalize(discount.Status, ref changed);
+            discount.Comment = Normalize(discount.Comment, ref changed);
+        }
+
+        foreach (var document in snapshot.PriceRegistrations)
+        {
+            document.Number = Normalize(document.Number, ref changed);
+            document.PriceTypeName = Normalize(document.PriceTypeName, ref changed);
+            document.CurrencyCode = Normalize(document.CurrencyCode, ref changed);
+            document.Status = Normalize(document.Status, ref changed);
+            document.Comment = Normalize(document.Comment, ref changed);
+
+            foreach (var line in document.Lines)
+            {
+                line.ItemCode = Normalize(line.ItemCode, ref changed);
+                line.ItemName = Normalize(line.ItemName, ref changed);
+                line.Unit = Normalize(line.Unit, ref changed);
+            }
+        }
+
+        foreach (var logEntry in snapshot.OperationLog)
+        {
+            logEntry.Actor = Normalize(logEntry.Actor, ref changed);
+            logEntry.EntityType = Normalize(logEntry.EntityType, ref changed);
+            logEntry.EntityNumber = Normalize(logEntry.EntityNumber, ref changed);
+            logEntry.Action = Normalize(logEntry.Action, ref changed);
+            logEntry.Result = Normalize(logEntry.Result, ref changed);
+            logEntry.Message = Normalize(logEntry.Message, ref changed);
+        }
+
+        return changed;
+    }
+
+    private static void NormalizeList(IList<string> values, ref bool changed)
+    {
+        for (var i = 0; i < values.Count; i++)
+        {
+            values[i] = Normalize(values[i], ref changed);
+        }
+    }
+
+    private static string Normalize(string value, ref bool changed)
+    {
+        var normalized = TextMojibakeFixer.NormalizeText(value);
+        if (!string.Equals(value, normalized, StringComparison.Ordinal))
+        {
+            changed = true;
+        }
+
+        return normalized;
     }
 
     private static CatalogWorkspaceSeed BuildSeed(SalesWorkspace salesWorkspace)

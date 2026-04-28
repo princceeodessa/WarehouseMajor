@@ -311,3 +311,4 @@ if ($RequireCodeSigning -or $hasCodeSigningCertificate) {
 }
 
 Write-Host "Installer created at $setupPath"
+exit 0

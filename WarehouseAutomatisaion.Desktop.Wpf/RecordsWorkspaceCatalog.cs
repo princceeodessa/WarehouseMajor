@@ -339,60 +339,100 @@ internal static class RecordsWorkspaceCatalog
             ]);
     }
 
-    public static RecordsWorkspaceDefinition CreateModel(FunctionalCoverageSnapshot coverage)
+    public static RecordsWorkspaceDefinition CreateModel(FunctionalCoverageSnapshot coverage, SalesWorkspace salesWorkspace)
     {
-        var rows = coverage.Modules
-            .SelectMany(module => module.Scenarios.Select(item => new { module.Title, Scenario = item }))
+        var currentOperator = string.IsNullOrWhiteSpace(salesWorkspace.CurrentOperator)
+            ? Environment.UserName
+            : salesWorkspace.CurrentOperator;
+        var catalogWorkspace = CatalogWorkspaceStore.CreateDefault()
+            .TryLoadExisting(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses)
+            ?? LoadCatalogWorkspaceSnapshot(salesWorkspace);
+        var purchasingWorkspace = PurchasingOperationalWorkspaceStore.CreateDefault()
+            .TryLoadExisting(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
+        var audit = DataIntegrityAuditor.Audit(salesWorkspace, catalogWorkspace, purchasingWorkspace);
+        var scenarioRows = coverage.Modules
+            .SelectMany(module => module.Scenarios.Select(item => new DataModelRow(
+                Module: Clean(module.Title),
+                Priority: NormalizeScenarioFilter(item.Priority),
+                Title: Clean(item.Scenario),
+                Scope: Clean(item.Scope),
+                RelatedObjects: Clean(item.RelatedObjects),
+                Status: Clean(item.Status),
+                SearchText: SearchIndex(module.Title, item.Priority, item.Scenario, item.Scope, item.Status),
+                SortOrder: 10,
+                DateValue: null)))
+            .ToArray();
+        var auditRows = audit.Issues
+            .Select(item => new DataModelRow(
+                Module: Clean(item.Module),
+                Priority: Clean(item.Priority),
+                Title: Clean(item.Problem),
+                Scope: Clean(item.Details),
+                RelatedObjects: $"{Clean(item.ObjectType)}: {Clean(item.ObjectNumber)}",
+                Status: Clean(item.Status),
+                SearchText: SearchIndex(item.Module, item.Priority, item.Problem, item.Details, item.Recommendation, item.ObjectType, item.ObjectNumber),
+                SortOrder: item.SeverityRank,
+                DateValue: item.Date))
+            .ToArray();
+        var rows = auditRows
+            .Concat(scenarioRows)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Module, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
 
         return new RecordsWorkspaceDefinition(
             Title: "Связи данных",
-            Subtitle: "Карта сценариев, покрытие и следующий шаг по миграции.",
-            SearchPlaceholder: "Поиск по сценарию...",
+            Subtitle: "Карта сценариев и встроенная проверка целостности данных.",
+            SearchPlaceholder: "Поиск по проблеме, сценарию или документу...",
             PrimaryActionText: string.Empty,
             PrimaryFilterOptions: ScenarioFilters,
             ShowDateRange: false,
-            MetricsFactory: () => coverage.SummaryCards
-                .Take(4)
-                .Select(item => new WorkspaceMetricCardDefinition(
-                    Clean(item.Title),
-                    Clean(item.Value),
-                    "+0%",
-                    Clean(item.Hint),
-                    Hex(item.AccentColor),
-                    "#F5F7FF",
-                    "#8C97B0",
-                    "\uE9CE"))
-                .ToArray(),
+            MetricsFactory: () =>
+            [
+                new WorkspaceMetricCardDefinition("Критично", audit.CriticalCount.ToString("N0", RuCulture), audit.CriticalCount == 0 ? "нет блокеров" : "исправить вручную", "Разорванные связи и дубли ключей", "#F15B5B", "#FFF0F0", "#F15B5B", "\uEA39"),
+                new WorkspaceMetricCardDefinition("Важно", audit.WarningCount.ToString("N0", RuCulture), audit.WarningCount == 0 ? "нет замечаний" : "проверить", "Пустые строки, цены и даты", "#F29A17", "#FFF4E3", "#F29A17", "\uE7BA"),
+                new WorkspaceMetricCardDefinition("План", audit.InfoCount.ToString("N0", RuCulture), audit.InfoCount == 0 ? "чисто" : "дополнить", "Данные, которые улучшают аналитику", "#7180A0", "#F3F6FB", "#7180A0", "\uE9D2"),
+                new WorkspaceMetricCardDefinition("Сценарии", scenarioRows.Length.ToString("N0", RuCulture), "+0%", "Карта покрытия функций", "#4F5BFF", "#EEF2FF", "#8C97B0", "\uE9CE")
+            ],
             RowsFactory: () => rows
                 .Select(item => new RecordsGridItem(
-                    SearchText: SearchIndex(item.Title, item.Scenario.Priority, item.Scenario.Scenario, item.Scenario.Scope, item.Scenario.Status),
-                    FilterValue: NormalizeScenarioFilter(item.Scenario.Priority),
-                    DateValue: null,
+                    SearchText: item.SearchText,
+                    FilterValue: item.Priority,
+                    DateValue: item.DateValue,
                     Cells:
                     [
-                        Cell(Clean(item.Title)),
-                        Cell(Clean(item.Scenario.Priority)),
-                        Cell(Clean(item.Scenario.Scenario), semiBold: true),
-                        Cell(Clean(item.Scenario.Scope)),
-                        Cell(Clean(item.Scenario.RelatedObjects)),
-                        StatusCell(Clean(item.Scenario.Status)),
-                        ActionCell()
+                        Cell(Clean(item.Module)),
+                        Cell(Clean(item.Priority)),
+                        Cell(Clean(item.Title), semiBold: true),
+                        Cell(Clean(item.Scope)),
+                        Cell(Clean(item.RelatedObjects)),
+                        StatusCell(Clean(item.Status))
                     ]))
                 .ToArray(),
             Columns:
             [
                 new RecordsGridColumnDefinition("Модуль", 0, WidthValue: 0.9),
                 new RecordsGridColumnDefinition("Приоритет", 1, WidthValue: 0.75),
-                new RecordsGridColumnDefinition("Сценарий", 2, WidthValue: 1.45),
-                new RecordsGridColumnDefinition("Что переносим", 3, WidthValue: 1.4),
-                new RecordsGridColumnDefinition("База и связи", 4, WidthValue: 1.45),
-                new RecordsGridColumnDefinition("Статус", 5, RecordsColumnKind.Status, WidthValue: 1.0),
-                new RecordsGridColumnDefinition("Действия", 6, RecordsColumnKind.Action, 72, false)
+                new RecordsGridColumnDefinition("Проверка / сценарий", 2, WidthValue: 1.45),
+                new RecordsGridColumnDefinition("Проблема или перенос", 3, WidthValue: 1.55),
+                new RecordsGridColumnDefinition("Запись / связи", 4, WidthValue: 1.25),
+                new RecordsGridColumnDefinition("Статус", 5, RecordsColumnKind.Status, WidthValue: 1.0)
             ],
             ShowImportAction: false,
             ShowPrimaryAction: false);
     }
+
+    private sealed record DataModelRow(
+        string Module,
+        string Priority,
+        string Title,
+        string Scope,
+        string RelatedObjects,
+        string Status,
+        string SearchText,
+        int SortOrder,
+        DateTime? DateValue);
 
     internal static CatalogWorkspace LoadCatalogWorkspaceSnapshot(SalesWorkspace salesWorkspace)
     {

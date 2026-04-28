@@ -458,6 +458,10 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
             ? "Показано 0 записей"
             : $"Показано {((_page - 1) * PageSize) + 1}-{((_page - 1) * PageSize) + pageRows.Length} из {total}";
         PageIndicatorText.Text = _page.ToString(CultureInfo.InvariantCulture);
+        RegistryPrevPageButton.IsEnabled = _page > 1;
+        RegistryPrevPageButton.Opacity = RegistryPrevPageButton.IsEnabled ? 1d : 0.45d;
+        RegistryNextPageButton.IsEnabled = _page < totalPages;
+        RegistryNextPageButton.Opacity = RegistryNextPageButton.IsEnabled ? 1d : 0.45d;
         RegistrySelectAllCheckBox.IsChecked = pageRows.Length > 0 && pageRows.All(item => item.IsSelected);
         _suppressSelectionEvents = false;
     }

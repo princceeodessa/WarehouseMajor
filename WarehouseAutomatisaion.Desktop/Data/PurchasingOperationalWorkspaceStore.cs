@@ -37,8 +37,14 @@ public sealed class PurchasingOperationalWorkspaceStore
         var backplaneSnapshot = _backplane?.TryLoadModuleSnapshot<PurchasingWorkspaceSnapshot>("purchasing");
         if (backplaneSnapshot is not null)
         {
+            var repaired = RepairSupplierLinks(backplaneSnapshot);
             var persistedFromMySql = backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
             MergeWorkspace(workspace, persistedFromMySql);
+            if (repaired)
+            {
+                _backplane?.TrySaveModuleSnapshot("purchasing", backplaneSnapshot, currentOperator, CreateAuditSeeds(backplaneSnapshot.OperationLog));
+            }
+
             return workspace;
         }
 
@@ -56,8 +62,14 @@ public sealed class PurchasingOperationalWorkspaceStore
                 return workspace;
             }
 
+            var repaired = RepairSupplierLinks(snapshot);
             var persisted = snapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
             MergeWorkspace(workspace, persisted);
+            if (repaired)
+            {
+                WriteSnapshot(snapshot);
+            }
+
             _backplane?.TrySaveModuleSnapshot("purchasing", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog));
             return workspace;
         }
@@ -89,6 +101,11 @@ public sealed class PurchasingOperationalWorkspaceStore
         {
             var json = File.ReadAllText(StoragePath, Encoding.UTF8);
             var snapshot = JsonSerializer.Deserialize<PurchasingWorkspaceSnapshot>(json, SerializerOptions);
+            if (snapshot is not null)
+            {
+                RepairSupplierLinks(snapshot);
+            }
+
             return snapshot?.ToWorkspace(currentOperator, catalogItems, warehouses);
         }
         catch
@@ -107,11 +124,24 @@ public sealed class PurchasingOperationalWorkspaceStore
 
         Directory.CreateDirectory(directory);
         var snapshot = PurchasingWorkspaceSnapshot.FromWorkspace(workspace);
+        RepairSupplierLinks(snapshot);
         if (_backplane?.TrySaveModuleSnapshot("purchasing", snapshot, workspace.CurrentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
         {
             return;
         }
 
+        WriteSnapshot(snapshot);
+    }
+
+    private void WriteSnapshot(PurchasingWorkspaceSnapshot snapshot)
+    {
+        var directory = Path.GetDirectoryName(StoragePath);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            throw new InvalidOperationException("Storage directory is not configured.");
+        }
+
+        Directory.CreateDirectory(directory);
         var tempPath = $"{StoragePath}.tmp";
         var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
         File.WriteAllText(tempPath, json, Encoding.UTF8);
@@ -151,6 +181,97 @@ public sealed class PurchasingOperationalWorkspaceStore
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
+        RepairSupplierLinks(target);
+    }
+
+    private static bool RepairSupplierLinks(PurchasingWorkspaceSnapshot snapshot)
+    {
+        var supplierById = snapshot.Suppliers
+            .Where(item => item.Id != Guid.Empty)
+            .GroupBy(item => item.Id)
+            .ToDictionary(group => group.Key, group => group.First());
+        var supplierByName = snapshot.Suppliers
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
+            .GroupBy(item => item.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() == 1)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        var changed = false;
+        foreach (var document in snapshot.PurchaseOrders
+                     .Concat(snapshot.SupplierInvoices)
+                     .Concat(snapshot.PurchaseReceipts))
+        {
+            changed |= RepairDocumentSupplierLink(document, supplierById, supplierByName);
+        }
+
+        return changed;
+    }
+
+    private static void RepairSupplierLinks(OperationalPurchasingWorkspace workspace)
+    {
+        var supplierById = workspace.Suppliers
+            .Where(item => item.Id != Guid.Empty)
+            .GroupBy(item => item.Id)
+            .ToDictionary(group => group.Key, group => group.First());
+        var supplierByName = workspace.Suppliers
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
+            .GroupBy(item => item.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() == 1)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var document in workspace.PurchaseOrders
+                     .Concat(workspace.SupplierInvoices)
+                     .Concat(workspace.PurchaseReceipts))
+        {
+            RepairDocumentSupplierLink(document, supplierById, supplierByName);
+        }
+    }
+
+    private static bool RepairDocumentSupplierLink(
+        OperationalPurchasingDocumentRecord document,
+        IReadOnlyDictionary<Guid, OperationalPurchasingSupplierRecord> supplierById,
+        IReadOnlyDictionary<string, OperationalPurchasingSupplierRecord> supplierByName)
+    {
+        if (document.SupplierId != Guid.Empty && supplierById.TryGetValue(document.SupplierId, out var linkedSupplier))
+        {
+            return FillDocumentSupplierFields(document, linkedSupplier, repairId: false);
+        }
+
+        if (string.IsNullOrWhiteSpace(document.SupplierName)
+            || !supplierByName.TryGetValue(document.SupplierName.Trim(), out var supplierByDocumentName))
+        {
+            return false;
+        }
+
+        return FillDocumentSupplierFields(document, supplierByDocumentName, repairId: true);
+    }
+
+    private static bool FillDocumentSupplierFields(
+        OperationalPurchasingDocumentRecord document,
+        OperationalPurchasingSupplierRecord supplier,
+        bool repairId)
+    {
+        var changed = false;
+        if (repairId && document.SupplierId != supplier.Id)
+        {
+            document.SupplierId = supplier.Id;
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(document.SupplierName) && !string.IsNullOrWhiteSpace(supplier.Name))
+        {
+            document.SupplierName = supplier.Name;
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(document.Contract) && !string.IsNullOrWhiteSpace(supplier.Contract))
+        {
+            document.Contract = supplier.Contract;
+            changed = true;
+        }
+
+        return changed;
     }
 
     private static void MergeSuppliers(

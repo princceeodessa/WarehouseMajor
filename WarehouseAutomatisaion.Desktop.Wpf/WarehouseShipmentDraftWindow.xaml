@@ -9,30 +9,10 @@
         Background="#F7F9FD"
         Title="Подготовка отгрузки">
     <Window.Resources>
-        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#6E7B98" />
-            <Setter Property="Margin" Value="0,0,0,6" />
-        </Style>
-        <Style x:Key="InputStyle" TargetType="Control">
-            <Setter Property="Height" Value="38" />
-            <Setter Property="FontSize" Value="13" />
-        </Style>
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="38" />
-            <Setter Property="Padding" Value="20,0" />
-            <Setter Property="Background" Value="#4F5BFF" />
-            <Setter Property="BorderBrush" Value="#4F5BFF" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-        <Style x:Key="GhostButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="38" />
-            <Setter Property="Padding" Value="18,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#DDE5F4" />
-            <Setter Property="Foreground" Value="#17213A" />
-        </Style>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource DialogFieldLabelStyle}" />
+        <Style x:Key="InputStyle" TargetType="Control" BasedOn="{StaticResource DialogInputStyle}" />
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogPrimaryButtonStyle}" />
+        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogSecondaryButtonStyle}" />
     </Window.Resources>
 
     <Grid Margin="24">
@@ -57,10 +37,7 @@
         </StackPanel>
 
         <Border Grid.Row="1"
-                Background="#FFFFFF"
-                BorderBrush="#E4EAF5"
-                BorderThickness="1"
-                CornerRadius="14"
+                Style="{StaticResource DialogCardStyle}"
                 Padding="16"
                 Margin="0,0,0,16">
             <Grid>
@@ -89,10 +66,7 @@
         </Border>
 
         <Border Grid.Row="2"
-                Background="#FFFFFF"
-                BorderBrush="#E4EAF5"
-                BorderThickness="1"
-                CornerRadius="14"
+                Style="{StaticResource DialogCardStyle}"
                 Padding="0">
             <Grid>
                 <Grid.RowDefinitions>
@@ -115,17 +89,9 @@
 
                 <DataGrid x:Name="LinesGrid"
                           Grid.Row="1"
-                          AutoGenerateColumns="False"
-                          CanUserAddRows="False"
-                          CanUserDeleteRows="False"
-                          HeadersVisibility="Column"
-                          GridLinesVisibility="Horizontal"
-                          RowHeaderWidth="0"
-                          BorderThickness="0"
-                          Background="#FFFFFF"
+                          Style="{StaticResource DialogDataGridStyle}"
                           AlternatingRowBackground="#F8FAFF"
                           RowHeight="44"
-                          SelectionMode="Single"
                           CellEditEnding="HandleCellEditEnding">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="120" IsReadOnly="True" />

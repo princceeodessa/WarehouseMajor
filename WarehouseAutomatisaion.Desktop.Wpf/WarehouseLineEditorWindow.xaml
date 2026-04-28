@@ -10,58 +10,20 @@
         ResizeMode="NoResize"
         Background="#F6F8FC">
     <Window.Resources>
-        <Style x:Key="CardStyle" TargetType="Border">
-            <Setter Property="Background" Value="#FFFFFF" />
+        <Style x:Key="CardStyle" TargetType="Border" BasedOn="{StaticResource DialogCardStyle}">
             <Setter Property="BorderBrush" Value="#E8EDF7" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="18" />
         </Style>
 
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-            <Setter Property="Height" Value="42" />
-            <Setter Property="Padding" Value="20,0" />
-            <Setter Property="Background" Value="#4F5BFF" />
-            <Setter Property="BorderBrush" Value="#4F5BFF" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="12">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource DialogFieldLabelStyle}" />
 
-        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#D8DFF0" />
-            <Setter Property="Foreground" Value="#25324A" />
-        </Style>
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogPrimaryButtonStyle}" />
 
-        <Style TargetType="TextBox">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="BorderBrush" Value="#D8DFF0" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Background" Value="#FFFFFF" />
-        </Style>
+        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogSecondaryButtonStyle}" />
 
-        <Style TargetType="ComboBox">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="10,6" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="BorderBrush" Value="#D8DFF0" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Background" Value="#FFFFFF" />
+        <Style TargetType="TextBox" BasedOn="{StaticResource DialogTextBoxStyle}" />
+
+        <Style TargetType="ComboBox" BasedOn="{StaticResource DialogComboBoxStyle}">
             <Setter Property="IsEditable" Value="True" />
             <Setter Property="IsTextSearchEnabled" Value="False" />
         </Style>
@@ -99,7 +61,7 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,16">
-                    <TextBlock Text="Номенклатура" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
+                    <TextBlock Text="Номенклатура" Style="{StaticResource FieldLabelStyle}" />
                     <ComboBox x:Name="ItemComboBox"
                               DisplayMemberPath="Name"
                               SelectionChanged="HandleItemSelectionChanged"
@@ -107,28 +69,28 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="0" Grid.Column="1" Margin="10,0,0,16">
-                    <TextBlock Text="Код" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
+                    <TextBlock Text="Код" Style="{StaticResource FieldLabelStyle}" />
                     <TextBox x:Name="CodeTextBox" IsReadOnly="True" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,10,16">
-                    <TextBlock Text="Единица" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
+                    <TextBlock Text="Единица" Style="{StaticResource FieldLabelStyle}" />
                     <TextBox x:Name="UnitTextBox" IsReadOnly="True" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="1" Margin="10,0,0,16">
-                    <TextBlock x:Name="QuantityLabelText" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
+                    <TextBlock x:Name="QuantityLabelText" Style="{StaticResource FieldLabelStyle}" />
                     <TextBox x:Name="QuantityTextBox" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,10,0">
-                    <TextBlock Text="Ячейка / место" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
-                    <TextBox x:Name="SourceLocationTextBox" Height="88" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top" />
+                    <TextBlock Text="Ячейка / место" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox x:Name="SourceLocationTextBox" Style="{StaticResource DialogMultilineTextBoxStyle}" Height="88" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="1" Margin="10,0,0,0">
-                    <TextBlock x:Name="TargetLocationLabelText" Text="Место назначения" FontSize="13" FontWeight="SemiBold" Foreground="#44506C" Margin="0,0,0,6" />
-                    <TextBox x:Name="TargetLocationTextBox" Height="88" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top" />
+                    <TextBlock x:Name="TargetLocationLabelText" Text="Место назначения" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox x:Name="TargetLocationTextBox" Style="{StaticResource DialogMultilineTextBoxStyle}" Height="88" />
                 </StackPanel>
             </Grid>
         </Border>

@@ -291,8 +291,9 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             : Products.FirstOrDefault();
 
         ProductsGrid.SelectedItem = SelectedProduct;
-        ProductsCountText.Text = $"Показано 1–{Products.Count:N0} из {_allProducts.Count:N0}";
-        LastPageText.Text = Math.Max(1, (int)Math.Ceiling(_allProducts.Count / 8d)).ToString("N0", RuCulture);
+        ProductsCountText.Text = Products.Count == 0
+            ? $"Показано 0 из {_allProducts.Count:N0}"
+            : $"Показано 1–{Products.Count:N0} из {_allProducts.Count:N0}";
         UpdateSearchPlaceholders();
         UpdateBulkActions();
     }
@@ -436,6 +437,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         menu.Items.Add(CreateMenuItem("Изменить категорию", HandleChangeCategoryClick));
         menu.Items.Add(CreateMenuItem("Изменить статус", HandleChangeStatusClick));
         menu.Items.Add(CreateMenuItem("Обновить цены", (_, _) => ShowPriceUpdateMessage()));
+        menu.Items.Add(CreateMenuItem("Выгрузить прайс-лист", (_, _) => ExportPriceList(GetPriceListScope())));
         menu.Items.Add(new Separator());
         menu.Items.Add(CreateMenuItem("Архивировать выбранные", (_, _) => ArchiveSelectedProducts()));
         ActionsButton.ContextMenu = menu;
@@ -592,6 +594,17 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         }
 
         return SelectedProduct is null ? Array.Empty<ProductRowViewModel>() : new[] { SelectedProduct };
+    }
+
+    private ProductRowViewModel[] GetPriceListScope()
+    {
+        var selected = Products.Where(item => item.IsSelected).ToArray();
+        if (selected.Length > 0)
+        {
+            return selected;
+        }
+
+        return Products.ToArray();
     }
 
     private void HandleImportClick(object sender, RoutedEventArgs e)
@@ -1191,6 +1204,70 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         MessageBox.Show(Window.GetWindow(this), $"Экспортировано товаров: {products.Count:N0}.\nФайл: {path}", "Товары", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    private void ExportPriceList(IReadOnlyList<ProductRowViewModel> products)
+    {
+        if (products.Count == 0)
+        {
+            ShowPlannedAction("Нет товаров для выгрузки прайс-листа.");
+            return;
+        }
+
+        var priceTypes = _catalogWorkspace.PriceTypes.Count > 0
+            ? _catalogWorkspace.PriceTypes.OrderByDescending(item => item.IsDefault).ThenBy(item => Ui(item.Name)).ToArray()
+            : [new CatalogPriceTypeRecord { Name = "Базовая цена", CurrencyCode = "RUB", IsDefault = true }];
+
+        var activeDiscounts = _catalogWorkspace.Discounts
+            .Where(IsActiveDiscount)
+            .ToArray();
+        var directory = Path.Combine(AppContext.BaseDirectory, "exports");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, $"price-list-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
+        var builder = new StringBuilder();
+        var header = new List<string>
+        {
+            "Код",
+            "Товар",
+            "Категория",
+            "Ед. изм.",
+            "Поставщик",
+            "Склад",
+            "Статус",
+            "Валюта"
+        };
+        header.AddRange(priceTypes.Select(item => $"Цена: {Ui(item.Name)}"));
+        header.Add("Скидка, %");
+        header.Add("Примечание");
+        builder.AppendLine(string.Join(';', header.Select(Csv)));
+
+        foreach (var item in products.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(item => item.Code, StringComparer.OrdinalIgnoreCase))
+        {
+            var maxDiscount = ResolvePriceListDiscountPercent(item, activeDiscounts, null);
+            var row = new List<string>
+            {
+                item.Code,
+                item.Name,
+                item.Category,
+                item.Unit,
+                item.Supplier,
+                item.Warehouse,
+                item.Status,
+                item.Currency
+            };
+
+            foreach (var priceType in priceTypes)
+            {
+                row.Add(ResolvePriceListPrice(item, priceType, activeDiscounts).ToString("N2", RuCulture));
+            }
+
+            row.Add(maxDiscount.ToString("N2", RuCulture));
+            row.Add(item.MissingPrice ? "Требуется цена" : string.Empty);
+            builder.AppendLine(string.Join(';', row.Select(Csv)));
+        }
+
+        File.WriteAllText(path, builder.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        MessageBox.Show(Window.GetWindow(this), $"Прайс-лист выгружен. Товаров: {products.Count:N0}.\nФайл: {path}", "Товары", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
     private void PrintLabels(IReadOnlyList<ProductRowViewModel> products)
     {
         if (products.Count == 0)
@@ -1265,6 +1342,83 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     private static string NormalizeBarcodeComparable(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? string.Empty : new string(value.Trim().Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+    }
+
+    private static decimal ResolvePriceListPrice(
+        ProductRowViewModel item,
+        CatalogPriceTypeRecord priceType,
+        IReadOnlyList<CatalogDiscountRecord> activeDiscounts)
+    {
+        var discountPercent = ResolvePriceListDiscountPercent(item, activeDiscounts, priceType.Name);
+        var price = item.Price <= 0m
+            ? 0m
+            : item.Price * (1m - Math.Clamp(discountPercent, 0m, 100m) / 100m);
+        return ApplyPriceListRounding(price, priceType);
+    }
+
+    private static decimal ResolvePriceListDiscountPercent(
+        ProductRowViewModel item,
+        IReadOnlyList<CatalogDiscountRecord> activeDiscounts,
+        string? priceTypeName)
+    {
+        return activeDiscounts
+            .Where(discount => DiscountAppliesToItem(discount, item, priceTypeName))
+            .Select(discount => Math.Clamp(discount.Percent, 0m, 100m))
+            .DefaultIfEmpty(0m)
+            .Max();
+    }
+
+    private static bool DiscountAppliesToItem(CatalogDiscountRecord discount, ProductRowViewModel item, string? priceTypeName)
+    {
+        var discountPriceType = Ui(discount.PriceTypeName);
+        if (!string.IsNullOrWhiteSpace(priceTypeName)
+            && !string.IsNullOrWhiteSpace(discountPriceType)
+            && !discountPriceType.Equals(Ui(priceTypeName), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var scope = Ui(discount.Scope);
+        if (string.IsNullOrWhiteSpace(scope) || scope.Equals("Все товары", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return scope.Contains(item.Category, StringComparison.OrdinalIgnoreCase)
+               || scope.Contains(item.Supplier, StringComparison.OrdinalIgnoreCase)
+               || scope.Contains(item.Warehouse, StringComparison.OrdinalIgnoreCase)
+               || scope.Contains(item.Code, StringComparison.OrdinalIgnoreCase)
+               || scope.Contains(item.Name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsActiveDiscount(CatalogDiscountRecord discount)
+    {
+        var status = Ui(discount.Status);
+        return string.IsNullOrWhiteSpace(status)
+               || status.Contains("актив", StringComparison.OrdinalIgnoreCase)
+               || status.Contains("active", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static decimal ApplyPriceListRounding(decimal price, CatalogPriceTypeRecord priceType)
+    {
+        if (price <= 0m)
+        {
+            return 0m;
+        }
+
+        var rounding = Ui(priceType.RoundingRule);
+        if (priceType.UsesPsychologicalRounding || rounding.Contains("псих", StringComparison.OrdinalIgnoreCase))
+        {
+            var step = price >= 1000m ? 100m : 10m;
+            return Math.Max(1m, Math.Ceiling(price / step) * step - 1m);
+        }
+
+        if (rounding.Contains("без", StringComparison.OrdinalIgnoreCase))
+        {
+            return Math.Round(price, 2, MidpointRounding.AwayFromZero);
+        }
+
+        return Math.Round(price, 0, MidpointRounding.AwayFromZero);
     }
 
     private static string BuildProductQrPayload(ProductRowViewModel item, string barcode)

@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Windows;
 using WarehouseAutomatisaion.Desktop.Data;
+using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
@@ -29,10 +30,11 @@ public partial class WarehouseLineEditorWindow : Window
         _draft = line?.Clone() ?? new OperationalWarehouseLineRecord { Id = Guid.NewGuid() };
 
         InitializeComponent();
+        WpfTextNormalizer.NormalizeTree(this);
 
-        Title = title;
-        HeaderTitleText.Text = title;
-        HeaderSubtitleText.Text = subtitle;
+        Title = Ui(title);
+        HeaderTitleText.Text = Ui(title);
+        HeaderSubtitleText.Text = Ui(subtitle);
         QuantityLabelText.Text = allowNegativeQuantity ? "Корректировка (+/-)" : "Количество";
         TargetLocationTextBox.IsEnabled = allowTargetLocation;
         if (!allowTargetLocation)
@@ -46,8 +48,11 @@ public partial class WarehouseLineEditorWindow : Window
 
     public OperationalWarehouseLineRecord? ResultLine { get; private set; }
 
+    private static string Ui(string? value) => TextMojibakeFixer.NormalizeText(value);
+
     private void LoadDraft()
     {
+        var hasDraftItem = !string.IsNullOrWhiteSpace(_draft.ItemCode) || !string.IsNullOrWhiteSpace(_draft.ItemName);
         if (!string.IsNullOrWhiteSpace(_draft.ItemCode))
         {
             var selected = _catalogItems.FirstOrDefault(item => item.Code.Equals(_draft.ItemCode, StringComparison.OrdinalIgnoreCase));
@@ -57,7 +62,13 @@ public partial class WarehouseLineEditorWindow : Window
             }
         }
 
-        if (ItemComboBox.SelectedItem is null && _catalogItems.Count > 0)
+        if (ItemComboBox.SelectedItem is null && hasDraftItem)
+        {
+            ItemComboBox.Text = Ui(string.IsNullOrWhiteSpace(_draft.ItemName) ? _draft.ItemCode : _draft.ItemName);
+            CodeTextBox.Text = Ui(_draft.ItemCode);
+            UnitTextBox.Text = Ui(_draft.Unit);
+        }
+        else if (ItemComboBox.SelectedItem is null && _catalogItems.Count > 0)
         {
             ItemComboBox.SelectedIndex = 0;
         }
@@ -65,8 +76,8 @@ public partial class WarehouseLineEditorWindow : Window
         QuantityTextBox.Text = _draft.Quantity != 0m
             ? _draft.Quantity.ToString("N2", RuCulture)
             : string.Empty;
-        SourceLocationTextBox.Text = _draft.SourceLocation;
-        TargetLocationTextBox.Text = _draft.TargetLocation;
+        SourceLocationTextBox.Text = Ui(_draft.SourceLocation);
+        TargetLocationTextBox.Text = Ui(_draft.TargetLocation);
         ApplySelectedItemDefaults();
     }
 
