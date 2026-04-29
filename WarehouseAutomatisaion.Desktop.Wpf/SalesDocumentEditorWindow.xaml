@@ -24,6 +24,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -111,7 +112,50 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="18">
+        <Border Grid.Row="2"
+                Style="{StaticResource CardStyle}"
+                Padding="16"
+                Margin="0,0,0,18">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="230" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="Связанные документы" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                    <TextBlock Text="Цепочка по заказу: счет, расходка, касса, возвраты."
+                               Margin="0,4,18,0"
+                               FontSize="12.5"
+                               Foreground="#6E7B98"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <DataGrid x:Name="RelatedDocumentsGrid"
+                          Grid.Column="1"
+                          Height="112"
+                          AutoGenerateColumns="False"
+                          ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Документ" Binding="{Binding Document}" Width="1.5*" />
+                        <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="0.75*" />
+                        <DataGridTextColumn Header="Сумма" Binding="{Binding AmountDisplay}" Width="0.9*" />
+                        <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="0.9*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <TextBlock x:Name="RelatedDocumentsSummaryText"
+                           Grid.Column="2"
+                           Margin="18,0,0,0"
+                           FontSize="12.5"
+                           Foreground="#6E7B98"
+                           TextWrapping="Wrap" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3" Style="{StaticResource CardStyle}" Padding="18">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -143,7 +187,7 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="3" Margin="0,18,0,0">
+        <Grid Grid.Row="4" Margin="0,18,0,0">
             <StackPanel>
                 <TextBlock x:Name="TotalText" FontSize="14" FontWeight="SemiBold" Foreground="#17213A" />
                 <TextBlock x:Name="ValidationText" Margin="0,5,0,0" Foreground="#D92D20" />

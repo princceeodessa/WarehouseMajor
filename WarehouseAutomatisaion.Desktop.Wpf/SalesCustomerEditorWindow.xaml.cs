@@ -139,6 +139,7 @@ public partial class SalesCustomerEditorWindow : Window
         var orders = _workspace.Orders.Where(item => item.CustomerId == _draft.Id).ToArray();
         var invoices = _workspace.Invoices.Where(item => item.CustomerId == _draft.Id).ToArray();
         var returns = _workspace.Returns.Where(item => item.CustomerId == _draft.Id).ToArray();
+        var cashReceipts = _workspace.CashReceipts.Where(item => item.CustomerId == _draft.Id).ToArray();
         var salesTotal = orders.Sum(item => item.TotalAmount);
         var debt = invoices
             .Where(item => !Ui(item.Status).Equals("Оплачен", StringComparison.OrdinalIgnoreCase))
@@ -152,7 +153,7 @@ public partial class SalesCustomerEditorWindow : Window
         CustomerSalesText.Text = FormatMoney(salesTotal, _draft.CurrencyCode);
         CustomerLastSaleText.Text = lastSale;
         EventsSummaryText.Text = $"В журнале операций по клиенту: {_workspace.OperationLog.Count(item => item.EntityId == _draft.Id):N0}.";
-        ReportsSummaryText.Text = $"Заказы: {orders.Length:N0}, счета: {invoices.Length:N0}, отгрузки: {_workspace.Shipments.Count(item => item.CustomerId == _draft.Id):N0}, возвраты: {returns.Length:N0}.";
+        ReportsSummaryText.Text = $"Заказы: {orders.Length:N0}, счета: {invoices.Length:N0}, отгрузки: {_workspace.Shipments.Count(item => item.CustomerId == _draft.Id):N0}, возвраты: {returns.Length:N0}, касса: {cashReceipts.Length:N0}.";
     }
 
     private void RenderDocuments()
@@ -179,9 +180,14 @@ public partial class SalesCustomerEditorWindow : Window
             _documents.Add(new CustomerDocumentRelationRow("Приходная накладная (возврат)", returnDocument.Number, returnDocument.ReturnDate.ToString("dd.MM.yyyy", RuCulture), returnDocument.Status, FormatMoney(returnDocument.TotalAmount, returnDocument.CurrencyCode)));
         }
 
+        foreach (var cashReceipt in _workspace.CashReceipts.Where(item => item.CustomerId == _draft.Id).OrderByDescending(item => item.ReceiptDate))
+        {
+            _documents.Add(new CustomerDocumentRelationRow("Поступление в кассу", cashReceipt.Number, cashReceipt.ReceiptDate.ToString("dd.MM.yyyy", RuCulture), cashReceipt.Status, FormatMoney(cashReceipt.Amount, cashReceipt.CurrencyCode)));
+        }
+
         DocumentsSummaryText.Text = _documents.Count == 0
             ? "По этому клиенту пока нет заказов, счетов, расходных или возвратных документов."
-            : $"Связанные документы клиента: {_documents.Count:N0}. Показаны заказы, счета, расходные накладные и приходные накладные возврата.";
+            : $"Связанные документы клиента: {_documents.Count:N0}. Показаны заказы, счета, расходные накладные, возвраты и поступления в кассу.";
     }
 
     private void HandleCounterpartyTypeChanged(object sender, SelectionChangedEventArgs e)

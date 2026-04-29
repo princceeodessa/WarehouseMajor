@@ -21,6 +21,7 @@ public partial class SalesDocumentEditorWindow : Window
     private readonly SalesWorkspace _workspace;
     private readonly SalesDocumentEditorMode _mode;
     private readonly ObservableCollection<SalesLineEditorRow> _lines = [];
+    private readonly ObservableCollection<SalesRelatedDocumentRow> _relatedDocuments = [];
     private readonly Dictionary<string, SalesCustomerRecord> _customerOptions = new(StringComparer.CurrentCultureIgnoreCase);
     private readonly Dictionary<string, SalesOrderRecord> _orderOptions = new(StringComparer.CurrentCultureIgnoreCase);
     private readonly bool _editingExistingDocument;
@@ -68,6 +69,7 @@ public partial class SalesDocumentEditorWindow : Window
         WpfTextNormalizer.NormalizeTree(this);
 
         LinesGrid.ItemsSource = _lines;
+        RelatedDocumentsGrid.ItemsSource = _relatedDocuments;
         LoadOptionSources();
         ConfigureMode();
         LoadInitialDraft();
@@ -220,6 +222,7 @@ public partial class SalesDocumentEditorWindow : Window
 
         _loading = false;
         RefreshTotal();
+        RenderRelatedDocuments();
     }
 
     private void ApplyEditTitle(string title, string header)
@@ -326,6 +329,7 @@ public partial class SalesDocumentEditorWindow : Window
         SelectComboValue(OrderComboBox, BuildOrderOption(order));
         _loading = false;
         RefreshTotal();
+        RenderRelatedDocuments();
     }
 
     private void HandleAddLineClick(object sender, RoutedEventArgs e)
@@ -641,6 +645,91 @@ public partial class SalesDocumentEditorWindow : Window
         TotalText.Text = $"Позиций: {_lines.Count:N0}. Сумма: {_lines.Sum(item => item.Amount):N2} ₽";
     }
 
+    private void RenderRelatedDocuments()
+    {
+        _relatedDocuments.Clear();
+
+        var order = ResolveRelatedOrder();
+        if (order is null)
+        {
+            RelatedDocumentsSummaryText.Text = "Выберите заказ-основание, чтобы увидеть связанную цепочку документов.";
+            return;
+        }
+
+        _relatedDocuments.Add(new SalesRelatedDocumentRow(
+            $"Заказ {order.Number}",
+            order.OrderDate.ToString("dd.MM.yyyy", RuCulture),
+            FormatMoney(order.TotalAmount, order.CurrencyCode),
+            Ui(order.Status)));
+
+        foreach (var invoice in _workspace.Invoices.Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order)).OrderByDescending(item => item.InvoiceDate))
+        {
+            _relatedDocuments.Add(new SalesRelatedDocumentRow(
+                $"Счет {invoice.Number}",
+                invoice.InvoiceDate.ToString("dd.MM.yyyy", RuCulture),
+                FormatMoney(invoice.TotalAmount, invoice.CurrencyCode),
+                Ui(invoice.Status)));
+        }
+
+        foreach (var shipment in _workspace.Shipments.Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order)).OrderByDescending(item => item.ShipmentDate))
+        {
+            _relatedDocuments.Add(new SalesRelatedDocumentRow(
+                $"Расходная {shipment.Number}",
+                shipment.ShipmentDate.ToString("dd.MM.yyyy", RuCulture),
+                FormatMoney(shipment.TotalAmount, shipment.CurrencyCode),
+                Ui(shipment.Status)));
+        }
+
+        foreach (var cashReceipt in _workspace.CashReceipts.Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order)).OrderByDescending(item => item.ReceiptDate))
+        {
+            _relatedDocuments.Add(new SalesRelatedDocumentRow(
+                $"Поступление в кассу {cashReceipt.Number}",
+                cashReceipt.ReceiptDate.ToString("dd.MM.yyyy", RuCulture),
+                FormatMoney(cashReceipt.Amount, cashReceipt.CurrencyCode),
+                Ui(cashReceipt.Status)));
+        }
+
+        foreach (var returnDocument in _workspace.Returns.Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order)).OrderByDescending(item => item.ReturnDate))
+        {
+            _relatedDocuments.Add(new SalesRelatedDocumentRow(
+                $"Возврат {returnDocument.Number}",
+                returnDocument.ReturnDate.ToString("dd.MM.yyyy", RuCulture),
+                FormatMoney(returnDocument.TotalAmount, returnDocument.CurrencyCode),
+                Ui(returnDocument.Status)));
+        }
+
+        var paidAmount = _workspace.CashReceipts
+            .Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order))
+            .Sum(item => item.Amount);
+        RelatedDocumentsSummaryText.Text = $"Документов: {_relatedDocuments.Count:N0}. Оплачено через кассу: {FormatMoney(paidAmount, order.CurrencyCode)}.";
+    }
+
+    private SalesOrderRecord? ResolveRelatedOrder()
+    {
+        if (_mode == SalesDocumentEditorMode.Order)
+        {
+            return _orderDraft;
+        }
+
+        return GetSelectedOrder()
+            ?? (_invoiceDraft is null ? null : FindOrder(_invoiceDraft.SalesOrderId, _invoiceDraft.SalesOrderNumber))
+            ?? (_shipmentDraft is null ? null : FindOrder(_shipmentDraft.SalesOrderId, _shipmentDraft.SalesOrderNumber));
+    }
+
+    private static bool IsRelatedToOrder(Guid orderId, string orderNumber, SalesOrderRecord order)
+    {
+        return orderId == order.Id
+            || Ui(orderNumber).Equals(Ui(order.Number), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatMoney(decimal amount, string currencyCode)
+    {
+        var currency = string.Equals(currencyCode, "RUB", StringComparison.OrdinalIgnoreCase)
+            ? "₽"
+            : Ui(currencyCode);
+        return $"{amount:N2} {currency}";
+    }
+
     private static string BuildCustomerOption(SalesCustomerRecord customer)
     {
         return $"{Ui(customer.Name)} - {Ui(customer.Code)}";
@@ -725,4 +814,10 @@ public partial class SalesDocumentEditorWindow : Window
 
         public string AmountDisplay => $"{Amount:N2} ₽";
     }
+
+    private sealed record SalesRelatedDocumentRow(
+        string Document,
+        string Date,
+        string AmountDisplay,
+        string Status);
 }

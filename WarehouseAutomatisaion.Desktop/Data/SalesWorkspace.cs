@@ -11,6 +11,7 @@ public sealed class SalesWorkspace
         BindingList<SalesInvoiceRecord> invoices,
         BindingList<SalesShipmentRecord> shipments,
         BindingList<SalesReturnRecord> returns,
+        BindingList<SalesCashReceiptRecord> cashReceipts,
         IReadOnlyList<SalesCatalogItemOption> catalogItems,
         IReadOnlyList<string> customerStatuses,
         IReadOnlyList<string> orderStatuses,
@@ -25,6 +26,7 @@ public sealed class SalesWorkspace
         Invoices = invoices;
         Shipments = shipments;
         Returns = returns;
+        CashReceipts = cashReceipts;
         CatalogItems = catalogItems;
         CustomerStatuses = customerStatuses;
         OrderStatuses = orderStatuses;
@@ -44,6 +46,8 @@ public sealed class SalesWorkspace
     public BindingList<SalesShipmentRecord> Shipments { get; }
 
     public BindingList<SalesReturnRecord> Returns { get; }
+
+    public BindingList<SalesCashReceiptRecord> CashReceipts { get; }
 
     public IReadOnlyList<SalesCatalogItemOption> CatalogItems { get; internal set; }
 
@@ -93,6 +97,7 @@ public sealed class SalesWorkspace
         ReplaceBindingList(Invoices, source.Invoices, item => item.Clone());
         ReplaceBindingList(Shipments, source.Shipments, item => item.Clone());
         ReplaceBindingList(Returns, source.Returns, item => item.Clone());
+        ReplaceBindingList(CashReceipts, source.CashReceipts, item => item.Clone());
 
         CatalogItems = source.CatalogItems.Select(item => item with { }).ToArray();
         Managers = source.Managers.ToArray();
@@ -128,7 +133,8 @@ public sealed class SalesWorkspace
             "План",
             "Подтвержден",
             "В резерве",
-            "Готов к отгрузке"
+            "Готов к отгрузке",
+            "Закрыт"
         };
 
         var invoiceStatuses = new[]
@@ -440,12 +446,35 @@ public sealed class SalesWorkspace
             }
         };
 
+        var cashReceipts = new BindingList<SalesCashReceiptRecord>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Number = "CASH-260324-001",
+                ReceiptDate = new DateTime(2026, 3, 24),
+                SalesOrderId = orderByNumber["SO-260323-002"].Id,
+                SalesOrderNumber = orderByNumber["SO-260323-002"].Number,
+                CustomerId = orderByNumber["SO-260323-002"].CustomerId,
+                CustomerCode = orderByNumber["SO-260323-002"].CustomerCode,
+                CustomerName = orderByNumber["SO-260323-002"].CustomerName,
+                ContractNumber = orderByNumber["SO-260323-002"].ContractNumber,
+                CurrencyCode = orderByNumber["SO-260323-002"].CurrencyCode,
+                Amount = orderByNumber["SO-260323-002"].TotalAmount,
+                Status = "Проведено",
+                CashBox = "Основная касса",
+                Manager = orderByNumber["SO-260323-002"].Manager,
+                Comment = "Оплата по заказу покупателя."
+            }
+        };
+
         return new SalesWorkspace(
             customers,
             orders,
             invoices,
             shipments,
             returns,
+            cashReceipts,
             catalogItems,
             customerStatuses,
             orderStatuses,
@@ -540,6 +569,30 @@ public sealed class SalesWorkspace
             Manager = order.Manager,
             Comment = $"Подготовлено из заказа {order.Number}",
             Lines = CloneLines(order.Lines)
+        };
+    }
+
+    public SalesCashReceiptRecord CreateCashReceiptDraftFromOrder(Guid orderId, decimal? amount = null)
+    {
+        var order = Orders.First(item => item.Id == orderId);
+
+        return new SalesCashReceiptRecord
+        {
+            Id = Guid.NewGuid(),
+            Number = GetNextCashReceiptNumber(),
+            ReceiptDate = DateTime.Today,
+            SalesOrderId = order.Id,
+            SalesOrderNumber = order.Number,
+            CustomerId = order.CustomerId,
+            CustomerCode = order.CustomerCode,
+            CustomerName = order.CustomerName,
+            ContractNumber = order.ContractNumber,
+            CurrencyCode = order.CurrencyCode,
+            Amount = amount ?? order.TotalAmount,
+            Status = "Проведено",
+            CashBox = "Основная касса",
+            Manager = order.Manager,
+            Comment = $"Оплата по заказу {order.Number}"
         };
     }
 
@@ -651,6 +704,27 @@ public sealed class SalesWorkspace
         OnChanged();
     }
 
+    public void AddCashReceipt(SalesCashReceiptRecord cashReceipt)
+    {
+        var copy = cashReceipt.Clone();
+        if (string.IsNullOrWhiteSpace(copy.Status))
+        {
+            copy.Status = "Проведено";
+        }
+
+        CashReceipts.Add(copy);
+        WriteOperationLog("Поступление в кассу", copy.Id, copy.Number, "Создание оплаты", "Успех", $"Создано поступление {copy.Number} по заказу {copy.SalesOrderNumber}.");
+        OnChanged();
+    }
+
+    public void UpdateCashReceipt(SalesCashReceiptRecord cashReceipt)
+    {
+        var existing = CashReceipts.First(item => item.Id == cashReceipt.Id);
+        existing.CopyFrom(cashReceipt);
+        WriteOperationLog("Поступление в кассу", existing.Id, existing.Number, "Изменение оплаты", "Успех", $"Обновлено поступление {existing.Number}.");
+        OnChanged();
+    }
+
     public SalesOrderRecord DuplicateOrder(Guid orderId)
     {
         var source = Orders.First(item => item.Id == orderId);
@@ -727,6 +801,95 @@ public sealed class SalesWorkspace
         WriteOperationLog("Заказ", order.Id, order.Number, "Снятие резерва", "Успех", $"Резерв по заказу {order.Number} снят.");
         OnChanged();
         return CreateWorkflowResult(true, $"Резерв по заказу {order.Number} снят.", "Заказ возвращен в подтвержденное состояние.");
+    }
+
+    public SalesWorkflowActionResult ConductExpenseAndCloseOrder(Guid orderId)
+    {
+        var order = Orders.FirstOrDefault(item => item.Id == orderId);
+        if (order is null)
+        {
+            return CreateWorkflowResult(false, "Заказ не найден.", "Не удалось провести расходную накладную.");
+        }
+
+        var shipment = Shipments
+            .Where(item => item.SalesOrderId == order.Id)
+            .OrderByDescending(item => item.ShipmentDate)
+            .FirstOrDefault();
+        var createdShipment = false;
+        if (shipment is null)
+        {
+            shipment = CreateShipmentDraftFromOrder(order.Id);
+            createdShipment = true;
+        }
+
+        var inventory = new SalesInventoryService(this);
+        var check = inventory.AnalyzeShipment(shipment);
+        if (!check.IsFullyCovered)
+        {
+            WriteOperationLog("Заказ", order.Id, order.Number, "Проведение расходной", "Ошибка", check.HintText);
+            return CreateWorkflowResult(false, $"Не удалось провести расходную по заказу {order.Number}.", check.HintText);
+        }
+
+        if (createdShipment)
+        {
+            Shipments.Add(shipment);
+            WriteOperationLog("Отгрузка", shipment.Id, shipment.Number, "Создание расходной", "Успех", $"Создана расходная накладная по заказу {order.Number}.");
+        }
+
+        shipment.Status = "Отгружена";
+        order.Status = "Закрыт";
+        WriteOperationLog("Отгрузка", shipment.Id, shipment.Number, "Проведение расходной", "Успех", $"Расходная {shipment.Number} проведена.");
+        WriteOperationLog("Заказ", order.Id, order.Number, "Завершение заказа", "Успех", $"Заказ {order.Number} закрыт после проведения расходной.");
+        OnChanged();
+
+        var detail = createdShipment
+            ? $"Создана и проведена расходная накладная {shipment.Number}. Заказ переведен в статус 'Закрыт'."
+            : $"Проведена расходная накладная {shipment.Number}. Заказ переведен в статус 'Закрыт'.";
+        return CreateWorkflowResult(true, $"Расходная по заказу {order.Number} проведена.", detail);
+    }
+
+    public SalesWorkflowActionResult RecordCashReceiptForOrder(Guid orderId)
+    {
+        var order = Orders.FirstOrDefault(item => item.Id == orderId);
+        if (order is null)
+        {
+            return CreateWorkflowResult(false, "Заказ не найден.", "Не удалось создать поступление в кассу.");
+        }
+
+        var receivedAmount = CashReceipts
+            .Where(item => item.SalesOrderId == order.Id)
+            .Sum(item => item.Amount);
+        var remainingAmount = Math.Round(order.TotalAmount - receivedAmount, 2, MidpointRounding.AwayFromZero);
+        if (remainingAmount <= 0m)
+        {
+            return CreateWorkflowResult(true, $"Заказ {order.Number} уже оплачен через кассу.", $"Связанные поступления: {CashReceipts.Count(item => item.SalesOrderId == order.Id):N0}.");
+        }
+
+        var receipt = CreateCashReceiptDraftFromOrder(order.Id, remainingAmount);
+        CashReceipts.Add(receipt);
+
+        foreach (var invoice in Invoices.Where(item => item.SalesOrderId == order.Id))
+        {
+            invoice.Status = receivedAmount + remainingAmount >= invoice.TotalAmount
+                ? "Оплачен"
+                : "Частично оплачен";
+        }
+
+        var hasShippedExpense = Shipments.Any(item =>
+            item.SalesOrderId == order.Id
+            && item.Status.Equals("Отгружена", StringComparison.OrdinalIgnoreCase));
+        if (hasShippedExpense && receivedAmount + remainingAmount >= order.TotalAmount)
+        {
+            order.Status = "Закрыт";
+        }
+        else if (order.Status.Equals("План", StringComparison.OrdinalIgnoreCase))
+        {
+            order.Status = "Подтвержден";
+        }
+
+        WriteOperationLog("Поступление в кассу", receipt.Id, receipt.Number, "Поступление оплаты", "Успех", $"Оплата {receipt.Amount:N2} {receipt.CurrencyCode} по заказу {order.Number}.");
+        OnChanged();
+        return CreateWorkflowResult(true, $"Создано поступление в кассу {receipt.Number}.", $"Сумма: {receipt.Amount:N2} {receipt.CurrencyCode}. Связано с заказом {order.Number}.");
     }
 
     public SalesWorkflowActionResult MarkInvoiceIssued(Guid invoiceId)
@@ -843,6 +1006,14 @@ public sealed class SalesWorkspace
             returnDocument.ContractNumber = customer.ContractNumber;
             returnDocument.CurrencyCode = customer.CurrencyCode;
         }
+
+        foreach (var cashReceipt in CashReceipts.Where(item => item.CustomerId == customer.Id))
+        {
+            cashReceipt.CustomerCode = customer.Code;
+            cashReceipt.CustomerName = customer.Name;
+            cashReceipt.ContractNumber = customer.ContractNumber;
+            cashReceipt.CurrencyCode = customer.CurrencyCode;
+        }
     }
 
     private void SyncDerivedDocumentsFromOrder(SalesOrderRecord order)
@@ -883,6 +1054,17 @@ public sealed class SalesWorkspace
             returnDocument.Warehouse = order.Warehouse;
             returnDocument.Manager = order.Manager;
         }
+
+        foreach (var cashReceipt in CashReceipts.Where(item => item.SalesOrderId == order.Id))
+        {
+            cashReceipt.SalesOrderNumber = order.Number;
+            cashReceipt.CustomerId = order.CustomerId;
+            cashReceipt.CustomerCode = order.CustomerCode;
+            cashReceipt.CustomerName = order.CustomerName;
+            cashReceipt.ContractNumber = order.ContractNumber;
+            cashReceipt.CurrencyCode = order.CurrencyCode;
+            cashReceipt.Manager = order.Manager;
+        }
     }
 
     private void PromoteOrderFromInvoice(SalesInvoiceRecord invoice)
@@ -916,6 +1098,11 @@ public sealed class SalesWorkspace
     {
         var order = Orders.FirstOrDefault(item => item.Id == orderId);
         if (order is null)
+        {
+            return;
+        }
+
+        if (order.Status.Equals("Закрыт", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -1038,6 +1225,16 @@ public sealed class SalesWorkspace
             .Max() + 1;
 
         return $"SH-{DateTime.Today:yyMMdd}-{next:000}";
+    }
+
+    private string GetNextCashReceiptNumber()
+    {
+        var next = CashReceipts
+            .Select(receipt => ParseNumericSuffix(receipt.Number))
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+
+        return $"CASH-{DateTime.Today:yyMMdd}-{next:000}";
     }
 
     private static BindingList<SalesOrderLineRecord> CloneLines(IEnumerable<SalesOrderLineRecord> lines)
@@ -1538,6 +1735,79 @@ public sealed class SalesReturnRecord
     private static BindingList<SalesOrderLineRecord> CloneLines(IEnumerable<SalesOrderLineRecord> lines)
     {
         return new BindingList<SalesOrderLineRecord>(lines.Select(line => line.Clone()).ToList());
+    }
+}
+
+public sealed class SalesCashReceiptRecord
+{
+    public Guid Id { get; set; }
+
+    public string Number { get; set; } = string.Empty;
+
+    public DateTime ReceiptDate { get; set; }
+
+    public Guid SalesOrderId { get; set; }
+
+    public string SalesOrderNumber { get; set; } = string.Empty;
+
+    public Guid CustomerId { get; set; }
+
+    public string CustomerCode { get; set; } = string.Empty;
+
+    public string CustomerName { get; set; } = string.Empty;
+
+    public string ContractNumber { get; set; } = string.Empty;
+
+    public string CurrencyCode { get; set; } = "RUB";
+
+    public decimal Amount { get; set; }
+
+    public string Status { get; set; } = string.Empty;
+
+    public string CashBox { get; set; } = string.Empty;
+
+    public string Manager { get; set; } = string.Empty;
+
+    public string Comment { get; set; } = string.Empty;
+
+    public SalesCashReceiptRecord Clone()
+    {
+        return new SalesCashReceiptRecord
+        {
+            Id = Id,
+            Number = Number,
+            ReceiptDate = ReceiptDate,
+            SalesOrderId = SalesOrderId,
+            SalesOrderNumber = SalesOrderNumber,
+            CustomerId = CustomerId,
+            CustomerCode = CustomerCode,
+            CustomerName = CustomerName,
+            ContractNumber = ContractNumber,
+            CurrencyCode = CurrencyCode,
+            Amount = Amount,
+            Status = Status,
+            CashBox = CashBox,
+            Manager = Manager,
+            Comment = Comment
+        };
+    }
+
+    public void CopyFrom(SalesCashReceiptRecord source)
+    {
+        Number = source.Number;
+        ReceiptDate = source.ReceiptDate;
+        SalesOrderId = source.SalesOrderId;
+        SalesOrderNumber = source.SalesOrderNumber;
+        CustomerId = source.CustomerId;
+        CustomerCode = source.CustomerCode;
+        CustomerName = source.CustomerName;
+        ContractNumber = source.ContractNumber;
+        CurrencyCode = source.CurrencyCode;
+        Amount = source.Amount;
+        Status = source.Status;
+        CashBox = source.CashBox;
+        Manager = source.Manager;
+        Comment = source.Comment;
     }
 }
 

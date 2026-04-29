@@ -166,6 +166,7 @@ public sealed class SalesWorkspaceStore
         ReplaceList(workspace.Invoices, snapshot.Invoices, item => item.Clone());
         ReplaceList(workspace.Shipments, snapshot.Shipments, item => item.Clone());
         ReplaceList(workspace.Returns, snapshot.Returns, item => item.Clone());
+        ReplaceList(workspace.CashReceipts, snapshot.CashReceipts, item => item.Clone());
         ReplaceList(workspace.OperationLog, snapshot.OperationLog, item => item.Clone());
     }
 
@@ -179,6 +180,7 @@ public sealed class SalesWorkspaceStore
         ReplaceList(workspace.Invoices, snapshot.Invoices, item => item.Clone());
         ReplaceList(workspace.Shipments, snapshot.Shipments, item => item.Clone());
         ReplaceList(workspace.Returns, Array.Empty<SalesReturnRecord>(), item => item.Clone());
+        ReplaceList(workspace.CashReceipts, Array.Empty<SalesCashReceiptRecord>(), item => item.Clone());
 
         if (snapshot.CatalogItems.Count > 0)
         {
@@ -203,6 +205,7 @@ public sealed class SalesWorkspaceStore
         MergeInvoices(workspace.Invoices, snapshot.Invoices, knownCustomerIds);
         MergeShipments(workspace.Shipments, snapshot.Shipments, knownCustomerIds);
         MergeReturns(workspace.Returns, snapshot.Returns, knownCustomerIds);
+        MergeCashReceipts(workspace.CashReceipts, snapshot.CashReceipts, knownCustomerIds);
         ReplaceList(workspace.OperationLog, snapshot.OperationLog, item => item.Clone());
     }
 
@@ -373,6 +376,34 @@ public sealed class SalesWorkspaceStore
         }
     }
 
+    private static void MergeCashReceipts(
+        ICollection<SalesCashReceiptRecord> target,
+        IEnumerable<SalesCashReceiptRecord> source,
+        IReadOnlySet<Guid> knownCustomerIds)
+    {
+        var targetByNumber = target
+            .Where(item => !string.IsNullOrWhiteSpace(item.Number))
+            .ToDictionary(item => item.Number, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in source)
+        {
+            if (!knownCustomerIds.Contains(item.CustomerId) || string.IsNullOrWhiteSpace(item.Number))
+            {
+                continue;
+            }
+
+            if (targetByNumber.TryGetValue(item.Number, out var existing))
+            {
+                existing.CopyFrom(item);
+                continue;
+            }
+
+            var clone = item.Clone();
+            target.Add(clone);
+            targetByNumber[clone.Number] = clone;
+        }
+    }
+
     private static IReadOnlyList<string> BuildLookupList(
         IEnumerable<string> preferredValues,
         IReadOnlyList<string> fallbackValues,
@@ -416,6 +447,8 @@ public sealed class SalesWorkspaceSnapshot
 
     public List<SalesReturnRecord> Returns { get; set; } = [];
 
+    public List<SalesCashReceiptRecord> CashReceipts { get; set; } = [];
+
     public List<SalesOperationLogEntry> OperationLog { get; set; } = [];
 
     public static SalesWorkspaceSnapshot FromWorkspace(SalesWorkspace workspace)
@@ -427,6 +460,7 @@ public sealed class SalesWorkspaceSnapshot
             Invoices = workspace.Invoices.Select(item => item.Clone()).ToList(),
             Shipments = workspace.Shipments.Select(item => item.Clone()).ToList(),
             Returns = workspace.Returns.Select(item => item.Clone()).ToList(),
+            CashReceipts = workspace.CashReceipts.Select(item => item.Clone()).ToList(),
             OperationLog = workspace.OperationLog.Select(item => item.Clone()).ToList()
         };
     }

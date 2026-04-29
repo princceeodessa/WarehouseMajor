@@ -464,6 +464,8 @@ internal static class RecordsWorkspaceCatalog
             new RecordsGridActionDefinition("Снять резерв", () => ShowWorkflowResult("Заказы", salesWorkspace.ReleaseOrderReserve(order.Id))),
             new RecordsGridActionDefinition("Сформировать счет", () => CreateInvoiceFromOrder(salesWorkspace, order)),
             new RecordsGridActionDefinition("Подготовить отгрузку", () => CreateShipmentFromOrder(salesWorkspace, order)),
+            new RecordsGridActionDefinition("Провести расходку и закрыть", () => ShowWorkflowResult("Заказы", salesWorkspace.ConductExpenseAndCloseOrder(order.Id))),
+            new RecordsGridActionDefinition("Поступление в кассу", () => ShowWorkflowResult("Заказы", salesWorkspace.RecordCashReceiptForOrder(order.Id))),
             new RecordsGridActionDefinition("Дублировать", () => DuplicateOrder(salesWorkspace, order))
         ];
     }
@@ -1024,7 +1026,7 @@ internal static class RecordsWorkspaceCatalog
             "План" or "Черновик" => "Новые",
             "Подтвержден" or "В резерве" => "Подтвержденные",
             "Готов к отгрузке" or "К сборке" => "В производстве",
-            "Отгружена" or "Выполнен" => "Выполненные",
+            "Отгружена" or "Отгружен" or "Выполнен" or "Закрыт" => "Выполненные",
             _ => "Новые"
         };
     }
