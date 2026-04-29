@@ -49,10 +49,20 @@ jobs:
       - name: Build desktop package and setup
         shell: pwsh
         env:
+          MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON: ${{ secrets.MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON }}
           MAJORWAREHAUSE_CODESIGN_PFX_BASE64: ${{ secrets.MAJORWAREHAUSE_CODESIGN_PFX_BASE64 }}
           MAJORWAREHAUSE_CODESIGN_PFX_PASSWORD: ${{ secrets.MAJORWAREHAUSE_CODESIGN_PFX_PASSWORD }}
           MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER: ${{ vars.MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER }}
         run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON)) {
+              $localSettingsPath = Join-Path $PWD 'WarehouseAutomatisaion.Desktop.Wpf\appsettings.local.json'
+              $env:MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON | ConvertFrom-Json | Out-Null
+              [IO.File]::WriteAllText(
+                  $localSettingsPath,
+                  $env:MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON,
+                  [Text.UTF8Encoding]::new($false))
+          }
+
           $buildArguments = @(
               '-ExecutionPolicy'
               'Bypass'
