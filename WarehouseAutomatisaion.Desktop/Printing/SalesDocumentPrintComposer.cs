@@ -9,6 +9,31 @@ public static class SalesDocumentPrintComposer
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
 
+    public static string BuildOrderTitle(SalesOrderRecord order)
+    {
+        return TextMojibakeFixer.NormalizeText($"Р—Р°РєР°Р· РїРѕРєСѓРїР°С‚РµР»СЏ в„– {Display(order.Number)} РѕС‚ {FormatLongDate(order.OrderDate)}");
+    }
+
+    public static string DisplayOrderText(string? value)
+    {
+        return Display(value);
+    }
+
+    public static string FormatOrderMoney(decimal value)
+    {
+        return FormatMoney(value);
+    }
+
+    public static string FormatOrderQuantity(decimal value)
+    {
+        return FormatQuantity(value);
+    }
+
+    public static string FormatOrderAmountInWords(decimal amount)
+    {
+        return TextMojibakeFixer.NormalizeText(AmountToWords(amount));
+    }
+
     public static string BuildOrderHtml(SalesOrderRecord order)
     {
         var title = $"Заказ покупателя № {Display(order.Number)} от {FormatLongDate(order.OrderDate)}";

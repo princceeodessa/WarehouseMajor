@@ -1,10 +1,8 @@
-using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Text;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
 using WarehouseAutomatisaion.Desktop.Data;
-using WarehouseAutomatisaion.Desktop.Printing;
 using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
@@ -555,13 +553,31 @@ internal static class RecordsWorkspaceCatalog
 
     private static void PrintOrder(SalesOrderRecord order)
     {
-        var directory = Path.Combine(AppContext.BaseDirectory, "print");
-        Directory.CreateDirectory(directory);
+        var printDialog = new PrintDialog();
+        if (printDialog.ShowDialog() != true)
+        {
+            return;
+        }
 
-        var safeNumber = BuildSafeFileToken(order.Number);
-        var path = Path.Combine(directory, $"sales-order-{safeNumber}-{DateTime.Now:yyyyMMdd-HHmmss}.html");
-        File.WriteAllText(path, SalesDocumentPrintComposer.BuildOrderHtml(order), Encoding.UTF8);
-        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        try
+        {
+            var document = SalesOrderPrintDocumentComposer.Build(
+                order,
+                printDialog.PrintableAreaWidth,
+                printDialog.PrintableAreaHeight);
+            printDialog.PrintDocument(
+                ((IDocumentPaginatorSource)document).DocumentPaginator,
+                Clean($"Заказ покупателя {order.Number}"));
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                ResolveOwnerWindow(),
+                $"Не удалось отправить заказ в печать.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
+                AppBranding.MessageBoxTitle,
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
 
     private static void EditInvoice(SalesWorkspace salesWorkspace, SalesInvoiceRecord invoice)
@@ -951,12 +967,6 @@ internal static class RecordsWorkspaceCatalog
         }
 
         return dialog.ShowDialog() == true ? dialog.ResultText : null;
-    }
-
-    private static string BuildSafeFileToken(string value)
-    {
-        var token = new string(Clean(value).Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_').ToArray());
-        return string.IsNullOrWhiteSpace(token) ? Guid.NewGuid().ToString("N") : token;
     }
 
     private static Window? ResolveOwnerWindow()
