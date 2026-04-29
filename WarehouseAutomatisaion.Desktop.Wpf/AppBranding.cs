@@ -23,6 +23,9 @@ internal static class AppBranding
             ?? new Version(1, 0, 0, 0);
 
         var build = version.Build < 0 ? 0 : version.Build;
-        return $"{version.Major}.{version.Minor}.{build}";
+        var revision = version.Revision < 0 ? 0 : version.Revision;
+        return revision > 0
+            ? $"{version.Major}.{version.Minor}.{build}.{revision}"
+            : $"{version.Major}.{version.Minor}.{build}";
     }
 }

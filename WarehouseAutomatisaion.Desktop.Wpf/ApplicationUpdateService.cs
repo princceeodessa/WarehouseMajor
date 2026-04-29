@@ -259,7 +259,11 @@ internal sealed class ApplicationUpdateService : IDisposable
 
     private static string FormatVersion(Version version)
     {
-        return $"{version.Major}.{version.Minor}.{Math.Max(version.Build, 0)}";
+        var build = Math.Max(version.Build, 0);
+        var revision = Math.Max(version.Revision, 0);
+        return revision > 0
+            ? $"{version.Major}.{version.Minor}.{build}.{revision}"
+            : $"{version.Major}.{version.Minor}.{build}";
     }
 
     private static void EnsureApplicationDirectoryWritable()
