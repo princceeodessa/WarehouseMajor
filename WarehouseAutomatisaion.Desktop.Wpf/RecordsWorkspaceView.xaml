@@ -260,65 +260,136 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <Border Grid.Row="2" Padding="0" Style="{StaticResource PageCardStyle}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="60" />
-                    </Grid.RowDefinitions>
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                    <WrapPanel Margin="18,16,18,16" VerticalAlignment="Center">
-                        <ComboBox x:Name="PrimaryFilterCombo"
-                                  Width="150"
-                                  Style="{StaticResource TableFilterComboBoxStyle}"
-                                  SelectionChanged="HandleFilterChanged" />
-                        <StackPanel x:Name="DateRangePanel" Orientation="Horizontal" Margin="12,0,0,0" Visibility="Collapsed">
-                            <DatePicker x:Name="StartDatePicker"
-                                        Width="128"
-                                        Style="{StaticResource TableFilterDatePickerStyle}"
-                                        SelectedDateChanged="HandleDateFilterChanged" />
-                            <DatePicker x:Name="EndDatePicker"
-                                        Width="128"
-                                        Style="{StaticResource TableFilterDatePickerStyle}"
-                                        Margin="10,0,0,0"
-                                        SelectedDateChanged="HandleDateFilterChanged" />
-                        </StackPanel>
-                        <Button x:Name="FilterButton"
-                                Margin="12,0,0,0"
-                                Style="{StaticResource TableFilterActionButtonStyle}"
-                                Content="Фильтры"
-                                Click="HandleFilterButtonClick" />
-                    </WrapPanel>
+                <Border x:Name="GroupTreePanel"
+                        Grid.Column="0"
+                        Width="270"
+                        Padding="14"
+                        Style="{StaticResource PageCardStyle}"
+                        Visibility="Collapsed">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="1">
-                        <DataGrid x:Name="RecordsGrid"
+                        <TextBlock x:Name="GroupTreeTitleText"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="#1A2440"
+                                   Margin="4,2,4,12"
+                                   Text="Папки" />
+
+                        <TreeView x:Name="GroupTreeView"
+                                  Grid.Row="1"
+                                  BorderThickness="0"
+                                  Background="Transparent"
                                   ScrollViewer.VerticalScrollBarVisibility="Hidden"
-                                  ScrollViewer.HorizontalScrollBarVisibility="Auto" />
-                        <TextBlock x:Name="EmptyStateText"
-                                   Text="Нет данных"
-                                   Style="{StaticResource TableEmptyTitleStyle}"
-                                   Visibility="Collapsed"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                  SelectedItemChanged="HandleGroupTreeSelectedItemChanged">
+                            <TreeView.ItemContainerStyle>
+                                <Style TargetType="{x:Type TreeViewItem}">
+                                    <Setter Property="IsExpanded" Value="True" />
+                                    <Setter Property="Padding" Value="0,2" />
+                                </Style>
+                            </TreeView.ItemContainerStyle>
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                    <StackPanel Orientation="Horizontal" MinHeight="28">
+                                        <TextBlock FontFamily="Segoe Fluent Icons"
+                                                   Text="{Binding IconGlyph}"
+                                                   Foreground="#6D7AFF"
+                                                   FontSize="13"
+                                                   Width="20"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Title}"
+                                                   Foreground="#1B2440"
+                                                   FontSize="13"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding CountText}"
+                                                   Foreground="#8A95B1"
+                                                   FontSize="12"
+                                                   Margin="8,0,0,0"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
                     </Grid>
+                </Border>
 
-                    <Grid Grid.Row="2" Style="{StaticResource TableFooterGridStyle}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                <Border x:Name="GroupTreeSpacer"
+                        Grid.Column="1"
+                        Width="16"
+                        Visibility="Collapsed" />
 
-                        <TextBlock x:Name="FooterCountText"
-                                   Style="{StaticResource TableFooterTextStyle}" />
+                <Border Grid.Column="2" Padding="0" Style="{StaticResource PageCardStyle}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="60" />
+                        </Grid.RowDefinitions>
 
-                        <WrapPanel x:Name="PaginationPanel"
-                                   Grid.Column="1"
-                                   VerticalAlignment="Center"
-                                   Orientation="Horizontal" />
+                        <WrapPanel Margin="18,16,18,16" VerticalAlignment="Center">
+                            <ComboBox x:Name="PrimaryFilterCombo"
+                                      Width="150"
+                                      Style="{StaticResource TableFilterComboBoxStyle}"
+                                      SelectionChanged="HandleFilterChanged" />
+                            <StackPanel x:Name="DateRangePanel" Orientation="Horizontal" Margin="12,0,0,0" Visibility="Collapsed">
+                                <DatePicker x:Name="StartDatePicker"
+                                            Width="128"
+                                            Style="{StaticResource TableFilterDatePickerStyle}"
+                                            SelectedDateChanged="HandleDateFilterChanged" />
+                                <DatePicker x:Name="EndDatePicker"
+                                            Width="128"
+                                            Style="{StaticResource TableFilterDatePickerStyle}"
+                                            Margin="10,0,0,0"
+                                            SelectedDateChanged="HandleDateFilterChanged" />
+                            </StackPanel>
+                            <Button x:Name="FilterButton"
+                                    Margin="12,0,0,0"
+                                    Style="{StaticResource TableFilterActionButtonStyle}"
+                                    Content="Фильтры"
+                                    Click="HandleFilterButtonClick" />
+                        </WrapPanel>
+
+                        <Grid Grid.Row="1">
+                            <DataGrid x:Name="RecordsGrid"
+                                      ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+                            <TextBlock x:Name="EmptyStateText"
+                                       Text="Нет данных"
+                                       Style="{StaticResource TableEmptyTitleStyle}"
+                                       Visibility="Collapsed"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+
+                        <Grid Grid.Row="2" Style="{StaticResource TableFooterGridStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock x:Name="FooterCountText"
+                                       Style="{StaticResource TableFooterTextStyle}" />
+
+                            <WrapPanel x:Name="PaginationPanel"
+                                       Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       Orientation="Horizontal" />
+                        </Grid>
                     </Grid>
-                </Grid>
-            </Border>
+                </Border>
+            </Grid>
         </Grid>
     </ScrollViewer>
 </UserControl>

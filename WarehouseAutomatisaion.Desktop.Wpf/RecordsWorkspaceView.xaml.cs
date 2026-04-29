@@ -16,9 +16,11 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
 
     private readonly RecordsWorkspaceDefinition _definition;
     private readonly ObservableCollection<WorkspaceMetricCardViewModel> _metrics = [];
+    private readonly ObservableCollection<RecordsGroupNodeViewModel> _groupNodes = [];
     private readonly System.Windows.Threading.DispatcherTimer _searchDebounceTimer;
     private IReadOnlyList<RecordsGridItem> _allRows = Array.Empty<RecordsGridItem>();
     private IReadOnlyList<RecordsGridItem> _filteredRows = Array.Empty<RecordsGridItem>();
+    private string _selectedGroupPath = string.Empty;
     private int _currentPage = 1;
     private bool _disposed;
 
@@ -44,6 +46,10 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         ImportButton.IsEnabled = definition.ImportAction is not null;
         ImportButton.Opacity = ImportButton.IsEnabled ? 1d : 0.55d;
         DateRangePanel.Visibility = definition.ShowDateRange ? Visibility.Visible : Visibility.Collapsed;
+        GroupTreeTitleText.Text = Clean(definition.GroupTreeTitle);
+        GroupTreeView.ItemsSource = _groupNodes;
+        GroupTreePanel.Visibility = definition.GroupTreeFactory is null ? Visibility.Collapsed : Visibility.Visible;
+        GroupTreeSpacer.Visibility = GroupTreePanel.Visibility;
 
         MetricsItemsControl.ItemsSource = _metrics;
         PrimaryFilterCombo.ItemsSource = definition.PrimaryFilterOptions.Select(Clean).ToArray();
@@ -103,6 +109,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
 
         RenderMetrics();
         _allRows = _definition.RowsFactory();
+        RenderGroupTree();
         ApplyFilters(resetPage: true);
         UpdateResponsiveLayout();
     }
@@ -287,6 +294,36 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         }
     }
 
+    private void RenderGroupTree()
+    {
+        _groupNodes.Clear();
+        if (_definition.GroupTreeFactory is null)
+        {
+            _selectedGroupPath = string.Empty;
+            return;
+        }
+
+        foreach (var node in _definition.GroupTreeFactory())
+        {
+            _groupNodes.Add(RecordsGroupNodeViewModel.FromDefinition(node));
+        }
+
+        if (!string.IsNullOrWhiteSpace(_selectedGroupPath)
+            && !_groupNodes.SelectMany(FlattenGroupNode).Any(node => node.GroupPath.Equals(_selectedGroupPath, StringComparison.OrdinalIgnoreCase)))
+        {
+            _selectedGroupPath = string.Empty;
+        }
+    }
+
+    private static IEnumerable<RecordsGroupNodeViewModel> FlattenGroupNode(RecordsGroupNodeViewModel node)
+    {
+        yield return node;
+        foreach (var child in node.Children.SelectMany(FlattenGroupNode))
+        {
+            yield return child;
+        }
+    }
+
     private void HandleRecordsGridKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || RecordsGrid.SelectedItem is not RecordsGridItem item)
@@ -339,6 +376,12 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         {
             if (!string.IsNullOrWhiteSpace(search)
                 && !row.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_selectedGroupPath)
+                && !row.GroupPath.StartsWith(_selectedGroupPath, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -494,6 +537,17 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         ApplyFilters(resetPage: true);
     }
 
+    private void HandleGroupTreeSelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    {
+        if (e.NewValue is not RecordsGroupNodeViewModel node)
+        {
+            return;
+        }
+
+        _selectedGroupPath = node.GroupPath;
+        ApplyFilters(resetPage: true);
+    }
+
     private void HandleFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded)
@@ -590,7 +644,9 @@ public sealed record RecordsWorkspaceDefinition(
     bool ShowPrimaryAction = true,
     bool ShowImportAction = true,
     Action<EventHandler>? SubscribeToChanges = null,
-    Action<EventHandler>? UnsubscribeFromChanges = null);
+    Action<EventHandler>? UnsubscribeFromChanges = null,
+    Func<IReadOnlyList<RecordsGroupNodeDefinition>>? GroupTreeFactory = null,
+    string GroupTreeTitle = "Папки");
 
 public sealed record WorkspaceMetricCardDefinition(
     string Title,
@@ -640,9 +696,61 @@ public sealed record RecordsGridItem(
     string FilterValue,
     DateTime? DateValue,
     IReadOnlyList<RecordsGridCellDefinition> Cells,
-    IReadOnlyList<RecordsGridActionDefinition>? RowActions = null)
+    IReadOnlyList<RecordsGridActionDefinition>? RowActions = null,
+    string GroupPath = "")
 {
     public IReadOnlyList<RecordsGridActionDefinition> Actions => RowActions ?? Array.Empty<RecordsGridActionDefinition>();
+}
+
+public sealed record RecordsGroupNodeDefinition(
+    string Title,
+    string GroupPath,
+    int Count,
+    IReadOnlyList<RecordsGroupNodeDefinition>? Children = null,
+    string IconGlyph = "\uE8B7");
+
+public sealed class RecordsGroupNodeViewModel
+{
+    public RecordsGroupNodeViewModel(
+        string title,
+        string groupPath,
+        int count,
+        string iconGlyph,
+        IEnumerable<RecordsGroupNodeViewModel>? children = null)
+    {
+        Title = title;
+        GroupPath = groupPath;
+        Count = count;
+        IconGlyph = iconGlyph;
+        Children = new ObservableCollection<RecordsGroupNodeViewModel>(children ?? Array.Empty<RecordsGroupNodeViewModel>());
+    }
+
+    public string Title { get; }
+
+    public string GroupPath { get; }
+
+    public int Count { get; }
+
+    public string CountText => $"({Count:N0})";
+
+    public string IconGlyph { get; }
+
+    public ObservableCollection<RecordsGroupNodeViewModel> Children { get; }
+
+    public override string ToString()
+    {
+        return Title;
+    }
+
+    public static RecordsGroupNodeViewModel FromDefinition(RecordsGroupNodeDefinition definition)
+    {
+        return new RecordsGroupNodeViewModel(
+            TextMojibakeFixer.NormalizeText(definition.Title),
+            definition.GroupPath,
+            definition.Count,
+            definition.IconGlyph,
+            definition.Children?.Select(FromDefinition));
+    }
 }
 
 public sealed record RecordsGridActionDefinition(

@@ -8,6 +8,7 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 internal static class RecordsWorkspaceCatalog
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
+    private const char CustomerGroupSeparator = '\u001F';
 
     private static readonly string[] OrderFilters = ["Все заказы", "Новые", "Подтвержденные", "В производстве", "Выполненные"];
     private static readonly string[] CustomerFilters = ["Все клиенты", "Активные", "Новые", "Неактивные"];
@@ -101,7 +102,8 @@ internal static class RecordsWorkspaceCatalog
                         StatusCell(NormalizeCustomerStatusLabel(item.Status)),
                         ActionCell()
                     ],
-                    RowActions: BuildCustomerActions(salesWorkspace, item)))
+                    RowActions: BuildCustomerActions(salesWorkspace, item),
+                    GroupPath: BuildCustomerGroupPath(item)))
                 .ToArray(),
             Columns:
             [
@@ -116,7 +118,9 @@ internal static class RecordsWorkspaceCatalog
                 new RecordsGridColumnDefinition("Статус", 7, RecordsColumnKind.Status, WidthValue: 0.85)
             ],
             SubscribeToChanges: handler => salesWorkspace.Changed += handler,
-            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler);
+            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler,
+            GroupTreeFactory: () => BuildCustomerGroupTree(salesWorkspace),
+            GroupTreeTitle: "Покупатели по регионам");
     }
 
     public static RecordsWorkspaceDefinition CreateInvoices(SalesWorkspace salesWorkspace)
@@ -1198,6 +1202,76 @@ internal static class RecordsWorkspaceCatalog
         }
 
         return !string.IsNullOrWhiteSpace(city) ? city : GetCustomerCity(customer.Name);
+    }
+
+    private static IReadOnlyList<RecordsGroupNodeDefinition> BuildCustomerGroupTree(SalesWorkspace salesWorkspace)
+    {
+        var customers = salesWorkspace.Customers
+            .OrderBy(item => GetCustomerRegion(item), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => GetCustomerCityGroup(item), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => Clean(item.Name), StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+
+        var regionNodes = customers
+            .GroupBy(GetCustomerRegion, StringComparer.CurrentCultureIgnoreCase)
+            .Select(regionGroup =>
+            {
+                var region = regionGroup.Key;
+                var cityNodes = regionGroup
+                    .GroupBy(GetCustomerCityGroup, StringComparer.CurrentCultureIgnoreCase)
+                    .Select(cityGroup =>
+                    {
+                        var city = cityGroup.Key;
+                        return new RecordsGroupNodeDefinition(
+                            city,
+                            BuildCustomerGroupPath(region, city),
+                            cityGroup.Count(),
+                            IconGlyph: "\uE80F");
+                    })
+                    .OrderBy(node => node.Title, StringComparer.CurrentCultureIgnoreCase)
+                    .ToArray();
+
+                return new RecordsGroupNodeDefinition(
+                    region,
+                    BuildCustomerGroupPath(region),
+                    regionGroup.Count(),
+                    cityNodes,
+                    "\uE8B7");
+            })
+            .OrderBy(node => node.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+
+        return
+        [
+            new RecordsGroupNodeDefinition(
+                "Все покупатели",
+                string.Empty,
+                customers.Length,
+                regionNodes,
+                "\uE8D4")
+        ];
+    }
+
+    private static string BuildCustomerGroupPath(SalesCustomerRecord customer)
+    {
+        return BuildCustomerGroupPath(GetCustomerRegion(customer), GetCustomerCityGroup(customer), customer.Id.ToString("N"));
+    }
+
+    private static string BuildCustomerGroupPath(params string[] parts)
+    {
+        return string.Join(CustomerGroupSeparator, parts.Select(Clean).Where(part => !string.IsNullOrWhiteSpace(part)));
+    }
+
+    private static string GetCustomerRegion(SalesCustomerRecord customer)
+    {
+        var region = Clean(customer.Region);
+        return string.IsNullOrWhiteSpace(region) ? "Без региона" : region;
+    }
+
+    private static string GetCustomerCityGroup(SalesCustomerRecord customer)
+    {
+        var city = Clean(customer.City);
+        return string.IsNullOrWhiteSpace(city) ? GetCustomerCity(customer.Name) : city;
     }
 
     private static string GetCustomerCity(string name)

@@ -10,6 +10,7 @@ public sealed class SalesWorkspace
         BindingList<SalesOrderRecord> orders,
         BindingList<SalesInvoiceRecord> invoices,
         BindingList<SalesShipmentRecord> shipments,
+        BindingList<SalesReturnRecord> returns,
         IReadOnlyList<SalesCatalogItemOption> catalogItems,
         IReadOnlyList<string> customerStatuses,
         IReadOnlyList<string> orderStatuses,
@@ -23,6 +24,7 @@ public sealed class SalesWorkspace
         Orders = orders;
         Invoices = invoices;
         Shipments = shipments;
+        Returns = returns;
         CatalogItems = catalogItems;
         CustomerStatuses = customerStatuses;
         OrderStatuses = orderStatuses;
@@ -40,6 +42,8 @@ public sealed class SalesWorkspace
     public BindingList<SalesInvoiceRecord> Invoices { get; }
 
     public BindingList<SalesShipmentRecord> Shipments { get; }
+
+    public BindingList<SalesReturnRecord> Returns { get; }
 
     public IReadOnlyList<SalesCatalogItemOption> CatalogItems { get; internal set; }
 
@@ -88,6 +92,7 @@ public sealed class SalesWorkspace
         ReplaceBindingList(Orders, source.Orders, item => item.Clone());
         ReplaceBindingList(Invoices, source.Invoices, item => item.Clone());
         ReplaceBindingList(Shipments, source.Shipments, item => item.Clone());
+        ReplaceBindingList(Returns, source.Returns, item => item.Clone());
 
         CatalogItems = source.CatalogItems.Select(item => item with { }).ToArray();
         Managers = source.Managers.ToArray();
@@ -409,11 +414,38 @@ public sealed class SalesWorkspace
             }
         };
 
+        var returns = new BindingList<SalesReturnRecord>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Number = "RET-260324-001",
+                ReturnDate = new DateTime(2026, 3, 24),
+                SalesOrderId = orderByNumber["SO-260323-002"].Id,
+                SalesOrderNumber = orderByNumber["SO-260323-002"].Number,
+                CustomerId = orderByNumber["SO-260323-002"].CustomerId,
+                CustomerCode = orderByNumber["SO-260323-002"].CustomerCode,
+                CustomerName = orderByNumber["SO-260323-002"].CustomerName,
+                ContractNumber = orderByNumber["SO-260323-002"].ContractNumber,
+                CurrencyCode = orderByNumber["SO-260323-002"].CurrencyCode,
+                Warehouse = orderByNumber["SO-260323-002"].Warehouse,
+                Status = "Принят",
+                Manager = orderByNumber["SO-260323-002"].Manager,
+                Reason = "Возврат части товара",
+                Comment = "Клиент вернул часть позиции после сверки.",
+                Lines = CloneLines(
+                [
+                    new() { Id = Guid.NewGuid(), ItemCode = "SCREEN-30", ItemName = "Экран световой SCREEN 30 белый", Unit = "м", Quantity = 2m, Price = 2_450m }
+                ])
+            }
+        };
+
         return new SalesWorkspace(
             customers,
             orders,
             invoices,
             shipments,
+            returns,
             catalogItems,
             customerStatuses,
             orderStatuses,
@@ -595,6 +627,27 @@ public sealed class SalesWorkspace
         existing.CopyFrom(shipment);
         RefreshOrderLifecycle(existing.SalesOrderId);
         WriteOperationLog("Отгрузка", existing.Id, existing.Number, "Изменение отгрузки", "Успех", $"Обновлена отгрузка {existing.Number}.");
+        OnChanged();
+    }
+
+    public void AddReturn(SalesReturnRecord returnDocument)
+    {
+        var copy = returnDocument.Clone();
+        if (string.IsNullOrWhiteSpace(copy.Status))
+        {
+            copy.Status = "Черновик";
+        }
+
+        Returns.Add(copy);
+        WriteOperationLog("Возврат", copy.Id, copy.Number, "Создание возврата", "Успех", $"Создан возврат {copy.Number} по заказу {copy.SalesOrderNumber}.");
+        OnChanged();
+    }
+
+    public void UpdateReturn(SalesReturnRecord returnDocument)
+    {
+        var existing = Returns.First(item => item.Id == returnDocument.Id);
+        existing.CopyFrom(returnDocument);
+        WriteOperationLog("Возврат", existing.Id, existing.Number, "Изменение возврата", "Успех", $"Обновлен возврат {existing.Number}.");
         OnChanged();
     }
 
@@ -782,6 +835,14 @@ public sealed class SalesWorkspace
             shipment.ContractNumber = customer.ContractNumber;
             shipment.CurrencyCode = customer.CurrencyCode;
         }
+
+        foreach (var returnDocument in Returns.Where(item => item.CustomerId == customer.Id))
+        {
+            returnDocument.CustomerCode = customer.Code;
+            returnDocument.CustomerName = customer.Name;
+            returnDocument.ContractNumber = customer.ContractNumber;
+            returnDocument.CurrencyCode = customer.CurrencyCode;
+        }
     }
 
     private void SyncDerivedDocumentsFromOrder(SalesOrderRecord order)
@@ -809,6 +870,18 @@ public sealed class SalesWorkspace
             shipment.Warehouse = order.Warehouse;
             shipment.Manager = order.Manager;
             shipment.Lines = CloneLines(order.Lines);
+        }
+
+        foreach (var returnDocument in Returns.Where(item => item.SalesOrderId == order.Id))
+        {
+            returnDocument.SalesOrderNumber = order.Number;
+            returnDocument.CustomerId = order.CustomerId;
+            returnDocument.CustomerCode = order.CustomerCode;
+            returnDocument.CustomerName = order.CustomerName;
+            returnDocument.ContractNumber = order.ContractNumber;
+            returnDocument.CurrencyCode = order.CurrencyCode;
+            returnDocument.Warehouse = order.Warehouse;
+            returnDocument.Manager = order.Manager;
         }
     }
 
@@ -1372,6 +1445,92 @@ public sealed class SalesShipmentRecord
         Status = source.Status;
         Carrier = source.Carrier;
         Manager = source.Manager;
+        Comment = source.Comment;
+        Lines = CloneLines(source.Lines);
+    }
+
+    private static BindingList<SalesOrderLineRecord> CloneLines(IEnumerable<SalesOrderLineRecord> lines)
+    {
+        return new BindingList<SalesOrderLineRecord>(lines.Select(line => line.Clone()).ToList());
+    }
+}
+
+public sealed class SalesReturnRecord
+{
+    public Guid Id { get; set; }
+
+    public string Number { get; set; } = string.Empty;
+
+    public DateTime ReturnDate { get; set; }
+
+    public Guid SalesOrderId { get; set; }
+
+    public string SalesOrderNumber { get; set; } = string.Empty;
+
+    public Guid CustomerId { get; set; }
+
+    public string CustomerCode { get; set; } = string.Empty;
+
+    public string CustomerName { get; set; } = string.Empty;
+
+    public string ContractNumber { get; set; } = string.Empty;
+
+    public string CurrencyCode { get; set; } = "RUB";
+
+    public string Warehouse { get; set; } = string.Empty;
+
+    public string Status { get; set; } = string.Empty;
+
+    public string Manager { get; set; } = string.Empty;
+
+    public string Reason { get; set; } = string.Empty;
+
+    public string Comment { get; set; } = string.Empty;
+
+    public BindingList<SalesOrderLineRecord> Lines { get; set; } = new();
+
+    public int PositionCount => Lines.Count;
+
+    public decimal TotalAmount => Lines.Sum(line => line.Amount);
+
+    public SalesReturnRecord Clone()
+    {
+        return new SalesReturnRecord
+        {
+            Id = Id,
+            Number = Number,
+            ReturnDate = ReturnDate,
+            SalesOrderId = SalesOrderId,
+            SalesOrderNumber = SalesOrderNumber,
+            CustomerId = CustomerId,
+            CustomerCode = CustomerCode,
+            CustomerName = CustomerName,
+            ContractNumber = ContractNumber,
+            CurrencyCode = CurrencyCode,
+            Warehouse = Warehouse,
+            Status = Status,
+            Manager = Manager,
+            Reason = Reason,
+            Comment = Comment,
+            Lines = CloneLines(Lines)
+        };
+    }
+
+    public void CopyFrom(SalesReturnRecord source)
+    {
+        Number = source.Number;
+        ReturnDate = source.ReturnDate;
+        SalesOrderId = source.SalesOrderId;
+        SalesOrderNumber = source.SalesOrderNumber;
+        CustomerId = source.CustomerId;
+        CustomerCode = source.CustomerCode;
+        CustomerName = source.CustomerName;
+        ContractNumber = source.ContractNumber;
+        CurrencyCode = source.CurrencyCode;
+        Warehouse = source.Warehouse;
+        Status = source.Status;
+        Manager = source.Manager;
+        Reason = source.Reason;
         Comment = source.Comment;
         Lines = CloneLines(source.Lines);
     }
