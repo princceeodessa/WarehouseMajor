@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using WarehouseAutomatisaion.Desktop.Data;
 using WpfButton = System.Windows.Controls.Button;
 using WpfBrush = System.Windows.Media.Brush;
@@ -31,9 +32,11 @@ public partial class MainWindow : Window
     private readonly SalesWorkspace _salesWorkspace;
     private readonly FunctionalCoverageSnapshot _coverage;
     private readonly ApplicationUpdateService _applicationUpdateService;
+    private readonly DispatcherTimer _salesWorkspaceAutosaveTimer;
 
     private ApplicationRelease? _availableRelease;
     private bool _updateOperationInProgress;
+    private bool _salesWorkspaceSaveWarningShown;
 
     public MainWindow()
     {
@@ -47,8 +50,14 @@ public partial class MainWindow : Window
         _demoWorkspace = DemoWorkspace.Create();
         _salesWorkspaceStore = SalesWorkspaceStore.CreateDefault();
         _salesWorkspace = TryLoadSalesWorkspace(_salesWorkspaceStore, _demoWorkspace.CurrentOperator);
+        _salesWorkspace.Changed += HandleSalesWorkspaceChanged;
         _coverage = FunctionalCoverageSnapshot.Create();
         _applicationUpdateService = new ApplicationUpdateService();
+        _salesWorkspaceAutosaveTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(750)
+        };
+        _salesWorkspaceAutosaveTimer.Tick += HandleSalesWorkspaceAutosaveTimerTick;
 
         RegisterSidebarButtons();
         RegisterSections();
@@ -62,6 +71,9 @@ public partial class MainWindow : Window
     {
         base.OnClosing(e);
         Loaded -= HandleWindowLoaded;
+        _salesWorkspace.Changed -= HandleSalesWorkspaceChanged;
+        _salesWorkspaceAutosaveTimer.Stop();
+        _salesWorkspaceAutosaveTimer.Tick -= HandleSalesWorkspaceAutosaveTimerTick;
 
         foreach (var tab in _tabsByKey.Values)
         {
@@ -73,7 +85,7 @@ public partial class MainWindow : Window
 
         try
         {
-            _salesWorkspaceStore.Save(_salesWorkspace);
+            TrySaveSalesWorkspace(showWarning: true);
         }
         catch (Exception exception)
         {
@@ -87,6 +99,43 @@ public partial class MainWindow : Window
         finally
         {
             _applicationUpdateService.Dispose();
+        }
+    }
+
+    private void HandleSalesWorkspaceChanged(object? sender, EventArgs e)
+    {
+        _salesWorkspaceAutosaveTimer.Stop();
+        _salesWorkspaceAutosaveTimer.Start();
+    }
+
+    private void HandleSalesWorkspaceAutosaveTimerTick(object? sender, EventArgs e)
+    {
+        _salesWorkspaceAutosaveTimer.Stop();
+        TrySaveSalesWorkspace(showWarning: false);
+    }
+
+    private bool TrySaveSalesWorkspace(bool showWarning)
+    {
+        try
+        {
+            _salesWorkspaceStore.Save(_salesWorkspace);
+            _salesWorkspaceSaveWarningShown = false;
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (showWarning || !_salesWorkspaceSaveWarningShown)
+            {
+                _salesWorkspaceSaveWarningShown = true;
+                MessageBox.Show(
+                    this,
+                    $"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f \u0437\u0430\u043a\u0430\u0437\u043e\u0432. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u0431\u0430\u0437\u0435 \u0434\u0430\u043d\u043d\u044b\u0445 \u0438\u043b\u0438 \u043f\u0440\u0430\u0432\u0430 \u043d\u0430 \u0437\u0430\u043f\u0438\u0441\u044c \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u0433\u043e \u0444\u0430\u0439\u043b\u0430.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
+                    AppBranding.MessageBoxTitle,
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
+            return false;
         }
     }
 
