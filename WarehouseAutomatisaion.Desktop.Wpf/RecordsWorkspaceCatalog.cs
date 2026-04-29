@@ -1,6 +1,10 @@
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Windows;
 using WarehouseAutomatisaion.Desktop.Data;
+using WarehouseAutomatisaion.Desktop.Printing;
 using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
@@ -459,6 +463,7 @@ internal static class RecordsWorkspaceCatalog
         return
         [
             new RecordsGridActionDefinition("Открыть заказ", () => EditOrder(salesWorkspace, order)),
+            new RecordsGridActionDefinition("Печать", () => PrintOrder(order)),
             new RecordsGridActionDefinition("Подтвердить", () => ShowWorkflowResult("Заказы", salesWorkspace.ConfirmOrder(order.Id))),
             new RecordsGridActionDefinition("В резерв", () => ShowWorkflowResult("Заказы", salesWorkspace.ReserveOrder(order.Id))),
             new RecordsGridActionDefinition("Снять резерв", () => ShowWorkflowResult("Заказы", salesWorkspace.ReleaseOrderReserve(order.Id))),
@@ -546,6 +551,17 @@ internal static class RecordsWorkspaceCatalog
             salesWorkspace.UpdateOrder(dialog.ResultOrder);
             ShowMessage("Заказы", $"Обновлен заказ {dialog.ResultOrder.Number}.");
         }
+    }
+
+    private static void PrintOrder(SalesOrderRecord order)
+    {
+        var directory = Path.Combine(AppContext.BaseDirectory, "print");
+        Directory.CreateDirectory(directory);
+
+        var safeNumber = BuildSafeFileToken(order.Number);
+        var path = Path.Combine(directory, $"sales-order-{safeNumber}-{DateTime.Now:yyyyMMdd-HHmmss}.html");
+        File.WriteAllText(path, SalesDocumentPrintComposer.BuildOrderHtml(order), Encoding.UTF8);
+        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
     }
 
     private static void EditInvoice(SalesWorkspace salesWorkspace, SalesInvoiceRecord invoice)
@@ -935,6 +951,12 @@ internal static class RecordsWorkspaceCatalog
         }
 
         return dialog.ShowDialog() == true ? dialog.ResultText : null;
+    }
+
+    private static string BuildSafeFileToken(string value)
+    {
+        var token = new string(Clean(value).Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_').ToArray());
+        return string.IsNullOrWhiteSpace(token) ? Guid.NewGuid().ToString("N") : token;
     }
 
     private static Window? ResolveOwnerWindow()
