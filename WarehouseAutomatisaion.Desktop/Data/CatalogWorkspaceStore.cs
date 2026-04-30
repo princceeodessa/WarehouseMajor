@@ -13,6 +13,7 @@ public sealed class CatalogWorkspaceStore
     };
 
     private readonly DesktopMySqlBackplaneService? _backplane;
+    private DesktopModuleSnapshotMetadata? _remoteMetadata;
 
     public CatalogWorkspaceStore(string storagePath, DesktopMySqlBackplaneService? backplane = null)
     {
@@ -35,14 +36,16 @@ public sealed class CatalogWorkspaceStore
         var workspace = CatalogWorkspace.Create(currentOperator, BuildSeed(salesWorkspace));
         _backplane?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneSnapshot = _backplane?.TryLoadModuleSnapshot<CatalogWorkspaceSnapshot>("catalog");
-        if (backplaneSnapshot is not null)
+        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
+        if (backplaneRecord is not null)
         {
+            var backplaneSnapshot = backplaneRecord.Snapshot;
+            _remoteMetadata = backplaneRecord.Metadata;
             var normalized = NormalizeSnapshot(backplaneSnapshot);
             workspace.ReplaceFrom(backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
             if (normalized)
             {
-                _backplane?.TrySaveModuleSnapshot("catalog", backplaneSnapshot, currentOperator, CreateAuditSeeds(backplaneSnapshot.OperationLog));
+                TrySaveToBackplane(backplaneSnapshot, currentOperator);
             }
 
             return workspace;
@@ -69,7 +72,11 @@ public sealed class CatalogWorkspaceStore
                 WriteSnapshot(snapshot);
             }
 
-            _backplane?.TrySaveModuleSnapshot("catalog", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog));
+            if (_backplane?.TrySaveModuleSnapshot("catalog", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
+            {
+                _remoteMetadata = _backplane.TryLoadModuleSnapshotMetadata("catalog");
+            }
+
             return workspace;
         }
         catch
@@ -85,9 +92,11 @@ public sealed class CatalogWorkspaceStore
     {
         _backplane?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneSnapshot = _backplane?.TryLoadModuleSnapshot<CatalogWorkspaceSnapshot>("catalog");
-        if (backplaneSnapshot is not null)
+        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
+        if (backplaneRecord is not null)
         {
+            var backplaneSnapshot = backplaneRecord.Snapshot;
+            _remoteMetadata = backplaneRecord.Metadata;
             NormalizeSnapshot(backplaneSnapshot);
             return backplaneSnapshot.ToWorkspace(currentOperator, currencies, warehouses);
         }
@@ -125,12 +134,50 @@ public sealed class CatalogWorkspaceStore
         Directory.CreateDirectory(directory);
         var snapshot = CatalogWorkspaceSnapshot.FromWorkspace(workspace);
         NormalizeSnapshot(snapshot);
-        if (_backplane?.TrySaveModuleSnapshot("catalog", snapshot, workspace.CurrentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
+        if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
         {
             return;
         }
 
         WriteSnapshot(snapshot);
+    }
+
+    private bool TrySaveToBackplane(CatalogWorkspaceSnapshot snapshot, string currentOperator)
+    {
+        if (_backplane is null)
+        {
+            return false;
+        }
+
+        var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
+        var result = _backplane.TrySaveModuleSnapshot("catalog", snapshot, currentOperator, _remoteMetadata, auditEvents);
+        if (result.Succeeded)
+        {
+            _remoteMetadata = result.Metadata;
+            return true;
+        }
+
+        if (result.State != DesktopModuleSnapshotSaveState.Conflict)
+        {
+            return false;
+        }
+
+        var latest = _backplane.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
+        if (latest is null)
+        {
+            return false;
+        }
+
+        var merged = MergeSnapshots(latest.Snapshot, snapshot);
+        NormalizeSnapshot(merged);
+        var retry = _backplane.TrySaveModuleSnapshot("catalog", merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
+        if (!retry.Succeeded)
+        {
+            throw new InvalidOperationException("Данные товаров на сервере изменились другим рабочим местом. Обновите данные и повторите действие.");
+        }
+
+        _remoteMetadata = retry.Metadata;
+        return true;
     }
 
     private void WriteSnapshot(CatalogWorkspaceSnapshot snapshot)
@@ -425,6 +472,106 @@ public sealed class CatalogWorkspaceStore
     private static string FirstNonEmpty(params string[] values)
     {
         return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
+    }
+
+    private static CatalogWorkspaceSnapshot MergeSnapshots(CatalogWorkspaceSnapshot server, CatalogWorkspaceSnapshot local)
+    {
+        return new CatalogWorkspaceSnapshot
+        {
+            CurrentOperator = string.IsNullOrWhiteSpace(local.CurrentOperator) ? server.CurrentOperator : local.CurrentOperator,
+            Items = MergeRecords(server.Items, local.Items, BuildItemKey, item => item.Clone()),
+            PriceTypes = MergeRecords(server.PriceTypes, local.PriceTypes, BuildPriceTypeKey, item => item.Clone()),
+            Discounts = MergeRecords(server.Discounts, local.Discounts, BuildDiscountKey, item => item.Clone()),
+            PriceRegistrations = MergeRecords(server.PriceRegistrations, local.PriceRegistrations, BuildPriceRegistrationKey, item => item.Clone()),
+            OperationLog = server.OperationLog
+                .Concat(local.OperationLog)
+                .GroupBy(item => item.Id == Guid.Empty ? $"{item.EntityType}|{item.EntityNumber}|{item.Action}|{item.LoggedAt:O}" : item.Id.ToString("N"), StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.OrderByDescending(item => item.LoggedAt).First().Clone())
+                .OrderByDescending(item => item.LoggedAt)
+                .Take(500)
+                .ToList(),
+            Currencies = server.Currencies
+                .Concat(local.Currencies)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            Warehouses = server.Warehouses
+                .Concat(local.Warehouses)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList()
+        };
+    }
+
+    private static List<T> MergeRecords<T>(
+        IEnumerable<T> server,
+        IEnumerable<T> local,
+        Func<T, string> keySelector,
+        Func<T, T> clone)
+    {
+        var merged = new List<T>();
+        var indexes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in server)
+        {
+            var key = keySelector(item);
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                indexes[key] = merged.Count;
+            }
+
+            merged.Add(clone(item));
+        }
+
+        foreach (var item in local)
+        {
+            var key = keySelector(item);
+            var cloned = clone(item);
+            if (!string.IsNullOrWhiteSpace(key) && indexes.TryGetValue(key, out var index))
+            {
+                merged[index] = cloned;
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                indexes[key] = merged.Count;
+            }
+
+            merged.Add(cloned);
+        }
+
+        return merged;
+    }
+
+    private static string BuildItemKey(CatalogItemRecord item)
+    {
+        return item.Id != Guid.Empty
+            ? $"id:{item.Id:N}"
+            : !string.IsNullOrWhiteSpace(item.Code)
+                ? $"code:{item.Code}"
+                : $"name:{item.Name}";
+    }
+
+    private static string BuildPriceTypeKey(CatalogPriceTypeRecord item)
+    {
+        return item.Id != Guid.Empty
+            ? $"id:{item.Id:N}"
+            : !string.IsNullOrWhiteSpace(item.Code)
+                ? $"code:{item.Code}"
+                : $"name:{item.Name}";
+    }
+
+    private static string BuildDiscountKey(CatalogDiscountRecord item)
+    {
+        return item.Id != Guid.Empty ? $"id:{item.Id:N}" : $"name:{item.Name}|{item.PriceTypeName}|{item.Period}";
+    }
+
+    private static string BuildPriceRegistrationKey(CatalogPriceRegistrationRecord item)
+    {
+        return item.Id != Guid.Empty ? $"id:{item.Id:N}" : $"number:{item.Number}";
     }
 
     private static Guid CreateDeterministicGuid(string seed)

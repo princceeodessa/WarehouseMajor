@@ -12,6 +12,7 @@ public sealed class SalesWorkspaceStore
     };
     private readonly DesktopMySqlBackplaneService? _backplane;
     private readonly bool _serverModeEnabled;
+    private DesktopModuleSnapshotMetadata? _remoteMetadata;
 
     public SalesWorkspaceStore(
         string storagePath,
@@ -24,6 +25,8 @@ public sealed class SalesWorkspaceStore
     }
 
     public string StoragePath { get; }
+
+    public bool IsServerModeEnabled => _serverModeEnabled && _backplane is not null;
 
     public static SalesWorkspaceStore CreateDefault()
     {
@@ -66,10 +69,11 @@ public sealed class SalesWorkspaceStore
 
         _backplane?.TryEnsureUserProfile(currentOperator);
         SalesWorkspaceImportMerger.Merge(workspace);
-        var backplaneSnapshot = _backplane?.TryLoadModuleSnapshot<SalesWorkspaceSnapshot>("sales");
-        if (backplaneSnapshot is not null)
+        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<SalesWorkspaceSnapshot>("sales");
+        if (backplaneRecord is not null)
         {
-            ApplySnapshotToWorkspace(workspace, backplaneSnapshot, operationalSnapshot, importRoots);
+            _remoteMetadata = backplaneRecord.Metadata;
+            ApplySnapshotToWorkspace(workspace, backplaneRecord.Snapshot, operationalSnapshot, importRoots);
             return workspace;
         }
 
@@ -100,7 +104,11 @@ public sealed class SalesWorkspaceStore
                 }
             }
 
-            _backplane?.TrySaveModuleSnapshot("sales", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog));
+            if (_backplane?.TrySaveModuleSnapshot("sales", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
+            {
+                _remoteMetadata = _backplane.TryLoadModuleSnapshotMetadata("sales");
+            }
+
             return workspace;
         }
         catch
@@ -119,7 +127,7 @@ public sealed class SalesWorkspaceStore
 
         Directory.CreateDirectory(directory);
         var snapshot = SalesWorkspaceSnapshot.FromWorkspace(workspace);
-        if (_backplane?.TrySaveModuleSnapshot("sales", snapshot, workspace.CurrentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
+        if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
         {
             return;
         }
@@ -133,6 +141,78 @@ public sealed class SalesWorkspaceStore
         var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
         File.WriteAllText(tempPath, json, Encoding.UTF8);
         File.Move(tempPath, StoragePath, true);
+    }
+
+    public bool HasRemoteChanges()
+    {
+        if (_backplane is null || _remoteMetadata is null)
+        {
+            return false;
+        }
+
+        var latest = _backplane.TryLoadModuleSnapshotMetadata("sales");
+        return latest is not null
+               && (!string.Equals(latest.PayloadHash, _remoteMetadata.PayloadHash, StringComparison.OrdinalIgnoreCase)
+                   || latest.VersionNo != _remoteMetadata.VersionNo);
+    }
+
+    public bool TryRefreshFromBackplane(SalesWorkspace workspace)
+    {
+        var record = _backplane?.TryLoadModuleSnapshotRecord<SalesWorkspaceSnapshot>("sales");
+        if (record is null)
+        {
+            return false;
+        }
+
+        if (_remoteMetadata is not null
+            && record.Metadata.VersionNo == _remoteMetadata.VersionNo
+            && string.Equals(record.Metadata.PayloadHash, _remoteMetadata.PayloadHash, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        ApplySnapshotToWorkspace(workspace, record.Snapshot, workspace.OperationalSnapshot, importRoots: null);
+        _remoteMetadata = record.Metadata;
+        workspace.NotifyExternalChange();
+        return true;
+    }
+
+    private bool TrySaveToBackplane(SalesWorkspaceSnapshot snapshot, string currentOperator)
+    {
+        if (_backplane is null)
+        {
+            return false;
+        }
+
+        var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
+        var result = _backplane.TrySaveModuleSnapshot("sales", snapshot, currentOperator, _remoteMetadata, auditEvents);
+        if (result.Succeeded)
+        {
+            _remoteMetadata = result.Metadata;
+            return true;
+        }
+
+        if (result.State != DesktopModuleSnapshotSaveState.Conflict)
+        {
+            return false;
+        }
+
+        var latest = _backplane.TryLoadModuleSnapshotRecord<SalesWorkspaceSnapshot>("sales");
+        if (latest is null)
+        {
+            return false;
+        }
+
+        var merged = MergeSnapshots(latest.Snapshot, snapshot);
+        var mergedAuditEvents = CreateAuditSeeds(merged.OperationLog);
+        var retry = _backplane.TrySaveModuleSnapshot("sales", merged, currentOperator, latest.Metadata, mergedAuditEvents);
+        if (!retry.Succeeded)
+        {
+            throw new InvalidOperationException("Данные на сервере изменились другим рабочим местом. Обновите данные и повторите действие.");
+        }
+
+        _remoteMetadata = retry.Metadata;
+        return true;
     }
 
     private static void ApplySnapshotToWorkspace(
@@ -170,6 +250,118 @@ public sealed class SalesWorkspaceStore
         ReplaceList(workspace.OperationLog, snapshot.OperationLog, item => item.Clone());
     }
 
+    private static SalesWorkspaceSnapshot MergeSnapshots(SalesWorkspaceSnapshot server, SalesWorkspaceSnapshot local)
+    {
+        return new SalesWorkspaceSnapshot
+        {
+            Customers = MergeRecords(server.Customers, local.Customers, BuildCustomerKey, item => item.Clone()),
+            Orders = MergeRecords(server.Orders, local.Orders, BuildOrderKey, item => item.Clone()),
+            Invoices = MergeRecords(server.Invoices, local.Invoices, BuildInvoiceKey, item => item.Clone()),
+            Shipments = MergeRecords(server.Shipments, local.Shipments, BuildShipmentKey, item => item.Clone()),
+            Returns = MergeRecords(server.Returns, local.Returns, BuildReturnKey, item => item.Clone()),
+            CashReceipts = MergeRecords(server.CashReceipts, local.CashReceipts, BuildCashReceiptKey, item => item.Clone()),
+            OperationLog = server.OperationLog
+                .Concat(local.OperationLog)
+                .GroupBy(item => item.Id == Guid.Empty ? CreateFallbackLogKey(item) : item.Id.ToString("N"), StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.OrderByDescending(item => item.LoggedAt).First().Clone())
+                .OrderByDescending(item => item.LoggedAt)
+                .Take(500)
+                .ToList()
+        };
+    }
+
+    private static List<T> MergeRecords<T>(
+        IEnumerable<T> server,
+        IEnumerable<T> local,
+        Func<T, string> keySelector,
+        Func<T, T> clone)
+    {
+        var merged = new List<T>();
+        var indexes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in server)
+        {
+            var key = keySelector(item);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                merged.Add(clone(item));
+                continue;
+            }
+
+            indexes[key] = merged.Count;
+            merged.Add(clone(item));
+        }
+
+        foreach (var item in local)
+        {
+            var key = keySelector(item);
+            var cloneItem = clone(item);
+            if (!string.IsNullOrWhiteSpace(key) && indexes.TryGetValue(key, out var index))
+            {
+                merged[index] = cloneItem;
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                indexes[key] = merged.Count;
+            }
+
+            merged.Add(cloneItem);
+        }
+
+        return merged;
+    }
+
+    private static string BuildCustomerKey(SalesCustomerRecord item)
+    {
+        return item.Id != Guid.Empty
+            ? $"id:{item.Id:N}"
+            : !string.IsNullOrWhiteSpace(item.Code)
+                ? $"code:{item.Code}"
+                : $"name:{item.Name}";
+    }
+
+    private static string BuildOrderKey(SalesOrderRecord item)
+    {
+        return item.Id != Guid.Empty
+            ? $"id:{item.Id:N}"
+            : $"number:{item.Number}";
+    }
+
+    private static string BuildInvoiceKey(SalesInvoiceRecord item)
+    {
+        return item.Id != Guid.Empty
+            ? $"id:{item.Id:N}"
+            : $"number:{item.Number}";
+    }
+
+    private static string BuildShipmentKey(SalesShipmentRecord item)
+    {
+        return item.Id != Guid.Empty
+            ? $"id:{item.Id:N}"
+            : $"number:{item.Number}";
+    }
+
+    private static string BuildReturnKey(SalesReturnRecord item)
+    {
+        return item.Id != Guid.Empty
+            ? $"id:{item.Id:N}"
+            : $"number:{item.Number}";
+    }
+
+    private static string BuildCashReceiptKey(SalesCashReceiptRecord item)
+    {
+        return item.Id != Guid.Empty
+            ? $"id:{item.Id:N}"
+            : $"number:{item.Number}";
+    }
+
+    private static string CreateFallbackLogKey(SalesOperationLogEntry item)
+    {
+        return $"{item.EntityType}|{item.EntityId:N}|{item.EntityNumber}|{item.Action}|{item.LoggedAt:O}";
+    }
+
     private static void ApplyOperationalSnapshot(
         SalesWorkspace workspace,
         DesktopOperationalSnapshot snapshot,
@@ -197,6 +389,8 @@ public sealed class SalesWorkspaceStore
 
     private static void MergeSnapshotIntoOperationalWorkspace(SalesWorkspace workspace, SalesWorkspaceSnapshot snapshot)
     {
+        MergeCustomers(workspace.Customers, snapshot.Customers);
+
         var knownCustomerIds = workspace.Customers
             .Select(item => item.Id)
             .ToHashSet();
@@ -207,6 +401,36 @@ public sealed class SalesWorkspaceStore
         MergeReturns(workspace.Returns, snapshot.Returns, knownCustomerIds);
         MergeCashReceipts(workspace.CashReceipts, snapshot.CashReceipts, knownCustomerIds);
         ReplaceList(workspace.OperationLog, snapshot.OperationLog, item => item.Clone());
+    }
+
+    private static void MergeCustomers(
+        ICollection<SalesCustomerRecord> target,
+        IEnumerable<SalesCustomerRecord> source)
+    {
+        var targetByKey = target
+            .Select(item => (Key: BuildCustomerKey(item), Item: item))
+            .Where(item => !string.IsNullOrWhiteSpace(item.Key))
+            .ToDictionary(item => item.Key, item => item.Item, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in source)
+        {
+            var key = BuildCustomerKey(item);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                target.Add(item.Clone());
+                continue;
+            }
+
+            if (targetByKey.TryGetValue(key, out var existing))
+            {
+                existing.CopyFrom(item);
+                continue;
+            }
+
+            var clone = item.Clone();
+            target.Add(clone);
+            targetByKey[key] = clone;
+        }
     }
 
     private static void ReplaceList<T>(ICollection<T> target, IEnumerable<T>? source, Func<T, T> clone)

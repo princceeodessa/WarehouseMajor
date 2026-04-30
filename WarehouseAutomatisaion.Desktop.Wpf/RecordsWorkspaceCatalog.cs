@@ -31,11 +31,11 @@ internal static class RecordsWorkspaceCatalog
             PrimaryAction: () => CreateSalesOrder(salesWorkspace),
             MetricsFactory: () =>
             [
-                Metric("Всего заказов", salesWorkspace.Orders.Count, "+12%", "#6C63FF", "#F0EDFF", "#1BC47D", "\uE14C"),
-                Metric("Новые", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Новые"), "+8%", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8A5"),
-                Metric("Подтвержденные", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Подтвержденные"), "+15%", "#59C36A", "#EBF9EF", "#1BC47D", "\uE73E"),
-                Metric("В производстве", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "В производстве"), "-4%", "#7B68EE", "#F1EEFF", "#FF6B6B", "\uE7C1"),
-                Metric("Выполненные", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Выполненные"), "+7%", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uEC47")
+                Metric("Всего заказов", salesWorkspace.Orders.Count, "Актуально", "#6C63FF", "#F0EDFF", "#1BC47D", "\uE14C"),
+                Metric("Новые", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Новые"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8A5"),
+                Metric("Подтвержденные", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Подтвержденные"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE73E"),
+                Metric("В производстве", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "В производстве"), "Актуально", "#7B68EE", "#F1EEFF", "#FF6B6B", "\uE7C1"),
+                Metric("Выполненные", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Выполненные"), "Актуально", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uEC47")
             ],
             RowsFactory: () => salesWorkspace.Orders
                 .OrderByDescending(item => item.OrderDate)
@@ -81,10 +81,10 @@ internal static class RecordsWorkspaceCatalog
             PrimaryAction: () => CreateCustomer(salesWorkspace),
             MetricsFactory: () =>
             [
-                Metric("Всего клиентов", salesWorkspace.Customers.Count, "+5%", "#FFB648", "#FFF5E8", "#1BC47D", "\uE77B"),
-                Metric("Активные", salesWorkspace.Customers.Count(item => NormalizeCustomerFilter(item.Status) == "Активные"), "+8%", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8D4"),
-                Metric("Новые", salesWorkspace.Customers.Count(item => NormalizeCustomerFilter(item.Status) == "Новые"), "+12%", "#6C63FF", "#F0EDFF", "#1BC47D", "\uE77B"),
-                Metric("Неактивные", salesWorkspace.Customers.Count(item => NormalizeCustomerFilter(item.Status) == "Неактивные"), "-3%", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uE711")
+                Metric("Всего клиентов", salesWorkspace.Customers.Count, "Актуально", "#FFB648", "#FFF5E8", "#1BC47D", "\uE77B"),
+                Metric("Активные", salesWorkspace.Customers.Count(item => NormalizeCustomerFilter(item.Status) == "Активные"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8D4"),
+                Metric("Новые", salesWorkspace.Customers.Count(item => NormalizeCustomerFilter(item.Status) == "Новые"), "Актуально", "#6C63FF", "#F0EDFF", "#1BC47D", "\uE77B"),
+                Metric("Неактивные", salesWorkspace.Customers.Count(item => NormalizeCustomerFilter(item.Status) == "Неактивные"), "Актуально", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uE711")
             ],
             RowsFactory: () => salesWorkspace.Customers
                 .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
@@ -137,11 +137,11 @@ internal static class RecordsWorkspaceCatalog
             PrimaryAction: () => CreateInvoice(salesWorkspace),
             MetricsFactory: () =>
             [
-                Metric("Все счета", salesWorkspace.Invoices.Count, "+8%", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8C7"),
-                Metric("Оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Оплачено"), "+10%", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8FB"),
-                Metric("Частично оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Частично оплачено"), "+5%", "#FFB648", "#FFF5E8", "#1BC47D", "\uE7C2"),
-                Metric("Просрочено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Просрочено"), "-2%", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uEA39"),
-                Metric("Не оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Не оплачено"), "+12%", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uE8C7")
+                Metric("Все счета", salesWorkspace.Invoices.Count, "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8C7"),
+                Metric("Оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Оплачено"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8FB"),
+                Metric("Частично оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Частично оплачено"), "Актуально", "#FFB648", "#FFF5E8", "#1BC47D", "\uE7C2"),
+                Metric("Просрочено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Просрочено"), "Актуально", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uEA39"),
+                Metric("Не оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Не оплачено"), "Актуально", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uE8C7")
             ],
             RowsFactory: () => salesWorkspace.Invoices
                 .OrderByDescending(item => item.InvoiceDate)
@@ -191,11 +191,11 @@ internal static class RecordsWorkspaceCatalog
             PrimaryAction: () => CreateShipment(salesWorkspace),
             MetricsFactory: () =>
             [
-                Metric("Все отгрузки", salesWorkspace.Shipments.Count, "+15%", "#FFB648", "#FFF5E8", "#1BC47D", "\uEC47"),
-                Metric("Запланировано", salesWorkspace.Shipments.Count(item => NormalizeShipmentFilter(item.Status) == "Запланировано"), "+7%", "#6C63FF", "#F0EDFF", "#1BC47D", "\uE823"),
-                Metric("В пути", salesWorkspace.Shipments.Count(item => NormalizeShipmentFilter(item.Status) == "В пути"), "+12%", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uE7C1"),
-                Metric("Доставлено", salesWorkspace.Shipments.Count(item => NormalizeShipmentFilter(item.Status) == "Доставлено"), "+10%", "#59C36A", "#EBF9EF", "#1BC47D", "\uE73E"),
-                Metric("Отменено", salesWorkspace.Shipments.Count(item => NormalizeShipmentFilter(item.Status) == "Отменено"), "-3%", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uE711")
+                Metric("Все отгрузки", salesWorkspace.Shipments.Count, "Актуально", "#FFB648", "#FFF5E8", "#1BC47D", "\uEC47"),
+                Metric("Запланировано", salesWorkspace.Shipments.Count(item => NormalizeShipmentFilter(item.Status) == "Запланировано"), "Актуально", "#6C63FF", "#F0EDFF", "#1BC47D", "\uE823"),
+                Metric("В пути", salesWorkspace.Shipments.Count(item => NormalizeShipmentFilter(item.Status) == "В пути"), "Актуально", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uE7C1"),
+                Metric("Доставлено", salesWorkspace.Shipments.Count(item => NormalizeShipmentFilter(item.Status) == "Доставлено"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE73E"),
+                Metric("Отменено", salesWorkspace.Shipments.Count(item => NormalizeShipmentFilter(item.Status) == "Отменено"), "Актуально", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uE711")
             ],
             RowsFactory: () => salesWorkspace.Shipments
                 .OrderByDescending(item => item.ShipmentDate)
@@ -250,10 +250,10 @@ internal static class RecordsWorkspaceCatalog
             ShowDateRange: true,
             MetricsFactory: () =>
             [
-                Metric("Поставщики", workspace.Suppliers.Count, "+4%", "#FFB648", "#FFF5E8", "#1BC47D", "\uE77B"),
-                Metric("Заказы", workspace.PurchaseOrders.Count, "+9%", "#6C63FF", "#F0EDFF", "#1BC47D", "\uE14C"),
-                Metric("Счета", workspace.SupplierInvoices.Count, "+5%", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8C7"),
-                Metric("Приемки", workspace.PurchaseReceipts.Count, "+7%", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uE7C1")
+                Metric("Поставщики", workspace.Suppliers.Count, "Актуально", "#FFB648", "#FFF5E8", "#1BC47D", "\uE77B"),
+                Metric("Заказы", workspace.PurchaseOrders.Count, "Актуально", "#6C63FF", "#F0EDFF", "#1BC47D", "\uE14C"),
+                Metric("Счета", workspace.SupplierInvoices.Count, "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8C7"),
+                Metric("Приемки", workspace.PurchaseReceipts.Count, "Актуально", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uE7C1")
             ],
             RowsFactory: () => documents
                 .Select(item => new RecordsGridItem(
@@ -312,10 +312,10 @@ internal static class RecordsWorkspaceCatalog
                 var outOfStock = items.Count(item => GetStockValue(stockLookup, item.Code) <= 0m);
                 return
                 [
-                    Metric("Всего товаров", items.Length, "+6%", "#6C63FF", "#F0EDFF", "#1BC47D", "\uEECA"),
-                    Metric("В наличии", inStock, "+4%", "#59C36A", "#EBF9EF", "#1BC47D", "\uE7BA"),
-                    Metric("Низкий остаток", lowStock, "-2%", "#FFB648", "#FFF5E8", "#FF6B6B", "\uEA39"),
-                    Metric("Нет в наличии", outOfStock, "+1%", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uE711")
+                    Metric("Всего товаров", items.Length, "Актуально", "#6C63FF", "#F0EDFF", "#1BC47D", "\uEECA"),
+                    Metric("В наличии", inStock, "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE7BA"),
+                    Metric("Низкий остаток", lowStock, "Актуально", "#FFB648", "#FFF5E8", "#FF6B6B", "\uEA39"),
+                    Metric("Нет в наличии", outOfStock, "Актуально", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uE711")
                 ];
             },
             RowsFactory: () => workspace.Items
@@ -407,7 +407,7 @@ internal static class RecordsWorkspaceCatalog
                 new WorkspaceMetricCardDefinition("Критично", audit.CriticalCount.ToString("N0", RuCulture), audit.CriticalCount == 0 ? "нет блокеров" : "исправить вручную", "Разорванные связи и дубли ключей", "#F15B5B", "#FFF0F0", "#F15B5B", "\uEA39"),
                 new WorkspaceMetricCardDefinition("Важно", audit.WarningCount.ToString("N0", RuCulture), audit.WarningCount == 0 ? "нет замечаний" : "проверить", "Пустые строки, цены и даты", "#F29A17", "#FFF4E3", "#F29A17", "\uE7BA"),
                 new WorkspaceMetricCardDefinition("План", audit.InfoCount.ToString("N0", RuCulture), audit.InfoCount == 0 ? "чисто" : "дополнить", "Данные, которые улучшают аналитику", "#7180A0", "#F3F6FB", "#7180A0", "\uE9D2"),
-                new WorkspaceMetricCardDefinition("Сценарии", scenarioRows.Length.ToString("N0", RuCulture), "+0%", "Карта покрытия функций", "#4F5BFF", "#EEF2FF", "#8C97B0", "\uE9CE")
+                new WorkspaceMetricCardDefinition("Сценарии", scenarioRows.Length.ToString("N0", RuCulture), "Актуально", "Карта покрытия функций", "#4F5BFF", "#EEF2FF", "#8C97B0", "\uE9CE")
             ],
             RowsFactory: () => rows
                 .Select(item => new RecordsGridItem(
@@ -1017,11 +1017,11 @@ internal static class RecordsWorkspaceCatalog
         return new WorkspaceMetricCardDefinition(
             title,
             value.ToString("N0", RuCulture),
-            delta,
-            "к прошлому месяцу",
+            "Актуально",
+            "по текущим данным",
             accentHex,
             iconBackgroundHex,
-            deltaHex,
+            "#6E7A96",
             iconGlyph);
     }
 

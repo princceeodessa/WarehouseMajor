@@ -167,31 +167,62 @@ public sealed class DesktopMySqlBackplaneService
 
     public T? TryLoadModuleSnapshot<T>(string moduleCode)
     {
+        var record = TryLoadModuleSnapshotRecord<T>(moduleCode);
+        return record is null ? default : record.Snapshot;
+    }
+
+    public DesktopModuleSnapshotRecord<T>? TryLoadModuleSnapshotRecord<T>(string moduleCode)
+    {
         try
         {
             EnsureDatabaseAndSchema();
-            var sql = $"""
-                SELECT COALESCE(
-                    CAST(payload_json AS CHAR CHARACTER SET utf8mb4),
-                    'null'
-                )
-                FROM app_module_snapshots
-                WHERE module_code = {SqlUtf8TextExpression(NormalizeModuleCode(moduleCode))}
-                LIMIT 1;
-                """;
-
+            var sql = BuildSnapshotRecordSql(moduleCode, includePayload: true);
             var output = ExecuteSqlScalar(sql, useDatabase: true, commandTimeoutSeconds: MysqlSnapshotCommandTimeoutSeconds).Trim();
             if (string.IsNullOrWhiteSpace(output) || string.Equals(output, "NULL", StringComparison.OrdinalIgnoreCase))
             {
-                return default;
+                return null;
             }
 
-            return JsonSerializer.Deserialize<T>(output, JsonOptions);
+            var row = JsonSerializer.Deserialize<DesktopModuleSnapshotRow>(output, JsonOptions);
+            if (row is null || string.IsNullOrWhiteSpace(row.PayloadJson))
+            {
+                return null;
+            }
+
+            var snapshot = JsonSerializer.Deserialize<T>(row.PayloadJson, JsonOptions);
+            if (snapshot is null)
+            {
+                return null;
+            }
+
+            return new DesktopModuleSnapshotRecord<T>(snapshot, CreateSnapshotMetadata(moduleCode, row));
         }
         catch (Exception exception)
         {
             TryWriteErrorLog(exception);
-            return default;
+            return null;
+        }
+    }
+
+    public DesktopModuleSnapshotMetadata? TryLoadModuleSnapshotMetadata(string moduleCode)
+    {
+        try
+        {
+            EnsureDatabaseAndSchema();
+            var sql = BuildSnapshotRecordSql(moduleCode, includePayload: false);
+            var output = ExecuteSqlScalar(sql, useDatabase: true, commandTimeoutSeconds: MysqlSnapshotCommandTimeoutSeconds).Trim();
+            if (string.IsNullOrWhiteSpace(output) || string.Equals(output, "NULL", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var row = JsonSerializer.Deserialize<DesktopModuleSnapshotRow>(output, JsonOptions);
+            return row is null ? null : CreateSnapshotMetadata(moduleCode, row);
+        }
+        catch (Exception exception)
+        {
+            TryWriteErrorLog(exception);
+            return null;
         }
     }
 
@@ -210,6 +241,30 @@ public sealed class DesktopMySqlBackplaneService
         {
             TryWriteErrorLog(exception);
             return false;
+        }
+    }
+
+    public DesktopModuleSnapshotSaveResult TrySaveModuleSnapshot<T>(
+        string moduleCode,
+        T snapshot,
+        string actorName,
+        DesktopModuleSnapshotMetadata? expectedMetadata,
+        IEnumerable<DesktopAuditEventSeed>? auditEvents = null)
+    {
+        try
+        {
+            var metadata = SaveModuleSnapshot(moduleCode, snapshot, actorName, expectedMetadata, auditEvents);
+            return DesktopModuleSnapshotSaveResult.Saved(metadata);
+        }
+        catch (DesktopModuleSnapshotConflictException exception)
+        {
+            TryWriteErrorLog(exception);
+            return DesktopModuleSnapshotSaveResult.Conflict(exception.ServerMetadata);
+        }
+        catch (Exception exception)
+        {
+            TryWriteErrorLog(exception);
+            return DesktopModuleSnapshotSaveResult.Failed(exception.Message);
         }
     }
 
@@ -274,6 +329,82 @@ public sealed class DesktopMySqlBackplaneService
 
         script.AppendLine("COMMIT;");
         ExecuteSqlNonQuery(script.ToString(), useDatabase: true, commandTimeoutSeconds: MysqlSnapshotCommandTimeoutSeconds);
+    }
+
+    public DesktopModuleSnapshotMetadata SaveModuleSnapshot<T>(
+        string moduleCode,
+        T snapshot,
+        string actorName,
+        DesktopModuleSnapshotMetadata? expectedMetadata,
+        IEnumerable<DesktopAuditEventSeed>? auditEvents = null)
+    {
+        EnsureDatabaseAndSchema();
+        EnsureUserProfile(actorName);
+
+        var normalizedModuleCode = NormalizeModuleCode(moduleCode);
+        var normalizedActor = NormalizeUserName(actorName);
+        var json = JsonSerializer.Serialize(snapshot, JsonOptions);
+        var payloadHash = ComputeSha256(json);
+
+        int affectedRows;
+        if (expectedMetadata is null)
+        {
+            var insertSql = $"""
+                INSERT IGNORE INTO app_module_snapshots (
+                    module_code,
+                    payload_json,
+                    payload_hash,
+                    version_no,
+                    updated_by,
+                    created_at_utc,
+                    updated_at_utc
+                )
+                VALUES (
+                    {SqlUtf8TextExpression(normalizedModuleCode)},
+                    {SqlJsonExpression(json)},
+                    {SqlUtf8TextExpression(payloadHash)},
+                    1,
+                    {SqlUtf8TextExpression(normalizedActor)},
+                    UTC_TIMESTAMP(6),
+                    UTC_TIMESTAMP(6)
+                );
+                """;
+            affectedRows = ExecuteSqlAffectedRows(insertSql, useDatabase: true, commandTimeoutSeconds: MysqlSnapshotCommandTimeoutSeconds);
+        }
+        else
+        {
+            var updateSql = $"""
+                UPDATE app_module_snapshots
+                SET
+                    payload_json = {SqlJsonExpression(json)},
+                    version_no = CASE
+                        WHEN payload_hash <> {SqlUtf8TextExpression(payloadHash)} THEN version_no + 1
+                        ELSE version_no
+                    END,
+                    payload_hash = {SqlUtf8TextExpression(payloadHash)},
+                    updated_by = {SqlUtf8TextExpression(normalizedActor)},
+                    updated_at_utc = UTC_TIMESTAMP(6)
+                WHERE module_code = {SqlUtf8TextExpression(normalizedModuleCode)}
+                  AND version_no = {expectedMetadata.VersionNo.ToString(CultureInfo.InvariantCulture)}
+                  AND payload_hash = {SqlUtf8TextExpression(expectedMetadata.PayloadHash)};
+                """;
+            affectedRows = ExecuteSqlAffectedRows(updateSql, useDatabase: true, commandTimeoutSeconds: MysqlSnapshotCommandTimeoutSeconds);
+        }
+
+        if (affectedRows <= 0)
+        {
+            throw new DesktopModuleSnapshotConflictException(
+                $"Module snapshot '{normalizedModuleCode}' was changed by another client.",
+                TryLoadModuleSnapshotMetadata(normalizedModuleCode));
+        }
+
+        if (auditEvents is not null)
+        {
+            ReplaceAuditEvents(normalizedModuleCode, auditEvents);
+        }
+
+        return TryLoadModuleSnapshotMetadata(normalizedModuleCode)
+               ?? new DesktopModuleSnapshotMetadata(normalizedModuleCode, 1, payloadHash, normalizedActor, DateTime.UtcNow);
     }
 
     public IReadOnlyList<DesktopAuditEventRecord> TryLoadAuditEvents(int limit = 2000)
@@ -522,6 +653,61 @@ public sealed class DesktopMySqlBackplaneService
         return JsonSerializer.Deserialize<List<T>>(output, JsonOptions) ?? [];
     }
 
+    private static string BuildSnapshotRecordSql(string moduleCode, bool includePayload)
+    {
+        var payloadProperty = includePayload
+            ? $"""
+                      'PayloadJson', CAST(payload_json AS CHAR CHARACTER SET utf8mb4),
+                """
+            : string.Empty;
+
+        return $"""
+            SELECT COALESCE(
+                CAST(
+                    JSON_OBJECT(
+                        {payloadProperty}
+                        'VersionNo', version_no,
+                        'PayloadHash', payload_hash,
+                        'UpdatedBy', updated_by,
+                        'UpdatedAtUtc', DATE_FORMAT(updated_at_utc, '%Y-%m-%dT%H:%i:%s.%fZ')
+                    ) AS CHAR CHARACTER SET utf8mb4
+                ),
+                'null'
+            )
+            FROM app_module_snapshots
+            WHERE module_code = {SqlUtf8TextExpression(NormalizeModuleCode(moduleCode))}
+            LIMIT 1;
+            """;
+    }
+
+    private static DesktopModuleSnapshotMetadata CreateSnapshotMetadata(string moduleCode, DesktopModuleSnapshotRow row)
+    {
+        return new DesktopModuleSnapshotMetadata(
+            NormalizeModuleCode(moduleCode),
+            Math.Max(0, row.VersionNo),
+            row.PayloadHash ?? string.Empty,
+            row.UpdatedBy ?? string.Empty,
+            ParseUtcValue(row.UpdatedAtUtc));
+    }
+
+    private void ReplaceAuditEvents(string moduleCode, IEnumerable<DesktopAuditEventSeed> auditEvents)
+    {
+        var script = new StringBuilder();
+        script.AppendLine("START TRANSACTION;");
+        script.AppendLine($"""
+            DELETE FROM app_audit_events
+            WHERE module_code = {SqlUtf8TextExpression(moduleCode)};
+            """);
+
+        foreach (var eventSeed in auditEvents)
+        {
+            script.AppendLine(BuildAuditInsertSql(moduleCode, eventSeed));
+        }
+
+        script.AppendLine("COMMIT;");
+        ExecuteSqlNonQuery(script.ToString(), useDatabase: true, commandTimeoutSeconds: MysqlSnapshotCommandTimeoutSeconds);
+    }
+
     private void EnsureDatabaseAndSchema()
     {
         if (_schemaEnsured)
@@ -568,7 +754,33 @@ public sealed class DesktopMySqlBackplaneService
 
     private void ExecuteSqlNonQuery(string sql, bool useDatabase, int commandTimeoutSeconds = MysqlDefaultCommandTimeoutSeconds)
     {
-        _ = ExecuteSqlScalar(sql, useDatabase, commandTimeoutSeconds);
+        _ = ExecuteSqlAffectedRows(sql, useDatabase, commandTimeoutSeconds);
+    }
+
+    private int ExecuteSqlAffectedRows(string sql, bool useDatabase, int commandTimeoutSeconds = MysqlDefaultCommandTimeoutSeconds)
+    {
+        ThrowIfConnectionBackoffActive();
+
+        try
+        {
+            var affectedRows = DesktopMySqlCommandRunner.ExecuteNonQuery(
+                _options,
+                sql,
+                useDatabase,
+                MysqlConnectTimeoutSeconds,
+                commandTimeoutSeconds);
+            ResetConnectionBackoff();
+            return affectedRows;
+        }
+        catch (Exception exception)
+        {
+            if (IsConnectionFailure(exception.Message))
+            {
+                EnterConnectionBackoff();
+            }
+
+            throw new InvalidOperationException($"Desktop MySQL backplane command failed.{Environment.NewLine}{exception.Message}", exception);
+        }
     }
 
     private string BuildAuditInsertSql(string moduleCode, DesktopAuditEventSeed eventSeed)
@@ -692,6 +904,20 @@ public sealed class DesktopMySqlBackplaneService
         }
 
         return DateTime.Now;
+    }
+
+    private static DateTime ParseUtcValue(string? rawValue)
+    {
+        if (DateTime.TryParse(
+                rawValue,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var parsed))
+        {
+            return DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
+        }
+
+        return DateTime.UtcNow;
     }
 
     private static Guid ParseGuid(string? rawValue, string? fallbackSeed)
@@ -944,6 +1170,64 @@ public sealed record DesktopModuleExportRecord(
     int VersionNo,
     DateTime ExportedAtLocal);
 
+public sealed record DesktopModuleSnapshotMetadata(
+    string ModuleCode,
+    int VersionNo,
+    string PayloadHash,
+    string UpdatedBy,
+    DateTime UpdatedAtUtc);
+
+public sealed record DesktopModuleSnapshotRecord<T>(
+    T Snapshot,
+    DesktopModuleSnapshotMetadata Metadata);
+
+public sealed record DesktopModuleSnapshotSaveResult(
+    DesktopModuleSnapshotSaveState State,
+    DesktopModuleSnapshotMetadata? Metadata,
+    string Message)
+{
+    public bool Succeeded => State == DesktopModuleSnapshotSaveState.Saved;
+
+    public static DesktopModuleSnapshotSaveResult Saved(DesktopModuleSnapshotMetadata metadata)
+    {
+        return new DesktopModuleSnapshotSaveResult(DesktopModuleSnapshotSaveState.Saved, metadata, string.Empty);
+    }
+
+    public static DesktopModuleSnapshotSaveResult Conflict(DesktopModuleSnapshotMetadata? serverMetadata)
+    {
+        return new DesktopModuleSnapshotSaveResult(
+            DesktopModuleSnapshotSaveState.Conflict,
+            serverMetadata,
+            "Данные на сервере изменены другим рабочим местом.");
+    }
+
+    public static DesktopModuleSnapshotSaveResult Failed(string message)
+    {
+        return new DesktopModuleSnapshotSaveResult(
+            DesktopModuleSnapshotSaveState.Failed,
+            null,
+            string.IsNullOrWhiteSpace(message) ? "Не удалось сохранить данные на сервере." : message);
+    }
+}
+
+public enum DesktopModuleSnapshotSaveState
+{
+    Saved,
+    Conflict,
+    Failed
+}
+
+internal sealed class DesktopModuleSnapshotConflictException : Exception
+{
+    public DesktopModuleSnapshotConflictException(string message, DesktopModuleSnapshotMetadata? serverMetadata)
+        : base(message)
+    {
+        ServerMetadata = serverMetadata;
+    }
+
+    public DesktopModuleSnapshotMetadata? ServerMetadata { get; }
+}
+
 internal sealed class DesktopUserProfileRow
 {
     public string? Id { get; set; }
@@ -1002,6 +1286,19 @@ internal sealed class DesktopModuleSnapshotExportRow
     public string? PayloadJson { get; set; }
 
     public int VersionNo { get; set; }
+}
+
+internal sealed class DesktopModuleSnapshotRow
+{
+    public string? PayloadJson { get; set; }
+
+    public int VersionNo { get; set; }
+
+    public string? PayloadHash { get; set; }
+
+    public string? UpdatedBy { get; set; }
+
+    public string? UpdatedAtUtc { get; set; }
 }
 
 internal static class DesktopRoleCatalog

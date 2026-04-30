@@ -3189,22 +3189,12 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
             return;
         }
 
-        var directory = Path.Combine(AppContext.BaseDirectory, "print");
-        Directory.CreateDirectory(directory);
-
-        foreach (var document in printable)
-        {
-            var html = BuildPrintHtml(document);
-            var safeNumber = new string(document.Number.Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_').ToArray());
-            if (string.IsNullOrWhiteSpace(safeNumber))
-            {
-                safeNumber = document.Id.ToString("N");
-            }
-
-            var path = Path.Combine(directory, $"purchasing-{safeNumber}-{DateTime.Now:yyyyMMdd-HHmmss}.html");
-            File.WriteAllText(path, html, Encoding.UTF8);
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-        }
+        var definitions = printable.Select(BuildPrintDefinition).ToArray();
+        var jobTitle = definitions.Length == 1 ? definitions[0].Title : "Закупочные документы";
+        PrintDocumentComposer.Print(
+            Window.GetWindow(this),
+            jobTitle,
+            (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definitions, pageWidth, pageHeight));
     }
 
     private OperationalPurchasingDocumentRecord? ResolvePrintableDocument(PurchasingGridRow row)
@@ -3216,14 +3206,50 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         };
     }
 
-    private static string BuildPrintHtml(OperationalPurchasingDocumentRecord document)
+    private static PrintableTableDocumentDefinition BuildPrintDefinition(OperationalPurchasingDocumentRecord document)
     {
-        return Ui(document.DocumentType) switch
-        {
-            "Счет поставщика" => OperationalDocumentPrintComposer.BuildSupplierInvoiceHtml(document),
-            "Приемка" => OperationalDocumentPrintComposer.BuildPurchaseReceiptHtml(document),
-            _ => OperationalDocumentPrintComposer.BuildPurchaseOrderHtml(document)
-        };
+        var title = string.IsNullOrWhiteSpace(Ui(document.DocumentType)) ? "Документ закупки" : Ui(document.DocumentType);
+        var rows = document.Lines
+            .Select(line => new PrintableTableRow(new[]
+            {
+                Ui(line.ItemCode),
+                Ui(line.ItemName),
+                Ui(line.Unit),
+                line.Quantity.ToString("N2", RuCulture),
+                FormatMoney(line.Price),
+                FormatMoney(line.Amount),
+                line.PlannedDate?.ToString("dd.MM.yyyy", RuCulture) ?? "-"
+            }))
+            .ToArray();
+
+        return new PrintableTableDocumentDefinition(
+            title,
+            $"№ {Ui(document.Number)} от {document.DocumentDate:dd.MM.yyyy}",
+            new[]
+            {
+                new PrintableField("Поставщик", Ui(document.SupplierName)),
+                new PrintableField("Договор", EmptyAsDash(document.Contract)),
+                new PrintableField("Склад", EmptyAsDash(document.Warehouse)),
+                new PrintableField("Статус", EmptyAsDash(document.Status)),
+                new PrintableField("Основание", EmptyAsDash(document.RelatedOrderNumber)),
+                new PrintableField("Оплатить до", document.DueDate?.ToString("dd.MM.yyyy", RuCulture) ?? "-")
+            },
+            new[]
+            {
+                new PrintableTableColumn("Код", 0.13),
+                new PrintableTableColumn("Номенклатура", 0.34),
+                new PrintableTableColumn("Ед.", 0.07),
+                new PrintableTableColumn("Кол-во", 0.1, TextAlignment.Right),
+                new PrintableTableColumn("Цена", 0.12, TextAlignment.Right),
+                new PrintableTableColumn("Сумма", 0.13, TextAlignment.Right),
+                new PrintableTableColumn("План", 0.11)
+            },
+            rows,
+            new[]
+            {
+                new PrintableField("Итого", FormatMoney(document.TotalAmount))
+            },
+            document.Comment);
     }
 
     private int ImportPurchasingDocumentsFromDelimitedFile(string path)

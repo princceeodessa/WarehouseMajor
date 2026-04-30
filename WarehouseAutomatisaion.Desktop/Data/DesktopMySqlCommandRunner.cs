@@ -28,7 +28,7 @@ internal static class DesktopMySqlCommandRunner
         };
     }
 
-    public static void ExecuteNonQuery(
+    public static int ExecuteNonQuery(
         OperationalMySqlDesktopOptions options,
         string sql,
         bool useDatabase,
@@ -41,7 +41,7 @@ internal static class DesktopMySqlCommandRunner
         using var command = connection.CreateCommand();
         command.CommandText = NormalizeSql(sql);
         command.CommandTimeout = commandTimeoutSeconds;
-        command.ExecuteNonQuery();
+        return command.ExecuteNonQuery();
     }
 
     private static MySqlConnection CreateConnection(

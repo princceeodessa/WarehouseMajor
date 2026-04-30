@@ -12,6 +12,7 @@ public sealed class PurchasingOperationalWorkspaceStore
         WriteIndented = true
     };
     private readonly DesktopMySqlBackplaneService? _backplane;
+    private DesktopModuleSnapshotMetadata? _remoteMetadata;
 
     public PurchasingOperationalWorkspaceStore(string storagePath, DesktopMySqlBackplaneService? backplane = null)
     {
@@ -34,15 +35,17 @@ public sealed class PurchasingOperationalWorkspaceStore
         var workspace = OperationalPurchasingWorkspace.Create(currentOperator, salesWorkspace);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneSnapshot = _backplane?.TryLoadModuleSnapshot<PurchasingWorkspaceSnapshot>("purchasing");
-        if (backplaneSnapshot is not null)
+        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
+        if (backplaneRecord is not null)
         {
+            var backplaneSnapshot = backplaneRecord.Snapshot;
+            _remoteMetadata = backplaneRecord.Metadata;
             var repaired = RepairSupplierLinks(backplaneSnapshot);
             var persistedFromMySql = backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
             MergeWorkspace(workspace, persistedFromMySql);
             if (repaired)
             {
-                _backplane?.TrySaveModuleSnapshot("purchasing", backplaneSnapshot, currentOperator, CreateAuditSeeds(backplaneSnapshot.OperationLog));
+                TrySaveToBackplane(backplaneSnapshot, currentOperator);
             }
 
             return workspace;
@@ -70,7 +73,11 @@ public sealed class PurchasingOperationalWorkspaceStore
                 WriteSnapshot(snapshot);
             }
 
-            _backplane?.TrySaveModuleSnapshot("purchasing", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog));
+            if (_backplane?.TrySaveModuleSnapshot("purchasing", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
+            {
+                _remoteMetadata = _backplane.TryLoadModuleSnapshotMetadata("purchasing");
+            }
+
             return workspace;
         }
         catch
@@ -86,9 +93,11 @@ public sealed class PurchasingOperationalWorkspaceStore
     {
         _backplane?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneSnapshot = _backplane?.TryLoadModuleSnapshot<PurchasingWorkspaceSnapshot>("purchasing");
-        if (backplaneSnapshot is not null)
+        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
+        if (backplaneRecord is not null)
         {
+            var backplaneSnapshot = backplaneRecord.Snapshot;
+            _remoteMetadata = backplaneRecord.Metadata;
             return backplaneSnapshot.ToWorkspace(currentOperator, catalogItems, warehouses);
         }
 
@@ -125,12 +134,50 @@ public sealed class PurchasingOperationalWorkspaceStore
         Directory.CreateDirectory(directory);
         var snapshot = PurchasingWorkspaceSnapshot.FromWorkspace(workspace);
         RepairSupplierLinks(snapshot);
-        if (_backplane?.TrySaveModuleSnapshot("purchasing", snapshot, workspace.CurrentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
+        if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
         {
             return;
         }
 
         WriteSnapshot(snapshot);
+    }
+
+    private bool TrySaveToBackplane(PurchasingWorkspaceSnapshot snapshot, string currentOperator)
+    {
+        if (_backplane is null)
+        {
+            return false;
+        }
+
+        var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
+        var result = _backplane.TrySaveModuleSnapshot("purchasing", snapshot, currentOperator, _remoteMetadata, auditEvents);
+        if (result.Succeeded)
+        {
+            _remoteMetadata = result.Metadata;
+            return true;
+        }
+
+        if (result.State != DesktopModuleSnapshotSaveState.Conflict)
+        {
+            return false;
+        }
+
+        var latest = _backplane.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
+        if (latest is null)
+        {
+            return false;
+        }
+
+        var merged = MergeSnapshots(latest.Snapshot, snapshot);
+        RepairSupplierLinks(merged);
+        var retry = _backplane.TrySaveModuleSnapshot("purchasing", merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
+        if (!retry.Succeeded)
+        {
+            throw new InvalidOperationException("Данные закупок на сервере изменились другим рабочим местом. Обновите данные и повторите действие.");
+        }
+
+        _remoteMetadata = retry.Metadata;
+        return true;
     }
 
     private void WriteSnapshot(PurchasingWorkspaceSnapshot snapshot)
@@ -460,6 +507,66 @@ public sealed class PurchasingOperationalWorkspaceStore
     private static string FirstNonEmpty(params string[] values)
     {
         return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
+
+    private static PurchasingWorkspaceSnapshot MergeSnapshots(PurchasingWorkspaceSnapshot server, PurchasingWorkspaceSnapshot local)
+    {
+        return new PurchasingWorkspaceSnapshot
+        {
+            CurrentOperator = string.IsNullOrWhiteSpace(local.CurrentOperator) ? server.CurrentOperator : local.CurrentOperator,
+            Suppliers = MergeRecords(server.Suppliers, local.Suppliers, BuildSupplierKey, item => item.Clone()),
+            PurchaseOrders = MergeRecords(server.PurchaseOrders, local.PurchaseOrders, BuildDocumentKey, item => item.Clone()),
+            SupplierInvoices = MergeRecords(server.SupplierInvoices, local.SupplierInvoices, BuildDocumentKey, item => item.Clone()),
+            PurchaseReceipts = MergeRecords(server.PurchaseReceipts, local.PurchaseReceipts, BuildDocumentKey, item => item.Clone()),
+            OperationLog = server.OperationLog
+                .Concat(local.OperationLog)
+                .GroupBy(item => item.Id == Guid.Empty ? $"{item.EntityType}|{item.EntityNumber}|{item.Action}|{item.LoggedAt:O}" : item.Id.ToString("N"), StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.OrderByDescending(item => item.LoggedAt).First().Clone())
+                .OrderByDescending(item => item.LoggedAt)
+                .Take(500)
+                .ToList()
+        };
+    }
+
+    private static List<T> MergeRecords<T>(
+        IEnumerable<T> server,
+        IEnumerable<T> local,
+        Func<T, string> keySelector,
+        Func<T, T> clone)
+    {
+        var merged = new List<T>();
+        var indexes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in server)
+        {
+            var key = keySelector(item);
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                indexes[key] = merged.Count;
+            }
+
+            merged.Add(clone(item));
+        }
+
+        foreach (var item in local)
+        {
+            var key = keySelector(item);
+            var cloned = clone(item);
+            if (!string.IsNullOrWhiteSpace(key) && indexes.TryGetValue(key, out var index))
+            {
+                merged[index] = cloned;
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                indexes[key] = merged.Count;
+            }
+
+            merged.Add(cloned);
+        }
+
+        return merged;
     }
 
     private sealed class PurchasingWorkspaceSnapshot

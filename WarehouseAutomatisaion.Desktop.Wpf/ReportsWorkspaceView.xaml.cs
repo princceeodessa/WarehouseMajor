@@ -1365,12 +1365,51 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
             return;
         }
 
-        var directory = IOPath.Combine(AppContext.BaseDirectory, "reports");
-        IODirectory.CreateDirectory(directory);
+        var definition = BuildPrintableReportDefinition();
+        PrintDocumentComposer.Print(
+            Window.GetWindow(this),
+            definition.Title,
+            (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definition, pageWidth, pageHeight));
+    }
 
-        var filePath = IOPath.Combine(directory, $"report-{_activeTab}-{DateTime.Now:yyyyMMdd-HHmmss}.html");
-        IOFile.WriteAllText(filePath, BuildReportHtml(), new UTF8Encoding(true));
-        Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
+    private PrintableTableDocumentDefinition BuildPrintableReportDefinition()
+    {
+        var moduleLabel = TabLabels.TryGetValue(_activeTab, out var label) ? label : _activeTab;
+        var title = string.IsNullOrWhiteSpace(_currentState.RegistryTitle)
+            ? $"Отчет: {moduleLabel}"
+            : _currentState.RegistryTitle;
+
+        return new PrintableTableDocumentDefinition(
+            title,
+            $"Период: {_periodFrom:dd.MM.yyyy} - {_periodTo:dd.MM.yyyy}",
+            new[]
+            {
+                new PrintableField("Раздел", moduleLabel),
+                new PrintableField("Сформировано", _lastGeneratedAt.ToString("dd.MM.yyyy HH:mm", RuCulture)),
+                new PrintableField("Строк", _filteredRegistryRows.Count.ToString("N0", RuCulture)),
+                new PrintableField("Фильтр", Ui(StatusFilterComboBox.SelectedItem is ComboBoxItem item ? item.Content?.ToString() : StatusFilterComboBox.Text))
+            },
+            new[]
+            {
+                new PrintableTableColumn(_currentState.DateHeader, 0.12),
+                new PrintableTableColumn(_currentState.DocumentHeader, 0.22),
+                new PrintableTableColumn(_currentState.CounterpartyHeader, 0.22),
+                new PrintableTableColumn(_currentState.ValueHeader, 0.13, TextAlignment.Right),
+                new PrintableTableColumn("Статус", 0.14),
+                new PrintableTableColumn(_currentState.OwnerHeader, 0.17)
+            },
+            _filteredRegistryRows
+                .Select(row => new PrintableTableRow(new[]
+                {
+                    row.DateText,
+                    row.DocumentText,
+                    row.CounterpartyText,
+                    row.ValueText,
+                    row.StatusText,
+                    row.OwnerText
+                }))
+                .ToArray(),
+            Array.Empty<PrintableField>());
     }
 
     private void HandleOpenProblemDocumentsClick(object sender, RoutedEventArgs e)

@@ -1165,48 +1165,42 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
             return;
         }
 
-        var directory = Path.Combine(AppContext.BaseDirectory, "print");
-        Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, $"warehouse-labels-{DateTime.Now:yyyyMMdd-HHmmss}.html");
-        File.WriteAllText(path, BuildLabelsHtml(rows), Encoding.UTF8);
-        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        var labels = rows.Select(BuildPrintableLabel).ToArray();
+        PrintDocumentComposer.Print(
+            Window.GetWindow(this),
+            "Этикетки склада",
+            (pageWidth, pageHeight) => PrintDocumentComposer.BuildLabelsDocument("Этикетки склада", labels, pageWidth, pageHeight));
     }
 
-    private static string BuildLabelsHtml(IEnumerable<WarehouseStockItemViewModel> items)
+    private static PrintableLabelDefinition BuildPrintableLabel(WarehouseStockItemViewModel item)
     {
         var generatedAt = DateTime.Now.ToString("dd.MM.yyyy HH:mm", RuCulture);
-        var cards = items.Select(item =>
-        {
-            var barcode = ResolvePseudoBarcode(item.Record);
-            var payload = string.Join(
-                Environment.NewLine,
-                $"Код: {item.Code}",
-                $"Товар: {item.Item}",
-                $"Склад: {item.Warehouse}",
-                $"Остаток: {item.BalanceText}",
-                $"Статус: {item.Status}",
-                $"Маркер: {barcode}");
+        var barcode = ResolvePseudoBarcode(item.Record);
+        var payload = string.Join(
+            Environment.NewLine,
+            $"Код: {item.Code}",
+            $"Товар: {item.Item}",
+            $"Склад: {item.Warehouse}",
+            $"Остаток: {item.BalanceText}",
+            $"Статус: {item.Status}",
+            $"Маркер: {barcode}");
 
-            return new LabelPrintHtmlBuilder.LabelCard(
-                "Этикетка склада",
-                item.Item,
-                item.Status,
-                new (string Label, string Value)[]
-                {
-                    ("Код", item.Code),
-                    ("Склад", item.Warehouse),
-                    ("Остаток", item.BalanceText),
-                    ("Мин. остаток", item.MinimumDisplay),
-                    ("Обновлено", item.UpdatedDisplay),
-                    ("Статус", item.Status)
-                },
-                barcode,
-                payload,
-                string.IsNullOrWhiteSpace(item.Record.SourceLabel) ? "Источник: склад" : $"Источник: {item.Record.SourceLabel}",
-                $"Сформировано: {generatedAt}");
-        });
-
-        return LabelPrintHtmlBuilder.Build("Этикетки склада", cards);
+        return new PrintableLabelDefinition(
+            "Этикетка склада",
+            item.Item,
+            item.Status,
+            new[]
+            {
+                new PrintableField("Код", item.Code),
+                new PrintableField("Склад", item.Warehouse),
+                new PrintableField("Остаток", item.BalanceText),
+                new PrintableField("Мин. остаток", item.MinimumDisplay),
+                new PrintableField("Обновлено", item.UpdatedDisplay),
+                new PrintableField("Статус", item.Status)
+            },
+            barcode,
+            payload,
+            $"Сформировано: {generatedAt}");
     }
 
     private void EditStockCatalogItem(WarehouseStockItemViewModel? item)

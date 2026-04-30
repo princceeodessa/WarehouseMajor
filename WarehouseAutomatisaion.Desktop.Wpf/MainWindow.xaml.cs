@@ -33,9 +33,12 @@ public partial class MainWindow : Window
     private readonly FunctionalCoverageSnapshot _coverage;
     private readonly ApplicationUpdateService _applicationUpdateService;
     private readonly DispatcherTimer _salesWorkspaceAutosaveTimer;
+    private readonly DispatcherTimer _remoteSalesRefreshTimer;
 
     private ApplicationRelease? _availableRelease;
     private bool _updateOperationInProgress;
+    private bool _remoteSalesRefreshInProgress;
+    private bool _applyingRemoteSalesRefresh;
     private bool _salesWorkspaceSaveWarningShown;
 
     public MainWindow()
@@ -58,6 +61,11 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(750)
         };
         _salesWorkspaceAutosaveTimer.Tick += HandleSalesWorkspaceAutosaveTimerTick;
+        _remoteSalesRefreshTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(15)
+        };
+        _remoteSalesRefreshTimer.Tick += HandleRemoteSalesRefreshTimerTick;
 
         RegisterSidebarButtons();
         RegisterSections();
@@ -74,6 +82,8 @@ public partial class MainWindow : Window
         _salesWorkspace.Changed -= HandleSalesWorkspaceChanged;
         _salesWorkspaceAutosaveTimer.Stop();
         _salesWorkspaceAutosaveTimer.Tick -= HandleSalesWorkspaceAutosaveTimerTick;
+        _remoteSalesRefreshTimer.Stop();
+        _remoteSalesRefreshTimer.Tick -= HandleRemoteSalesRefreshTimerTick;
 
         foreach (var tab in _tabsByKey.Values)
         {
@@ -104,6 +114,11 @@ public partial class MainWindow : Window
 
     private void HandleSalesWorkspaceChanged(object? sender, EventArgs e)
     {
+        if (_applyingRemoteSalesRefresh)
+        {
+            return;
+        }
+
         _salesWorkspaceAutosaveTimer.Stop();
         _salesWorkspaceAutosaveTimer.Start();
     }
@@ -136,6 +151,51 @@ public partial class MainWindow : Window
             }
 
             return false;
+        }
+    }
+
+    private async void HandleRemoteSalesRefreshTimerTick(object? sender, EventArgs e)
+    {
+        if (!_salesWorkspaceStore.IsServerModeEnabled
+            || _remoteSalesRefreshInProgress
+            || _salesWorkspaceAutosaveTimer.IsEnabled)
+        {
+            return;
+        }
+
+        _remoteSalesRefreshInProgress = true;
+        try
+        {
+            var hasRemoteChanges = await Task.Run(_salesWorkspaceStore.HasRemoteChanges);
+            if (!hasRemoteChanges)
+            {
+                return;
+            }
+
+            RefreshSalesWorkspaceFromServer(showStatus: true);
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _remoteSalesRefreshInProgress = false;
+        }
+    }
+
+    private void RefreshSalesWorkspaceFromServer(bool showStatus)
+    {
+        _applyingRemoteSalesRefresh = true;
+        try
+        {
+            if (_salesWorkspaceStore.TryRefreshFromBackplane(_salesWorkspace) && showStatus)
+            {
+                ApplicationUpdateStatusText.Text = "Данные заказов обновлены из общей базы.";
+            }
+        }
+        finally
+        {
+            _applyingRemoteSalesRefresh = false;
         }
     }
 
@@ -181,6 +241,11 @@ public partial class MainWindow : Window
 
     private async void HandleWindowLoaded(object sender, RoutedEventArgs e)
     {
+        if (_salesWorkspaceStore.IsServerModeEnabled)
+        {
+            _remoteSalesRefreshTimer.Start();
+        }
+
         await RefreshUpdateStateAsync(showDialogOnNonUpdateResult: false);
     }
 

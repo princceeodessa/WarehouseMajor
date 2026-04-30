@@ -1276,44 +1276,37 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             return;
         }
 
-        var directory = Path.Combine(AppContext.BaseDirectory, "print");
-        Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, $"product-labels-{DateTime.Now:yyyyMMdd-HHmmss}.html");
-        File.WriteAllText(path, BuildLabelsHtml(products), Encoding.UTF8);
-
-        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        var labels = products.Select(BuildPrintableLabel).ToArray();
+        PrintDocumentComposer.Print(
+            Window.GetWindow(this),
+            "Этикетки товаров",
+            (pageWidth, pageHeight) => PrintDocumentComposer.BuildLabelsDocument("Этикетки товаров", labels, pageWidth, pageHeight));
     }
 
-    private static string BuildLabelsHtml(IEnumerable<ProductRowViewModel> products)
+    private static PrintableLabelDefinition BuildPrintableLabel(ProductRowViewModel item)
     {
         var generatedAt = DateTime.Now.ToString("dd.MM.yyyy HH:mm", RuCulture);
-        var cards = products.Select(item =>
-        {
-            var barcode = ResolveLabelBarcode(item);
-            var payload = string.IsNullOrWhiteSpace(item.Record.QrPayload)
-                ? BuildProductQrPayload(item, barcode)
-                : item.Record.QrPayload.Trim();
+        var barcode = ResolveLabelBarcode(item);
+        var payload = string.IsNullOrWhiteSpace(item.Record.QrPayload)
+            ? BuildProductQrPayload(item, barcode)
+            : item.Record.QrPayload.Trim();
 
-            return new LabelPrintHtmlBuilder.LabelCard(
-                "Этикетка товара",
-                item.Name,
-                item.Status,
-                new (string Label, string Value)[]
-                {
-                    ("Код", item.Code),
-                    ("Категория", item.Category),
-                    ("Склад", item.Warehouse),
-                    ("Цена", item.PriceDisplay),
-                    ("Ед. изм.", item.Unit),
-                    ("Поставщик", item.Supplier)
-                },
-                barcode,
-                payload,
-                string.IsNullOrWhiteSpace(item.Record.SourceLabel) ? "Источник: каталог" : $"Источник: {item.Record.SourceLabel}",
-                $"Сформировано: {generatedAt}");
-        });
-
-        return LabelPrintHtmlBuilder.Build("Этикетки товаров", cards);
+        return new PrintableLabelDefinition(
+            "Этикетка товара",
+            item.Name,
+            item.Status,
+            new[]
+            {
+                new PrintableField("Код", item.Code),
+                new PrintableField("Категория", item.Category),
+                new PrintableField("Склад", item.Warehouse),
+                new PrintableField("Цена", item.PriceDisplay),
+                new PrintableField("Ед. изм.", item.Unit),
+                new PrintableField("Поставщик", item.Supplier)
+            },
+            barcode,
+            payload,
+            $"Сформировано: {generatedAt}");
     }
 
     private static string ResolveLabelBarcode(ProductRowViewModel item)

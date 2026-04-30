@@ -166,30 +166,43 @@ public partial class DashboardWorkspaceView : UserControl
         var overdueOrders = _salesWorkspace.Orders.Count(item => item.OrderDate.Date < DateTime.Today.AddDays(-2) && !NormalizeOrderStatus(item.Status).Equals("Выполнен", StringComparison.OrdinalIgnoreCase));
         var invoicesToPay = _salesWorkspace.Invoices.Count(item => item.DueDate.Date <= DateTime.Today.AddDays(3) && !NormalizeInvoiceStatus(item.Status, item.DueDate).Equals("Оплачено", StringComparison.OrdinalIgnoreCase));
         var delayedShipments = _salesWorkspace.Shipments.Count(item => item.ShipmentDate.Date < DateTime.Today && !NormalizeShipmentStatus(item.Status).Equals("Доставлено", StringComparison.OrdinalIgnoreCase));
-        var lowStockItems = _demoWorkspace.StockBalances.Count(item => item.Статус.Contains("Критично", StringComparison.OrdinalIgnoreCase) || item.Статус.Contains("Под контроль", StringComparison.OrdinalIgnoreCase));
+        var lowStockItems = CountLowStockItems();
 
         return
         [
-            UrgentTask("Просроченные заказы", "Заказы, срок выполнения которых истёк", overdueOrders, "sales", "#FF5F6D", "#FFF0F2", "\uEA39"),
-            UrgentTask("Счета к оплате", "Ожидают оплаты более 3 дней", invoicesToPay, "invoices", "#FF9F1A", "#FFF4E3", "\uE8C7"),
+            UrgentTask("Просроченные заказы", "Заказы, срок выполнения которых истек", overdueOrders, "sales", "#FF5F6D", "#FFF0F2", "\uEA39"),
+            UrgentTask("Счета к оплате", "Ожидают оплаты в ближайшие 3 дня", invoicesToPay, "invoices", "#FF9F1A", "#FFF4E3", "\uE8C7"),
             UrgentTask("Отгрузки с задержкой", "Отгрузки, задержанные более 1 дня", delayedShipments, "shipments", "#4F8CFF", "#EEF4FF", "\uEC47"),
-            UrgentTask("Низкий остаток товаров", "Товары с остатком ниже минимального", lowStockItems, "catalog", "#7B68EE", "#F1EEFF", "\uEECA")
+            UrgentTask("Низкий остаток товаров", "Товары с остатком ниже контрольного уровня", lowStockItems, "catalog", "#7B68EE", "#F1EEFF", "\uEECA")
         ];
     }
 
     private IReadOnlyList<DashboardMetricCardViewModel> BuildAnalyticsCards()
     {
-        var revenue = _salesWorkspace.Invoices.Sum(item => item.TotalAmount);
-        var orders = _salesWorkspace.Orders.Count;
-        var paidInvoices = _salesWorkspace.Invoices.Count(item => NormalizeInvoiceStatus(item.Status, item.DueDate) == "Оплачено");
-        var averageCheck = orders == 0 ? 0m : _salesWorkspace.Orders.Average(item => item.TotalAmount);
+        var currentStart = DateTime.Today.AddDays(-20);
+        var currentEnd = DateTime.Today;
+        var previousStart = currentStart.AddDays(-21);
+        var previousEnd = currentStart.AddDays(-1);
+
+        var currentOrders = _salesWorkspace.Orders.Where(item => IsInPeriod(item.OrderDate, currentStart, currentEnd)).ToArray();
+        var previousOrders = _salesWorkspace.Orders.Where(item => IsInPeriod(item.OrderDate, previousStart, previousEnd)).ToArray();
+        var currentInvoices = _salesWorkspace.Invoices.Where(item => IsInPeriod(item.InvoiceDate, currentStart, currentEnd)).ToArray();
+        var previousInvoices = _salesWorkspace.Invoices.Where(item => IsInPeriod(item.InvoiceDate, previousStart, previousEnd)).ToArray();
+
+        var revenue = currentInvoices.Sum(item => item.TotalAmount);
+        var previousRevenue = previousInvoices.Sum(item => item.TotalAmount);
+        var orders = currentOrders.Length;
+        var paidInvoices = currentInvoices.Count(item => NormalizeInvoiceStatus(item.Status, item.DueDate) == "Оплачено");
+        var previousPaidInvoices = previousInvoices.Count(item => NormalizeInvoiceStatus(item.Status, item.DueDate) == "Оплачено");
+        var averageCheck = orders == 0 ? 0m : currentOrders.Average(item => item.TotalAmount);
+        var previousAverageCheck = previousOrders.Length == 0 ? 0m : previousOrders.Average(item => item.TotalAmount);
 
         return
         [
-            MetricCard("Выручка", FormatMoney(revenue), "+12%"),
-            MetricCard("Заказы", orders.ToString("N0", CultureInfo.GetCultureInfo("ru-RU")), "+15%"),
-            MetricCard("Счета оплачены", paidInvoices.ToString("N0", CultureInfo.GetCultureInfo("ru-RU")), "+8%"),
-            MetricCard("Средний чек", FormatMoney(averageCheck), "+6%")
+            MetricCard("Выручка", FormatMoney(revenue), FormatDeltaPercent(revenue, previousRevenue)),
+            MetricCard("Заказы", orders.ToString("N0", CultureInfo.GetCultureInfo("ru-RU")), FormatDeltaPercent(orders, previousOrders.Length)),
+            MetricCard("Счета оплачены", paidInvoices.ToString("N0", CultureInfo.GetCultureInfo("ru-RU")), FormatDeltaPercent(paidInvoices, previousPaidInvoices)),
+            MetricCard("Средний чек", FormatMoney(averageCheck), FormatDeltaPercent(averageCheck, previousAverageCheck))
         ];
     }
 
@@ -198,16 +211,47 @@ public partial class DashboardWorkspaceView : UserControl
         var overdueOrders = _salesWorkspace.Orders.Count(item => item.OrderDate.Date < DateTime.Today.AddDays(-2));
         var invoiceCandidates = _salesWorkspace.Orders.Count(item => NormalizeOrderStatus(item.Status) == "Подтвержден");
         var shipmentCandidates = _salesWorkspace.Shipments.Count(item => NormalizeShipmentStatus(item.Status) != "Доставлено");
-        var stockChecks = _demoWorkspace.StockBalances.Count(item => item.Статус.Contains("Критично", StringComparison.OrdinalIgnoreCase) || item.Статус.Contains("Под контроль", StringComparison.OrdinalIgnoreCase));
+        var stockChecks = CountLowStockItems();
 
         return
         [
-            QuickAction("Обработать просроченные заказы", $"{overdueOrders} заказов требуют немедленного внимания", "Открыть заказы", "sales", "#FF5F6D", "#FFF0F2", "\uEA39"),
-            QuickAction("Выставить счета клиентам", $"{invoiceCandidates} счета готовы к выставлению клиентам", "Выставить счета", "invoices", "#FF9F1A", "#FFF4E3", "\uE8C7"),
+            QuickAction("Обработать просроченные заказы", $"{overdueOrders} заказов требуют внимания", "Открыть заказы", "sales", "#FF5F6D", "#FFF0F2", "\uEA39"),
+            QuickAction("Выставить счета клиентам", $"{invoiceCandidates} заказа готовы к выставлению", "Выставить счета", "invoices", "#FF9F1A", "#FFF4E3", "\uE8C7"),
             QuickAction("Подтвердить отгрузки", $"{shipmentCandidates} отгрузки ожидают подтверждения", "Перейти к отгрузкам", "shipments", "#4F8CFF", "#EEF4FF", "\uEC47"),
-            QuickAction("Проверить остатки товаров", $"{stockChecks} товаров с низким остатком на складе", "Проверить остатки", "catalog", "#7B68EE", "#F1EEFF", "\uEECA"),
+            QuickAction("Проверить остатки товаров", $"{stockChecks} товаров с низким остатком", "Проверить остатки", "catalog", "#7B68EE", "#F1EEFF", "\uEECA"),
             QuickAction("Сформировать отчет", "Анализ продаж и основных показателей", "Открыть отчеты", "audit", "#59C36A", "#EBF9EF", "\uE9D2")
         ];
+    }
+
+    private int CountLowStockItems()
+    {
+        var stockBalances = _salesWorkspace.OperationalSnapshot?.StockBalances ?? Array.Empty<WarehouseStockBalanceRecord>();
+        return stockBalances.Count(IsLowStockItem);
+    }
+
+    private static bool IsLowStockItem(WarehouseStockBalanceRecord item)
+    {
+        var status = Clean(item.Status);
+        return status.Contains("Критично", StringComparison.OrdinalIgnoreCase)
+            || status.Contains("Под контролем", StringComparison.OrdinalIgnoreCase)
+            || item.FreeQuantity <= 0m
+            || (item.BaselineQuantity > 0m && item.FreeQuantity < item.BaselineQuantity * 0.2m);
+    }
+
+    private static bool IsInPeriod(DateTime date, DateTime start, DateTime end)
+    {
+        return date.Date >= start.Date && date.Date <= end.Date;
+    }
+
+    private static string FormatDeltaPercent(decimal current, decimal previous)
+    {
+        if (previous == 0m)
+        {
+            return current == 0m ? "0%" : "+100%";
+        }
+
+        var delta = Math.Round((current - previous) / Math.Abs(previous) * 100m, MidpointRounding.AwayFromZero);
+        return delta > 0m ? $"+{delta:N0}%" : $"{delta:N0}%";
     }
 
     private IReadOnlyList<DashboardStatusLegendItem> BuildStatusLegend()
@@ -267,7 +311,7 @@ public partial class DashboardWorkspaceView : UserControl
             });
         }
 
-        var max = Math.Max(1m, points.Max(item => item.CurrentValue));
+        var max = Math.Max(1m, points.Max(item => Math.Max(item.CurrentValue, item.PreviousValue)));
         var polyline = new Polyline
         {
             Stroke = BrushFromHex("#4F5BFF"),
@@ -418,7 +462,7 @@ public partial class DashboardWorkspaceView : UserControl
             .Select(date =>
             {
                 var current = invoiceLookup.TryGetValue(date.Date, out var value) ? value : 0m;
-                var previous = Math.Round(current * 0.74m, 2);
+                var previous = invoiceLookup.TryGetValue(date.Date.AddDays(-7), out var previousValue) ? previousValue : 0m;
                 return new RevenuePoint(date.ToString("dd.MM", CultureInfo.GetCultureInfo("ru-RU")), current, previous);
             })
             .ToArray();
@@ -518,7 +562,8 @@ public partial class DashboardWorkspaceView : UserControl
             return "catalog";
         }
 
-        if (_demoWorkspace.StockBalances.Any(item => Matches(query, item.Артикул, item.Номенклатура, item.Склад, item.Статус)))
+        var stockBalances = _salesWorkspace.OperationalSnapshot?.StockBalances ?? Array.Empty<WarehouseStockBalanceRecord>();
+        if (stockBalances.Any(item => Matches(query, item.ItemCode, item.ItemName, item.Warehouse, item.Status)))
         {
             return "warehouse";
         }
