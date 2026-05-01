@@ -441,10 +441,10 @@
                             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                                 <TextBlock x:Name="BulkSelectionText" Margin="0,0,12,0" Style="{StaticResource TableBulkTextStyle}" />
                                 <Button Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,10,0" Click="HandleExportSelectedClick">Экспорт выбранных</Button>
-                                <Button Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,10,0" Click="HandleBulkStatusClick">Изменить статус</Button>
-                                <Button Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,10,0" Click="HandleBulkWarehouseClick">Назначить склад</Button>
-                                <Button Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,10,0" Click="HandleBulkPrintClick">Печать</Button>
-                                <Button Style="{StaticResource TableBulkActionButtonStyle}" Click="HandleBulkArchiveClick">Архивировать</Button>
+                                <Button x:Name="BulkStatusButton" Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,10,0" Click="HandleBulkStatusClick">Изменить статус</Button>
+                                <Button x:Name="BulkWarehouseButton" Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,10,0" Click="HandleBulkWarehouseClick">Назначить склад</Button>
+                                <Button x:Name="BulkPrintButton" Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,10,0" Click="HandleBulkPrintClick">Печать</Button>
+                                <Button x:Name="BulkArchiveButton" Style="{StaticResource TableBulkActionButtonStyle}" Click="HandleBulkArchiveClick">Архивировать</Button>
                             </StackPanel>
                         </DockPanel>
                     </Border>

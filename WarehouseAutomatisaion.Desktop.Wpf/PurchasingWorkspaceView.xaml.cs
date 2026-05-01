@@ -540,6 +540,11 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
             1 => "Выбран 1 документ",
             _ => $"Выбрано {checkedRows.Length:N0} записей"
         };
+
+        BulkStatusButton.Visibility = ResolveBulkStatuses(checkedRows).Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        BulkWarehouseButton.Visibility = checkedRows.Any(CanAssignWarehouse) ? Visibility.Visible : Visibility.Collapsed;
+        BulkPrintButton.Visibility = checkedRows.Any(CanPrintRow) ? Visibility.Visible : Visibility.Collapsed;
+        BulkArchiveButton.Visibility = checkedRows.Any(CanArchiveRow) ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private IEnumerable<PurchasingGridRow> GetCheckedRows()
@@ -1963,6 +1968,9 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
                 CardCancelButton.IsEnabled = false;
                 break;
         }
+
+        CardCloseButton.IsEnabled = CardCloseButton.IsEnabled && CanCloseRow(row);
+        CardPrintButton.IsEnabled = CardPrintButton.IsEnabled && CanPrintRow(row);
     }
 
     private void UpdateLockBanner(PurchasingGridRow? row)
@@ -2371,10 +2379,10 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
             return;
         }
 
-        var statuses = ResolveStatusesForSection(_activeSection);
+        var statuses = ResolveBulkStatuses(rows);
         if (statuses.Length == 0)
         {
-            MessageBox.Show(Window.GetWindow(this), "Для текущей вкладки массовая смена статуса не поддерживается.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(Window.GetWindow(this), "Для выбранных записей нет общего набора статусов.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -2395,10 +2403,10 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void HandleBulkWarehouseClick(object sender, RoutedEventArgs e)
     {
-        var rows = GetCheckedRows().ToArray();
+        var rows = GetCheckedRows().Where(CanAssignWarehouse).ToArray();
         if (rows.Length == 0)
         {
-            MessageBox.Show(Window.GetWindow(this), "Выберите документы для смены склада.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(Window.GetWindow(this), "Для выбранных записей нельзя назначить склад.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -2424,9 +2432,10 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void HandleBulkArchiveClick(object sender, RoutedEventArgs e)
     {
-        var rows = GetCheckedRows().ToArray();
+        var rows = GetCheckedRows().Where(CanArchiveRow).ToArray();
         if (rows.Length == 0)
         {
+            MessageBox.Show(Window.GetWindow(this), "Для выбранных записей архивирование недоступно.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -2676,18 +2685,37 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
             return;
         }
 
+        if (!CanCloseRow(row))
+        {
+            MessageBox.Show(Window.GetWindow(this), "Закрытие недоступно для выбранной записи.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
         if (row.Payload is not OperationalPurchasingDocumentRecord document)
         {
             return;
         }
 
-        PurchasingWorkflowActionResult result = Ui(document.DocumentType) switch
+        var documentType = Ui(document.DocumentType);
+        PurchasingWorkflowActionResult result;
+        if (documentType.Equals("Заказ поставщику", StringComparison.OrdinalIgnoreCase))
         {
-            "Заказ поставщику" => _workspace.SetDocumentStatus(document.DocumentType, document.Id, "Принят", "Закрытие заказа", "Заказ закрыт."),
-            "Счет поставщика" => _workspace.MarkSupplierInvoicePaid(document.Id),
-            "Приемка" => _workspace.PlacePurchaseReceipt(document.Id),
-            _ => new PurchasingWorkflowActionResult(false, "Операция недоступна.", "Документ не поддерживает закрытие.")
-        };
+            result = _workspace.SetDocumentStatus(document.DocumentType, document.Id, "Принят", "Закрытие заказа", "Заказ закрыт.");
+        }
+        else if (documentType.Equals("Счет поставщика", StringComparison.OrdinalIgnoreCase))
+        {
+            result = _workspace.MarkSupplierInvoicePaid(document.Id);
+        }
+        else if (documentType.Equals("Приемка", StringComparison.OrdinalIgnoreCase))
+        {
+            result = _workspace.PlacePurchaseReceipt(document.Id);
+        }
+        else
+        {
+            MessageBox.Show(Window.GetWindow(this), "Закрытие недоступно для выбранной записи.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
         ShowWorkflowResult(result);
     }
 
@@ -3119,16 +3147,80 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
             result.Succeeded ? MessageBoxImage.Information : MessageBoxImage.Warning);
     }
 
-    private string[] ResolveStatusesForSection(string section)
+    private string[] ResolveStatusesForRow(PurchasingGridRow row)
     {
-        return section switch
+        return row.Payload switch
         {
-            SuppliersSection => _workspace.SupplierStatuses.ToArray(),
-            InvoicesSection => _workspace.SupplierInvoiceStatuses.ToArray(),
-            ReceiptsSection => _workspace.PurchaseReceiptStatuses.ToArray(),
-            PaymentsSection => new[] { "Ожидает оплаты", "Проведена" },
-            _ => _workspace.PurchaseOrderStatuses.ToArray()
+            OperationalPurchasingSupplierRecord => _workspace.SupplierStatuses.ToArray(),
+            OperationalPurchasingDocumentRecord document => Ui(document.DocumentType) switch
+            {
+                "Заказ поставщику" => _workspace.PurchaseOrderStatuses.ToArray(),
+                "Счет поставщика" => _workspace.SupplierInvoiceStatuses.ToArray(),
+                "Приемка" => _workspace.PurchaseReceiptStatuses.ToArray(),
+                _ => Array.Empty<string>()
+            },
+            _ => Array.Empty<string>()
         };
+    }
+
+    private string[] ResolveBulkStatuses(IReadOnlyList<PurchasingGridRow> rows)
+    {
+        if (rows.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var statusSets = rows.Select(ResolveStatusesForRow).ToArray();
+        if (statusSets.Any(item => item.Length == 0))
+        {
+            return Array.Empty<string>();
+        }
+
+        IEnumerable<string> commonStatuses = statusSets[0];
+        foreach (var statusSet in statusSets.Skip(1))
+        {
+            commonStatuses = commonStatuses.Where(status => statusSet.Contains(status, StringComparer.OrdinalIgnoreCase));
+        }
+
+        return commonStatuses
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private bool CanPrintRow(PurchasingGridRow row)
+    {
+        return ResolvePrintableDocument(row) is not null;
+    }
+
+    private static bool CanAssignWarehouse(PurchasingGridRow row)
+    {
+        return row.Payload is OperationalPurchasingDocumentRecord document && IsWarehouseAssignableDocument(document);
+    }
+
+    private static bool CanArchiveRow(PurchasingGridRow row)
+    {
+        return row.Payload is OperationalPurchasingSupplierRecord or OperationalPurchasingDocumentRecord;
+    }
+
+    private static bool CanCloseRow(PurchasingGridRow row)
+    {
+        return row.Payload is OperationalPurchasingDocumentRecord document && IsClosableDocument(document);
+    }
+
+    private static bool IsWarehouseAssignableDocument(OperationalPurchasingDocumentRecord document)
+    {
+        var documentType = Ui(document.DocumentType);
+        return documentType.Equals("Заказ поставщику", StringComparison.OrdinalIgnoreCase)
+            || documentType.Equals("Счет поставщика", StringComparison.OrdinalIgnoreCase)
+            || documentType.Equals("Приемка", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsClosableDocument(OperationalPurchasingDocumentRecord document)
+    {
+        var documentType = Ui(document.DocumentType);
+        return documentType.Equals("Заказ поставщику", StringComparison.OrdinalIgnoreCase)
+            || documentType.Equals("Счет поставщика", StringComparison.OrdinalIgnoreCase)
+            || documentType.Equals("Приемка", StringComparison.OrdinalIgnoreCase);
     }
 
     private void ExportRows(IReadOnlyList<PurchasingGridRow> rows, string title)
