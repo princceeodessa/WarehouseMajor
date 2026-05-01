@@ -279,6 +279,7 @@
                             Width="104"
                             Margin="0,0,12,0"
                             Style="{StaticResource TopActionButtonStyle}"
+                            AutomationProperties.Name="Импорт склада"
                             Click="HandleImportClick">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock FontFamily="Segoe Fluent Icons"
@@ -295,6 +296,7 @@
                             Width="104"
                             Margin="0,0,12,0"
                             Style="{StaticResource TopActionButtonStyle}"
+                            AutomationProperties.Name="Экспорт склада"
                             Click="HandleExportClick">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock FontFamily="Segoe Fluent Icons"
@@ -311,6 +313,7 @@
                             Width="170"
                             Margin="0,0,12,0"
                             Style="{StaticResource TopPrimaryActionButtonStyle}"
+                            AutomationProperties.Name="Создать складской документ"
                             Click="HandleCreateClick">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock FontFamily="Segoe Fluent Icons"
@@ -326,6 +329,7 @@
                             Grid.Column="4"
                             Width="116"
                             Style="{StaticResource TopActionButtonStyle}"
+                            AutomationProperties.Name="Действия склада"
                             Click="HandleActionsClick">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="Действия" VerticalAlignment="Center" />
@@ -533,6 +537,7 @@
                                 Grid.Column="6"
                                 Width="42"
                                 Style="{StaticResource TableFilterActionButtonStyle}"
+                                AutomationProperties.Name="Настройки таблицы склада"
                                 Click="HandleFiltersButtonClick">
                             <TextBlock FontFamily="Segoe Fluent Icons"
                                        Text="&#xE713;"
@@ -575,11 +580,12 @@
                                 <Button Margin="0,0,8,0" Style="{StaticResource TableBulkActionButtonStyle}" Click="HandleBulkShipClick" Content="Отгрузить" />
                                 <Button Margin="0,0,8,0" Style="{StaticResource TableBulkActionButtonStyle}" Click="HandleBulkWriteOffClick" Content="Списать" />
                                 <Button Margin="0,0,8,0" Style="{StaticResource TableBulkActionButtonStyle}" Click="HandleBulkInventoryClick" Content="Создать инвентаризацию" />
-                                <Button Width="42" Style="{StaticResource TableBulkActionButtonStyle}" FontFamily="Segoe Fluent Icons" Click="HandleBulkMoreClick" Content="&#xE712;" />
+                                <Button Width="42" Style="{StaticResource TableBulkActionButtonStyle}" AutomationProperties.Name="Дополнительные действия склада" FontFamily="Segoe Fluent Icons" Click="HandleBulkMoreClick" Content="&#xE712;" />
                             </StackPanel>
 
                             <Button Grid.Column="2"
                                     Style="{StaticResource TableBulkCloseButtonStyle}"
+                                    AutomationProperties.Name="Закрыть панель выбранных позиций"
                                     Click="HandleBulkCloseClick"
                                     Content="×" />
                         </Grid>
@@ -701,6 +707,7 @@
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Button Style="{StaticResource TableRowActionButtonStyle}"
+                                                            AutomationProperties.Name="Действия позиции склада"
                                                             Tag="{Binding}"
                                                             Click="HandleStockRowActionsClick"
                                                             Content="&#xE712;" />
@@ -800,6 +807,7 @@
                                                 Grid.Column="3"
                                                 Margin="12,0,0,0"
                                                 Style="{StaticResource TableRowActionButtonStyle}"
+                                                AutomationProperties.Name="Действия выбранной позиции склада"
                                                 Click="HandleDetailsActionsClick"
                                                 Content="&#xE712;" />
                                     </Grid>
@@ -926,10 +934,11 @@
                                                         Background="Transparent"
                                                         BorderBrush="Transparent"
                                                         BorderThickness="0"
-                                                        HorizontalContentAlignment="Left"
-                                                        Cursor="Hand"
-                                                        Tag="{Binding}"
-                                                        Click="HandleLinkedDocumentClick">
+                                                HorizontalContentAlignment="Left"
+                                                Cursor="Hand"
+                                                Tag="{Binding}"
+                                                AutomationProperties.Name="{Binding Caption}"
+                                                Click="HandleLinkedDocumentClick">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Caption}" FontSize="13" Foreground="#4F5BFF" TextWrapping="Wrap" />
                                                         <TextBlock Text="{Binding Subtitle}" Margin="0,2,0,0" FontSize="12" Foreground="#98A3BC" TextWrapping="Wrap" />

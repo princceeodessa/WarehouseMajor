@@ -611,6 +611,7 @@ public partial class MainWindow : Window
                 Cursor = System.Windows.Input.Cursors.Hand,
                 ToolTip = "Закрыть вкладку"
             };
+            System.Windows.Automation.AutomationProperties.SetName(closeButton, "Закрыть вкладку");
             closeButton.Click += HandleCloseTabClick;
             panel.Children.Add(closeButton);
         }

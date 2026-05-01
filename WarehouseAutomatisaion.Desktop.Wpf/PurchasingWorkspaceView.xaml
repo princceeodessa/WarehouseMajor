@@ -226,25 +226,25 @@
                             <TextBlock Grid.Column="1" Style="{StaticResource TopSearchIconStyle}" />
                         </Grid>
                     </Border>
-                    <Button Style="{StaticResource TopActionButtonStyle}" Margin="0,0,10,0" Click="HandleImportClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Импорт закупок" Margin="0,0,10,0" Click="HandleImportClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE896;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Импорт" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource TopActionButtonStyle}" Margin="0,0,10,0" Click="HandleExportClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Экспорт закупок" Margin="0,0,10,0" Click="HandleExportClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEDE1;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Экспорт" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="NewPurchaseButton" Style="{StaticResource TopPrimaryActionButtonStyle}" Margin="0,0,10,0" Click="HandleNewPurchaseClick">
+                    <Button x:Name="NewPurchaseButton" AutomationProperties.Name="Новая закупка" Style="{StaticResource TopPrimaryActionButtonStyle}" Margin="0,0,10,0" Click="HandleNewPurchaseClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Новая закупка" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="ActionsButton" Style="{StaticResource TopActionButtonStyle}" Click="HandleActionsClick">
+                    <Button x:Name="ActionsButton" AutomationProperties.Name="Действия закупок" Style="{StaticResource TopActionButtonStyle}" Click="HandleActionsClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Действия" VerticalAlignment="Center" />
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
@@ -266,7 +266,7 @@
                             <TextBlock x:Name="LockBannerText" Text="Недостаточно прав или документ заблокирован." FontSize="12.5" Foreground="#6B7DAE" Margin="0,4,0,0" />
                         </StackPanel>
                     </StackPanel>
-                    <Button Grid.Column="1" Width="28" Height="28" Background="Transparent" BorderBrush="Transparent" Foreground="#5A6FA8" FontFamily="Segoe Fluent Icons" Content="&#xE711;" Click="HandleDismissLockBannerClick" />
+                    <Button Grid.Column="1" Width="28" Height="28" Background="Transparent" BorderBrush="Transparent" Foreground="#5A6FA8" FontFamily="Segoe Fluent Icons" Content="&#xE711;" AutomationProperties.Name="Закрыть уведомление" Click="HandleDismissLockBannerClick" />
                 </Grid>
             </Border>
 
@@ -335,7 +335,7 @@
                     </UniformGrid>
 
                                         <UniformGrid x:Name="IssueChipsGrid" Columns="5" Margin="-6,0,-6,18">
-                        <Button x:Name="MissingInvoiceChip" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="missing-invoice">
+                        <Button x:Name="MissingInvoiceChip" AutomationProperties.Name="Фильтр: без счета" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="missing-invoice">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -345,7 +345,7 @@
                                         <TextBlock x:Name="MissingInvoiceChipText" Grid.Column="1" Margin="14,0,0,0" FontWeight="SemiBold" />
                             </Grid>
                         </Button>
-                        <Button x:Name="MissingReceiptChip" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="missing-receipt">
+                        <Button x:Name="MissingReceiptChip" AutomationProperties.Name="Фильтр: без приемки" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="missing-receipt">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -355,7 +355,7 @@
                                 <TextBlock x:Name="MissingReceiptChipText" Grid.Column="1" Margin="14,0,0,0" FontWeight="SemiBold" />
                             </Grid>
                         </Button>
-                        <Button x:Name="OverdueChip" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="overdue">
+                        <Button x:Name="OverdueChip" AutomationProperties.Name="Фильтр: просрочено" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="overdue">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -365,7 +365,7 @@
                                 <TextBlock x:Name="OverdueChipText" Grid.Column="1" Margin="14,0,0,0" FontWeight="SemiBold" />
                             </Grid>
                         </Button>
-                        <Button x:Name="UnpaidChip" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="unpaid">
+                        <Button x:Name="UnpaidChip" AutomationProperties.Name="Фильтр: частично оплачено" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="unpaid">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -375,7 +375,7 @@
                                 <TextBlock x:Name="UnpaidChipText" Grid.Column="1" Margin="14,0,0,0" FontWeight="SemiBold" />
                             </Grid>
                         </Button>
-                        <Button x:Name="DiscrepancyChip" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="discrepancy">
+                        <Button x:Name="DiscrepancyChip" AutomationProperties.Name="Фильтр: есть расхождения" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="discrepancy">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -437,7 +437,7 @@
 
                     <Border x:Name="BulkBarBorder" Style="{StaticResource TableBulkBarStyle}" Margin="0,0,0,14" Visibility="Collapsed">
                         <DockPanel>
-                            <Button DockPanel.Dock="Right" Style="{StaticResource TableBulkCloseButtonStyle}" FontFamily="Segoe Fluent Icons" Content="&#xE711;" Click="HandleClearSelectionClick" />
+                            <Button DockPanel.Dock="Right" Style="{StaticResource TableBulkCloseButtonStyle}" FontFamily="Segoe Fluent Icons" Content="&#xE711;" AutomationProperties.Name="Очистить выбор" Click="HandleClearSelectionClick" />
                             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                                 <TextBlock x:Name="BulkSelectionText" Margin="0,0,12,0" Style="{StaticResource TableBulkTextStyle}" />
                                 <Button Style="{StaticResource TableBulkActionButtonStyle}" Margin="0,0,10,0" Click="HandleExportSelectedClick">Экспорт выбранных</Button>
@@ -496,7 +496,7 @@
                                         <DataGridTemplateColumn x:Name="ActionsColumn" Width="56" IsReadOnly="True">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Button Style="{StaticResource TableRowActionButtonStyle}" Content="&#xE712;" Tag="{Binding}" Click="HandleRowActionsClick" />
+                                                    <Button Style="{StaticResource TableRowActionButtonStyle}" Content="&#xE712;" AutomationProperties.Name="Действия документа закупки" Tag="{Binding}" Click="HandleRowActionsClick" />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -570,7 +570,7 @@
                                         <Border x:Name="DetailsStatusBadge" Background="#EEF2FF" CornerRadius="8" Padding="10,4" Margin="0,0,8,0">
                                             <TextBlock x:Name="DetailsStatusBadgeText" FontSize="11.5" FontWeight="SemiBold" Foreground="#4F5BFF" />
                                         </Border>
-                                        <Button Style="{StaticResource TableRowActionButtonStyle}" Content="&#xE712;" Click="HandleDetailsActionsClick" />
+                                        <Button Style="{StaticResource TableRowActionButtonStyle}" Content="&#xE712;" AutomationProperties.Name="Действия выбранного документа закупки" Click="HandleDetailsActionsClick" />
                                     </StackPanel>
                                 </Grid>
 

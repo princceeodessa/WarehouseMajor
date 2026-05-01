@@ -150,6 +150,7 @@
                         </Border>
                         <Button Style="{StaticResource IconCircleButtonStyle}"
                                 Tag="audit"
+                                AutomationProperties.Name="Открыть отчеты и сигналы"
                                 ToolTip="Открыть отчеты и сигналы"
                                 Click="HandleNavigationButtonClick">
                             <Grid>
@@ -161,6 +162,7 @@
                         </Button>
                         <Button Style="{StaticResource IconCircleButtonStyle}"
                                 Tag="model"
+                                AutomationProperties.Name="Открыть связи данных"
                                 ToolTip="Открыть связи данных"
                                 Click="HandleNavigationButtonClick">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE897;" FontSize="14" />
@@ -187,6 +189,7 @@
                                     Height="124"
                                     Margin="0,0,16,16"
                                     Tag="{Binding TargetKey}"
+                                    AutomationProperties.Name="{Binding Title}"
                                     Click="HandleNavigationButtonClick">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -255,6 +258,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Button Tag="{Binding TargetKey}"
+                                            AutomationProperties.Name="{Binding Title}"
                                             Click="HandleNavigationButtonClick"
                                             Background="Transparent"
                                             BorderThickness="0"
@@ -463,6 +467,7 @@
                                         </StackPanel>
                                         <Button Grid.Row="2"
                                                 Tag="{Binding TargetKey}"
+                                                AutomationProperties.Name="{Binding Title}"
                                                 Click="HandleNavigationButtonClick"
                                                 Style="{StaticResource GhostButtonStyle}"
                                                 Margin="0,10,0,0"

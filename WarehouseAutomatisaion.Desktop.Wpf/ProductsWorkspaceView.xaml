@@ -489,7 +489,7 @@
                                     <DataGridTemplateColumn Header="Действия" Width="66" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Button Content="&#xE712;" Tag="{Binding}" Style="{StaticResource TableRowActionButtonStyle}" Click="HandleRowActionsClick" />
+                                                <Button Content="&#xE712;" AutomationProperties.Name="Действия товара" Tag="{Binding}" Style="{StaticResource TableRowActionButtonStyle}" Click="HandleRowActionsClick" />
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
@@ -522,7 +522,7 @@
                                         <Border x:Name="DetailStatusPill" CornerRadius="7" Padding="8,4" Background="#EAF9F0" VerticalAlignment="Top">
                                             <TextBlock x:Name="DetailStatusText" Text="Активный" Foreground="#1AA65F" FontSize="11" FontWeight="SemiBold" />
                                         </Border>
-                                        <Button Content="&#xE712;" Margin="8,0,0,0" Style="{StaticResource TableRowActionButtonStyle}" Click="HandleDetailActionsClick" />
+                                        <Button Content="&#xE712;" AutomationProperties.Name="Действия выбранного товара" Margin="8,0,0,0" Style="{StaticResource TableRowActionButtonStyle}" Click="HandleDetailActionsClick" />
                                     </StackPanel>
                                 </Grid>
 

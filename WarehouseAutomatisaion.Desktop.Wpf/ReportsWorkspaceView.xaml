@@ -199,28 +199,28 @@
                         </Grid>
                     </Border>
 
-                    <Button Style="{StaticResource TopActionButtonStyle}" Margin="0,0,10,0" Click="HandleHeaderPeriodClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Период отчета" Margin="0,0,10,0" Click="HandleHeaderPeriodClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock x:Name="HeaderPeriodButtonText" Text="01.03.2026 - 24.04.2026" VerticalAlignment="Center" />
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE787;" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource TopActionButtonStyle}" Margin="0,0,10,0" Click="HandleExportClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Экспорт отчета" Margin="0,0,10,0" Click="HandleExportClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEDE1;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Экспорт" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource TopActionButtonStyle}" Margin="0,0,10,0" Click="HandlePrintClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Печать отчета" Margin="0,0,10,0" Click="HandlePrintClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Печать" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource TopPrimaryActionButtonStyle}" Click="HandleGenerateReportClick">
+                    <Button Style="{StaticResource TopPrimaryActionButtonStyle}" AutomationProperties.Name="Сформировать отчет" Click="HandleGenerateReportClick">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Сформировать отчет" Margin="8,0,0,0" VerticalAlignment="Center" />
@@ -318,7 +318,7 @@
                                     <TextBlock Text="Прошлый период" FontSize="12" Foreground="{StaticResource MutedBrush}" />
                                 </StackPanel>
                             </StackPanel>
-                            <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Width="34" Click="HandleGenerateReportClick">
+                            <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Width="34" AutomationProperties.Name="Обновить график выручки" Click="HandleGenerateReportClick">
                                 <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" Foreground="#7C87A3" />
                             </Button>
                         </Grid>
@@ -608,13 +608,13 @@
                                 <TextBlock x:Name="RegistryTitleText" Text="Реестр продаж" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                                 <TextBlock x:Name="RegistryCountText" Text="Всего 0 записей" Margin="16,2,0,0" FontSize="12.5" Foreground="{StaticResource MutedBrush}" />
                             </StackPanel>
-                            <Button x:Name="RegistryColumnsButton" Grid.Column="1" Style="{StaticResource MiniButtonStyle}" Margin="0,0,10,0" Click="HandleColumnsClick">
+                            <Button x:Name="RegistryColumnsButton" Grid.Column="1" Style="{StaticResource MiniButtonStyle}" AutomationProperties.Name="Настроить столбцы" Margin="0,0,10,0" Click="HandleColumnsClick">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" FontSize="12" />
                                     <TextBlock Text="Настроить столбцы" Margin="8,0,0,0" />
                                 </StackPanel>
                             </Button>
-                            <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" Width="34" Click="HandleGenerateReportClick">
+                            <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" Width="34" AutomationProperties.Name="Обновить реестр продаж" Click="HandleGenerateReportClick">
                                 <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" Foreground="#7C87A3" />
                             </Button>
                         </Grid>
@@ -653,7 +653,7 @@
                                     <DataGridTemplateColumn Width="46">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Button Style="{StaticResource TableRowActionButtonStyle}" Click="HandleRowActionsClick" Tag="{Binding}">
+                                                <Button Style="{StaticResource TableRowActionButtonStyle}" AutomationProperties.Name="Действия строки отчета" Click="HandleRowActionsClick" Tag="{Binding}">
                                                     <TextBlock Style="{StaticResource TableRowActionIconStyle}" />
                                                 </Button>
                                             </DataTemplate>
@@ -680,13 +680,13 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock x:Name="RegistryFooterText" Text="Показано 0 записей" Style="{StaticResource TableFooterTextStyle}" />
                             <StackPanel Grid.Column="1" Style="{StaticResource TablePagerPanelStyle}">
-                                <Button x:Name="RegistryPrevPageButton" Style="{StaticResource TablePagerButtonStyle}" Click="HandlePrevPageClick">
+                                <Button x:Name="RegistryPrevPageButton" Style="{StaticResource TablePagerButtonStyle}" AutomationProperties.Name="Предыдущая страница отчета" Click="HandlePrevPageClick">
                                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76B;" />
                                 </Button>
                                 <Border Style="{StaticResource TablePagerIndicatorStyle}">
                                     <TextBlock x:Name="PageIndicatorText" Text="1" Style="{StaticResource TablePagerIndicatorTextStyle}" />
                                 </Border>
-                                <Button x:Name="RegistryNextPageButton" Style="{StaticResource TablePagerButtonStyle}" Click="HandleNextPageClick">
+                                <Button x:Name="RegistryNextPageButton" Style="{StaticResource TablePagerButtonStyle}" AutomationProperties.Name="Следующая страница отчета" Click="HandleNextPageClick">
                                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76C;" />
                                 </Button>
                             </StackPanel>
@@ -730,7 +730,7 @@
                                 <TextBlock Text="Обновлено" FontSize="12" Foreground="#7A86A5" />
                                 <TextBlock x:Name="SummaryUpdatedText" Text="24.04.2026 11:42" FontSize="12.5" Foreground="#1C2944" Margin="0,3,0,0" />
                             </StackPanel>
-                            <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Width="34" Click="HandleGenerateReportClick">
+                            <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" Width="34" AutomationProperties.Name="Обновить сводку" Click="HandleGenerateReportClick">
                                 <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE777;" Foreground="#7C87A3" />
                             </Button>
                         </Grid>
@@ -756,25 +756,25 @@
                         <StackPanel Grid.Row="4" Margin="0,20,0,0">
                             <TextBlock Text="Быстрые действия" FontSize="13.5" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
                             <UniformGrid Columns="2" Margin="0,12,0,0">
-                                <Button Style="{StaticResource MiniButtonStyle}" Margin="0,0,8,8" Click="HandleExportClick">
+                                <Button Style="{StaticResource MiniButtonStyle}" AutomationProperties.Name="Экспорт отчета в Excel" Margin="0,0,8,8" Click="HandleExportClick">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEDE1;" FontSize="11" />
                                         <TextBlock Text="Экспорт в Excel" Margin="8,0,0,0" />
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource MiniButtonStyle}" Margin="8,0,0,8" Click="HandlePrintClick">
+                                <Button Style="{StaticResource MiniButtonStyle}" AutomationProperties.Name="Печать отчета" Margin="8,0,0,8" Click="HandlePrintClick">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="11" />
                                         <TextBlock Text="Печать отчета" Margin="8,0,0,0" />
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource MiniButtonStyle}" Margin="0,0,8,0" Click="HandleOpenProblemDocumentsClick">
+                                <Button Style="{StaticResource MiniButtonStyle}" AutomationProperties.Name="Открыть проблемные документы" Margin="0,0,8,0" Click="HandleOpenProblemDocumentsClick">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEA39;" FontSize="11" />
                                         <TextBlock Text="Открыть проблемные" Margin="8,0,0,0" />
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource MiniButtonStyle}" Margin="8,0,0,0" Click="HandleNavigateModuleClick">
+                                <Button Style="{StaticResource MiniButtonStyle}" AutomationProperties.Name="Перейти в модуль" Margin="8,0,0,0" Click="HandleNavigateModuleClick">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8A7;" FontSize="11" />
                                         <TextBlock x:Name="NavigateModuleButtonText" Text="Перейти в модуль" Margin="8,0,0,0" />

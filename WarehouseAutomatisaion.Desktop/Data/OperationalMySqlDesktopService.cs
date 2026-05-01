@@ -1087,7 +1087,7 @@ public sealed class OperationalMySqlDesktopService
                 Id = ParseGuid(row.Id, row.Number),
                 Number = row.Number ?? string.Empty,
                 OrderDate = ParseDate(row.OrderDate) ?? DateTime.Today,
-                CustomerId = ParseGuid(row.CustomerId, $"customer|{row.CustomerCode}|{row.CustomerName}"),
+                CustomerId = ParseOptionalGuid(row.CustomerId, BuildRelationSeed("customer", row.CustomerCode, row.CustomerName)),
                 CustomerCode = row.CustomerCode ?? string.Empty,
                 CustomerName = row.CustomerName ?? string.Empty,
                 ContractNumber = row.ContractNumber ?? string.Empty,
@@ -1219,9 +1219,9 @@ public sealed class OperationalMySqlDesktopService
                 Number = row.Number ?? string.Empty,
                 InvoiceDate = ParseDate(row.InvoiceDate) ?? DateTime.Today,
                 DueDate = ParseDate(row.DueDate) ?? ParseDate(row.InvoiceDate) ?? DateTime.Today,
-                SalesOrderId = ParseGuid(row.SalesOrderId, $"sales-order|{row.Number}"),
+                SalesOrderId = ParseOptionalGuid(row.SalesOrderId, BuildRelationSeed("sales-order", row.SalesOrderNumber)),
                 SalesOrderNumber = row.SalesOrderNumber ?? string.Empty,
-                CustomerId = ParseGuid(row.CustomerId, $"customer|{row.CustomerCode}|{row.CustomerName}"),
+                CustomerId = ParseOptionalGuid(row.CustomerId, BuildRelationSeed("customer", row.CustomerCode, row.CustomerName)),
                 CustomerCode = row.CustomerCode ?? string.Empty,
                 CustomerName = row.CustomerName ?? string.Empty,
                 ContractNumber = row.ContractNumber ?? string.Empty,
@@ -1348,9 +1348,9 @@ public sealed class OperationalMySqlDesktopService
                 Id = ParseGuid(row.Id, row.Number),
                 Number = row.Number ?? string.Empty,
                 ShipmentDate = ParseDate(row.ShipmentDate) ?? DateTime.Today,
-                SalesOrderId = ParseGuid(row.SalesOrderId, $"sales-order|{row.SalesOrderNumber}"),
+                SalesOrderId = ParseOptionalGuid(row.SalesOrderId, BuildRelationSeed("sales-order", row.SalesOrderNumber)),
                 SalesOrderNumber = row.SalesOrderNumber ?? string.Empty,
-                CustomerId = ParseGuid(row.CustomerId, $"customer|{row.CustomerCode}|{row.CustomerName}"),
+                CustomerId = ParseOptionalGuid(row.CustomerId, BuildRelationSeed("customer", row.CustomerCode, row.CustomerName)),
                 CustomerCode = row.CustomerCode ?? string.Empty,
                 CustomerName = row.CustomerName ?? string.Empty,
                 ContractNumber = row.ContractNumber ?? string.Empty,
@@ -2026,6 +2026,28 @@ public sealed class OperationalMySqlDesktopService
         return Guid.TryParse(rawValue, out var parsed)
             ? parsed
             : CreateDeterministicGuid(FirstNonEmpty(rawValue, fallbackSeed, Guid.NewGuid().ToString("N")));
+    }
+
+    private static Guid ParseOptionalGuid(string? rawValue, string? fallbackSeed = null)
+    {
+        if (Guid.TryParse(rawValue, out var parsed))
+        {
+            return parsed;
+        }
+
+        return string.IsNullOrWhiteSpace(fallbackSeed)
+            ? Guid.Empty
+            : CreateDeterministicGuid(fallbackSeed);
+    }
+
+    private static string BuildRelationSeed(string prefix, params string?[] values)
+    {
+        var suffix = string.Join(
+            "|",
+            values
+                .Select(value => value?.Trim() ?? string.Empty)
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+        return string.IsNullOrWhiteSpace(suffix) ? string.Empty : $"{prefix}|{suffix}";
     }
 
     private static Guid CreateDeterministicGuid(string seed)

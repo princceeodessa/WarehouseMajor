@@ -33,7 +33,8 @@ public sealed class CatalogWorkspaceStore
 
     public CatalogWorkspace LoadOrCreate(string currentOperator, SalesWorkspace salesWorkspace)
     {
-        var workspace = CatalogWorkspace.Create(currentOperator, BuildSeed(salesWorkspace));
+        var seed = BuildSeed(salesWorkspace);
+        var workspace = CatalogWorkspace.Create(currentOperator, seed);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
         var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
@@ -42,6 +43,7 @@ public sealed class CatalogWorkspaceStore
             var backplaneSnapshot = backplaneRecord.Snapshot;
             _remoteMetadata = backplaneRecord.Metadata;
             var normalized = NormalizeSnapshot(backplaneSnapshot);
+            normalized |= ReconcileSnapshot(backplaneSnapshot, seed);
             workspace.ReplaceFrom(backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
             if (normalized)
             {
@@ -66,6 +68,7 @@ public sealed class CatalogWorkspaceStore
             }
 
             var normalized = NormalizeSnapshot(snapshot);
+            normalized |= ReconcileSnapshot(snapshot, seed);
             workspace.ReplaceFrom(snapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
             if (normalized)
             {
@@ -134,6 +137,7 @@ public sealed class CatalogWorkspaceStore
         Directory.CreateDirectory(directory);
         var snapshot = CatalogWorkspaceSnapshot.FromWorkspace(workspace);
         NormalizeSnapshot(snapshot);
+        ReconcileSnapshot(snapshot, new CatalogWorkspaceSeed());
         if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
         {
             return;
@@ -267,6 +271,191 @@ public sealed class CatalogWorkspaceStore
         }
 
         return changed;
+    }
+
+    private static bool ReconcileSnapshot(CatalogWorkspaceSnapshot snapshot, CatalogWorkspaceSeed seed)
+    {
+        var changed = false;
+        changed |= AddMissingSeedItems(snapshot, seed);
+        changed |= DeduplicateItems(snapshot);
+        changed |= MergeLookupValues(snapshot.Currencies, seed.Currencies);
+        changed |= MergeLookupValues(snapshot.Warehouses, seed.Warehouses);
+        return changed;
+    }
+
+    private static bool AddMissingSeedItems(CatalogWorkspaceSnapshot snapshot, CatalogWorkspaceSeed seed)
+    {
+        if (seed.Items.Count == 0)
+        {
+            return false;
+        }
+
+        var existingCodes = snapshot.Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Code))
+            .Select(item => item.Code)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var existingNames = snapshot.Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
+            .Select(item => item.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var changed = false;
+
+        foreach (var item in seed.Items)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Code))
+            {
+                if (existingCodes.Contains(item.Code))
+                {
+                    continue;
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(item.Name) && existingNames.Contains(item.Name))
+            {
+                continue;
+            }
+
+            var clone = item.Clone();
+            clone.Id = clone.Id == Guid.Empty
+                ? CreateDeterministicGuid($"catalog-item|{clone.Code}|{clone.Name}")
+                : clone.Id;
+            clone.Category = FirstNonEmpty(clone.Category, "Без группы");
+            clone.Status = FirstNonEmpty(clone.Status, "Активна");
+            clone.CurrencyCode = FirstNonEmpty(clone.CurrencyCode, "RUB");
+            clone.Unit = FirstNonEmpty(clone.Unit, "шт");
+            clone.SourceLabel = FirstNonEmpty(clone.SourceLabel, "Документы продаж");
+            snapshot.Items.Add(clone);
+
+            if (!string.IsNullOrWhiteSpace(clone.Code))
+            {
+                existingCodes.Add(clone.Code);
+            }
+
+            if (!string.IsNullOrWhiteSpace(clone.Name))
+            {
+                existingNames.Add(clone.Name);
+            }
+
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static bool DeduplicateItems(CatalogWorkspaceSnapshot snapshot)
+    {
+        var merged = new List<CatalogItemRecord>();
+        var changed = false;
+
+        foreach (var group in snapshot.Items.GroupBy(item => BuildCatalogItemDedupeKey(item), StringComparer.OrdinalIgnoreCase))
+        {
+            var items = group.ToArray();
+            if (string.IsNullOrWhiteSpace(group.Key) || items.Length == 1)
+            {
+                merged.AddRange(items.Select(item => item.Clone()));
+                continue;
+            }
+
+            merged.Add(MergeCatalogItems(items));
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            return false;
+        }
+
+        snapshot.Items = merged
+            .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return true;
+    }
+
+    private static CatalogItemRecord MergeCatalogItems(IReadOnlyList<CatalogItemRecord> items)
+    {
+        var primary = items
+            .OrderByDescending(GetCatalogItemCompletenessScore)
+            .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .First()
+            .Clone();
+
+        foreach (var item in items)
+        {
+            primary.Name = FirstNonEmpty(primary.Name, item.Name);
+            primary.Unit = FirstNonEmpty(primary.Unit, item.Unit);
+            primary.Category = FirstNonEmpty(primary.Category, item.Category);
+            primary.Supplier = FirstNonEmpty(primary.Supplier, item.Supplier);
+            primary.DefaultWarehouse = FirstNonEmpty(primary.DefaultWarehouse, item.DefaultWarehouse);
+            primary.Status = FirstNonEmpty(primary.Status, item.Status);
+            primary.CurrencyCode = FirstNonEmpty(primary.CurrencyCode, item.CurrencyCode, "RUB");
+            primary.BarcodeValue = FirstNonEmpty(primary.BarcodeValue, item.BarcodeValue);
+            primary.BarcodeFormat = FirstNonEmpty(primary.BarcodeFormat, item.BarcodeFormat, "Code128");
+            primary.QrPayload = FirstNonEmpty(primary.QrPayload, item.QrPayload);
+            primary.Notes = FirstNonEmpty(primary.Notes, item.Notes);
+            primary.SourceLabel = MergeSourceLabel(primary.SourceLabel, item.SourceLabel);
+            if (primary.DefaultPrice <= 0m && item.DefaultPrice > 0m)
+            {
+                primary.DefaultPrice = item.DefaultPrice;
+            }
+        }
+
+        return primary;
+    }
+
+    private static int GetCatalogItemCompletenessScore(CatalogItemRecord item)
+    {
+        var score = 0;
+        score += string.IsNullOrWhiteSpace(item.Name) ? 0 : 4;
+        score += string.IsNullOrWhiteSpace(item.Category) ? 0 : 2;
+        score += string.IsNullOrWhiteSpace(item.Supplier) ? 0 : 2;
+        score += string.IsNullOrWhiteSpace(item.DefaultWarehouse) ? 0 : 2;
+        score += string.IsNullOrWhiteSpace(item.BarcodeValue) ? 0 : 2;
+        score += item.DefaultPrice > 0m ? 2 : 0;
+        score += string.IsNullOrWhiteSpace(item.Notes) ? 0 : 1;
+        return score;
+    }
+
+    private static string BuildCatalogItemDedupeKey(CatalogItemRecord item)
+    {
+        return !string.IsNullOrWhiteSpace(item.Code)
+            ? $"code:{item.Code.Trim()}"
+            : !string.IsNullOrWhiteSpace(item.Name)
+                ? $"name:{item.Name.Trim()}"
+                : string.Empty;
+    }
+
+    private static bool MergeLookupValues(ICollection<string> target, IEnumerable<string> source)
+    {
+        var changed = false;
+        var existing = target
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var value in source.Where(value => !string.IsNullOrWhiteSpace(value)))
+        {
+            if (existing.Add(value))
+            {
+                target.Add(value);
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private static string MergeSourceLabel(string current, string next)
+    {
+        if (string.IsNullOrWhiteSpace(current))
+        {
+            return next;
+        }
+
+        if (string.IsNullOrWhiteSpace(next) || current.Contains(next, StringComparison.OrdinalIgnoreCase))
+        {
+            return current;
+        }
+
+        return $"{current} + {next}";
     }
 
     private static void NormalizeList(IList<string> values, ref bool changed)

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
@@ -39,6 +40,8 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         SubtitleText.Text = Clean(definition.Subtitle);
         HeaderSearchPlaceholderText.Text = Clean(definition.SearchPlaceholder);
         PrimaryActionButton.Content = Clean(definition.PrimaryActionText);
+        AutomationProperties.SetName(ImportButton, "Импорт");
+        AutomationProperties.SetName(PrimaryActionButton, Clean(definition.PrimaryActionText));
         PrimaryActionButton.Visibility = definition.ShowPrimaryAction && !string.IsNullOrWhiteSpace(definition.PrimaryActionText) ? Visibility.Visible : Visibility.Collapsed;
         PrimaryActionButton.IsEnabled = definition.PrimaryAction is not null;
         PrimaryActionButton.Opacity = PrimaryActionButton.IsEnabled ? 1d : 0.55d;
@@ -69,6 +72,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         Loaded -= HandleLoaded;
         RefreshView();
         UpdateResponsiveLayout();
+        ScheduleAutomationNormalization();
     }
 
     private void HandleUnloaded(object sender, RoutedEventArgs e)
@@ -92,7 +96,11 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
 
     private void HandleWorkspaceChanged(object? sender, EventArgs e)
     {
-        Dispatcher.BeginInvoke(() => RefreshView());
+        Dispatcher.BeginInvoke(() =>
+        {
+            RefreshView();
+            ScheduleAutomationNormalization();
+        });
     }
 
     private void HandleSizeChanged(object sender, SizeChangedEventArgs e)
@@ -112,6 +120,14 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         RenderGroupTree();
         ApplyFilters(resetPage: true);
         UpdateResponsiveLayout();
+        ScheduleAutomationNormalization();
+    }
+
+    private void ScheduleAutomationNormalization()
+    {
+        Dispatcher.BeginInvoke(
+            new Action(() => WpfTextNormalizer.NormalizeTree(this)),
+            System.Windows.Threading.DispatcherPriority.ContextIdle);
     }
 
     private void UpdateResponsiveLayout()
@@ -224,6 +240,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         var template = new DataTemplate();
         var button = new FrameworkElementFactory(typeof(WpfButton));
         button.SetValue(ContentControl.ContentProperty, "\uE712");
+        button.SetValue(AutomationProperties.NameProperty, "Действия строки");
         button.SetBinding(FrameworkElement.TagProperty, new Binding("."));
         button.SetValue(FrameworkElement.StyleProperty, TryFindResource("TableRowActionButtonStyle") as Style);
         button.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
@@ -505,6 +522,12 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
             Opacity = disabled ? 0.45d : 1d,
             Tag = targetPage
         };
+        AutomationProperties.SetName(button, text switch
+        {
+            "<" => "Предыдущая страница",
+            ">" => "Следующая страница",
+            _ => $"Страница {text}"
+        });
         button.Click += HandlePageClick;
         return button;
     }
