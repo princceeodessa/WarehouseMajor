@@ -429,7 +429,8 @@
                                       Style="{StaticResource ProductGridStyle}"
                                       ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
                                       RowStyle="{StaticResource GridRowStyle}"
-                                      CellStyle="{StaticResource GridCellStyle}">
+                                      CellStyle="{StaticResource GridCellStyle}"
+                                      MouseDoubleClick="HandleProductsGridDoubleClick">
                                 <DataGrid.Columns>
                                     <DataGridTemplateColumn Width="42" IsReadOnly="False">
                                         <DataGridTemplateColumn.Header>

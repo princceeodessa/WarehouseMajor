@@ -3,9 +3,12 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 using WarehouseAutomatisaion.Desktop.Data;
@@ -213,7 +216,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                     .First(),
                 StringComparer.OrdinalIgnoreCase);
 
-        return _catalogWorkspace.Items
+        return BuildVisibleCatalogItems()
             .OrderBy(item => Ui(item.Name), StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(item => Ui(item.Code), StringComparer.OrdinalIgnoreCase)
             .Select(item =>
@@ -222,6 +225,97 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                 return ProductRowViewModel.Create(item, stock);
             })
             .ToArray();
+    }
+
+    private IReadOnlyList<CatalogItemRecord> BuildVisibleCatalogItems()
+    {
+        var items = new List<CatalogItemRecord>();
+        var knownKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in _catalogWorkspace.Items)
+        {
+            AddItem(item);
+        }
+
+        foreach (var option in EnumerateSalesCatalogOptions())
+        {
+            var key = BuildCatalogItemKey(option.Code, option.Name);
+            if (string.IsNullOrWhiteSpace(key) || knownKeys.Contains(key))
+            {
+                continue;
+            }
+
+            AddItem(CreateRuntimeCatalogRecord(option));
+        }
+
+        return items;
+
+        void AddItem(CatalogItemRecord item)
+        {
+            var key = BuildCatalogItemKey(item.Code, item.Name);
+            if (!string.IsNullOrWhiteSpace(key) && !knownKeys.Add(key))
+            {
+                return;
+            }
+
+            items.Add(item);
+        }
+    }
+
+    private IEnumerable<SalesCatalogItemOption> EnumerateSalesCatalogOptions()
+    {
+        if (_salesWorkspace.OperationalSnapshot?.CatalogItems is { Count: > 0 } operationalItems)
+        {
+            foreach (var item in operationalItems)
+            {
+                yield return item;
+            }
+        }
+
+        foreach (var item in _salesWorkspace.CatalogItems)
+        {
+            yield return item;
+        }
+    }
+
+    private CatalogItemRecord CreateRuntimeCatalogRecord(SalesCatalogItemOption item)
+    {
+        var code = Ui(item.Code);
+        var name = FirstNonEmpty(item.Name, code, "Без названия");
+
+        return new CatalogItemRecord
+        {
+            Id = CreateDeterministicGuid($"visible-catalog-item|{code}|{name}"),
+            Code = code,
+            Name = name,
+            Unit = FirstNonEmpty(item.Unit, "шт"),
+            Category = "Без категории",
+            Supplier = string.Empty,
+            DefaultWarehouse = string.Empty,
+            Status = "Активна",
+            CurrencyCode = FirstNonEmpty(_salesWorkspace.Currencies.FirstOrDefault() ?? string.Empty, "RUB"),
+            DefaultPrice = item.DefaultPrice,
+            BarcodeFormat = "Code128",
+            SourceLabel = "Операционная база"
+        };
+    }
+
+    private static string BuildCatalogItemKey(string? code, string? name)
+    {
+        var normalizedCode = Ui(code).Trim();
+        if (!string.IsNullOrWhiteSpace(normalizedCode))
+        {
+            return $"code:{normalizedCode}";
+        }
+
+        var normalizedName = Ui(name).Trim();
+        return string.IsNullOrWhiteSpace(normalizedName) ? string.Empty : $"name:{normalizedName}";
+    }
+
+    private static Guid CreateDeterministicGuid(string value)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        return new Guid(hash.Take(16).ToArray());
     }
 
     private void RefreshMetrics()
@@ -472,6 +566,25 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         menu.IsOpen = true;
     }
 
+    private void HandleProductsGridDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left
+            || FindVisualParent<ButtonBase>(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;
+        }
+
+        var row = FindVisualParent<DataGridRow>(e.OriginalSource as DependencyObject);
+        if (row?.Item is not ProductRowViewModel product)
+        {
+            return;
+        }
+
+        SelectProduct(product);
+        EditProduct(product);
+        e.Handled = true;
+    }
+
     private void HandleDetailActionsClick(object sender, RoutedEventArgs e)
     {
         if (SelectedProduct is null || sender is not WpfButton button)
@@ -508,6 +621,35 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         SelectedProduct = product;
         ProductsGrid.SelectedItem = product;
         ProductsGrid.ScrollIntoView(product);
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject? source)
+        where T : DependencyObject
+    {
+        var current = source;
+        while (current is not null)
+        {
+            if (current is T match)
+            {
+                return match;
+            }
+
+            current = GetParent(current);
+        }
+
+        return null;
+    }
+
+    private static DependencyObject? GetParent(DependencyObject source)
+    {
+        try
+        {
+            return VisualTreeHelper.GetParent(source) ?? LogicalTreeHelper.GetParent(source);
+        }
+        catch (InvalidOperationException)
+        {
+            return LogicalTreeHelper.GetParent(source);
+        }
     }
 
     private void HandleSearchTextChanged(object sender, TextChangedEventArgs e)
