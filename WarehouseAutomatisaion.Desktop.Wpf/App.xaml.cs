@@ -27,7 +27,7 @@ public partial class App : System.Windows.Application
                 return;
             }
 
-            var window = new MainWindow();
+            var window = new MainWindow(startupStatus);
             MainWindow = window;
             window.Show();
         }

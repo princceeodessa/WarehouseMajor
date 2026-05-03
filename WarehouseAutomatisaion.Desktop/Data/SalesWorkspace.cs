@@ -621,6 +621,7 @@ public sealed class SalesWorkspace
             copy.Status = OrderStatuses.First();
         }
 
+        ValidateOrderForPersist(copy);
         Orders.Add(copy);
         RefreshOrderLifecycle(copy.Id);
         WriteOperationLog("Заказ", copy.Id, copy.Number, "Создание заказа", "Успех", $"Создан заказ для {copy.CustomerName} на сумму {copy.TotalAmount:N2}.");
@@ -630,6 +631,7 @@ public sealed class SalesWorkspace
     public void UpdateOrder(SalesOrderRecord order)
     {
         var existing = Orders.First(item => item.Id == order.Id);
+        ValidateOrderForPersist(order);
         existing.CopyFrom(order);
         SyncDerivedDocumentsFromOrder(existing);
         RefreshOrderLifecycle(existing.Id);
@@ -645,6 +647,7 @@ public sealed class SalesWorkspace
             copy.Status = InvoiceStatuses.First();
         }
 
+        ValidateInvoiceForPersist(copy);
         Invoices.Add(copy);
         RefreshOrderLifecycle(copy.SalesOrderId);
         WriteOperationLog("Счет", copy.Id, copy.Number, "Создание счета", "Успех", $"Создан счет {copy.Number} по заказу {copy.SalesOrderNumber}.");
@@ -654,6 +657,7 @@ public sealed class SalesWorkspace
     public void UpdateInvoice(SalesInvoiceRecord invoice)
     {
         var existing = Invoices.First(item => item.Id == invoice.Id);
+        ValidateInvoiceForPersist(invoice);
         existing.CopyFrom(invoice);
         RefreshOrderLifecycle(existing.SalesOrderId);
         WriteOperationLog("Счет", existing.Id, existing.Number, "Изменение счета", "Успех", $"Обновлен счет {existing.Number}.");
@@ -668,6 +672,7 @@ public sealed class SalesWorkspace
             copy.Status = ShipmentStatuses.First();
         }
 
+        ValidateShipmentForPersist(copy);
         Shipments.Add(copy);
         RefreshOrderLifecycle(copy.SalesOrderId);
         WriteOperationLog("Отгрузка", copy.Id, copy.Number, "Создание отгрузки", "Успех", $"Создана отгрузка {copy.Number} по заказу {copy.SalesOrderNumber}.");
@@ -677,6 +682,7 @@ public sealed class SalesWorkspace
     public void UpdateShipment(SalesShipmentRecord shipment)
     {
         var existing = Shipments.First(item => item.Id == shipment.Id);
+        ValidateShipmentForPersist(shipment);
         existing.CopyFrom(shipment);
         RefreshOrderLifecycle(existing.SalesOrderId);
         WriteOperationLog("Отгрузка", existing.Id, existing.Number, "Изменение отгрузки", "Успех", $"Обновлена отгрузка {existing.Number}.");
@@ -1147,6 +1153,96 @@ public sealed class SalesWorkspace
     private SalesWorkflowActionResult CreateWorkflowResult(bool succeeded, string message, string detail)
     {
         return new SalesWorkflowActionResult(succeeded, message, detail);
+    }
+
+    private void ValidateOrderForPersist(SalesOrderRecord order)
+    {
+        if (order.CustomerId == Guid.Empty || Customers.All(item => item.Id != order.CustomerId))
+        {
+            throw new InvalidOperationException("Нельзя сохранить заказ: клиент не найден в справочнике.");
+        }
+
+        if (string.IsNullOrWhiteSpace(order.CustomerName))
+        {
+            throw new InvalidOperationException("Нельзя сохранить заказ: не указано имя клиента.");
+        }
+
+        if (string.IsNullOrWhiteSpace(order.Warehouse))
+        {
+            throw new InvalidOperationException("Нельзя сохранить заказ: не указан склад.");
+        }
+
+        ValidateSalesLines(order.Lines, "заказ");
+    }
+
+    private void ValidateInvoiceForPersist(SalesInvoiceRecord invoice)
+    {
+        if (!HasOrderReference(invoice.SalesOrderId, invoice.SalesOrderNumber))
+        {
+            throw new InvalidOperationException("Нельзя сохранить счет: заказ-основание не найден.");
+        }
+
+        if (invoice.CustomerId == Guid.Empty || Customers.All(item => item.Id != invoice.CustomerId))
+        {
+            throw new InvalidOperationException("Нельзя сохранить счет: клиент не найден в справочнике.");
+        }
+
+        ValidateSalesLines(invoice.Lines, "счет");
+    }
+
+    private void ValidateShipmentForPersist(SalesShipmentRecord shipment)
+    {
+        if (!HasOrderReference(shipment.SalesOrderId, shipment.SalesOrderNumber))
+        {
+            throw new InvalidOperationException("Нельзя сохранить отгрузку: заказ-основание не найден.");
+        }
+
+        if (shipment.CustomerId == Guid.Empty || Customers.All(item => item.Id != shipment.CustomerId))
+        {
+            throw new InvalidOperationException("Нельзя сохранить отгрузку: клиент не найден в справочнике.");
+        }
+
+        if (string.IsNullOrWhiteSpace(shipment.Warehouse))
+        {
+            throw new InvalidOperationException("Нельзя сохранить отгрузку: не указан склад.");
+        }
+
+        ValidateSalesLines(shipment.Lines, "отгрузку");
+    }
+
+    private bool HasOrderReference(Guid orderId, string orderNumber)
+    {
+        return orderId != Guid.Empty && Orders.Any(item => item.Id == orderId)
+            || !string.IsNullOrWhiteSpace(orderNumber)
+            && Orders.Any(item => item.Number.Equals(orderNumber, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void ValidateSalesLines(IEnumerable<SalesOrderLineRecord> lines, string documentKind)
+    {
+        var rows = lines.ToArray();
+        if (rows.Length == 0)
+        {
+            throw new InvalidOperationException($"Нельзя сохранить {documentKind}: добавьте хотя бы одну позицию.");
+        }
+
+        for (var index = 0; index < rows.Length; index++)
+        {
+            var line = rows[index];
+            if (string.IsNullOrWhiteSpace(line.ItemCode) && string.IsNullOrWhiteSpace(line.ItemName))
+            {
+                throw new InvalidOperationException($"Нельзя сохранить {documentKind}: в позиции {index + 1} не указан товар.");
+            }
+
+            if (line.Quantity <= 0m)
+            {
+                throw new InvalidOperationException($"Нельзя сохранить {documentKind}: количество в позиции {index + 1} должно быть больше нуля.");
+            }
+
+            if (line.Price < 0m)
+            {
+                throw new InvalidOperationException($"Нельзя сохранить {documentKind}: цена в позиции {index + 1} не может быть отрицательной.");
+            }
+        }
     }
 
     private void WriteOperationLog(

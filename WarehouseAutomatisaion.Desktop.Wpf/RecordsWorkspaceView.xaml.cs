@@ -281,8 +281,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
             };
             item.Click += (_, _) =>
             {
-                action.Execute();
-                RefreshView(forceRefresh: true);
+                ExecuteWorkspaceAction(action.Execute);
             };
             menu.Items.Add(item);
         }
@@ -361,8 +360,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         }
 
         RecordsGrid.SelectedItem = item;
-        primaryAction.Execute();
-        RefreshView(forceRefresh: true);
+        ExecuteWorkspaceAction(primaryAction.Execute);
     }
 
     private static T? FindVisualParent<T>(DependencyObject? source)
@@ -634,14 +632,36 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
 
     private void HandlePrimaryActionClick(object sender, RoutedEventArgs e)
     {
-        _definition.PrimaryAction?.Invoke();
-        RefreshView(forceRefresh: true);
+        if (_definition.PrimaryAction is not null)
+        {
+            ExecuteWorkspaceAction(_definition.PrimaryAction);
+        }
     }
 
     private void HandleImportClick(object sender, RoutedEventArgs e)
     {
-        _definition.ImportAction?.Invoke();
-        RefreshView(forceRefresh: true);
+        if (_definition.ImportAction is not null)
+        {
+            ExecuteWorkspaceAction(_definition.ImportAction);
+        }
+    }
+
+    private void ExecuteWorkspaceAction(Action action)
+    {
+        try
+        {
+            action();
+            RefreshView(forceRefresh: true);
+        }
+        catch (InvalidOperationException exception)
+        {
+            MessageBox.Show(
+                Window.GetWindow(this),
+                exception.Message,
+                AppBranding.MessageBoxTitle,
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
 
     private static string Clean(string? value)

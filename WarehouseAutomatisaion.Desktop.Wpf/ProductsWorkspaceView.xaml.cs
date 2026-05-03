@@ -49,6 +49,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     private string _activeSection = ProductsSection;
     private bool _syncingSearch;
     private bool _suppressFilterEvents;
+    private bool _persistWarningShown;
     private ProductRowViewModel? _selectedProduct;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -1879,9 +1880,22 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         try
         {
             _store.Save(_catalogWorkspace);
+            _persistWarningShown = false;
         }
-        catch
+        catch (Exception exception)
         {
+            if (!_store.IsRemoteDatabaseRequired || _persistWarningShown)
+            {
+                return;
+            }
+
+            _persistWarningShown = true;
+            MessageBox.Show(
+                Window.GetWindow(this),
+                $"Не удалось сохранить товары в общей базе. Локальное сохранение отключено для серверного режима.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
+                "Товары",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
     }
 

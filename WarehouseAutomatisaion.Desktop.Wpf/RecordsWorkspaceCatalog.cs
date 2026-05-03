@@ -17,7 +17,7 @@ internal static class RecordsWorkspaceCatalog
     private static readonly string[] InvoiceFilters = ["Все счета", "Оплачено", "Частично оплачено", "Просрочено", "Не оплачено"];
     private static readonly string[] ShipmentFilters = ["Все отгрузки", "Запланировано", "В пути", "Доставлено", "Отменено"];
     private static readonly string[] PurchasingFilters = ["Все документы", "Заказы", "Счета", "Приемки"];
-    private static readonly string[] ScenarioFilters = ["Все сценарии", "Критично", "Важно", "План"];
+    private static readonly string[] ScenarioFilters = ["Все сценарии", "Критично", "Важно", "План", "Готово"];
 
     public static RecordsWorkspaceDefinition CreateSales(SalesWorkspace salesWorkspace)
     {
@@ -363,7 +363,10 @@ internal static class RecordsWorkspaceCatalog
             ?? LoadCatalogWorkspaceSnapshot(salesWorkspace);
         var purchasingWorkspace = PurchasingOperationalWorkspaceStore.CreateDefault()
             .TryLoadExisting(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
+        var warehouseWorkspace = WarehouseOperationalWorkspaceStore.CreateDefault()
+            .TryLoadExisting(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
         var audit = DataIntegrityAuditor.Audit(salesWorkspace, catalogWorkspace, purchasingWorkspace);
+        var migrationRows = BuildMigrationCoverageRows(salesWorkspace, catalogWorkspace, purchasingWorkspace, warehouseWorkspace);
         var scenarioRows = coverage.Modules
             .SelectMany(module => module.Scenarios.Select(item => new DataModelRow(
                 Module: Clean(module.Title),
@@ -388,7 +391,8 @@ internal static class RecordsWorkspaceCatalog
                 SortOrder: item.SeverityRank,
                 DateValue: item.Date))
             .ToArray();
-        var rows = auditRows
+        var rows = migrationRows
+            .Concat(auditRows)
             .Concat(scenarioRows)
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Module, StringComparer.CurrentCultureIgnoreCase)
@@ -404,6 +408,7 @@ internal static class RecordsWorkspaceCatalog
             ShowDateRange: false,
             MetricsFactory: () =>
             [
+                new WorkspaceMetricCardDefinition("Пробелы 1С", migrationRows.Count(item => item.Priority is "Критично" or "Важно").ToString("N0", RuCulture), migrationRows.Any(item => item.Priority is "Критично") ? "есть блокеры" : "под контролем", "Сверка с 1С от 03.05.2026", "#4F5BFF", "#EEF2FF", "#4F5BFF", "\uE9D2"),
                 new WorkspaceMetricCardDefinition("Критично", audit.CriticalCount.ToString("N0", RuCulture), audit.CriticalCount == 0 ? "нет блокеров" : "исправить вручную", "Разорванные связи и дубли ключей", "#F15B5B", "#FFF0F0", "#F15B5B", "\uEA39"),
                 new WorkspaceMetricCardDefinition("Важно", audit.WarningCount.ToString("N0", RuCulture), audit.WarningCount == 0 ? "нет замечаний" : "проверить", "Пустые строки, цены и даты", "#F29A17", "#FFF4E3", "#F29A17", "\uE7BA"),
                 new WorkspaceMetricCardDefinition("План", audit.InfoCount.ToString("N0", RuCulture), audit.InfoCount == 0 ? "чисто" : "дополнить", "Данные, которые улучшают аналитику", "#7180A0", "#F3F6FB", "#7180A0", "\uE9D2"),
@@ -436,6 +441,158 @@ internal static class RecordsWorkspaceCatalog
             ShowImportAction: false,
             ShowPrimaryAction: false);
     }
+
+    private static IReadOnlyList<DataModelRow> BuildMigrationCoverageRows(
+        SalesWorkspace salesWorkspace,
+        CatalogWorkspace catalogWorkspace,
+        OperationalPurchasingWorkspace? purchasingWorkspace,
+        OperationalWarehouseWorkspace? warehouseWorkspace)
+    {
+        var contractCount = CountDistinct(
+            salesWorkspace.Customers.Select(item => item.ContractNumber)
+                .Concat(salesWorkspace.Orders.Select(item => item.ContractNumber))
+                .Concat(salesWorkspace.Invoices.Select(item => item.ContractNumber))
+                .Concat(salesWorkspace.Shipments.Select(item => item.ContractNumber)));
+        var bankAccountCount = CountDistinct(salesWorkspace.Customers.Select(item => item.BankAccount));
+
+        var references = new[]
+        {
+            MigrationReference("Справочники", "Catalog.Контрагенты", "Клиенты", 2_077, salesWorkspace.Customers.Count),
+            MigrationReference("Справочники", "Catalog.Номенклатура", "Товары", 6_255, catalogWorkspace.Items.Count),
+            MigrationReference("Справочники", "Catalog.ВидыЦен", "Типы цен", 21, catalogWorkspace.PriceTypes.Count),
+            MigrationReference("Справочники", "Catalog.ДоговорыКонтрагентов", "Договоры в карточках", 3_796, contractCount),
+            MigrationReference("Справочники", "Catalog.БанковскиеСчета", "Банковские счета клиентов", 601, bankAccountCount),
+            MigrationReference("Справочники", "Catalog.Организации", "Организации", 7, 0),
+            MigrationReference("Склад", "Catalog.СтруктурныеЕдиницы", "Склады", 32, salesWorkspace.Warehouses.Count),
+            MigrationReference("Деньги", "Catalog.Кассы", "Кассы", 17, 0),
+            MigrationReference("Продажи", "Document.ЗаказПокупателя", "Заказы", 20_619, salesWorkspace.Orders.Count),
+            MigrationReference("Продажи", "Document.ЗаказПокупателя.Запасы", "Строки заказов", 97_018, salesWorkspace.Orders.Sum(item => item.Lines.Count)),
+            MigrationReference("Продажи", "Document.СчетНаОплату", "Счета", 711, salesWorkspace.Invoices.Count),
+            MigrationReference("Продажи", "Document.СчетНаОплату.Запасы", "Строки счетов", 5_067, salesWorkspace.Invoices.Sum(item => item.Lines.Count)),
+            MigrationReference("Продажи", "Document.РасходнаяНакладная", "Отгрузки", 19_552, salesWorkspace.Shipments.Count),
+            MigrationReference("Продажи", "Document.РасходнаяНакладная.Запасы", "Строки отгрузок", 90_944, salesWorkspace.Shipments.Sum(item => item.Lines.Count)),
+            MigrationReference("Закупки", "Document.ЗаказПоставщику", "Заказы поставщикам", 588, purchasingWorkspace?.PurchaseOrders.Count ?? 0),
+            MigrationReference("Закупки", "Document.ПриходнаяНакладная", "Приемки", 1_844, purchasingWorkspace?.PurchaseReceipts.Count ?? 0),
+            MigrationReference("Закупки", "Document.ПриходнаяНакладная.Запасы", "Строки приемок", 9_464, purchasingWorkspace?.PurchaseReceipts.Sum(item => item.Lines.Count) ?? 0),
+            MigrationReference("Закупки", "Document.ДополнительныеРасходы", "Доп. расходы", 86, 0),
+            MigrationReference("Склад", "Document.ЗаказНаПеремещение", "Заявки на перемещение", 47, warehouseWorkspace?.TransferOrders.Count ?? 0),
+            MigrationReference("Склад", "Document.ПеремещениеЗапасов", "Перемещения запасов", 911, warehouseWorkspace?.TransferOrders.Count ?? 0),
+            MigrationReference("Склад", "Document.ИнвентаризацияЗапасов", "Инвентаризации", 193, warehouseWorkspace?.InventoryCounts.Count ?? 0),
+            MigrationReference("Склад", "Document.СписаниеЗапасов", "Списания", 162, warehouseWorkspace?.WriteOffs.Count ?? 0),
+            MigrationReference("Склад", "Document.ОприходованиеЗапасов", "Оприходования", 158, 0),
+            MigrationReference("Цены", "Document.УстановкаЦенНоменклатуры", "Установки цен", 683, catalogWorkspace.PriceRegistrations.Count),
+            MigrationReference("Цены", "Document.УстановкаЦенНоменклатуры.Запасы", "Строки установки цен", 99_026, catalogWorkspace.PriceRegistrations.Sum(item => item.Lines.Count)),
+            MigrationReference("Деньги", "Document.ПоступлениеВКассу", "Поступления в кассу", 4_605, salesWorkspace.CashReceipts.Count),
+            MigrationReference("Деньги", "Document.ПоступлениеНаСчет", "Банковские поступления", 3_421, 0),
+            MigrationReference("Деньги", "Document.РасходИзКассы", "Расходы из кассы", 855, 0),
+            MigrationReference("Деньги", "Document.РасходСоСчета", "Банковские расходы", 3_406, 0),
+            MigrationReference("Деньги", "Document.КассоваяСмена", "Кассовые смены", 498, 0),
+            MigrationReference("Права", "UserRoles", "Роли и права", 1_051, 0)
+        };
+
+        return references
+            .Select(BuildMigrationCoverageRow)
+            .ToArray();
+    }
+
+    private static DataModelRow BuildMigrationCoverageRow(MigrationCoverageReference reference)
+    {
+        var priority = GetMigrationPriority(reference.OneCCount, reference.AppCount);
+        var status = priority switch
+        {
+            "Критично" => "Критично",
+            "Важно" => "Под контролем",
+            "План" => "Сверить избыток",
+            _ => "Готово"
+        };
+        var coverage = reference.OneCCount == 0
+            ? 100m
+            : Math.Round(reference.AppCount / (decimal)reference.OneCCount * 100m, 1, MidpointRounding.AwayFromZero);
+        var gap = reference.OneCCount - reference.AppCount;
+        var scope = $"1С: {FormatCount(reference.OneCCount)} / приложение: {FormatCount(reference.AppCount)} / покрытие {coverage:N1}%";
+        var related = $"Разница: {FormatSignedCount(gap)}";
+        var title = $"{reference.OneCObject} -> {reference.AppObject}";
+
+        return new DataModelRow(
+            Module: $"Сверка 1С / {reference.Module}",
+            Priority: priority,
+            Title: title,
+            Scope: scope,
+            RelatedObjects: related,
+            Status: status,
+            SearchText: SearchIndex("миграция", "1С", reference.Module, reference.OneCObject, reference.AppObject, priority, status, scope, related),
+            SortOrder: GetMigrationSortOrder(priority),
+            DateValue: new DateTime(2026, 5, 3));
+    }
+
+    private static MigrationCoverageReference MigrationReference(
+        string module,
+        string oneCObject,
+        string appObject,
+        int oneCCount,
+        int appCount)
+    {
+        return new MigrationCoverageReference(module, oneCObject, appObject, oneCCount, Math.Max(0, appCount));
+    }
+
+    private static string GetMigrationPriority(int oneCCount, int appCount)
+    {
+        if (oneCCount > 0 && appCount == 0)
+        {
+            return "Критично";
+        }
+
+        if (appCount < oneCCount)
+        {
+            return "Важно";
+        }
+
+        if (appCount > oneCCount)
+        {
+            return "План";
+        }
+
+        return "Готово";
+    }
+
+    private static int GetMigrationSortOrder(string priority)
+    {
+        return priority switch
+        {
+            "Критично" => -30,
+            "Важно" => -20,
+            "План" => -10,
+            _ => -5
+        };
+    }
+
+    private static int CountDistinct(IEnumerable<string> values)
+    {
+        return values
+            .Select(Clean)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+    }
+
+    private static string FormatCount(int value)
+    {
+        return value.ToString("N0", RuCulture);
+    }
+
+    private static string FormatSignedCount(int value)
+    {
+        return value > 0
+            ? $"+{FormatCount(value)}"
+            : value.ToString("N0", RuCulture);
+    }
+
+    private sealed record MigrationCoverageReference(
+        string Module,
+        string OneCObject,
+        string AppObject,
+        int OneCCount,
+        int AppCount);
 
     private sealed record DataModelRow(
         string Module,
@@ -493,6 +650,7 @@ internal static class RecordsWorkspaceCatalog
         return
         [
             new RecordsGridActionDefinition("Открыть счет", () => EditInvoice(salesWorkspace, invoice)),
+            new RecordsGridActionDefinition("Печать", () => PrintInvoice(invoice)),
             new RecordsGridActionDefinition("Выставить", () => ShowWorkflowResult("Счета", salesWorkspace.MarkInvoiceIssued(invoice.Id))),
             new RecordsGridActionDefinition("Отметить оплату", () => ShowWorkflowResult("Счета", salesWorkspace.MarkInvoicePaid(invoice.Id))),
             new RecordsGridActionDefinition("Создать отгрузку", () => CreateShipmentFromInvoice(salesWorkspace, invoice))
@@ -504,6 +662,7 @@ internal static class RecordsWorkspaceCatalog
         return
         [
             new RecordsGridActionDefinition("Открыть отгрузку", () => EditShipment(salesWorkspace, shipment)),
+            new RecordsGridActionDefinition("Печать", () => PrintShipment(shipment)),
             new RecordsGridActionDefinition("К сборке", () => ShowWorkflowResult("Отгрузки", salesWorkspace.PrepareShipment(shipment.Id))),
             new RecordsGridActionDefinition("Провести отгрузку", () => ShowWorkflowResult("Отгрузки", salesWorkspace.ShipShipment(shipment.Id)))
         ];
@@ -580,6 +739,106 @@ internal static class RecordsWorkspaceCatalog
         }
     }
 
+    private static void PrintInvoice(SalesInvoiceRecord invoice)
+    {
+        var definition = BuildInvoicePrintDefinition(invoice);
+        PrintDocumentComposer.Print(
+            ResolveOwnerWindow(),
+            $"Счет {invoice.Number}",
+            (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definition, pageWidth, pageHeight));
+    }
+
+    private static void PrintShipment(SalesShipmentRecord shipment)
+    {
+        var definition = BuildShipmentPrintDefinition(shipment);
+        PrintDocumentComposer.Print(
+            ResolveOwnerWindow(),
+            $"Отгрузка {shipment.Number}",
+            (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definition, pageWidth, pageHeight));
+    }
+
+    private static PrintableTableDocumentDefinition BuildInvoicePrintDefinition(SalesInvoiceRecord invoice)
+    {
+        return new PrintableTableDocumentDefinition(
+            Title: $"Счет на оплату № {Clean(invoice.Number)} от {invoice.InvoiceDate:dd.MM.yyyy}",
+            Subtitle: $"Покупатель: {Clean(invoice.CustomerName)}",
+            Facts:
+            [
+                new PrintableField("Покупатель", Clean(invoice.CustomerName)),
+                new PrintableField("Заказ-основание", Clean(invoice.SalesOrderNumber)),
+                new PrintableField("Дата счета", invoice.InvoiceDate.ToString("dd.MM.yyyy", RuCulture)),
+                new PrintableField("Оплатить до", invoice.DueDate.ToString("dd.MM.yyyy", RuCulture)),
+                new PrintableField("Договор", Clean(invoice.ContractNumber)),
+                new PrintableField("Менеджер", Clean(invoice.Manager)),
+                new PrintableField("Статус", Clean(invoice.Status)),
+                new PrintableField("Валюта", Clean(invoice.CurrencyCode))
+            ],
+            Columns: BuildSalesPrintColumns(),
+            Rows: BuildSalesLinePrintRows(invoice.Lines, invoice.CurrencyCode),
+            Totals:
+            [
+                new PrintableField("Итого", FormatMoney(invoice.TotalAmount, invoice.CurrencyCode)),
+                new PrintableField("Без налога (НДС)", string.Empty)
+            ],
+            Comment: invoice.Comment);
+    }
+
+    private static PrintableTableDocumentDefinition BuildShipmentPrintDefinition(SalesShipmentRecord shipment)
+    {
+        return new PrintableTableDocumentDefinition(
+            Title: $"Расходная накладная № {Clean(shipment.Number)} от {shipment.ShipmentDate:dd.MM.yyyy}",
+            Subtitle: $"Покупатель: {Clean(shipment.CustomerName)}",
+            Facts:
+            [
+                new PrintableField("Покупатель", Clean(shipment.CustomerName)),
+                new PrintableField("Заказ-основание", Clean(shipment.SalesOrderNumber)),
+                new PrintableField("Дата отгрузки", shipment.ShipmentDate.ToString("dd.MM.yyyy", RuCulture)),
+                new PrintableField("Склад", Clean(shipment.Warehouse)),
+                new PrintableField("Перевозчик", Clean(shipment.Carrier)),
+                new PrintableField("Статус", Clean(shipment.Status)),
+                new PrintableField("Договор", Clean(shipment.ContractNumber)),
+                new PrintableField("Менеджер", Clean(shipment.Manager))
+            ],
+            Columns: BuildSalesPrintColumns(),
+            Rows: BuildSalesLinePrintRows(shipment.Lines, shipment.CurrencyCode),
+            Totals:
+            [
+                new PrintableField("Итого", FormatMoney(shipment.TotalAmount, shipment.CurrencyCode)),
+                new PrintableField("Без налога (НДС)", string.Empty)
+            ],
+            Comment: shipment.Comment);
+    }
+
+    private static IReadOnlyList<PrintableTableColumn> BuildSalesPrintColumns()
+    {
+        return
+        [
+            new PrintableTableColumn("№", 0.35, TextAlignment.Center),
+            new PrintableTableColumn("Код", 0.9),
+            new PrintableTableColumn("Товары (работы, услуги)", 2.6),
+            new PrintableTableColumn("Кол-во", 0.75, TextAlignment.Right),
+            new PrintableTableColumn("Ед.", 0.55),
+            new PrintableTableColumn("Цена", 0.9, TextAlignment.Right),
+            new PrintableTableColumn("Сумма", 0.95, TextAlignment.Right)
+        ];
+    }
+
+    private static IReadOnlyList<PrintableTableRow> BuildSalesLinePrintRows(IEnumerable<SalesOrderLineRecord> lines, string currencyCode)
+    {
+        return lines
+            .Select((line, index) => new PrintableTableRow(
+            [
+                (index + 1).ToString("N0", RuCulture),
+                Clean(line.ItemCode),
+                Clean(line.ItemName),
+                FormatQuantity(line.Quantity),
+                Clean(line.Unit),
+                FormatMoney(line.Price, currencyCode),
+                FormatMoney(line.Amount, currencyCode)
+            ]))
+            .ToArray();
+    }
+
     private static void EditInvoice(SalesWorkspace salesWorkspace, SalesInvoiceRecord invoice)
     {
         if (TryOpenInvoiceEditorTab(salesWorkspace, invoice))
@@ -639,14 +898,22 @@ internal static class RecordsWorkspaceCatalog
     private static void CreateInvoiceFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
     {
         var invoice = salesWorkspace.CreateInvoiceDraftFromOrder(order.Id);
-        salesWorkspace.AddInvoice(invoice);
+        if (!TryRunSalesEditorSave(() => salesWorkspace.AddInvoice(invoice)))
+        {
+            return;
+        }
+
         ShowMessage("Счета", $"Создан счет {invoice.Number} по заказу {order.Number}.");
     }
 
     private static void CreateShipmentFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
     {
         var shipment = salesWorkspace.CreateShipmentDraftFromOrder(order.Id);
-        salesWorkspace.AddShipment(shipment);
+        if (!TryRunSalesEditorSave(() => salesWorkspace.AddShipment(shipment)))
+        {
+            return;
+        }
+
         ShowMessage("Отгрузки", $"Создана отгрузка {shipment.Number} по заказу {order.Number}.");
     }
 
@@ -714,7 +981,11 @@ internal static class RecordsWorkspaceCatalog
 
         if (dialog.ShowDialog() == true && dialog.ResultOrder is not null)
         {
-            salesWorkspace.AddOrder(dialog.ResultOrder);
+            if (!TryRunSalesEditorSave(() => salesWorkspace.AddOrder(dialog.ResultOrder)))
+            {
+                return;
+            }
+
             ShowMessage("Заказы", $"Создан заказ {dialog.ResultOrder.Number}.");
         }
     }
@@ -741,7 +1012,11 @@ internal static class RecordsWorkspaceCatalog
 
         if (dialog.ShowDialog() == true && dialog.ResultInvoice is not null)
         {
-            salesWorkspace.AddInvoice(dialog.ResultInvoice);
+            if (!TryRunSalesEditorSave(() => salesWorkspace.AddInvoice(dialog.ResultInvoice)))
+            {
+                return;
+            }
+
             ShowMessage("Счета", $"Создан счет {dialog.ResultInvoice.Number}.");
         }
     }
@@ -768,7 +1043,11 @@ internal static class RecordsWorkspaceCatalog
 
         if (dialog.ShowDialog() == true && dialog.ResultShipment is not null)
         {
-            salesWorkspace.AddShipment(dialog.ResultShipment);
+            if (!TryRunSalesEditorSave(() => salesWorkspace.AddShipment(dialog.ResultShipment)))
+            {
+                return;
+            }
+
             ShowMessage("Отгрузки", $"Создана отгрузка {dialog.ResultShipment.Number}.");
         }
     }
@@ -849,12 +1128,20 @@ internal static class RecordsWorkspaceCatalog
 
                 if (isNew)
                 {
-                    salesWorkspace.AddOrder(editor.ResultOrder);
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.AddOrder(editor.ResultOrder)))
+                    {
+                        return;
+                    }
+
                     ShowMessage("Заказы", $"Создан заказ {editor.ResultOrder.Number}.");
                 }
                 else
                 {
-                    salesWorkspace.UpdateOrder(editor.ResultOrder);
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.UpdateOrder(editor.ResultOrder)))
+                    {
+                        return;
+                    }
+
                     ShowMessage("Заказы", $"Обновлен заказ {editor.ResultOrder.Number}.");
                 }
 
@@ -895,12 +1182,20 @@ internal static class RecordsWorkspaceCatalog
 
                 if (isNew)
                 {
-                    salesWorkspace.AddInvoice(editor.ResultInvoice);
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.AddInvoice(editor.ResultInvoice)))
+                    {
+                        return;
+                    }
+
                     ShowMessage("Счета", $"Создан счет {editor.ResultInvoice.Number}.");
                 }
                 else
                 {
-                    salesWorkspace.UpdateInvoice(editor.ResultInvoice);
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.UpdateInvoice(editor.ResultInvoice)))
+                    {
+                        return;
+                    }
+
                     ShowMessage("Счета", $"Обновлен счет {editor.ResultInvoice.Number}.");
                 }
 
@@ -941,12 +1236,20 @@ internal static class RecordsWorkspaceCatalog
 
                 if (isNew)
                 {
-                    salesWorkspace.AddShipment(editor.ResultShipment);
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.AddShipment(editor.ResultShipment)))
+                    {
+                        return;
+                    }
+
                     ShowMessage("Отгрузки", $"Создана отгрузка {editor.ResultShipment.Number}.");
                 }
                 else
                 {
-                    salesWorkspace.UpdateShipment(editor.ResultShipment);
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.UpdateShipment(editor.ResultShipment)))
+                    {
+                        return;
+                    }
+
                     ShowMessage("Отгрузки", $"Обновлена отгрузка {editor.ResultShipment.Number}.");
                 }
 
@@ -967,6 +1270,20 @@ internal static class RecordsWorkspaceCatalog
         }
 
         return dialog.ShowDialog() == true ? dialog.ResultText : null;
+    }
+
+    private static bool TryRunSalesEditorSave(Action action)
+    {
+        try
+        {
+            action();
+            return true;
+        }
+        catch (InvalidOperationException exception)
+        {
+            ShowMessage("Проверка документа", exception.Message, MessageBoxImage.Warning);
+            return false;
+        }
     }
 
     private static Window? ResolveOwnerWindow()
@@ -996,15 +1313,10 @@ internal static class RecordsWorkspaceCatalog
 
     private static IReadOnlyDictionary<string, decimal> BuildStockLookup(SalesWorkspace salesWorkspace)
     {
-        if (salesWorkspace.OperationalSnapshot?.StockBalances is { Count: > 0 } balances)
-        {
-            return balances
-                .GroupBy(item => Clean(item.ItemCode), StringComparer.OrdinalIgnoreCase)
-                .Where(group => !string.IsNullOrWhiteSpace(group.Key))
-                .ToDictionary(group => group.Key, group => group.Sum(item => item.FreeQuantity), StringComparer.OrdinalIgnoreCase);
-        }
-
-        return new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        return WarehouseWorkspace.Create(salesWorkspace).StockBalances
+            .GroupBy(item => Clean(item.ItemCode), StringComparer.OrdinalIgnoreCase)
+            .Where(group => !string.IsNullOrWhiteSpace(group.Key))
+            .ToDictionary(group => group.Key, group => group.Sum(item => item.FreeQuantity), StringComparer.OrdinalIgnoreCase);
     }
 
     private static decimal GetStockValue(IReadOnlyDictionary<string, decimal> stockLookup, string code)
@@ -1326,6 +1638,13 @@ internal static class RecordsWorkspaceCatalog
             ? "₽"
             : Clean(currencyCode);
         return $"{amount:N2} {currency}";
+    }
+
+    private static string FormatQuantity(decimal quantity)
+    {
+        return decimal.Truncate(quantity) == quantity
+            ? quantity.ToString("N0", RuCulture)
+            : quantity.ToString("N2", RuCulture);
     }
 
     private static string FormatDate(DateTime? value)

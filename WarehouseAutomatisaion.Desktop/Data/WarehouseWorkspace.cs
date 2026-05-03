@@ -182,7 +182,7 @@ public sealed class WarehouseWorkspace
 
             if (merged.TryGetValue(key, out var existing))
             {
-                merged[key] = ScoreBalance(balance) > ScoreBalance(existing) ? balance : existing;
+                merged[key] = MergeStockBalance(existing, balance);
                 continue;
             }
 
@@ -238,6 +238,31 @@ public sealed class WarehouseWorkspace
         score += record.ReservedQuantity != 0m ? 1 : 0;
         score += record.ShippedQuantity != 0m ? 1 : 0;
         return score;
+    }
+
+    private static WarehouseStockBalanceRecord MergeStockBalance(
+        WarehouseStockBalanceRecord existing,
+        WarehouseStockBalanceRecord incoming)
+    {
+        var preferred = ScoreBalance(incoming) > ScoreBalance(existing) ? incoming : existing;
+        var baseline = Math.Max(existing.BaselineQuantity, incoming.BaselineQuantity);
+        var reserved = Math.Max(existing.ReservedQuantity, incoming.ReservedQuantity);
+        var shipped = Math.Max(existing.ShippedQuantity, incoming.ShippedQuantity);
+        var free = Math.Max(0m, baseline - reserved - shipped);
+
+        return new WarehouseStockBalanceRecord
+        {
+            ItemCode = FirstNonEmpty(existing.ItemCode, incoming.ItemCode),
+            ItemName = FirstNonEmpty(existing.ItemName, incoming.ItemName),
+            Warehouse = FirstNonEmpty(existing.Warehouse, incoming.Warehouse),
+            Unit = FirstNonEmpty(existing.Unit, incoming.Unit),
+            BaselineQuantity = baseline,
+            ReservedQuantity = reserved,
+            ShippedQuantity = shipped,
+            FreeQuantity = free,
+            Status = BuildStockStatus(free, reserved, shipped),
+            SourceLabel = FirstNonEmpty(preferred.SourceLabel, existing.SourceLabel, incoming.SourceLabel)
+        };
     }
 
     private static int ScoreDocument(WarehouseDocumentRecord record)
@@ -355,12 +380,17 @@ public sealed class WarehouseWorkspace
 
     private static string BuildStockStatus(SalesWarehouseStockSnapshot item)
     {
-        if (item.FreeQuantity <= 0m)
+        return BuildStockStatus(item.FreeQuantity, item.ReservedQuantity, item.ShippedQuantity);
+    }
+
+    private static string BuildStockStatus(decimal freeQuantity, decimal reservedQuantity, decimal shippedQuantity)
+    {
+        if (freeQuantity <= 0m)
         {
             return "Критично";
         }
 
-        if (item.ReservedQuantity > 0m || item.ShippedQuantity > 0m)
+        if (reservedQuantity > 0m || shippedQuantity > 0m)
         {
             return "Под контроль";
         }

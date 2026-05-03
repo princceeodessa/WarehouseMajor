@@ -6,6 +6,13 @@ param(
     [string]$CodeSigningCertificatePath = $env:MAJORWAREHAUSE_CODESIGN_PFX_PATH,
     [string]$CodeSigningCertificatePassword = $env:MAJORWAREHAUSE_CODESIGN_PFX_PASSWORD,
     [string]$CodeSigningTimestampServer = $env:MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER,
+    [string]$RemoteDatabaseEnabled = $env:WAREHOUSE_REMOTE_DB_ENABLED,
+    [string]$RemoteDatabaseHost = $env:WAREHOUSE_MYSQL_HOST,
+    [string]$RemoteDatabasePort = $env:WAREHOUSE_MYSQL_PORT,
+    [string]$RemoteDatabaseName = $env:WAREHOUSE_MYSQL_DATABASE,
+    [string]$RemoteDatabaseUser = $env:WAREHOUSE_MYSQL_USER,
+    [string]$RemoteDatabasePassword = $env:WAREHOUSE_MYSQL_PASSWORD,
+    [string]$RemoteDatabaseMysqlPath = $env:WAREHOUSE_MYSQL_PATH,
     [switch]$RequireCodeSigning,
     [switch]$SkipPublish
 )
@@ -50,6 +57,34 @@ if (-not $SkipPublish) {
 
     if (-not [string]::IsNullOrWhiteSpace($CodeSigningTimestampServer)) {
         $publishArguments += @("-CodeSigningTimestampServer", $CodeSigningTimestampServer)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RemoteDatabaseEnabled)) {
+        $publishArguments += @("-RemoteDatabaseEnabled", $RemoteDatabaseEnabled)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RemoteDatabaseHost)) {
+        $publishArguments += @("-RemoteDatabaseHost", $RemoteDatabaseHost)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RemoteDatabasePort)) {
+        $publishArguments += @("-RemoteDatabasePort", $RemoteDatabasePort)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RemoteDatabaseName)) {
+        $publishArguments += @("-RemoteDatabaseName", $RemoteDatabaseName)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RemoteDatabaseUser)) {
+        $publishArguments += @("-RemoteDatabaseUser", $RemoteDatabaseUser)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RemoteDatabasePassword)) {
+        $publishArguments += @("-RemoteDatabasePassword", $RemoteDatabasePassword)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RemoteDatabaseMysqlPath)) {
+        $publishArguments += @("-RemoteDatabaseMysqlPath", $RemoteDatabaseMysqlPath)
     }
 
     if ($RequireCodeSigning) {

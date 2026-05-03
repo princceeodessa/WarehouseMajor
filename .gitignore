@@ -19,5 +19,6 @@ runtime-watch.log
 
 exports_sales_docs_*/
 exports_sales_invoices_*/
+exports_gap_1c_*/
 
 WarehouseAutomatisaion.Desktop.Wpf/appsettings.local.json

@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, DynamicTabDefinition> _dynamicTabsByKey = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly DemoWorkspace _demoWorkspace;
+    private readonly DesktopClientStartupResult _startupStatus;
     private readonly SalesWorkspaceStore _salesWorkspaceStore;
     private readonly SalesWorkspace _salesWorkspace;
     private readonly FunctionalCoverageSnapshot _coverage;
@@ -41,8 +42,9 @@ public partial class MainWindow : Window
     private bool _applyingRemoteSalesRefresh;
     private bool _salesWorkspaceSaveWarningShown;
 
-    public MainWindow()
+    public MainWindow(DesktopClientStartupResult startupStatus)
     {
+        _startupStatus = startupStatus;
         InitializeComponent();
         WpfTextNormalizer.NormalizeTree(this);
         EnsureWindowFitsWorkArea();
@@ -69,6 +71,7 @@ public partial class MainWindow : Window
 
         RegisterSidebarButtons();
         RegisterSections();
+        InitializeDatabaseStatus();
         InitializeUpdatePanel();
         OpenSection("dashboard");
 
@@ -144,7 +147,7 @@ public partial class MainWindow : Window
                 _salesWorkspaceSaveWarningShown = true;
                 MessageBox.Show(
                     this,
-                    $"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f \u0437\u0430\u043a\u0430\u0437\u043e\u0432. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u0431\u0430\u0437\u0435 \u0434\u0430\u043d\u043d\u044b\u0445 \u0438\u043b\u0438 \u043f\u0440\u0430\u0432\u0430 \u043d\u0430 \u0437\u0430\u043f\u0438\u0441\u044c \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u0433\u043e \u0444\u0430\u0439\u043b\u0430.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
+                    $"Не удалось сохранить изменения заказов. Проверьте доступ к базе данных и права на запись.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
                     AppBranding.MessageBoxTitle,
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
@@ -222,7 +225,7 @@ public partial class MainWindow : Window
         {
             return store.LoadOrCreate(string.IsNullOrWhiteSpace(currentOperator) ? Environment.UserName : currentOperator);
         }
-        catch
+        catch when (!store.IsRemoteDatabaseRequired)
         {
             return SalesWorkspace.Create(string.IsNullOrWhiteSpace(currentOperator) ? Environment.UserName : currentOperator);
         }
@@ -237,6 +240,27 @@ public partial class MainWindow : Window
                 ? "Проверяю канал обновлений..."
                 : "Автообновление отключено в конфиге.",
             buttonEnabled: true);
+    }
+
+    private void InitializeDatabaseStatus()
+    {
+        if (_startupStatus.UsesSharedDatabase)
+        {
+            DatabaseStatusBadge.Background = BrushFromHex("#EAF8F0");
+            DatabaseStatusBadge.BorderBrush = BrushFromHex("#BFE8CF");
+            DatabaseStatusIconText.Text = "\uE930";
+            DatabaseStatusIconText.Foreground = BrushFromHex("#1F8F50");
+            DatabaseStatusTitleText.Text = "Общая база";
+            DatabaseStatusText.Text = $"{_startupStatus.Host}:{_startupStatus.Port} / {_startupStatus.Database}";
+            return;
+        }
+
+        DatabaseStatusBadge.Background = BrushFromHex("#FFF4E3");
+        DatabaseStatusBadge.BorderBrush = BrushFromHex("#FFD9A3");
+        DatabaseStatusIconText.Text = "\uE783";
+        DatabaseStatusIconText.Foreground = BrushFromHex("#B76600");
+        DatabaseStatusTitleText.Text = "Локальные данные";
+        DatabaseStatusText.Text = "Изменения видны только на этом рабочем месте.";
     }
 
     private async void HandleWindowLoaded(object sender, RoutedEventArgs e)

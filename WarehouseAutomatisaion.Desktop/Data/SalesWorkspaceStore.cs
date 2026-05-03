@@ -28,6 +28,8 @@ public sealed class SalesWorkspaceStore
 
     public string StoragePath { get; }
 
+    public bool IsRemoteDatabaseRequired => _serverModeEnabled;
+
     public bool IsServerModeEnabled => _serverModeEnabled && _backplane is not null;
 
     public static SalesWorkspaceStore CreateDefault()
@@ -45,6 +47,8 @@ public sealed class SalesWorkspaceStore
         bool includeOperationalSnapshot = true,
         IReadOnlyList<string>? importRoots = null)
     {
+        EnsureBackplaneReady(currentOperator);
+
         var workspace = SalesWorkspace.Create(currentOperator);
         var shouldAttachImportSnapshot = importRoots is { Count: > 0 };
         if (shouldAttachImportSnapshot)
@@ -76,6 +80,11 @@ public sealed class SalesWorkspaceStore
         {
             _remoteMetadata = backplaneRecord.Metadata;
             ApplySnapshotToWorkspace(workspace, backplaneRecord.Snapshot, operationalSnapshot, importRoots);
+            return RepairAndReturn(workspace, currentOperator);
+        }
+
+        if (_serverModeEnabled)
+        {
             return RepairAndReturn(workspace, currentOperator);
         }
 
@@ -220,6 +229,21 @@ public sealed class SalesWorkspaceStore
         var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
         File.WriteAllText(tempPath, json, Encoding.UTF8);
         File.Move(tempPath, StoragePath, true);
+    }
+
+    private void EnsureBackplaneReady(string currentOperator)
+    {
+        if (!_serverModeEnabled)
+        {
+            return;
+        }
+
+        if (_backplane is null)
+        {
+            throw new InvalidOperationException("Включен режим общей БД, но подключение к серверу недоступно. Локальная загрузка заказов отключена.");
+        }
+
+        _backplane.EnsureReady(currentOperator);
     }
 
     private static bool RepairWorkspace(SalesWorkspace workspace)

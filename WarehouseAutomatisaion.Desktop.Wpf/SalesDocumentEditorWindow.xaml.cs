@@ -428,6 +428,11 @@ public partial class SalesDocumentEditorWindow : Window
             return;
         }
 
+        if (!ValidateLines())
+        {
+            return;
+        }
+
         switch (_mode)
         {
             case SalesDocumentEditorMode.Order:
@@ -448,6 +453,24 @@ public partial class SalesDocumentEditorWindow : Window
         if (customer is null)
         {
             ValidationText.Text = "Выберите клиента.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(WarehouseComboBox.Text))
+        {
+            ValidationText.Text = "Укажите склад заказа.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ManagerComboBox.Text))
+        {
+            ValidationText.Text = "Укажите ответственного менеджера.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(CurrencyComboBox.Text))
+        {
+            ValidationText.Text = "Укажите валюту заказа.";
             return;
         }
 
@@ -475,9 +498,26 @@ public partial class SalesDocumentEditorWindow : Window
             return;
         }
 
+        if (!ValidateBaseOrder(order, "счета"))
+        {
+            return;
+        }
+
         if (SecondaryDatePicker.SelectedDate is null)
         {
             ValidationText.Text = "Укажите срок оплаты.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ManagerComboBox.Text))
+        {
+            ValidationText.Text = "Укажите ответственного менеджера.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(CurrencyComboBox.Text))
+        {
+            ValidationText.Text = "Укажите валюту счета.";
             return;
         }
 
@@ -501,6 +541,23 @@ public partial class SalesDocumentEditorWindow : Window
         if (order is null)
         {
             ValidationText.Text = "Выберите заказ-основание.";
+            return;
+        }
+
+        if (!ValidateBaseOrder(order, "отгрузки"))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(WarehouseComboBox.Text))
+        {
+            ValidationText.Text = "Укажите склад отгрузки.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ManagerComboBox.Text))
+        {
+            ValidationText.Text = "Укажите ответственного менеджера.";
             return;
         }
 
@@ -546,6 +603,52 @@ public partial class SalesDocumentEditorWindow : Window
     {
         var selected = CustomerComboBox.SelectedItem?.ToString() ?? CustomerComboBox.Text;
         return _customerOptions.TryGetValue(selected.Trim(), out var customer) ? customer : null;
+    }
+
+    private bool ValidateLines()
+    {
+        for (var index = 0; index < _lines.Count; index++)
+        {
+            var line = _lines[index];
+            if (string.IsNullOrWhiteSpace(line.ItemName) && string.IsNullOrWhiteSpace(line.ItemCode))
+            {
+                ValidationText.Text = $"Позиция {index + 1}: укажите товар.";
+                return false;
+            }
+
+            if (line.Quantity <= 0m)
+            {
+                ValidationText.Text = $"Позиция {index + 1}: количество должно быть больше нуля.";
+                return false;
+            }
+
+            if (line.Price < 0m)
+            {
+                ValidationText.Text = $"Позиция {index + 1}: цена не может быть отрицательной.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool ValidateBaseOrder(SalesOrderRecord order, string documentKind)
+    {
+        var customerExists = order.CustomerId != Guid.Empty
+            && _workspace.Customers.Any(item => item.Id == order.CustomerId);
+        if (!customerExists)
+        {
+            ValidationText.Text = $"Нельзя создать {documentKind}: у заказа-основания не найден клиент.";
+            return false;
+        }
+
+        if (order.Lines.Count == 0)
+        {
+            ValidationText.Text = $"Нельзя создать {documentKind}: в заказе-основании нет позиций.";
+            return false;
+        }
+
+        return true;
     }
 
     private SalesOrderRecord? GetSelectedOrder()

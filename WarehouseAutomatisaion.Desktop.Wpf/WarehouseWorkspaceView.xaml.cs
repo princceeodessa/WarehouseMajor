@@ -50,6 +50,8 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     private string _activeSection = StockSection;
     private bool _syncingSearch;
     private bool _suppressFilterEvents;
+    private bool _persistWarningShown;
+    private bool _salesPersistWarningShown;
     private int _stockPage = 1;
     private int _documentsPage = 1;
     private WarehouseStockItemViewModel[] _filteredStockItems = Array.Empty<WarehouseStockItemViewModel>();
@@ -2164,20 +2166,47 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         try
         {
             _store.Save(_workspace);
+            _persistWarningShown = false;
         }
-        catch
+        catch (Exception exception)
         {
+            if (!_store.IsRemoteDatabaseRequired || _persistWarningShown)
+            {
+                return;
+            }
+
+            _persistWarningShown = true;
+            MessageBox.Show(
+                Window.GetWindow(this),
+                $"Не удалось сохранить склад в общей базе. Локальное сохранение отключено для серверного режима.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
+                "Склад",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
     }
 
     private void TryPersistSalesWorkspace()
     {
+        var store = SalesWorkspaceStore.CreateDefault();
         try
         {
-            SalesWorkspaceStore.CreateDefault().Save(_salesWorkspace);
+            store.Save(_salesWorkspace);
+            _salesPersistWarningShown = false;
         }
-        catch
+        catch (Exception exception)
         {
+            if (!store.IsRemoteDatabaseRequired || _salesPersistWarningShown)
+            {
+                return;
+            }
+
+            _salesPersistWarningShown = true;
+            MessageBox.Show(
+                Window.GetWindow(this),
+                $"Не удалось сохранить изменения продаж в общей базе. Локальное сохранение отключено для серверного режима.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
+                "Склад",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
     }
 

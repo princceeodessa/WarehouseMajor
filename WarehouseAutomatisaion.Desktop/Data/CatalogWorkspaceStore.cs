@@ -13,26 +13,38 @@ public sealed class CatalogWorkspaceStore
     };
 
     private readonly DesktopMySqlBackplaneService? _backplane;
+    private readonly bool _serverModeEnabled;
     private DesktopModuleSnapshotMetadata? _remoteMetadata;
 
-    public CatalogWorkspaceStore(string storagePath, DesktopMySqlBackplaneService? backplane = null)
+    public CatalogWorkspaceStore(
+        string storagePath,
+        DesktopMySqlBackplaneService? backplane = null,
+        bool serverModeEnabled = false)
     {
         StoragePath = storagePath;
         _backplane = backplane;
+        _serverModeEnabled = serverModeEnabled;
     }
 
     public string StoragePath { get; }
+
+    public bool IsRemoteDatabaseRequired => _serverModeEnabled;
+
+    public bool IsServerModeEnabled => _serverModeEnabled && _backplane is not null;
 
     public static CatalogWorkspaceStore CreateDefault()
     {
         var root = WorkspacePathResolver.ResolveWorkspaceRoot();
         return new CatalogWorkspaceStore(
             Path.Combine(root, "app_data", "catalog-workspace.json"),
-            DesktopMySqlBackplaneService.TryCreateDefault());
+            DesktopMySqlBackplaneService.TryCreateDefault(),
+            DesktopRemoteDatabaseSettings.IsRemoteDatabaseEnabled());
     }
 
     public CatalogWorkspace LoadOrCreate(string currentOperator, SalesWorkspace salesWorkspace)
     {
+        EnsureBackplaneReady(currentOperator);
+
         var seed = BuildSeed(salesWorkspace);
         var workspace = CatalogWorkspace.Create(currentOperator, seed);
         _backplane?.TryEnsureUserProfile(currentOperator);
@@ -50,6 +62,11 @@ public sealed class CatalogWorkspaceStore
                 TrySaveToBackplane(backplaneSnapshot, currentOperator);
             }
 
+            return workspace;
+        }
+
+        if (_serverModeEnabled)
+        {
             return workspace;
         }
 
@@ -75,9 +92,15 @@ public sealed class CatalogWorkspaceStore
                 WriteSnapshot(snapshot);
             }
 
-            if (_backplane?.TrySaveModuleSnapshot("catalog", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
+            var backplane = _backplane;
+            var savedToBackplane = backplane?.TrySaveModuleSnapshot("catalog", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true;
+            if (savedToBackplane && backplane is not null)
             {
-                _remoteMetadata = _backplane.TryLoadModuleSnapshotMetadata("catalog");
+                _remoteMetadata = backplane.TryLoadModuleSnapshotMetadata("catalog");
+            }
+            else if (_serverModeEnabled)
+            {
+                throw CreateRemoteSaveException("товаров");
             }
 
             return workspace;
@@ -93,6 +116,7 @@ public sealed class CatalogWorkspaceStore
         IReadOnlyList<string>? currencies = null,
         IReadOnlyList<string>? warehouses = null)
     {
+        EnsureBackplaneReady(currentOperator);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
         var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
@@ -102,6 +126,11 @@ public sealed class CatalogWorkspaceStore
             _remoteMetadata = backplaneRecord.Metadata;
             NormalizeSnapshot(backplaneSnapshot);
             return backplaneSnapshot.ToWorkspace(currentOperator, currencies, warehouses);
+        }
+
+        if (_serverModeEnabled)
+        {
+            return null;
         }
 
         if (!File.Exists(StoragePath))
@@ -141,6 +170,11 @@ public sealed class CatalogWorkspaceStore
         if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
         {
             return;
+        }
+
+        if (_serverModeEnabled)
+        {
+            throw CreateRemoteSaveException("товаров");
         }
 
         WriteSnapshot(snapshot);
@@ -197,6 +231,26 @@ public sealed class CatalogWorkspaceStore
         var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
         File.WriteAllText(tempPath, json, Encoding.UTF8);
         File.Move(tempPath, StoragePath, true);
+    }
+
+    private void EnsureBackplaneReady(string currentOperator)
+    {
+        if (!_serverModeEnabled)
+        {
+            return;
+        }
+
+        if (_backplane is null)
+        {
+            throw new InvalidOperationException("Включен режим общей БД, но подключение к серверу недоступно. Локальная загрузка товаров отключена.");
+        }
+
+        _backplane.EnsureReady(currentOperator);
+    }
+
+    private static InvalidOperationException CreateRemoteSaveException(string moduleName)
+    {
+        return new InvalidOperationException($"Не удалось сохранить данные {moduleName} в серверную БД. Локальное сохранение отключено для общего режима.");
     }
 
     private static bool NormalizeSnapshot(CatalogWorkspaceSnapshot snapshot)

@@ -225,8 +225,13 @@ public partial class DashboardWorkspaceView : UserControl
 
     private int CountLowStockItems()
     {
-        var stockBalances = _salesWorkspace.OperationalSnapshot?.StockBalances ?? Array.Empty<WarehouseStockBalanceRecord>();
+        var stockBalances = GetCurrentStockBalances();
         return stockBalances.Count(IsLowStockItem);
+    }
+
+    private IReadOnlyList<WarehouseStockBalanceRecord> GetCurrentStockBalances()
+    {
+        return WarehouseWorkspace.Create(_salesWorkspace).StockBalances;
     }
 
     private static bool IsLowStockItem(WarehouseStockBalanceRecord item)
@@ -562,7 +567,7 @@ public partial class DashboardWorkspaceView : UserControl
             return "catalog";
         }
 
-        var stockBalances = _salesWorkspace.OperationalSnapshot?.StockBalances ?? Array.Empty<WarehouseStockBalanceRecord>();
+        var stockBalances = GetCurrentStockBalances();
         if (stockBalances.Any(item => Matches(query, item.ItemCode, item.ItemName, item.Warehouse, item.Status)))
         {
             return "warehouse";

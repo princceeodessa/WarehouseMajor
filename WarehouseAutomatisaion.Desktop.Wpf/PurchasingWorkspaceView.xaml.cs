@@ -63,6 +63,7 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
     private bool _suppressFilters;
     private bool _initialized;
     private bool _dateRangeInitialized;
+    private bool _persistWarningShown;
     private int _page = 1;
     private int _pageSize = 20;
     private DateTime? _defaultDateFrom;
@@ -3478,9 +3479,22 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         try
         {
             _store.Save(_workspace);
+            _persistWarningShown = false;
         }
-        catch
+        catch (Exception exception)
         {
+            if (!_store.IsRemoteDatabaseRequired || _persistWarningShown)
+            {
+                return;
+            }
+
+            _persistWarningShown = true;
+            MessageBox.Show(
+                Window.GetWindow(this),
+                $"Не удалось сохранить закупки в общей базе. Локальное сохранение отключено для серверного режима.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
+                "Закупки",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
     }
 

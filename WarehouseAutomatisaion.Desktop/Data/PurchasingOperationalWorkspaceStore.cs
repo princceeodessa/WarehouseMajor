@@ -12,26 +12,38 @@ public sealed class PurchasingOperationalWorkspaceStore
         WriteIndented = true
     };
     private readonly DesktopMySqlBackplaneService? _backplane;
+    private readonly bool _serverModeEnabled;
     private DesktopModuleSnapshotMetadata? _remoteMetadata;
 
-    public PurchasingOperationalWorkspaceStore(string storagePath, DesktopMySqlBackplaneService? backplane = null)
+    public PurchasingOperationalWorkspaceStore(
+        string storagePath,
+        DesktopMySqlBackplaneService? backplane = null,
+        bool serverModeEnabled = false)
     {
         StoragePath = storagePath;
         _backplane = backplane;
+        _serverModeEnabled = serverModeEnabled;
     }
 
     public string StoragePath { get; }
+
+    public bool IsRemoteDatabaseRequired => _serverModeEnabled;
+
+    public bool IsServerModeEnabled => _serverModeEnabled && _backplane is not null;
 
     public static PurchasingOperationalWorkspaceStore CreateDefault()
     {
         var root = WorkspacePathResolver.ResolveWorkspaceRoot();
         return new PurchasingOperationalWorkspaceStore(
             Path.Combine(root, "app_data", "purchasing-workspace.json"),
-            DesktopMySqlBackplaneService.TryCreateDefault());
+            DesktopMySqlBackplaneService.TryCreateDefault(),
+            DesktopRemoteDatabaseSettings.IsRemoteDatabaseEnabled());
     }
 
     public OperationalPurchasingWorkspace LoadOrCreate(string currentOperator, SalesWorkspace salesWorkspace)
     {
+        EnsureBackplaneReady(currentOperator);
+
         var workspace = OperationalPurchasingWorkspace.Create(currentOperator, salesWorkspace);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
@@ -48,6 +60,11 @@ public sealed class PurchasingOperationalWorkspaceStore
                 TrySaveToBackplane(backplaneSnapshot, currentOperator);
             }
 
+            return workspace;
+        }
+
+        if (_serverModeEnabled)
+        {
             return workspace;
         }
 
@@ -73,9 +90,15 @@ public sealed class PurchasingOperationalWorkspaceStore
                 WriteSnapshot(snapshot);
             }
 
-            if (_backplane?.TrySaveModuleSnapshot("purchasing", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
+            var backplane = _backplane;
+            var savedToBackplane = backplane?.TrySaveModuleSnapshot("purchasing", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true;
+            if (savedToBackplane && backplane is not null)
             {
-                _remoteMetadata = _backplane.TryLoadModuleSnapshotMetadata("purchasing");
+                _remoteMetadata = backplane.TryLoadModuleSnapshotMetadata("purchasing");
+            }
+            else if (_serverModeEnabled)
+            {
+                throw CreateRemoteSaveException("закупок");
             }
 
             return workspace;
@@ -91,6 +114,7 @@ public sealed class PurchasingOperationalWorkspaceStore
         IReadOnlyList<SalesCatalogItemOption>? catalogItems = null,
         IReadOnlyList<string>? warehouses = null)
     {
+        EnsureBackplaneReady(currentOperator);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
         var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
@@ -99,6 +123,11 @@ public sealed class PurchasingOperationalWorkspaceStore
             var backplaneSnapshot = backplaneRecord.Snapshot;
             _remoteMetadata = backplaneRecord.Metadata;
             return backplaneSnapshot.ToWorkspace(currentOperator, catalogItems, warehouses);
+        }
+
+        if (_serverModeEnabled)
+        {
+            return null;
         }
 
         if (!File.Exists(StoragePath))
@@ -137,6 +166,11 @@ public sealed class PurchasingOperationalWorkspaceStore
         if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
         {
             return;
+        }
+
+        if (_serverModeEnabled)
+        {
+            throw CreateRemoteSaveException("закупок");
         }
 
         WriteSnapshot(snapshot);
@@ -193,6 +227,26 @@ public sealed class PurchasingOperationalWorkspaceStore
         var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
         File.WriteAllText(tempPath, json, Encoding.UTF8);
         File.Move(tempPath, StoragePath, true);
+    }
+
+    private void EnsureBackplaneReady(string currentOperator)
+    {
+        if (!_serverModeEnabled)
+        {
+            return;
+        }
+
+        if (_backplane is null)
+        {
+            throw new InvalidOperationException("Включен режим общей БД, но подключение к серверу недоступно. Локальная загрузка закупок отключена.");
+        }
+
+        _backplane.EnsureReady(currentOperator);
+    }
+
+    private static InvalidOperationException CreateRemoteSaveException(string moduleName)
+    {
+        return new InvalidOperationException($"Не удалось сохранить данные {moduleName} в серверную БД. Локальное сохранение отключено для общего режима.");
     }
 
     private static IReadOnlyList<DesktopAuditEventSeed> CreateAuditSeeds(IEnumerable<PurchasingOperationLogEntry> entries)
