@@ -61,7 +61,7 @@ public partial class MainWindow : Window
 
         _demoWorkspace = DemoWorkspace.Create();
         _salesWorkspaceStore = SalesWorkspaceStore.CreateDefault();
-        _salesWorkspace = TryLoadSalesWorkspace(_salesWorkspaceStore, _startupStatus.DisplayName);
+        _salesWorkspace = TryLoadSalesWorkspace(_salesWorkspaceStore, _startupStatus.UserName);
         _salesWorkspace.Changed += HandleSalesWorkspaceChanged;
         _coverage = FunctionalCoverageSnapshot.Create();
         _applicationUpdateService = new ApplicationUpdateService();

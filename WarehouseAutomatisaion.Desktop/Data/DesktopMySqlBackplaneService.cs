@@ -156,16 +156,17 @@ public sealed class DesktopMySqlBackplaneService
                 assigned_by
             )
             SELECT
-                {SqlUtf8TextExpression(userId.ToString())},
+                u.id,
                 r.id,
                 UTC_TIMESTAMP(6),
                 {SqlUtf8TextExpression(normalizedUserName)}
-            FROM app_roles r
-            WHERE r.role_code = {SqlUtf8TextExpression(roleCode)}
+            FROM app_users u
+            JOIN app_roles r ON r.role_code = {SqlUtf8TextExpression(roleCode)}
+            WHERE u.user_name = {SqlUtf8TextExpression(normalizedUserName)}
                 AND NOT EXISTS (
                     SELECT 1
-                    FROM app_user_roles
-                    WHERE user_id = {SqlUtf8TextExpression(userId.ToString())}
+                    FROM app_user_roles ur
+                    WHERE ur.user_id = u.id
                 );
             """);
 
@@ -273,8 +274,10 @@ public sealed class DesktopMySqlBackplaneService
                 updated_at_utc = UTC_TIMESTAMP(6),
                 password_updated_at_utc = UTC_TIMESTAMP(6);
 
-            DELETE FROM app_user_roles
-            WHERE user_id = {SqlUtf8TextExpression(userId.ToString())};
+            DELETE ur
+            FROM app_user_roles ur
+            JOIN app_users u ON u.id = ur.user_id
+            WHERE u.user_name = {SqlUtf8TextExpression(normalizedUserName)};
 
             INSERT INTO app_user_roles (
                 user_id,
@@ -283,12 +286,13 @@ public sealed class DesktopMySqlBackplaneService
                 assigned_by
             )
             SELECT
-                {SqlUtf8TextExpression(userId.ToString())},
+                u.id,
                 r.id,
                 UTC_TIMESTAMP(6),
                 {SqlUtf8TextExpression(normalizedAssignedBy)}
-            FROM app_roles r
-            WHERE r.role_code = {SqlUtf8TextExpression(normalizedRoleCode)};
+            FROM app_users u
+            JOIN app_roles r ON r.role_code = {SqlUtf8TextExpression(normalizedRoleCode)}
+            WHERE u.user_name = {SqlUtf8TextExpression(normalizedUserName)};
             """);
         script.AppendLine("COMMIT;");
         ExecuteSqlNonQuery(script.ToString(), useDatabase: true);
