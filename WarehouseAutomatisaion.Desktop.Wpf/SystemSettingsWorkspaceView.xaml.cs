@@ -9,8 +9,15 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 
 public partial class SystemSettingsWorkspaceView : UserControl
 {
+    private static readonly IReadOnlyList<SettingsRoleOption> RoleOptions =
+    [
+        new("manager", "Менеджер"),
+        new("admin", "Администратор")
+    ];
+
     private readonly DesktopClientStartupResult _startupStatus;
     private readonly ApplicationUpdateOptions _updateOptions;
+    private readonly DesktopMySqlBackplaneService? _backplane;
     private readonly string _appSettingsPath;
     private readonly string _localSettingsPath;
 
@@ -20,12 +27,18 @@ public partial class SystemSettingsWorkspaceView : UserControl
     {
         _startupStatus = startupStatus;
         _updateOptions = ApplicationUpdateSettings.Snapshot();
+        _backplane = startupStatus.UsesSharedDatabase
+            ? DesktopMySqlBackplaneService.TryCreateDefault()
+            : null;
         _appSettingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
         _localSettingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.local.json");
 
         InitializeComponent();
         DataLinksHost.Content = new RecordsWorkspaceView(dataLinksDefinition);
+        UserRoleComboBox.ItemsSource = RoleOptions;
+        UserRoleComboBox.SelectedValue = "manager";
         PopulateSettings();
+        RefreshUsers();
     }
 
     private void PopulateSettings()
@@ -127,6 +140,155 @@ public partial class SystemSettingsWorkspaceView : UserControl
         ActionStatusText.Text = "Сведения о подключении скопированы.";
     }
 
+    private void HandleRefreshUsersClick(object sender, RoutedEventArgs e)
+    {
+        RefreshUsers();
+    }
+
+    private void HandleUsersSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (UsersDataGrid.SelectedItem is not SettingsUserRowViewModel user)
+        {
+            return;
+        }
+
+        UserLoginTextBox.Text = user.UserName;
+        UserDisplayNameTextBox.Text = user.DisplayName;
+        UserRoleComboBox.SelectedValue = string.IsNullOrWhiteSpace(user.RoleCode) ? "manager" : user.RoleCode;
+        UserPasswordBox.Clear();
+        SaveUserButton.Content = "Обновить пользователя";
+        UserFormStatusText.Text = "Для обновления пользователя укажите новый пароль.";
+    }
+
+    private void HandleClearUserFormClick(object sender, RoutedEventArgs e)
+    {
+        ClearUserForm();
+    }
+
+    private void HandleSaveUserClick(object sender, RoutedEventArgs e)
+    {
+        if (_backplane is null)
+        {
+            UserFormStatusText.Text = "Создание пользователей доступно только при подключении к общей базе.";
+            return;
+        }
+
+        var userName = UserLoginTextBox.Text.Trim();
+        var displayName = UserDisplayNameTextBox.Text.Trim();
+        var roleCode = UserRoleComboBox.SelectedValue as string ?? "manager";
+        var password = UserPasswordBox.Password;
+
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            UserFormStatusText.Text = "Введите логин пользователя.";
+            UserLoginTextBox.Focus();
+            return;
+        }
+
+        if (userName.Any(char.IsWhiteSpace))
+        {
+            UserFormStatusText.Text = "Логин не должен содержать пробелы.";
+            UserLoginTextBox.Focus();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+        {
+            UserFormStatusText.Text = "Введите пароль не короче 6 символов.";
+            UserPasswordBox.Focus();
+            return;
+        }
+
+        SetUserFormBusy(true);
+        try
+        {
+            _backplane.UpsertUserWithPassword(
+                userName,
+                string.IsNullOrWhiteSpace(displayName) ? userName : displayName,
+                roleCode,
+                password,
+                _startupStatus.UserName);
+            UserPasswordBox.Clear();
+            RefreshUsers(selectUserName: userName);
+            SaveUserButton.Content = "Обновить пользователя";
+            UserFormStatusText.Text = $"Пользователь {userName} сохранен.";
+        }
+        catch (Exception exception)
+        {
+            UserFormStatusText.Text = $"Не удалось сохранить пользователя: {exception.Message}";
+        }
+        finally
+        {
+            SetUserFormBusy(false);
+        }
+    }
+
+    private void RefreshUsers(string? selectUserName = null)
+    {
+        if (_backplane is null)
+        {
+            UsersDataGrid.ItemsSource = Array.Empty<SettingsUserRowViewModel>();
+            UsersSummaryText.Text = "Общая база отключена. Пользователи хранятся на сервере.";
+            UserFormStatusText.Text = "Создание пользователей доступно только при подключении к общей базе.";
+            SetUserFormEnabled(false);
+            return;
+        }
+
+        try
+        {
+            var users = _backplane.ListUserAccounts()
+                .Select(SettingsUserRowViewModel.FromAccount)
+                .ToArray();
+            UsersDataGrid.ItemsSource = users;
+            UsersSummaryText.Text = $"Всего пользователей: {users.Length:N0}. Администраторов: {users.Count(item => item.RoleCode == "admin"):N0}.";
+            SetUserFormEnabled(true);
+
+            if (!string.IsNullOrWhiteSpace(selectUserName))
+            {
+                UsersDataGrid.SelectedItem = users.FirstOrDefault(item => item.UserName.Equals(selectUserName, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        catch (Exception exception)
+        {
+            UsersDataGrid.ItemsSource = Array.Empty<SettingsUserRowViewModel>();
+            UsersSummaryText.Text = "Не удалось загрузить пользователей.";
+            UserFormStatusText.Text = $"Ошибка загрузки пользователей: {exception.Message}";
+        }
+    }
+
+    private void ClearUserForm()
+    {
+        UsersDataGrid.SelectedItem = null;
+        UserLoginTextBox.Clear();
+        UserDisplayNameTextBox.Clear();
+        UserPasswordBox.Clear();
+        UserRoleComboBox.SelectedValue = "manager";
+        SaveUserButton.Content = "Создать пользователя";
+        UserFormStatusText.Text = string.Empty;
+        UserLoginTextBox.Focus();
+    }
+
+    private void SetUserFormBusy(bool isBusy)
+    {
+        SaveUserButton.IsEnabled = !isBusy;
+        UserLoginTextBox.IsEnabled = !isBusy;
+        UserDisplayNameTextBox.IsEnabled = !isBusy;
+        UserRoleComboBox.IsEnabled = !isBusy;
+        UserPasswordBox.IsEnabled = !isBusy;
+        SaveUserButton.Content = isBusy
+            ? "Сохраняю..."
+            : UsersDataGrid.SelectedItem is null ? "Создать пользователя" : "Обновить пользователя";
+    }
+
+    private void SetUserFormEnabled(bool isEnabled)
+    {
+        SaveUserButton.IsEnabled = isEnabled;
+        UserLoginTextBox.IsEnabled = isEnabled;
+        UserDisplayNameTextBox.IsEnabled = isEnabled;
+        UserRoleComboBox.IsEnabled = isEnabled;
+        UserPasswordBox.IsEnabled = isEnabled;
+    }
+
     private void OpenFolder(string path)
     {
         if (!Directory.Exists(path))
@@ -179,3 +341,45 @@ public sealed record SettingsSummaryCard(
     Brush Accent,
     Brush IconBackground,
     string IconGlyph);
+
+public sealed record SettingsRoleOption(
+    string RoleCode,
+    string DisplayName);
+
+public sealed class SettingsUserRowViewModel
+{
+    private SettingsUserRowViewModel(DesktopAppUserAccount account)
+    {
+        UserName = account.UserName;
+        DisplayName = account.DisplayName;
+        RoleCode = account.RoleCode;
+        RoleDisplayName = account.RoleDisplayName;
+        StatusText = account.IsActive ? "Активен" : "Отключен";
+        PasswordStateText = account.HasPassword ? "Задан" : "Нет";
+        LastLoginText = string.IsNullOrWhiteSpace(account.LastLoginAtUtc)
+            ? "Еще не входил"
+            : account.LastLoginAtUtc;
+        FailedLoginCount = account.FailedLoginCount;
+    }
+
+    public string UserName { get; }
+
+    public string DisplayName { get; }
+
+    public string RoleCode { get; }
+
+    public string RoleDisplayName { get; }
+
+    public string StatusText { get; }
+
+    public string PasswordStateText { get; }
+
+    public string LastLoginText { get; }
+
+    public int FailedLoginCount { get; }
+
+    public static SettingsUserRowViewModel FromAccount(DesktopAppUserAccount account)
+    {
+        return new SettingsUserRowViewModel(account);
+    }
+}

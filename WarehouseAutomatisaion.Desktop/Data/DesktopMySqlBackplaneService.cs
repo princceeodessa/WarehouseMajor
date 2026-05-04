@@ -300,6 +300,98 @@ public sealed class DesktopMySqlBackplaneService
         return LoadUserProfile(normalizedUserName);
     }
 
+    public DesktopAppUserProfile UpsertUserWithPassword(
+        string userName,
+        string displayName,
+        string roleCode,
+        string password,
+        string assignedBy)
+    {
+        return UpsertUserWithPassword(
+            userName,
+            displayName,
+            roleCode,
+            DesktopPasswordHasher.Create(password),
+            assignedBy);
+    }
+
+    public IReadOnlyList<DesktopAppUserAccount> ListUserAccounts()
+    {
+        EnsureDatabaseAndSchema();
+        var sql = """
+            SELECT COALESCE(
+                CAST(
+                    JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'Id', data.id,
+                            'UserName', data.user_name,
+                            'DisplayName', data.display_name,
+                            'IsActive', data.is_active,
+                            'RoleCode', data.role_code,
+                            'HasPassword', data.has_password,
+                            'LastLoginAtUtc', data.last_login_at_utc,
+                            'LastSeenAtUtc', data.last_seen_at_utc,
+                            'FailedLoginCount', data.failed_login_count
+                        )
+                    ) AS CHAR CHARACTER SET utf8mb4
+                ),
+                '[]'
+            )
+            FROM (
+                SELECT
+                    u.id,
+                    u.user_name,
+                    u.display_name,
+                    u.is_active,
+                    COALESCE(
+                        MAX(CASE WHEN r.role_code = 'admin' THEN 'admin' END),
+                        MAX(CASE WHEN r.role_code = 'manager' THEN 'manager' END),
+                        ''
+                    ) AS role_code,
+                    IF(u.password_hash_base64 IS NULL OR u.password_hash_base64 = '', 0, 1) AS has_password,
+                    COALESCE(DATE_FORMAT(u.last_login_at_utc, '%Y-%m-%d %H:%i:%s'), '') AS last_login_at_utc,
+                    COALESCE(DATE_FORMAT(u.last_seen_at_utc, '%Y-%m-%d %H:%i:%s'), '') AS last_seen_at_utc,
+                    u.failed_login_count
+                FROM app_users u
+                LEFT JOIN app_user_roles ur ON ur.user_id = u.id
+                LEFT JOIN app_roles r ON r.id = ur.role_id
+                GROUP BY
+                    u.id,
+                    u.user_name,
+                    u.display_name,
+                    u.is_active,
+                    u.password_hash_base64,
+                    u.last_login_at_utc,
+                    u.last_seen_at_utc,
+                    u.failed_login_count
+                ORDER BY u.display_name, u.user_name
+            ) AS data;
+            """;
+
+        return QueryJsonArray<DesktopUserAccountRow>(sql)
+            .Select(row =>
+            {
+                var roleCode = DesktopRoleCatalog.NormalizeRoleCode(row.RoleCode);
+                if (string.IsNullOrWhiteSpace(roleCode))
+                {
+                    roleCode = DesktopRoleCatalog.ResolveDefaultRoleCode(row.UserName ?? string.Empty);
+                }
+
+                return new DesktopAppUserAccount(
+                    ParseGuid(row.Id, row.UserName),
+                    row.UserName ?? string.Empty,
+                    row.DisplayName ?? row.UserName ?? string.Empty,
+                    row.IsActive != 0,
+                    roleCode,
+                    DesktopRoleCatalog.GetDisplayName(roleCode),
+                    row.HasPassword != 0,
+                    row.LastLoginAtUtc ?? string.Empty,
+                    row.LastSeenAtUtc ?? string.Empty,
+                    Math.Max(0, row.FailedLoginCount));
+            })
+            .ToArray();
+    }
+
     public T? TryLoadModuleSnapshot<T>(string moduleCode)
     {
         var record = TryLoadModuleSnapshotRecord<T>(moduleCode);
@@ -1387,6 +1479,18 @@ public sealed record DesktopAppUserProfile(
     bool IsActive,
     IReadOnlyList<string> Roles);
 
+public sealed record DesktopAppUserAccount(
+    Guid Id,
+    string UserName,
+    string DisplayName,
+    bool IsActive,
+    string RoleCode,
+    string RoleDisplayName,
+    bool HasPassword,
+    string LastLoginAtUtc,
+    string LastSeenAtUtc,
+    int FailedLoginCount);
+
 public sealed record DesktopAuditEventSeed(
     Guid Id,
     DateTime LoggedAtUtc,
@@ -1501,6 +1605,27 @@ internal sealed class DesktopUserProfileRow
     public int PasswordIterations { get; set; }
 
     public string[]? Roles { get; set; }
+}
+
+internal sealed class DesktopUserAccountRow
+{
+    public string? Id { get; set; }
+
+    public string? UserName { get; set; }
+
+    public string? DisplayName { get; set; }
+
+    public int IsActive { get; set; }
+
+    public string? RoleCode { get; set; }
+
+    public int HasPassword { get; set; }
+
+    public string? LastLoginAtUtc { get; set; }
+
+    public string? LastSeenAtUtc { get; set; }
+
+    public int FailedLoginCount { get; set; }
 }
 
 internal sealed class DesktopAuditEventRow

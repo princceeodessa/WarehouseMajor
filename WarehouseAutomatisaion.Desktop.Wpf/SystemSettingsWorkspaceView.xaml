@@ -57,6 +57,25 @@
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
+        <Style x:Key="SettingsDataGridStyle" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="CanUserResizeRows" Value="False" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="#EEF2FA" />
+            <Setter Property="VerticalGridLinesBrush" Value="#EEF2FA" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="RowHeight" Value="48" />
+            <Setter Property="ColumnHeaderHeight" Value="40" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="RowHeaderWidth" Value="0" />
+        </Style>
+
         <DataTemplate x:Key="SummaryCardTemplate">
             <Border Width="246"
                     MinHeight="118"
@@ -195,6 +214,111 @@
                         </Border>
                     </Grid>
                 </ScrollViewer>
+            </TabItem>
+
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock Text="Пользователи" Style="{StaticResource SettingsTabHeaderTextStyle}" />
+                </TabItem.Header>
+                <Grid Margin="0,18,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.45*" />
+                        <ColumnDefinition Width="0.85*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Margin="0,0,14,0" Padding="18" Style="{StaticResource PageCardStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel Grid.Row="0" Margin="0,0,0,14">
+                                <StackPanel DockPanel.Dock="Left">
+                                    <TextBlock Text="Пользователи" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                    <TextBlock x:Name="UsersSummaryText"
+                                               Margin="0,4,0,0"
+                                               FontSize="12.5"
+                                               Foreground="#7280A0" />
+                                </StackPanel>
+                                <Button Content="Обновить"
+                                        DockPanel.Dock="Right"
+                                        HorizontalAlignment="Right"
+                                        Style="{StaticResource SettingsActionButtonStyle}"
+                                        Click="HandleRefreshUsersClick" />
+                            </DockPanel>
+
+                            <DataGrid x:Name="UsersDataGrid"
+                                      Grid.Row="1"
+                                      Style="{StaticResource SettingsDataGridStyle}"
+                                      SelectionChanged="HandleUsersSelectionChanged">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Логин" Binding="{Binding UserName}" Width="1.05*" />
+                                    <DataGridTextColumn Header="Имя" Binding="{Binding DisplayName}" Width="1.25*" />
+                                    <DataGridTextColumn Header="Роль" Binding="{Binding RoleDisplayName}" Width="1.0*" />
+                                    <DataGridTextColumn Header="Статус" Binding="{Binding StatusText}" Width="0.75*" />
+                                    <DataGridTextColumn Header="Пароль" Binding="{Binding PasswordStateText}" Width="0.85*" />
+                                    <DataGridTextColumn Header="Последний вход" Binding="{Binding LastLoginText}" Width="1.1*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Column="1" Padding="18" Style="{StaticResource PageCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Новый пользователь" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+
+                            <TextBlock Text="Логин" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                            <TextBox x:Name="UserLoginTextBox"
+                                     Height="40"
+                                     FontSize="14"
+                                     Style="{StaticResource DialogTextBoxStyle}"
+                                     AutomationProperties.Name="Логин нового пользователя" />
+
+                            <TextBlock Text="Имя" Margin="0,12,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                            <TextBox x:Name="UserDisplayNameTextBox"
+                                     Height="40"
+                                     FontSize="14"
+                                     Style="{StaticResource DialogTextBoxStyle}"
+                                     AutomationProperties.Name="Имя нового пользователя" />
+
+                            <TextBlock Text="Роль" Margin="0,12,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                            <ComboBox x:Name="UserRoleComboBox"
+                                      Height="40"
+                                      FontSize="14"
+                                      DisplayMemberPath="DisplayName"
+                                      SelectedValuePath="RoleCode"
+                                      AutomationProperties.Name="Роль нового пользователя" />
+
+                            <TextBlock Text="Пароль" Margin="0,12,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                            <PasswordBox x:Name="UserPasswordBox"
+                                         Height="40"
+                                         FontSize="14"
+                                         Padding="12,0"
+                                         VerticalContentAlignment="Center"
+                                         Background="#FFFFFF"
+                                         BorderBrush="#DDE5F4"
+                                         BorderThickness="1"
+                                         AutomationProperties.Name="Пароль нового пользователя" />
+
+                            <Button x:Name="SaveUserButton"
+                                    Content="Создать пользователя"
+                                    Margin="0,18,0,0"
+                                    Style="{StaticResource SettingsPrimaryButtonStyle}"
+                                    Click="HandleSaveUserClick" />
+                            <Button Content="Очистить форму"
+                                    Margin="0,10,0,0"
+                                    Style="{StaticResource SettingsActionButtonStyle}"
+                                    Click="HandleClearUserFormClick" />
+
+                            <TextBlock x:Name="UserFormStatusText"
+                                       Margin="0,14,0,0"
+                                       FontSize="12.5"
+                                       Foreground="#7280A0"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </TabItem>
 
             <TabItem>
