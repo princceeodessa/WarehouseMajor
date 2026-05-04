@@ -2,12 +2,12 @@ namespace WarehouseAutomatisaion.Desktop.Data;
 
 public static class DesktopClientStartupService
 {
-    public static DesktopClientStartupResult Validate(string actorName)
+    public static DesktopClientStartupResult ValidateInfrastructure()
     {
         var config = DesktopRemoteDatabaseSettings.Snapshot();
         if (!config.Enabled)
         {
-            return DesktopClientStartupResult.LocalMode(actorName);
+            return DesktopClientStartupResult.LocalMode(Environment.UserName);
         }
 
         if (string.IsNullOrWhiteSpace(config.Host)
@@ -21,21 +21,45 @@ public static class DesktopClientStartupService
         try
         {
             var backplane = DesktopMySqlBackplaneService.CreateDefault();
-            backplane.EnsureReady(actorName);
-            var profile = backplane.EnsureUserProfile(actorName);
+            backplane.EnsureSchemaReady();
 
             var operational = OperationalMySqlDesktopService.TryCreateConfigured()
                 ?? throw new InvalidOperationException("Не удалось создать подключение к операционной MySQL-схеме.");
 
             operational.EnsureOperationalSchemaAccessible();
 
-            return DesktopClientStartupResult.SharedMode(config.Host, config.Port, config.Database, config.User, profile);
+            return DesktopClientStartupResult.ConnectionReady(config.Host, config.Port, config.Database, config.User);
         }
         catch (Exception exception)
         {
             return DesktopClientStartupResult.Failure(
                 "Не удалось подключить клиент к серверной БД. Локальный fallback в общем режиме отключен. " +
                 $"Проверьте доступ к MySQL, права пользователя и наличие операционной схемы.\n\n{exception.Message}");
+        }
+    }
+
+    public static DesktopClientStartupResult Authenticate(string userName, string password)
+    {
+        var config = DesktopRemoteDatabaseSettings.Snapshot();
+        if (!config.Enabled)
+        {
+            return DesktopClientStartupResult.LocalMode(userName);
+        }
+
+        try
+        {
+            var backplane = DesktopMySqlBackplaneService.CreateDefault();
+            var profile = backplane.AuthenticateUser(userName, password);
+            return DesktopClientStartupResult.SharedMode(config.Host, config.Port, config.Database, config.User, profile);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return DesktopClientStartupResult.Failure(exception.Message);
+        }
+        catch (Exception exception)
+        {
+            return DesktopClientStartupResult.Failure(
+                "Не удалось выполнить вход. Проверьте подключение к серверной БД и повторите попытку.\n\n" + exception.Message);
         }
     }
 }
@@ -54,6 +78,18 @@ public sealed record DesktopClientStartupResult(
     string PrimaryRoleDisplayName = "Менеджер",
     IReadOnlyList<string>? RoleCodes = null)
 {
+    public static DesktopClientStartupResult ConnectionReady(string host, int port, string database, string user)
+    {
+        return new DesktopClientStartupResult(
+            CanStart: true,
+            UsesSharedDatabase: true,
+            Message: $"Клиент подключен к серверной БД {host}:{port}/{database}.",
+            Host: host,
+            Port: port,
+            Database: database,
+            User: user);
+    }
+
     public static DesktopClientStartupResult LocalMode(string actorName)
     {
         var normalizedUserName = string.IsNullOrWhiteSpace(actorName) ? Environment.UserName : actorName.Trim();
@@ -72,6 +108,16 @@ public sealed record DesktopClientStartupResult(
     public static DesktopClientStartupResult SharedMode(string host, int port, string database, string user, DesktopAppUserProfile profile)
     {
         var roleCode = DesktopRoleCatalog.ResolvePrimaryRoleCode(profile.Roles, profile.UserName);
+        var roleCodes = profile.Roles
+            .Select(DesktopRoleCatalog.NormalizeRoleCode)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (roleCodes.Length == 0)
+        {
+            roleCodes = new[] { roleCode };
+        }
+
         return new DesktopClientStartupResult(
             CanStart: true,
             UsesSharedDatabase: true,
@@ -84,7 +130,7 @@ public sealed record DesktopClientStartupResult(
             DisplayName: string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.UserName : profile.DisplayName,
             PrimaryRoleCode: roleCode,
             PrimaryRoleDisplayName: DesktopRoleCatalog.GetDisplayName(roleCode),
-            RoleCodes: new[] { roleCode });
+            RoleCodes: roleCodes);
     }
 
     public static DesktopClientStartupResult Failure(string message)

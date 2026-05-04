@@ -1,0 +1,110 @@
+<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Вход в MajorWarehause"
+        Width="460"
+        Height="520"
+        MinWidth="420"
+        MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#F5F7FB">
+    <Grid Margin="28">
+        <Border Background="#FFFFFF"
+                BorderBrush="#E3EAF6"
+                BorderThickness="1"
+                CornerRadius="18"
+                Padding="28">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0">
+                    <Border Width="44"
+                            Height="44"
+                            CornerRadius="14"
+                            Background="#4F5BFF"
+                            HorizontalAlignment="Left">
+                        <TextBlock Text="MW"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FFFFFF" />
+                    </Border>
+
+                    <TextBlock Text="Вход в систему"
+                               Margin="0,22,0,0"
+                               FontSize="26"
+                               FontWeight="SemiBold"
+                               Foreground="#17213A" />
+                    <TextBlock Text="Введите логин и пароль пользователя."
+                               Margin="0,8,0,0"
+                               FontSize="13"
+                               Foreground="#6E7B98"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Margin="0,28,0,0">
+                    <TextBlock Text="Логин" Style="{StaticResource DialogFieldLabelStyle}" />
+                    <TextBox x:Name="UserNameTextBox"
+                             Style="{StaticResource DialogTextBoxStyle}"
+                             Height="44"
+                             FontSize="14"
+                             AutomationProperties.Name="Логин"
+                             KeyDown="HandleInputKeyDown" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Margin="0,16,0,0">
+                    <TextBlock Text="Пароль" Style="{StaticResource DialogFieldLabelStyle}" />
+                    <PasswordBox x:Name="PasswordBox"
+                                 Height="44"
+                                 FontSize="14"
+                                 Padding="12,0"
+                                 VerticalContentAlignment="Center"
+                                 Background="#FFFFFF"
+                                 BorderBrush="#DDE5F4"
+                                 BorderThickness="1"
+                                 AutomationProperties.Name="Пароль"
+                                 KeyDown="HandleInputKeyDown" />
+                </StackPanel>
+
+                <Border Grid.Row="3"
+                        x:Name="ErrorBorder"
+                        Margin="0,16,0,0"
+                        Padding="12,10"
+                        Background="#FFF5F6"
+                        BorderBrush="#F4B7BE"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Visibility="Collapsed">
+                    <TextBlock x:Name="ErrorText"
+                               FontSize="12.5"
+                               Foreground="#C83445"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <StackPanel Grid.Row="5" Margin="0,26,0,0">
+                    <Button x:Name="LoginButton"
+                            Content="Войти"
+                            Style="{StaticResource DialogPrimaryButtonStyle}"
+                            Height="44"
+                            IsDefault="True"
+                            Click="HandleLoginClick" />
+                    <Button Content="Отмена"
+                            Margin="0,10,0,0"
+                            Style="{StaticResource DialogSecondaryButtonStyle}"
+                            Height="40"
+                            IsCancel="True"
+                            Click="HandleCancelClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

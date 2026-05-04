@@ -87,8 +87,13 @@ public sealed class DesktopMySqlBackplaneService
 
     public void EnsureReady(string actorName)
     {
-        EnsureDatabaseAndSchema();
+        EnsureSchemaReady();
         _ = EnsureUserProfile(actorName);
+    }
+
+    public void EnsureSchemaReady()
+    {
+        EnsureDatabaseAndSchema();
     }
 
     public DesktopAppUserProfile? TryEnsureUserProfile(string actorName)
@@ -134,15 +139,140 @@ public sealed class DesktopMySqlBackplaneService
                 UTC_TIMESTAMP(6)
             )
             ON DUPLICATE KEY UPDATE
-                display_name = {SqlUtf8TextExpression(normalizedUserName)},
-                is_active = 1,
+                display_name = CASE
+                    WHEN display_name IS NULL OR display_name = '' THEN {SqlUtf8TextExpression(normalizedUserName)}
+                    ELSE display_name
+                END,
                 updated_at_utc = UTC_TIMESTAMP(6),
                 last_seen_at_utc = UTC_TIMESTAMP(6);
             """);
 
         var roleCode = DesktopRoleCatalog.ResolveDefaultRoleCode(normalizedUserName);
-        var roleId = CreateDeterministicGuid($"desktop-role:{roleCode}");
         script.AppendLine($"""
+            INSERT INTO app_user_roles (
+                user_id,
+                role_id,
+                assigned_at_utc,
+                assigned_by
+            )
+            SELECT
+                {SqlUtf8TextExpression(userId.ToString())},
+                r.id,
+                UTC_TIMESTAMP(6),
+                {SqlUtf8TextExpression(normalizedUserName)}
+            FROM app_roles r
+            WHERE r.role_code = {SqlUtf8TextExpression(roleCode)}
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM app_user_roles
+                    WHERE user_id = {SqlUtf8TextExpression(userId.ToString())}
+                );
+            """);
+
+        script.AppendLine("COMMIT;");
+        ExecuteSqlNonQuery(script.ToString(), useDatabase: true);
+
+        return LoadUserProfile(normalizedUserName);
+    }
+
+    public DesktopAppUserProfile AuthenticateUser(string userName, string password)
+    {
+        EnsureDatabaseAndSchema();
+
+        var normalizedUserName = NormalizeUserName(userName);
+        var row = LoadUserProfileRow(normalizedUserName);
+        if (row is null || row.IsActive == 0)
+        {
+            throw new UnauthorizedAccessException("Неверный логин или пароль.");
+        }
+
+        if (!DesktopPasswordHasher.Verify(
+                password,
+                row.PasswordHashBase64 ?? string.Empty,
+                row.PasswordSaltBase64 ?? string.Empty,
+                row.PasswordIterations))
+        {
+            ExecuteSqlNonQuery($"""
+                UPDATE app_users
+                SET
+                    failed_login_count = failed_login_count + 1,
+                    last_failed_login_at_utc = UTC_TIMESTAMP(6),
+                    updated_at_utc = UTC_TIMESTAMP(6)
+                WHERE user_name = {SqlUtf8TextExpression(normalizedUserName)};
+                """, useDatabase: true);
+            throw new UnauthorizedAccessException("Неверный логин или пароль.");
+        }
+
+        ExecuteSqlNonQuery($"""
+            UPDATE app_users
+            SET
+                last_seen_at_utc = UTC_TIMESTAMP(6),
+                last_login_at_utc = UTC_TIMESTAMP(6),
+                failed_login_count = 0,
+                last_failed_login_at_utc = NULL
+            WHERE user_name = {SqlUtf8TextExpression(normalizedUserName)};
+            """, useDatabase: true);
+
+        return ToUserProfile(row);
+    }
+
+    public DesktopAppUserProfile UpsertUserWithPassword(
+        string userName,
+        string displayName,
+        string roleCode,
+        DesktopPasswordHash passwordHash,
+        string assignedBy)
+    {
+        EnsureDatabaseAndSchema();
+
+        var normalizedUserName = NormalizeUserName(userName);
+        var normalizedDisplayName = string.IsNullOrWhiteSpace(displayName) ? normalizedUserName : displayName.Trim();
+        var normalizedRoleCode = DesktopRoleCatalog.NormalizeRoleCode(roleCode);
+        if (string.IsNullOrWhiteSpace(normalizedRoleCode))
+        {
+            normalizedRoleCode = DesktopRoleCatalog.ManagerRoleCode;
+        }
+
+        var normalizedAssignedBy = NormalizeUserName(assignedBy);
+        var userId = CreateDeterministicGuid($"desktop-user:{normalizedUserName}");
+
+        var script = new StringBuilder();
+        script.AppendLine("START TRANSACTION;");
+        script.AppendLine(BuildRoleSeedSql());
+        script.AppendLine($"""
+            INSERT INTO app_users (
+                id,
+                user_name,
+                display_name,
+                password_hash_base64,
+                password_salt_base64,
+                password_iterations,
+                is_active,
+                created_at_utc,
+                updated_at_utc,
+                password_updated_at_utc
+            )
+            VALUES (
+                {SqlUtf8TextExpression(userId.ToString())},
+                {SqlUtf8TextExpression(normalizedUserName)},
+                {SqlUtf8TextExpression(normalizedDisplayName)},
+                {SqlUtf8TextExpression(passwordHash.HashBase64)},
+                {SqlUtf8TextExpression(passwordHash.SaltBase64)},
+                {passwordHash.Iterations.ToString(CultureInfo.InvariantCulture)},
+                1,
+                UTC_TIMESTAMP(6),
+                UTC_TIMESTAMP(6),
+                UTC_TIMESTAMP(6)
+            )
+            ON DUPLICATE KEY UPDATE
+                display_name = {SqlUtf8TextExpression(normalizedDisplayName)},
+                password_hash_base64 = {SqlUtf8TextExpression(passwordHash.HashBase64)},
+                password_salt_base64 = {SqlUtf8TextExpression(passwordHash.SaltBase64)},
+                password_iterations = {passwordHash.Iterations.ToString(CultureInfo.InvariantCulture)},
+                is_active = 1,
+                updated_at_utc = UTC_TIMESTAMP(6),
+                password_updated_at_utc = UTC_TIMESTAMP(6);
+
             DELETE FROM app_user_roles
             WHERE user_id = {SqlUtf8TextExpression(userId.ToString())};
 
@@ -152,14 +282,14 @@ public sealed class DesktopMySqlBackplaneService
                 assigned_at_utc,
                 assigned_by
             )
-            VALUES (
+            SELECT
                 {SqlUtf8TextExpression(userId.ToString())},
-                {SqlUtf8TextExpression(roleId.ToString())},
+                r.id,
                 UTC_TIMESTAMP(6),
-                {SqlUtf8TextExpression(normalizedUserName)}
-            );
+                {SqlUtf8TextExpression(normalizedAssignedBy)}
+            FROM app_roles r
+            WHERE r.role_code = {SqlUtf8TextExpression(normalizedRoleCode)};
             """);
-
         script.AppendLine("COMMIT;");
         ExecuteSqlNonQuery(script.ToString(), useDatabase: true);
 
@@ -600,6 +730,13 @@ public sealed class DesktopMySqlBackplaneService
 
     private DesktopAppUserProfile LoadUserProfile(string userName)
     {
+        var row = LoadUserProfileRow(userName)
+            ?? throw new InvalidOperationException($"User profile '{userName}' was not found.");
+        return ToUserProfile(row);
+    }
+
+    private DesktopUserProfileRow? LoadUserProfileRow(string userName)
+    {
         var sql = $"""
             SELECT COALESCE(
                 CAST(
@@ -609,6 +746,9 @@ public sealed class DesktopMySqlBackplaneService
                             'UserName', data.user_name,
                             'DisplayName', data.display_name,
                             'IsActive', data.is_active,
+                            'PasswordHashBase64', data.password_hash_base64,
+                            'PasswordSaltBase64', data.password_salt_base64,
+                            'PasswordIterations', data.password_iterations,
                             'Roles', data.roles_json
                         )
                     ) AS CHAR CHARACTER SET utf8mb4
@@ -621,17 +761,24 @@ public sealed class DesktopMySqlBackplaneService
                     u.user_name,
                     u.display_name,
                     u.is_active,
+                    u.password_hash_base64,
+                    u.password_salt_base64,
+                    u.password_iterations,
                     JSON_ARRAYAGG(r.role_code) AS roles_json
                 FROM app_users u
                 LEFT JOIN app_user_roles ur ON ur.user_id = u.id
                 LEFT JOIN app_roles r ON r.id = ur.role_id
                 WHERE u.user_name = {SqlUtf8TextExpression(userName)}
-                GROUP BY u.id, u.user_name, u.display_name, u.is_active
+                GROUP BY u.id, u.user_name, u.display_name, u.is_active, u.password_hash_base64, u.password_salt_base64, u.password_iterations
                 LIMIT 1
             ) AS data;
             """;
 
-        var row = QueryJsonArray<DesktopUserProfileRow>(sql).First();
+        return QueryJsonArray<DesktopUserProfileRow>(sql).FirstOrDefault();
+    }
+
+    private static DesktopAppUserProfile ToUserProfile(DesktopUserProfileRow row)
+    {
         var roles = (row.Roles ?? Array.Empty<string>())
             .Select(DesktopRoleCatalog.NormalizeRoleCode)
             .Where(item => !string.IsNullOrWhiteSpace(item))
@@ -640,7 +787,7 @@ public sealed class DesktopMySqlBackplaneService
 
         if (roles.Length == 0)
         {
-            roles = [DesktopRoleCatalog.ResolveDefaultRoleCode(row.UserName ?? userName)];
+            roles = [DesktopRoleCatalog.ResolveDefaultRoleCode(row.UserName ?? string.Empty)];
         }
 
         return new DesktopAppUserProfile(
@@ -731,6 +878,7 @@ public sealed class DesktopMySqlBackplaneService
         script.AppendLine($"CREATE DATABASE IF NOT EXISTS `{_options.DatabaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;");
         script.AppendLine($"USE `{_options.DatabaseName}`;");
         script.AppendLine(AppSchemaSql);
+        script.AppendLine(AppSchemaMigrationSql);
         ExecuteSqlNonQuery(script.ToString(), useDatabase: false);
         _schemaEnsured = true;
     }
@@ -1048,10 +1196,17 @@ public sealed class DesktopMySqlBackplaneService
             id CHAR(36) NOT NULL,
             user_name VARCHAR(128) NOT NULL,
             display_name VARCHAR(256) NOT NULL,
+            password_hash_base64 VARCHAR(256) NULL,
+            password_salt_base64 VARCHAR(128) NULL,
+            password_iterations INT UNSIGNED NOT NULL DEFAULT 0,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
             updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
             last_seen_at_utc DATETIME(6) NULL,
+            last_login_at_utc DATETIME(6) NULL,
+            last_failed_login_at_utc DATETIME(6) NULL,
+            failed_login_count INT UNSIGNED NOT NULL DEFAULT 0,
+            password_updated_at_utc DATETIME(6) NULL,
             CONSTRAINT pk_app_users PRIMARY KEY (id),
             CONSTRAINT uq_app_users_user_name UNIQUE (user_name)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -1130,6 +1285,94 @@ public sealed class DesktopMySqlBackplaneService
             created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
             CONSTRAINT pk_app_saved_exports PRIMARY KEY (id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+        """;
+
+    private const string AppSchemaMigrationSql = """
+        SET @warehouse_schema_name = DATABASE();
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_users'
+                AND COLUMN_NAME = 'password_hash_base64'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_users ADD COLUMN password_hash_base64 VARCHAR(256) NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_users'
+                AND COLUMN_NAME = 'password_salt_base64'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_users ADD COLUMN password_salt_base64 VARCHAR(128) NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_users'
+                AND COLUMN_NAME = 'password_iterations'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_users ADD COLUMN password_iterations INT UNSIGNED NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_users'
+                AND COLUMN_NAME = 'last_login_at_utc'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_users ADD COLUMN last_login_at_utc DATETIME(6) NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_users'
+                AND COLUMN_NAME = 'last_failed_login_at_utc'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_users ADD COLUMN last_failed_login_at_utc DATETIME(6) NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_users'
+                AND COLUMN_NAME = 'failed_login_count'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_users ADD COLUMN failed_login_count INT UNSIGNED NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_users'
+                AND COLUMN_NAME = 'password_updated_at_utc'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_users ADD COLUMN password_updated_at_utc DATETIME(6) NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
         """;
 }
 
@@ -1246,6 +1489,12 @@ internal sealed class DesktopUserProfileRow
     public string? DisplayName { get; set; }
 
     public int IsActive { get; set; }
+
+    public string? PasswordHashBase64 { get; set; }
+
+    public string? PasswordSaltBase64 { get; set; }
+
+    public int PasswordIterations { get; set; }
 
     public string[]? Roles { get; set; }
 }

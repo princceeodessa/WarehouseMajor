@@ -15,11 +15,11 @@ public partial class App : System.Windows.Application
         {
             base.OnStartup(e);
 
-            var startupStatus = DesktopClientStartupService.Validate(Environment.UserName);
-            if (!startupStatus.CanStart)
+            var infrastructureStatus = DesktopClientStartupService.ValidateInfrastructure();
+            if (!infrastructureStatus.CanStart)
             {
                 System.Windows.MessageBox.Show(
-                    startupStatus.Message,
+                    infrastructureStatus.Message,
                     AppBranding.MessageBoxTitle,
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
@@ -27,6 +27,15 @@ public partial class App : System.Windows.Application
                 return;
             }
 
+            var loginWindow = new LoginWindow();
+            var loginResult = loginWindow.ShowDialog();
+            if (loginResult != true || loginWindow.StartupStatus is null)
+            {
+                Shutdown(0);
+                return;
+            }
+
+            var startupStatus = loginWindow.StartupStatus;
             var window = new MainWindow(startupStatus);
             MainWindow = window;
             window.Show();
