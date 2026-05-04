@@ -258,6 +258,7 @@
                                     <DataGridTextColumn Header="Роль" Binding="{Binding RoleDisplayName}" Width="1.0*" />
                                     <DataGridTextColumn Header="Статус" Binding="{Binding StatusText}" Width="0.75*" />
                                     <DataGridTextColumn Header="Пароль" Binding="{Binding PasswordStateText}" Width="0.85*" />
+                                    <DataGridTextColumn Header="Ошибки" Binding="{Binding FailedLoginCount}" Width="0.65*" />
                                     <DataGridTextColumn Header="Последний вход" Binding="{Binding LastLoginText}" Width="1.1*" />
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -266,7 +267,7 @@
 
                     <Border Grid.Column="1" Padding="18" Style="{StaticResource PageCardStyle}">
                         <StackPanel>
-                            <TextBlock Text="Новый пользователь" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                            <TextBlock x:Name="UserEditorTitleText" Text="Новый пользователь" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
 
                             <TextBlock Text="Логин" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
                             <TextBox x:Name="UserLoginTextBox"
@@ -299,6 +300,7 @@
                                          Background="#FFFFFF"
                                          BorderBrush="#DDE5F4"
                                          BorderThickness="1"
+                                         PasswordChanged="HandleUserPasswordChanged"
                                          AutomationProperties.Name="Пароль нового пользователя" />
 
                             <Button x:Name="SaveUserButton"
@@ -310,6 +312,32 @@
                                     Margin="0,10,0,0"
                                     Style="{StaticResource SettingsActionButtonStyle}"
                                     Click="HandleClearUserFormClick" />
+
+                            <TextBlock Text="Действия"
+                                       Margin="0,18,0,0"
+                                       Style="{StaticResource SettingsLabelTextStyle}" />
+                            <UniformGrid Columns="2" Margin="0,8,0,0">
+                                <Button x:Name="ChangePasswordButton"
+                                        Content="Сменить пароль"
+                                        Margin="0,0,5,8"
+                                        Style="{StaticResource SettingsActionButtonStyle}"
+                                        Click="HandleChangePasswordClick" />
+                                <Button x:Name="ResetLoginFailuresButton"
+                                        Content="Сбросить ошибки"
+                                        Margin="5,0,0,8"
+                                        Style="{StaticResource SettingsActionButtonStyle}"
+                                        Click="HandleResetLoginFailuresClick" />
+                                <Button x:Name="DisableUserButton"
+                                        Content="Отключить"
+                                        Margin="0,0,5,0"
+                                        Style="{StaticResource SettingsActionButtonStyle}"
+                                        Click="HandleDisableUserClick" />
+                                <Button x:Name="EnableUserButton"
+                                        Content="Включить"
+                                        Margin="5,0,0,0"
+                                        Style="{StaticResource SettingsActionButtonStyle}"
+                                        Click="HandleEnableUserClick" />
+                            </UniformGrid>
 
                             <TextBlock x:Name="UserFormStatusText"
                                        Margin="0,14,0,0"

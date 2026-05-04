@@ -315,6 +315,56 @@ public sealed class DesktopMySqlBackplaneService
             assignedBy);
     }
 
+    public void SetUserActive(string userName, bool isActive, string changedBy)
+    {
+        EnsureDatabaseAndSchema();
+
+        var normalizedUserName = NormalizeUserName(userName);
+        _ = NormalizeUserName(changedBy);
+        var activeSql = isActive ? "1" : "0";
+        var resetFailuresSql = isActive
+            ? """
+                failed_login_count = 0,
+                last_failed_login_at_utc = NULL,
+                """
+            : string.Empty;
+
+        var affectedRows = ExecuteSqlAffectedRows($"""
+            UPDATE app_users
+            SET
+                is_active = {activeSql},
+                {resetFailuresSql}
+                updated_at_utc = UTC_TIMESTAMP(6)
+            WHERE user_name = {SqlUtf8TextExpression(normalizedUserName)};
+            """, useDatabase: true);
+
+        if (affectedRows <= 0)
+        {
+            throw new InvalidOperationException($"Пользователь {normalizedUserName} не найден.");
+        }
+    }
+
+    public void ResetUserLoginFailures(string userName, string changedBy)
+    {
+        EnsureDatabaseAndSchema();
+
+        var normalizedUserName = NormalizeUserName(userName);
+        _ = NormalizeUserName(changedBy);
+        var affectedRows = ExecuteSqlAffectedRows($"""
+            UPDATE app_users
+            SET
+                failed_login_count = 0,
+                last_failed_login_at_utc = NULL,
+                updated_at_utc = UTC_TIMESTAMP(6)
+            WHERE user_name = {SqlUtf8TextExpression(normalizedUserName)};
+            """, useDatabase: true);
+
+        if (affectedRows <= 0)
+        {
+            throw new InvalidOperationException($"Пользователь {normalizedUserName} не найден.");
+        }
+    }
+
     public IReadOnlyList<DesktopAppUserAccount> ListUserAccounts()
     {
         EnsureDatabaseAndSchema();

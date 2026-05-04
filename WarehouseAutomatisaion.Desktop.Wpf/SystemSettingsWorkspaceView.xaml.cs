@@ -20,6 +20,7 @@ public partial class SystemSettingsWorkspaceView : UserControl
     private readonly DesktopMySqlBackplaneService? _backplane;
     private readonly string _appSettingsPath;
     private readonly string _localSettingsPath;
+    private bool _isUserFormBusy;
 
     public SystemSettingsWorkspaceView(
         DesktopClientStartupResult startupStatus,
@@ -149,6 +150,7 @@ public partial class SystemSettingsWorkspaceView : UserControl
     {
         if (UsersDataGrid.SelectedItem is not SettingsUserRowViewModel user)
         {
+            UpdateUserActionButtons();
             return;
         }
 
@@ -156,13 +158,20 @@ public partial class SystemSettingsWorkspaceView : UserControl
         UserDisplayNameTextBox.Text = user.DisplayName;
         UserRoleComboBox.SelectedValue = string.IsNullOrWhiteSpace(user.RoleCode) ? "manager" : user.RoleCode;
         UserPasswordBox.Clear();
+        UserEditorTitleText.Text = "Пользователь";
         SaveUserButton.Content = "Обновить пользователя";
         UserFormStatusText.Text = "Для обновления пользователя укажите новый пароль.";
+        UpdateUserActionButtons();
     }
 
     private void HandleClearUserFormClick(object sender, RoutedEventArgs e)
     {
         ClearUserForm();
+    }
+
+    private void HandleUserPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        UpdateUserActionButtons();
     }
 
     private void HandleSaveUserClick(object sender, RoutedEventArgs e)
@@ -223,6 +232,137 @@ public partial class SystemSettingsWorkspaceView : UserControl
         }
     }
 
+    private void HandleChangePasswordClick(object sender, RoutedEventArgs e)
+    {
+        if (_backplane is null)
+        {
+            UserFormStatusText.Text = "Управление пользователями доступно только при подключении к общей базе.";
+            return;
+        }
+
+        if (SelectedUser is not { } user)
+        {
+            UserFormStatusText.Text = "Выберите пользователя в таблице.";
+            return;
+        }
+
+        var password = UserPasswordBox.Password;
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+        {
+            UserFormStatusText.Text = "Введите новый пароль не короче 6 символов.";
+            UserPasswordBox.Focus();
+            return;
+        }
+
+        var displayName = string.IsNullOrWhiteSpace(UserDisplayNameTextBox.Text)
+            ? user.DisplayName
+            : UserDisplayNameTextBox.Text.Trim();
+        var roleCode = UserRoleComboBox.SelectedValue as string;
+        if (string.IsNullOrWhiteSpace(roleCode))
+        {
+            roleCode = string.IsNullOrWhiteSpace(user.RoleCode) ? "manager" : user.RoleCode;
+        }
+
+        SetUserFormBusy(true);
+        try
+        {
+            _backplane.UpsertUserWithPassword(user.UserName, displayName, roleCode, password, _startupStatus.UserName);
+            UserPasswordBox.Clear();
+            RefreshUsers(selectUserName: user.UserName);
+            UserFormStatusText.Text = $"Пароль пользователя {user.UserName} обновлен.";
+        }
+        catch (Exception exception)
+        {
+            UserFormStatusText.Text = $"Не удалось сменить пароль: {exception.Message}";
+        }
+        finally
+        {
+            SetUserFormBusy(false);
+        }
+    }
+
+    private void HandleDisableUserClick(object sender, RoutedEventArgs e)
+    {
+        SetSelectedUserActive(isActive: false);
+    }
+
+    private void HandleEnableUserClick(object sender, RoutedEventArgs e)
+    {
+        SetSelectedUserActive(isActive: true);
+    }
+
+    private void HandleResetLoginFailuresClick(object sender, RoutedEventArgs e)
+    {
+        if (_backplane is null)
+        {
+            UserFormStatusText.Text = "Управление пользователями доступно только при подключении к общей базе.";
+            return;
+        }
+
+        if (SelectedUser is not { } user)
+        {
+            UserFormStatusText.Text = "Выберите пользователя в таблице.";
+            return;
+        }
+
+        SetUserFormBusy(true);
+        try
+        {
+            _backplane.ResetUserLoginFailures(user.UserName, _startupStatus.UserName);
+            RefreshUsers(selectUserName: user.UserName);
+            UserFormStatusText.Text = $"Счетчик ошибок входа для {user.UserName} сброшен.";
+        }
+        catch (Exception exception)
+        {
+            UserFormStatusText.Text = $"Не удалось сбросить ошибки входа: {exception.Message}";
+        }
+        finally
+        {
+            SetUserFormBusy(false);
+        }
+    }
+
+    private void SetSelectedUserActive(bool isActive)
+    {
+        if (_backplane is null)
+        {
+            UserFormStatusText.Text = "Управление пользователями доступно только при подключении к общей базе.";
+            return;
+        }
+
+        if (SelectedUser is not { } user)
+        {
+            UserFormStatusText.Text = "Выберите пользователя в таблице.";
+            return;
+        }
+
+        if (!isActive && IsCurrentUser(user))
+        {
+            UserFormStatusText.Text = "Нельзя отключить текущего пользователя.";
+            return;
+        }
+
+        SetUserFormBusy(true);
+        try
+        {
+            _backplane.SetUserActive(user.UserName, isActive, _startupStatus.UserName);
+            RefreshUsers(selectUserName: user.UserName);
+            UserFormStatusText.Text = isActive
+                ? $"Пользователь {user.UserName} включен."
+                : $"Пользователь {user.UserName} отключен.";
+        }
+        catch (Exception exception)
+        {
+            UserFormStatusText.Text = isActive
+                ? $"Не удалось включить пользователя: {exception.Message}"
+                : $"Не удалось отключить пользователя: {exception.Message}";
+        }
+        finally
+        {
+            SetUserFormBusy(false);
+        }
+    }
+
     private void RefreshUsers(string? selectUserName = null)
     {
         if (_backplane is null)
@@ -231,6 +371,7 @@ public partial class SystemSettingsWorkspaceView : UserControl
             UsersSummaryText.Text = "Общая база отключена. Пользователи хранятся на сервере.";
             UserFormStatusText.Text = "Создание пользователей доступно только при подключении к общей базе.";
             SetUserFormEnabled(false);
+            UpdateUserActionButtons();
             return;
         }
 
@@ -247,12 +388,16 @@ public partial class SystemSettingsWorkspaceView : UserControl
             {
                 UsersDataGrid.SelectedItem = users.FirstOrDefault(item => item.UserName.Equals(selectUserName, StringComparison.OrdinalIgnoreCase));
             }
+
+            UpdateUserActionButtons();
         }
         catch (Exception exception)
         {
             UsersDataGrid.ItemsSource = Array.Empty<SettingsUserRowViewModel>();
             UsersSummaryText.Text = "Не удалось загрузить пользователей.";
             UserFormStatusText.Text = $"Ошибка загрузки пользователей: {exception.Message}";
+            SetUserFormEnabled(false);
+            UpdateUserActionButtons();
         }
     }
 
@@ -263,13 +408,16 @@ public partial class SystemSettingsWorkspaceView : UserControl
         UserDisplayNameTextBox.Clear();
         UserPasswordBox.Clear();
         UserRoleComboBox.SelectedValue = "manager";
+        UserEditorTitleText.Text = "Новый пользователь";
         SaveUserButton.Content = "Создать пользователя";
         UserFormStatusText.Text = string.Empty;
+        UpdateUserActionButtons();
         UserLoginTextBox.Focus();
     }
 
     private void SetUserFormBusy(bool isBusy)
     {
+        _isUserFormBusy = isBusy;
         SaveUserButton.IsEnabled = !isBusy;
         UserLoginTextBox.IsEnabled = !isBusy;
         UserDisplayNameTextBox.IsEnabled = !isBusy;
@@ -278,6 +426,7 @@ public partial class SystemSettingsWorkspaceView : UserControl
         SaveUserButton.Content = isBusy
             ? "Сохраняю..."
             : UsersDataGrid.SelectedItem is null ? "Создать пользователя" : "Обновить пользователя";
+        UpdateUserActionButtons();
     }
 
     private void SetUserFormEnabled(bool isEnabled)
@@ -287,6 +436,26 @@ public partial class SystemSettingsWorkspaceView : UserControl
         UserDisplayNameTextBox.IsEnabled = isEnabled;
         UserRoleComboBox.IsEnabled = isEnabled;
         UserPasswordBox.IsEnabled = isEnabled;
+        UpdateUserActionButtons();
+    }
+
+    private SettingsUserRowViewModel? SelectedUser => UsersDataGrid.SelectedItem as SettingsUserRowViewModel;
+
+    private void UpdateUserActionButtons()
+    {
+        var user = SelectedUser;
+        var hasSelectedUser = _backplane is not null && !_isUserFormBusy && user is not null;
+        var hasNewPassword = UserPasswordBox.Password.Length >= 6;
+
+        ChangePasswordButton.IsEnabled = hasSelectedUser && hasNewPassword;
+        ResetLoginFailuresButton.IsEnabled = hasSelectedUser && user!.FailedLoginCount > 0;
+        DisableUserButton.IsEnabled = hasSelectedUser && user!.IsActive && !IsCurrentUser(user);
+        EnableUserButton.IsEnabled = hasSelectedUser && !user!.IsActive;
+    }
+
+    private bool IsCurrentUser(SettingsUserRowViewModel user)
+    {
+        return user.UserName.Equals(_startupStatus.UserName, StringComparison.OrdinalIgnoreCase);
     }
 
     private void OpenFolder(string path)
@@ -352,6 +521,7 @@ public sealed class SettingsUserRowViewModel
     {
         UserName = account.UserName;
         DisplayName = account.DisplayName;
+        IsActive = account.IsActive;
         RoleCode = account.RoleCode;
         RoleDisplayName = account.RoleDisplayName;
         StatusText = account.IsActive ? "Активен" : "Отключен";
@@ -365,6 +535,8 @@ public sealed class SettingsUserRowViewModel
     public string UserName { get; }
 
     public string DisplayName { get; }
+
+    public bool IsActive { get; }
 
     public string RoleCode { get; }
 
