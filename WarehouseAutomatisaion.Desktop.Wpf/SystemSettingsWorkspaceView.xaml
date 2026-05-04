@@ -1,0 +1,299 @@
+<UserControl x:Class="WarehouseAutomatisaion.Desktop.Wpf.SystemSettingsWorkspaceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Background="#F7F9FF">
+    <UserControl.Resources>
+        <Style x:Key="PageCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E8EDF8" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+        </Style>
+
+        <Style x:Key="SettingsActionButtonStyle" TargetType="Button" BasedOn="{StaticResource TopActionButtonStyle}">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E1E8F5" />
+            <Setter Property="Foreground" Value="#4D5B79" />
+            <Setter Property="FontSize" Value="13.5" />
+        </Style>
+
+        <Style x:Key="SettingsPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource TopPrimaryActionButtonStyle}">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="Background" Value="#4F5BFF" />
+            <Setter Property="BorderBrush" Value="#4F5BFF" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="13.5" />
+        </Style>
+
+        <Style x:Key="SettingsTabHeaderTextStyle" TargetType="TextBlock">
+            <Setter Property="Padding" Value="18,10" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="SettingsLabelTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#77839D" />
+        </Style>
+
+        <Style x:Key="SettingsValueTextStyle" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="SettingsHintTextStyle" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,5,0,0" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#7280A0" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <DataTemplate x:Key="SummaryCardTemplate">
+            <Border Width="246"
+                    MinHeight="118"
+                    Margin="0,0,14,14"
+                    Padding="16"
+                    Style="{StaticResource PageCardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="42" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="34"
+                            Height="34"
+                            CornerRadius="10"
+                            Background="{Binding IconBackground}">
+                        <TextBlock FontFamily="Segoe Fluent Icons"
+                                   Text="{Binding IconGlyph}"
+                                   FontSize="15"
+                                   Foreground="{Binding Accent}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Title}"
+                                   FontSize="12.5"
+                                   Foreground="#77839D" />
+                        <TextBlock Text="{Binding Value}"
+                                   Margin="0,5,0,0"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Foreground="#17213A"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Hint}"
+                                   Margin="0,5,0,0"
+                                   FontSize="12.5"
+                                   Foreground="#7280A0"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Margin="28,22,28,28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,18">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <TextBlock Text="Настройки системы"
+                           FontSize="34"
+                           FontWeight="SemiBold"
+                           Foreground="#1A2440" />
+                <TextBlock Text="Параметры приложения, подключения, обновлений и контроля связей данных."
+                           Margin="0,8,0,0"
+                           FontSize="15"
+                           Foreground="#7280A0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Открыть папку приложения"
+                        Style="{StaticResource SettingsActionButtonStyle}"
+                        Click="HandleOpenAppFolderClick" />
+                <Button Content="Открыть локальные настройки"
+                        Margin="10,0,0,0"
+                        Style="{StaticResource SettingsPrimaryButtonStyle}"
+                        Click="HandleOpenLocalSettingsClick" />
+            </StackPanel>
+        </Grid>
+
+        <ItemsControl Grid.Row="1"
+                      x:Name="SummaryCardsItemsControl"
+                      ItemTemplate="{StaticResource SummaryCardTemplate}"
+                      Margin="0,0,0,8">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+
+        <TabControl Grid.Row="2" Margin="0,6,0,0">
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock Text="Общие" Style="{StaticResource SettingsTabHeaderTextStyle}" />
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Margin="0,0,14,0" Padding="18" Style="{StaticResource PageCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Приложение" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                <TextBlock Text="Название" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="ProductNameText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Версия" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="VersionText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Исполняемый файл" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="ExecutableNameText" Style="{StaticResource SettingsValueTextStyle}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1" Margin="0,0,14,0" Padding="18" Style="{StaticResource PageCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Пользователь" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                <TextBlock Text="Имя" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="CurrentUserText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Роль" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="CurrentRoleText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Доступ" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="AccessLevelText" Style="{StaticResource SettingsValueTextStyle}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="2" Padding="18" Style="{StaticResource PageCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Рабочее место" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                <TextBlock Text="Режим данных" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="DataModeText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Папка приложения" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="ApplicationFolderText" Style="{StaticResource SettingsValueTextStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock Text="База данных" Style="{StaticResource SettingsTabHeaderTextStyle}" />
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.35*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Margin="0,0,14,0" Padding="18" Style="{StaticResource PageCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Подключение" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                <TextBlock Text="Состояние" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="DatabaseStateText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Сервер" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="DatabaseEndpointText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="База" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="DatabaseNameText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Пользователь подключения" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="DatabaseUserText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <Button Content="Скопировать сведения о подключении"
+                                        Margin="0,18,0,0"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource SettingsActionButtonStyle}"
+                                        Click="HandleCopyDatabaseSettingsClick" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1" Padding="18" Style="{StaticResource PageCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Авторизация" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                <TextBlock Text="Проверка входа" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="AuthenticationModeText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Роли" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock Text="Администратор / Менеджер" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Изменение ролей и создание пользователей лучше вынести следующим экраном настроек."
+                                           Style="{StaticResource SettingsHintTextStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock Text="Обновления" Style="{StaticResource SettingsTabHeaderTextStyle}" />
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Margin="0,0,14,0" Padding="18" Style="{StaticResource PageCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Канал обновлений" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                <TextBlock Text="Состояние" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="UpdateStateText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Репозиторий" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="UpdateRepositoryText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Артефакт" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="UpdateAssetText" Style="{StaticResource SettingsValueTextStyle}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1" Padding="18" Style="{StaticResource PageCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Файлы настроек" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                <TextBlock Text="Основной файл" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="AppSettingsPathText" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock Text="Локальный файл" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="LocalSettingsPathText" Style="{StaticResource SettingsValueTextStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem>
+                <TabItem.Header>
+                    <TextBlock Text="Связи данных" Style="{StaticResource SettingsTabHeaderTextStyle}" />
+                </TabItem.Header>
+                <Grid Margin="0,12,0,0">
+                    <ContentControl x:Name="DataLinksHost" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <TextBlock x:Name="ActionStatusText"
+                   Grid.Row="2"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Bottom"
+                   Margin="0,0,8,8"
+                   FontSize="12.5"
+                   Foreground="#7180A0" />
+    </Grid>
+</UserControl>

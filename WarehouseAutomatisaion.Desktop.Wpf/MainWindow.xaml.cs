@@ -357,11 +357,11 @@ public partial class MainWindow : Window
     private void ApplyAuthorization()
     {
         var isAdmin = string.Equals(_currentRoleCode, AdminRoleCode, StringComparison.OrdinalIgnoreCase);
-        NavModelButton.Visibility = isAdmin ? Visibility.Visible : Visibility.Collapsed;
+        NavSettingsButton.Visibility = isAdmin ? Visibility.Visible : Visibility.Collapsed;
 
         if (!isAdmin
             && WorkspaceTabs.SelectedItem is TabItem { Tag: string selectedKey }
-            && string.Equals(selectedKey, "model", StringComparison.OrdinalIgnoreCase))
+            && string.Equals(selectedKey, "settings", StringComparison.OrdinalIgnoreCase))
         {
             OpenSection("dashboard");
         }
@@ -572,7 +572,7 @@ public partial class MainWindow : Window
         _navButtonsByKey["warehouse"] = NavWarehouseButton;
         _navButtonsByKey["catalog"] = NavCatalogButton;
         _navButtonsByKey["audit"] = NavAuditButton;
-        _navButtonsByKey["model"] = NavModelButton;
+        _navButtonsByKey["settings"] = NavSettingsButton;
     }
 
     private void RegisterSections()
@@ -640,12 +640,14 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new ReportsWorkspaceView(_salesWorkspace));
 
-        _sections["model"] = new SectionDefinition(
-            Key: "model",
-            Caption: "Связи данных",
-            Subtitle: "Сценарии, связи и проверка целостности данных.",
+        _sections["settings"] = new SectionDefinition(
+            Key: "settings",
+            Caption: "Настройки",
+            Subtitle: "Системные параметры, подключение, обновления и связи данных.",
             Closable: true,
-            Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateModel(_coverage, _salesWorkspace)));
+            Factory: () => new SystemSettingsWorkspaceView(
+                _startupStatus,
+                RecordsWorkspaceCatalog.CreateModel(_coverage, _salesWorkspace)));
     }
 
     private DashboardWorkspaceView CreateDashboardView()
@@ -667,6 +669,11 @@ public partial class MainWindow : Window
 
     private void OpenSection(string sectionKey)
     {
+        if (!CanOpenSection(sectionKey))
+        {
+            return;
+        }
+
         if (!_sections.TryGetValue(sectionKey, out var section))
         {
             return;
@@ -681,6 +688,16 @@ public partial class MainWindow : Window
 
         WorkspaceTabs.SelectedItem = tab;
         ApplySelection(sectionKey);
+    }
+
+    private bool CanOpenSection(string sectionKey)
+    {
+        if (!string.Equals(sectionKey, "settings", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return string.Equals(_currentRoleCode, AdminRoleCode, StringComparison.OrdinalIgnoreCase);
     }
 
     private TabItem CreateSectionTab(SectionDefinition section)

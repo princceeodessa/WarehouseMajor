@@ -157,9 +157,9 @@
                             </Grid>
                         </Button>
                         <Button Style="{StaticResource IconCircleButtonStyle}"
-                                Tag="model"
-                                AutomationProperties.Name="Открыть связи данных"
-                                ToolTip="Открыть связи данных"
+                                Tag="settings"
+                                AutomationProperties.Name="Открыть настройки"
+                                ToolTip="Открыть настройки"
                                 Click="HandleNavigationButtonClick">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE897;" FontSize="14" />
                         </Button>

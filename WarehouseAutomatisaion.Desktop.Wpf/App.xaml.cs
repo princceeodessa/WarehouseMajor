@@ -14,6 +14,7 @@ public partial class App : System.Windows.Application
         try
         {
             base.OnStartup(e);
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
             var infrastructureStatus = DesktopClientStartupService.ValidateInfrastructure();
             if (!infrastructureStatus.CanStart)
@@ -39,6 +40,7 @@ public partial class App : System.Windows.Application
             var window = new MainWindow(startupStatus);
             MainWindow = window;
             window.Show();
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
         }
         catch (Exception exception)
         {
