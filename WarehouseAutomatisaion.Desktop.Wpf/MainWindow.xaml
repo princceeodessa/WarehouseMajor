@@ -40,6 +40,23 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F6F8FF" />
+                    <Setter Property="BorderBrush" Value="#D9E1FF" />
+                    <Setter Property="Foreground" Value="#2F3F74" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF" />
+                    <Setter Property="BorderBrush" Value="#C7D1FF" />
+                    <Setter Property="Foreground" Value="#22305B" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#A9B3C7" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                    <Setter Property="Opacity" Value="0.62" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style TargetType="TabControl">
@@ -74,22 +91,23 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="214" />
+            <ColumnDefinition x:Name="SidebarColumn" Width="214" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0"
+        <Border x:Name="SidebarChrome"
+                Grid.Column="0"
                 Background="#FFFFFF"
                 BorderBrush="#E8EDF7"
                 BorderThickness="0,0,1,0">
-            <Grid Margin="16,18,16,16">
+            <Grid x:Name="SidebarRoot" Margin="16,18,16,16">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Margin="0,0,0,24">
+                <StackPanel x:Name="SidebarHeaderPanel" Grid.Row="0" Margin="0,0,0,24">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Width="28"
                                 Height="28"
@@ -121,7 +139,8 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Text="Разделы"
+                    <TextBlock x:Name="SidebarNavigationTitleText"
+                               Text="Разделы"
                                Margin="0,0,0,12"
                                FontSize="14"
                                Foreground="#7A86A5" />
@@ -243,13 +262,17 @@
                     </ScrollViewer>
                 </Grid>
 
-                <StackPanel Grid.Row="2">
-                    <Border Background="#F7F9FF"
+                <StackPanel x:Name="SidebarFooterPanel" Grid.Row="2">
+                    <Border x:Name="UserProfileCard"
+                            Background="#F7F9FF"
                             BorderBrush="#E6ECF8"
                             BorderThickness="1"
                             CornerRadius="14"
                             Padding="14"
-                            Margin="0,18,0,0">
+                            Margin="0,18,0,0"
+                            Cursor="Hand"
+                            MouseLeftButtonUp="HandleUserProfileCardClick"
+                            AutomationProperties.Name="Профиль пользователя">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="34" />
@@ -257,25 +280,28 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Border Width="26" Height="26" CornerRadius="13" Background="#EEF2FF" VerticalAlignment="Top">
-                                <TextBlock Text="A"
+                                <TextBlock x:Name="UserAvatarText"
+                                           Text="MW"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
                                            FontSize="12"
                                            FontWeight="SemiBold"
                                            Foreground="#4F5BFF" />
                             </Border>
-                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                <TextBlock x:Name="ApplicationCardTitleText"
+                            <StackPanel x:Name="UserProfileTextPanel" Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock x:Name="UserDisplayNameText"
                                            Text="MajorWarehause"
                                            FontSize="12"
                                            FontWeight="SemiBold"
                                            Foreground="#24314F" />
-                                <TextBlock Text="Администратор"
+                                <TextBlock x:Name="UserRoleText"
+                                           Text="Администратор"
                                            Margin="0,3,0,0"
                                            FontSize="11"
                                            Foreground="#7D88A3" />
                             </StackPanel>
-                            <TextBlock Grid.Column="2"
+                            <TextBlock x:Name="UserProfileChevronText"
+                                       Grid.Column="2"
                                        FontFamily="Segoe Fluent Icons"
                                        Text="&#xE70D;"
                                        FontSize="10"
@@ -291,6 +317,7 @@
                             CornerRadius="14"
                             Padding="14"
                             Margin="0,12,0,0"
+                            Visibility="Collapsed"
                             AutomationProperties.Name="Источник данных">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -318,7 +345,8 @@
                         </Grid>
                     </Border>
 
-                    <Border Background="#FFFFFF"
+                    <Border x:Name="UpdatePanelCard"
+                            Background="#FFFFFF"
                             BorderBrush="#E6ECF8"
                             BorderThickness="1"
                             CornerRadius="14"
@@ -353,10 +381,30 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Text="Свернуть меню"
-                               Margin="12,16,0,0"
-                               FontSize="12"
-                               Foreground="#6D7892" />
+                    <Button x:Name="SidebarCollapseButton"
+                            Margin="0,14,0,0"
+                            Height="36"
+                            Padding="10,0"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            Foreground="#6D7892"
+                            HorizontalContentAlignment="Left"
+                            Cursor="Hand"
+                            AutomationProperties.Name="Свернуть меню"
+                            Click="HandleSidebarCollapseClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="SidebarCollapseIconText"
+                                       FontFamily="Segoe Fluent Icons"
+                                       Text="&#xE76B;"
+                                       FontSize="12"
+                                       VerticalAlignment="Center" />
+                            <TextBlock x:Name="SidebarCollapseText"
+                                       Text="Свернуть меню"
+                                       Margin="10,0,0,0"
+                                       FontSize="12"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>

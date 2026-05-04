@@ -9,6 +9,8 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 
 public static class WpfTextNormalizer
 {
+    private static readonly FontFamily IconFontFamily = new("Segoe Fluent Icons, Segoe MDL2 Assets");
+
     public static void NormalizeTree(DependencyObject? root)
     {
         if (root is null)
@@ -51,6 +53,8 @@ public static class WpfTextNormalizer
 
     private static void NormalizeSelf(DependencyObject node)
     {
+        NormalizeIconFont(node);
+
         switch (node)
         {
             case TextBlock textBlock:
@@ -96,6 +100,26 @@ public static class WpfTextNormalizer
         {
             EnsureButtonAutomationName(button);
         }
+    }
+
+    private static void NormalizeIconFont(DependencyObject node)
+    {
+        switch (node)
+        {
+            case TextBlock textBlock when IsFluentIconFont(textBlock.FontFamily.Source):
+                textBlock.FontFamily = IconFontFamily;
+                break;
+            case Control control when IsFluentIconFont(control.FontFamily.Source):
+                control.FontFamily = IconFontFamily;
+                break;
+        }
+    }
+
+    private static bool IsFluentIconFont(string? fontFamily)
+    {
+        return !string.IsNullOrWhiteSpace(fontFamily)
+               && fontFamily.Contains("Segoe Fluent Icons", StringComparison.OrdinalIgnoreCase)
+               && !fontFamily.Contains("Segoe MDL2 Assets", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string Normalize(string? value)

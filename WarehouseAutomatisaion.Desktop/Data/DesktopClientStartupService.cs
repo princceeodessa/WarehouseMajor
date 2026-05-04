@@ -7,7 +7,7 @@ public static class DesktopClientStartupService
         var config = DesktopRemoteDatabaseSettings.Snapshot();
         if (!config.Enabled)
         {
-            return DesktopClientStartupResult.LocalMode();
+            return DesktopClientStartupResult.LocalMode(actorName);
         }
 
         if (string.IsNullOrWhiteSpace(config.Host)
@@ -22,13 +22,14 @@ public static class DesktopClientStartupService
         {
             var backplane = DesktopMySqlBackplaneService.CreateDefault();
             backplane.EnsureReady(actorName);
+            var profile = backplane.EnsureUserProfile(actorName);
 
             var operational = OperationalMySqlDesktopService.TryCreateConfigured()
                 ?? throw new InvalidOperationException("Не удалось создать подключение к операционной MySQL-схеме.");
 
             operational.EnsureOperationalSchemaAccessible();
 
-            return DesktopClientStartupResult.SharedMode(config.Host, config.Port, config.Database, config.User);
+            return DesktopClientStartupResult.SharedMode(config.Host, config.Port, config.Database, config.User, profile);
         }
         catch (Exception exception)
         {
@@ -46,18 +47,31 @@ public sealed record DesktopClientStartupResult(
     string? Host = null,
     int? Port = null,
     string? Database = null,
-    string? User = null)
+    string? User = null,
+    string UserName = "",
+    string DisplayName = "",
+    string PrimaryRoleCode = "manager",
+    string PrimaryRoleDisplayName = "Менеджер",
+    IReadOnlyList<string>? RoleCodes = null)
 {
-    public static DesktopClientStartupResult LocalMode()
+    public static DesktopClientStartupResult LocalMode(string actorName)
     {
+        var normalizedUserName = string.IsNullOrWhiteSpace(actorName) ? Environment.UserName : actorName.Trim();
+        var roleCode = DesktopRoleCatalog.ResolveDefaultRoleCode(normalizedUserName);
         return new DesktopClientStartupResult(
             CanStart: true,
             UsesSharedDatabase: false,
-            Message: "Клиент запущен в локальном режиме.");
+            Message: "Клиент запущен в локальном режиме.",
+            UserName: normalizedUserName,
+            DisplayName: normalizedUserName,
+            PrimaryRoleCode: roleCode,
+            PrimaryRoleDisplayName: DesktopRoleCatalog.GetDisplayName(roleCode),
+            RoleCodes: new[] { roleCode });
     }
 
-    public static DesktopClientStartupResult SharedMode(string host, int port, string database, string user)
+    public static DesktopClientStartupResult SharedMode(string host, int port, string database, string user, DesktopAppUserProfile profile)
     {
+        var roleCode = DesktopRoleCatalog.ResolvePrimaryRoleCode(profile.Roles, profile.UserName);
         return new DesktopClientStartupResult(
             CanStart: true,
             UsesSharedDatabase: true,
@@ -65,7 +79,12 @@ public sealed record DesktopClientStartupResult(
             Host: host,
             Port: port,
             Database: database,
-            User: user);
+            User: user,
+            UserName: profile.UserName,
+            DisplayName: string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.UserName : profile.DisplayName,
+            PrimaryRoleCode: roleCode,
+            PrimaryRoleDisplayName: DesktopRoleCatalog.GetDisplayName(roleCode),
+            RoleCodes: new[] { roleCode });
     }
 
     public static DesktopClientStartupResult Failure(string message)

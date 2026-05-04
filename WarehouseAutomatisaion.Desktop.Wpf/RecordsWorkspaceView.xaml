@@ -13,39 +13,22 @@
             <Setter Property="CornerRadius" Value="18" />
         </Style>
 
-        <Style x:Key="GhostButtonStyle" TargetType="Button">
+        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource TopActionButtonStyle}">
             <Setter Property="Height" Value="40" />
             <Setter Property="Padding" Value="18,0" />
             <Setter Property="Background" Value="#FFFFFF" />
             <Setter Property="BorderBrush" Value="#E4EAF5" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Foreground" Value="#4D5B79" />
             <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="12">
-                            <ContentPresenter Margin="{TemplateBinding Padding}"
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                              RecognizesAccessKey="True" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
 
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource TopPrimaryActionButtonStyle}">
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="18,0" />
             <Setter Property="Background" Value="#4F5BFF" />
             <Setter Property="BorderBrush" Value="#4F5BFF" />
             <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="14" />
         </Style>
 
         <Style x:Key="IconCircleButtonStyle" TargetType="Button">
@@ -73,6 +56,22 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F8FAFF" />
+                    <Setter Property="BorderBrush" Value="#C6D1F7" />
+                    <Setter Property="Foreground" Value="#4F5BFF" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF" />
+                    <Setter Property="BorderBrush" Value="#9CADFF" />
+                    <Setter Property="Foreground" Value="#3742D6" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Cursor" Value="Arrow" />
+                    <Setter Property="Opacity" Value="0.62" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style TargetType="DataGrid">

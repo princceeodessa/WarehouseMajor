@@ -140,24 +140,25 @@ public sealed class DesktopMySqlBackplaneService
                 last_seen_at_utc = UTC_TIMESTAMP(6);
             """);
 
-        foreach (var roleCode in DesktopRoleCatalog.BootstrapRoleCodes)
-        {
-            var roleId = CreateDeterministicGuid($"desktop-role:{roleCode}");
-            script.AppendLine($"""
-                INSERT IGNORE INTO app_user_roles (
-                    user_id,
-                    role_id,
-                    assigned_at_utc,
-                    assigned_by
-                )
-                VALUES (
-                    {SqlUtf8TextExpression(userId.ToString())},
-                    {SqlUtf8TextExpression(roleId.ToString())},
-                    UTC_TIMESTAMP(6),
-                    {SqlUtf8TextExpression(normalizedUserName)}
-                );
-                """);
-        }
+        var roleCode = DesktopRoleCatalog.ResolveDefaultRoleCode(normalizedUserName);
+        var roleId = CreateDeterministicGuid($"desktop-role:{roleCode}");
+        script.AppendLine($"""
+            DELETE FROM app_user_roles
+            WHERE user_id = {SqlUtf8TextExpression(userId.ToString())};
+
+            INSERT INTO app_user_roles (
+                user_id,
+                role_id,
+                assigned_at_utc,
+                assigned_by
+            )
+            VALUES (
+                {SqlUtf8TextExpression(userId.ToString())},
+                {SqlUtf8TextExpression(roleId.ToString())},
+                UTC_TIMESTAMP(6),
+                {SqlUtf8TextExpression(normalizedUserName)}
+            );
+            """);
 
         script.AppendLine("COMMIT;");
         ExecuteSqlNonQuery(script.ToString(), useDatabase: true);
@@ -631,15 +632,23 @@ public sealed class DesktopMySqlBackplaneService
             """;
 
         var row = QueryJsonArray<DesktopUserProfileRow>(sql).First();
+        var roles = (row.Roles ?? Array.Empty<string>())
+            .Select(DesktopRoleCatalog.NormalizeRoleCode)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (roles.Length == 0)
+        {
+            roles = [DesktopRoleCatalog.ResolveDefaultRoleCode(row.UserName ?? userName)];
+        }
+
         return new DesktopAppUserProfile(
             ParseGuid(row.Id, row.UserName),
             row.UserName ?? string.Empty,
             row.DisplayName ?? row.UserName ?? string.Empty,
             row.IsActive != 0,
-            (row.Roles ?? Array.Empty<string>())
-                .Where(item => !string.IsNullOrWhiteSpace(item))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray());
+            roles);
     }
 
     private List<T> QueryJsonArray<T>(string sql)
@@ -1303,19 +1312,77 @@ internal sealed class DesktopModuleSnapshotRow
 
 internal static class DesktopRoleCatalog
 {
+    public const string AdminRoleCode = "admin";
+    public const string ManagerRoleCode = "manager";
+
     public static IReadOnlyList<DesktopRoleDefinition> All { get; } =
     [
-        new("admin", "Администратор", "Полный доступ к данным и сервисным операциям приложения."),
-        new("sales", "Продажи", "Работа с клиентами, заказами, счетами и отгрузками."),
-        new("purchasing", "Закупки", "Работа с поставщиками, заказами, счетами и приемкой."),
-        new("warehouse", "Склад", "Работа с перемещениями, инвентаризациями, списаниями и остатками."),
-        new("catalog", "Номенклатура", "Поддержка карточек товара, цен и правил продаж."),
-        new("audit", "Аудит", "Просмотр общего журнала действий и поиск по рабочему контуру.")
+        new(AdminRoleCode, "Администратор", "Полный доступ к данным, настройкам и сервисным операциям приложения."),
+        new(ManagerRoleCode, "Менеджер", "Работа с клиентами, заказами, закупками, складом и товарами без сервисных настроек.")
     ];
 
     public static IReadOnlyList<string> BootstrapRoleCodes { get; } = All
         .Select(item => item.RoleCode)
         .ToArray();
+
+    public static string ResolveDefaultRoleCode(string userName)
+    {
+        var normalized = (userName ?? string.Empty).Trim();
+        return IsBuiltInAdmin(normalized) ? AdminRoleCode : ManagerRoleCode;
+    }
+
+    public static string ResolvePrimaryRoleCode(IEnumerable<string> roleCodes, string userName)
+    {
+        var normalizedRoles = roleCodes
+            .Select(NormalizeRoleCode)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (normalizedRoles.Any(item => string.Equals(item, AdminRoleCode, StringComparison.OrdinalIgnoreCase)))
+        {
+            return AdminRoleCode;
+        }
+
+        if (normalizedRoles.Any(item => string.Equals(item, ManagerRoleCode, StringComparison.OrdinalIgnoreCase)))
+        {
+            return ManagerRoleCode;
+        }
+
+        return ResolveDefaultRoleCode(userName);
+    }
+
+    public static string NormalizeRoleCode(string? roleCode)
+    {
+        var normalized = (roleCode ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            AdminRoleCode => AdminRoleCode,
+            ManagerRoleCode or "sales" or "purchasing" or "warehouse" or "catalog" or "audit" => ManagerRoleCode,
+            _ => string.Empty
+        };
+    }
+
+    public static string GetDisplayName(string roleCode)
+    {
+        var normalized = NormalizeRoleCode(roleCode);
+        return All.FirstOrDefault(item => string.Equals(item.RoleCode, normalized, StringComparison.OrdinalIgnoreCase))?.DisplayName
+            ?? GetDisplayName(ManagerRoleCode);
+    }
+
+    private static bool IsBuiltInAdmin(string userName)
+    {
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            return false;
+        }
+
+        var normalized = userName.Trim();
+        return normalized.Equals("priiiinnceee", StringComparison.OrdinalIgnoreCase)
+               || normalized.Equals("admin", StringComparison.OrdinalIgnoreCase)
+               || normalized.Equals("administrator", StringComparison.OrdinalIgnoreCase)
+               || normalized.Equals("сисадмин", StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 internal sealed record DesktopRoleDefinition(string RoleCode, string DisplayName, string Description);

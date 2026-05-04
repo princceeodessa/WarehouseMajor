@@ -22,45 +22,40 @@
             <Setter Property="CornerRadius" Value="18" />
         </Style>
 
-        <Style x:Key="GhostButtonStyle" TargetType="Button">
+        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource TopActionButtonStyle}">
             <Setter Property="Height" Value="40" />
             <Setter Property="Padding" Value="16,0" />
             <Setter Property="Background" Value="#FFFFFF" />
             <Setter Property="BorderBrush" Value="#DDE5F4" />
-            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Foreground" Value="#34415F" />
             <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10">
-                            <ContentPresenter Margin="{TemplateBinding Padding}"
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                              RecognizesAccessKey="True" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
 
-        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource TopPrimaryActionButtonStyle}">
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="16,0" />
             <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
             <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontSize" Value="12.5" />
         </Style>
 
         <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
             <Setter Property="Background" Value="#FFFFFF" />
             <Setter Property="BorderBrush" Value="#F4B7BE" />
             <Setter Property="Foreground" Value="#E14B5A" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FFF5F6" />
+                    <Setter Property="BorderBrush" Value="#EE8E99" />
+                    <Setter Property="Foreground" Value="#C83445" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#FFE9EC" />
+                    <Setter Property="BorderBrush" Value="#DF6F7D" />
+                    <Setter Property="Foreground" Value="#B52838" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="MiniButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
@@ -99,6 +94,17 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#4F5BFF" />
+                    <Setter Property="BorderBrush" Value="#C8D1FF" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#A9B3C7" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                    <Setter Property="Opacity" Value="0.64" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="FilterComboStyle" TargetType="ComboBox" BasedOn="{StaticResource TableFilterComboBoxStyle}">

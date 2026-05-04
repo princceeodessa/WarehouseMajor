@@ -21,10 +21,12 @@
             <Setter Property="FontSize" Value="12.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Button}">
-                        <Border Background="{TemplateBinding Background}"
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="10"
@@ -34,15 +36,57 @@
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                               RecognizesAccessKey="True" />
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#8EA0FF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F8FAFF" />
+                    <Setter Property="BorderBrush" Value="#C6D1F7" />
+                    <Setter Property="Foreground" Value="#24314F" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF" />
+                    <Setter Property="BorderBrush" Value="#9CADFF" />
+                    <Setter Property="Foreground" Value="#1B2440" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#F4F6FB" />
+                    <Setter Property="BorderBrush" Value="#E2E7F2" />
+                    <Setter Property="Foreground" Value="#9AA6BD" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                    <Setter Property="Opacity" Value="0.62" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="TopPrimaryActionButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource TopActionButtonStyle}">
             <Setter Property="Background" Value="#4F5BFF" />
             <Setter Property="BorderBrush" Value="#4F5BFF" />
             <Setter Property="Foreground" Value="#FFFFFF" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#4350F0" />
+                    <Setter Property="BorderBrush" Value="#4350F0" />
+                    <Setter Property="Foreground" Value="#FFFFFF" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#3742D6" />
+                    <Setter Property="BorderBrush" Value="#3742D6" />
+                    <Setter Property="Foreground" Value="#FFFFFF" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEB6E8" />
+                    <Setter Property="BorderBrush" Value="#AEB6E8" />
+                    <Setter Property="Foreground" Value="#F7F8FF" />
+                    <Setter Property="Opacity" Value="0.68" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="TopSearchContainerStyle" TargetType="{x:Type Border}">

@@ -14,6 +14,11 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 
 public partial class MainWindow : Window
 {
+    private const double SidebarExpandedWidth = 214d;
+    private const double SidebarCollapsedWidth = 74d;
+    private const string AdminRoleCode = "admin";
+    private const string ManagerRoleCode = "manager";
+
     private static readonly WpfBrush ActiveNavBackground = BrushFromHex("#EEF2FF");
     private static readonly WpfBrush ActiveNavBorder = BrushFromHex("#C9D3F7");
     private static readonly WpfBrush ActiveNavForeground = BrushFromHex("#2F45D3");
@@ -41,6 +46,8 @@ public partial class MainWindow : Window
     private bool _remoteSalesRefreshInProgress;
     private bool _applyingRemoteSalesRefresh;
     private bool _salesWorkspaceSaveWarningShown;
+    private bool _isSidebarCollapsed;
+    private string _currentRoleCode = ManagerRoleCode;
 
     public MainWindow(DesktopClientStartupResult startupStatus)
     {
@@ -50,11 +57,11 @@ public partial class MainWindow : Window
         EnsureWindowFitsWorkArea();
         Title = AppBranding.ProductName;
         ApplicationNameText.Text = AppBranding.ProductName;
-        ApplicationCardTitleText.Text = AppBranding.ProductName;
+        InitializeUserProfile();
 
         _demoWorkspace = DemoWorkspace.Create();
         _salesWorkspaceStore = SalesWorkspaceStore.CreateDefault();
-        _salesWorkspace = TryLoadSalesWorkspace(_salesWorkspaceStore, _demoWorkspace.CurrentOperator);
+        _salesWorkspace = TryLoadSalesWorkspace(_salesWorkspaceStore, _startupStatus.DisplayName);
         _salesWorkspace.Changed += HandleSalesWorkspaceChanged;
         _coverage = FunctionalCoverageSnapshot.Create();
         _applicationUpdateService = new ApplicationUpdateService();
@@ -71,6 +78,7 @@ public partial class MainWindow : Window
 
         RegisterSidebarButtons();
         RegisterSections();
+        ApplyAuthorization();
         InitializeDatabaseStatus();
         InitializeUpdatePanel();
         OpenSection("dashboard");
@@ -217,6 +225,189 @@ public partial class MainWindow : Window
         Height = targetHeight;
         Left = area.Left + (area.Width - targetWidth) / 2d;
         Top = area.Top + (area.Height - targetHeight) / 2d;
+    }
+
+    private void InitializeUserProfile()
+    {
+        _currentRoleCode = NormalizeRoleCode(_startupStatus.PrimaryRoleCode);
+        var displayName = string.IsNullOrWhiteSpace(_startupStatus.DisplayName)
+            ? Environment.UserName
+            : _startupStatus.DisplayName.Trim();
+        var roleName = GetRoleDisplayName(_currentRoleCode);
+
+        UserDisplayNameText.Text = displayName;
+        UserRoleText.Text = roleName;
+        UserAvatarText.Text = BuildInitials(displayName);
+        UserProfileCard.ToolTip = $"{displayName}\n{roleName}";
+        UserProfileCard.ContextMenu = BuildUserProfileMenu();
+    }
+
+    private ContextMenu BuildUserProfileMenu()
+    {
+        var menu = new ContextMenu();
+        menu.Items.Add(new MenuItem
+        {
+            Header = UserDisplayNameText.Text,
+            IsEnabled = false
+        });
+        menu.Items.Add(new Separator());
+
+        menu.Items.Add(CreateRoleMenuItem(AdminRoleCode));
+        menu.Items.Add(CreateRoleMenuItem(ManagerRoleCode));
+        return menu;
+    }
+
+    private MenuItem CreateRoleMenuItem(string roleCode)
+    {
+        var normalizedRoleCode = NormalizeRoleCode(roleCode);
+        var item = new MenuItem
+        {
+            Header = GetRoleDisplayName(normalizedRoleCode),
+            Tag = normalizedRoleCode,
+            IsCheckable = true,
+            IsChecked = string.Equals(_currentRoleCode, normalizedRoleCode, StringComparison.OrdinalIgnoreCase),
+            IsEnabled = CanUseRole(normalizedRoleCode)
+        };
+        item.Click += HandleRoleMenuItemClick;
+        return item;
+    }
+
+    private void HandleRoleMenuItemClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: string roleCode } || !CanUseRole(roleCode))
+        {
+            return;
+        }
+
+        _currentRoleCode = NormalizeRoleCode(roleCode);
+        UserRoleText.Text = GetRoleDisplayName(_currentRoleCode);
+        UserProfileCard.ToolTip = $"{UserDisplayNameText.Text}\n{UserRoleText.Text}";
+        UserProfileCard.ContextMenu = BuildUserProfileMenu();
+        ApplyAuthorization();
+    }
+
+    private void HandleUserProfileCardClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (UserProfileCard.ContextMenu is null)
+        {
+            UserProfileCard.ContextMenu = BuildUserProfileMenu();
+        }
+
+        UserProfileCard.ContextMenu.PlacementTarget = UserProfileCard;
+        UserProfileCard.ContextMenu.IsOpen = true;
+    }
+
+    private void HandleSidebarCollapseClick(object sender, RoutedEventArgs e)
+    {
+        _isSidebarCollapsed = !_isSidebarCollapsed;
+        ApplySidebarState();
+    }
+
+    private void ApplySidebarState()
+    {
+        SidebarColumn.Width = new GridLength(_isSidebarCollapsed ? SidebarCollapsedWidth : SidebarExpandedWidth);
+        SidebarRoot.Margin = _isSidebarCollapsed ? new Thickness(12, 18, 12, 16) : new Thickness(16, 18, 16, 16);
+        SidebarCollapseButton.HorizontalContentAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        SidebarCollapseIconText.Text = _isSidebarCollapsed ? "\uE76C" : "\uE76B";
+        SidebarCollapseText.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        System.Windows.Automation.AutomationProperties.SetName(
+            SidebarCollapseButton,
+            _isSidebarCollapsed ? "Развернуть меню" : "Свернуть меню");
+
+        var textVisibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        ApplicationNameText.Visibility = textVisibility;
+        SidebarNavigationTitleText.Visibility = textVisibility;
+        UserProfileTextPanel.Visibility = textVisibility;
+        UserProfileChevronText.Visibility = textVisibility;
+        UpdatePanelCard.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        UserProfileCard.Padding = _isSidebarCollapsed ? new Thickness(8) : new Thickness(14);
+        UserProfileCard.Width = _isSidebarCollapsed ? 44 : double.NaN;
+        UserProfileCard.HorizontalAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+
+        foreach (var button in _navButtonsByKey.Values)
+        {
+            ApplyNavButtonSidebarState(button);
+        }
+    }
+
+    private void ApplyNavButtonSidebarState(WpfButton button)
+    {
+        button.Padding = _isSidebarCollapsed ? new Thickness(0) : new Thickness(14, 0, 0, 0);
+        button.HorizontalContentAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+
+        if (button.Content is not StackPanel panel)
+        {
+            return;
+        }
+
+        panel.HorizontalAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        foreach (var textBlock in panel.Children.OfType<TextBlock>())
+        {
+            if (IsIconFont(textBlock.FontFamily.Source))
+            {
+                textBlock.Margin = new Thickness(0);
+                continue;
+            }
+
+            textBlock.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+            textBlock.Margin = _isSidebarCollapsed ? new Thickness(0) : new Thickness(12, 0, 0, 0);
+        }
+    }
+
+    private void ApplyAuthorization()
+    {
+        var isAdmin = string.Equals(_currentRoleCode, AdminRoleCode, StringComparison.OrdinalIgnoreCase);
+        NavModelButton.Visibility = isAdmin ? Visibility.Visible : Visibility.Collapsed;
+
+        if (!isAdmin
+            && WorkspaceTabs.SelectedItem is TabItem { Tag: string selectedKey }
+            && string.Equals(selectedKey, "model", StringComparison.OrdinalIgnoreCase))
+        {
+            OpenSection("dashboard");
+        }
+    }
+
+    private bool CanUseRole(string roleCode)
+    {
+        var normalizedRoleCode = NormalizeRoleCode(roleCode);
+        var assignedRoles = _startupStatus.RoleCodes ?? Array.Empty<string>();
+        var hasRole = assignedRoles.Any(item => string.Equals(NormalizeRoleCode(item), normalizedRoleCode, StringComparison.OrdinalIgnoreCase));
+        var isAssignedAdmin = assignedRoles.Any(item => string.Equals(NormalizeRoleCode(item), AdminRoleCode, StringComparison.OrdinalIgnoreCase));
+        return hasRole || isAssignedAdmin && string.Equals(normalizedRoleCode, ManagerRoleCode, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeRoleCode(string? roleCode)
+    {
+        return string.Equals(roleCode, AdminRoleCode, StringComparison.OrdinalIgnoreCase)
+            ? AdminRoleCode
+            : ManagerRoleCode;
+    }
+
+    private static string GetRoleDisplayName(string roleCode)
+    {
+        return string.Equals(roleCode, AdminRoleCode, StringComparison.OrdinalIgnoreCase)
+            ? "Администратор"
+            : "Менеджер";
+    }
+
+    private static string BuildInitials(string value)
+    {
+        var words = (value ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (words.Length == 0)
+        {
+            return "MW";
+        }
+
+        var initials = string.Concat(words.Take(2).Select(word => char.ToUpperInvariant(word[0])));
+        return initials.Length > 0 ? initials : "MW";
+    }
+
+    private static bool IsIconFont(string fontFamily)
+    {
+        return fontFamily.Contains("Segoe Fluent Icons", StringComparison.OrdinalIgnoreCase)
+               || fontFamily.Contains("Segoe MDL2 Assets", StringComparison.OrdinalIgnoreCase);
     }
 
     private static SalesWorkspace TryLoadSalesWorkspace(SalesWorkspaceStore store, string currentOperator)
