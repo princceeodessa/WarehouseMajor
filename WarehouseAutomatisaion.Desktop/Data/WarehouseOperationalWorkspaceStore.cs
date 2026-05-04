@@ -239,6 +239,7 @@ public sealed class WarehouseOperationalWorkspaceStore
         MergeDocuments(target.TransferOrders, persisted.TransferOrders);
         MergeDocuments(target.InventoryCounts, persisted.InventoryCounts);
         MergeDocuments(target.WriteOffs, persisted.WriteOffs);
+        MergeStorageCells(target.StorageCells, persisted.StorageCells);
         MergeOperationLog(target.OperationLog, persisted.OperationLog);
 
         target.CurrentOperator = string.IsNullOrWhiteSpace(persisted.CurrentOperator)
@@ -250,6 +251,7 @@ public sealed class WarehouseOperationalWorkspaceStore
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+        target.EnsureDefaultStorageCells(raiseChanged: false);
     }
 
     private static void MergeDocuments(
@@ -303,6 +305,53 @@ public sealed class WarehouseOperationalWorkspaceStore
         }
     }
 
+    private static void MergeStorageCells(
+        BindingList<WarehouseStorageCellRecord> target,
+        IEnumerable<WarehouseStorageCellRecord> persistedCells)
+    {
+        var targetByKey = target
+            .Select(item => (Key: BuildStorageCellKey(item), Item: item))
+            .Where(item => !string.IsNullOrWhiteSpace(item.Key))
+            .ToDictionary(item => item.Key, item => item.Item, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var persisted in persistedCells)
+        {
+            var key = BuildStorageCellKey(persisted);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            if (targetByKey.TryGetValue(key, out var current))
+            {
+                CopyCell(current, persisted);
+                continue;
+            }
+
+            var clone = persisted.Clone();
+            target.Add(clone);
+            targetByKey[key] = clone;
+        }
+    }
+
+    private static void CopyCell(WarehouseStorageCellRecord target, WarehouseStorageCellRecord source)
+    {
+        target.Id = source.Id == Guid.Empty ? target.Id : source.Id;
+        target.Warehouse = FirstNonEmpty(source.Warehouse, target.Warehouse);
+        target.Code = FirstNonEmpty(source.Code, target.Code);
+        target.ZoneCode = FirstNonEmpty(source.ZoneCode, target.ZoneCode);
+        target.ZoneName = FirstNonEmpty(source.ZoneName, target.ZoneName);
+        target.Row = source.Row != 0 ? source.Row : target.Row;
+        target.Rack = source.Rack != 0 ? source.Rack : target.Rack;
+        target.Shelf = source.Shelf != 0 ? source.Shelf : target.Shelf;
+        target.Cell = source.Cell != 0 ? source.Cell : target.Cell;
+        target.CellType = FirstNonEmpty(source.CellType, target.CellType);
+        target.Capacity = source.Capacity > 0m ? source.Capacity : target.Capacity;
+        target.Status = FirstNonEmpty(source.Status, target.Status);
+        target.QrPayload = FirstNonEmpty(source.QrPayload, target.QrPayload);
+        target.Comment = FirstNonEmpty(source.Comment, target.Comment);
+    }
+
     private static OperationalWarehouseDocumentRecord MergeDocument(
         OperationalWarehouseDocumentRecord runtime,
         OperationalWarehouseDocumentRecord persisted)
@@ -351,6 +400,11 @@ public sealed class WarehouseOperationalWorkspaceStore
             : $"{document.DocumentType}|{document.SourceWarehouse}|{document.TargetWarehouse}|{document.DocumentDate:yyyyMMdd}";
     }
 
+    private static string BuildStorageCellKey(WarehouseStorageCellRecord cell)
+    {
+        return OperationalWarehouseWorkspace.BuildStorageCellKey(cell);
+    }
+
     private static bool IsLocalSource(string sourceLabel)
     {
         return sourceLabel.Contains("локаль", StringComparison.OrdinalIgnoreCase)
@@ -389,6 +443,7 @@ public sealed class WarehouseOperationalWorkspaceStore
             TransferOrders = MergeRecords(server.TransferOrders, local.TransferOrders, BuildDocumentKey, item => item.Clone()),
             InventoryCounts = MergeRecords(server.InventoryCounts, local.InventoryCounts, BuildDocumentKey, item => item.Clone()),
             WriteOffs = MergeRecords(server.WriteOffs, local.WriteOffs, BuildDocumentKey, item => item.Clone()),
+            StorageCells = MergeRecords(server.StorageCells, local.StorageCells, BuildStorageCellKey, item => item.Clone()),
             OperationLog = server.OperationLog
                 .Concat(local.OperationLog)
                 .GroupBy(item => item.Id == Guid.Empty ? $"{item.EntityType}|{item.EntityNumber}|{item.Action}|{item.LoggedAt:O}" : item.Id.ToString("N"), StringComparer.OrdinalIgnoreCase)
@@ -450,6 +505,8 @@ public sealed class WarehouseOperationalWorkspaceStore
 
         public List<OperationalWarehouseDocumentRecord> WriteOffs { get; set; } = [];
 
+        public List<WarehouseStorageCellRecord> StorageCells { get; set; } = [];
+
         public List<WarehouseOperationLogEntry> OperationLog { get; set; } = [];
 
         public static WarehouseWorkspaceSnapshot FromWorkspace(OperationalWarehouseWorkspace workspace)
@@ -460,6 +517,7 @@ public sealed class WarehouseOperationalWorkspaceStore
                 TransferOrders = workspace.TransferOrders.Select(item => item.Clone()).ToList(),
                 InventoryCounts = workspace.InventoryCounts.Select(item => item.Clone()).ToList(),
                 WriteOffs = workspace.WriteOffs.Select(item => item.Clone()).ToList(),
+                StorageCells = workspace.StorageCells.Select(item => item.Clone()).ToList(),
                 OperationLog = workspace.OperationLog.Select(item => item.Clone()).ToList()
             };
         }
@@ -489,11 +547,14 @@ public sealed class WarehouseOperationalWorkspaceStore
                 workspace.WriteOffs.Add(writeOff.Clone());
             }
 
+            MergeStorageCells(workspace.StorageCells, StorageCells);
+
             foreach (var logEntry in OperationLog)
             {
                 workspace.OperationLog.Add(logEntry.Clone());
             }
 
+            workspace.EnsureDefaultStorageCells(raiseChanged: false);
             return workspace;
         }
     }

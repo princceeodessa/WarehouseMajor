@@ -446,6 +446,8 @@
                 <Button x:Name="StockTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="stock" Content="Остатки" />
                 <Button x:Name="TransfersTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="transfers" Content="Перемещения" />
                 <Button x:Name="ReservationsTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="reservations" Content="Резервы" />
+                <Button x:Name="CellStorageTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="cellstorage" Content="Ячейки и отбор" />
+                <Button x:Name="ExpenseInvoicesTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="expenseinvoices" Content="Расходные накладные" />
                 <Button x:Name="InventoryTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="inventory" Content="Инвентаризация" />
                 <Button x:Name="WriteOffsTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="writeoffs" Content="Списания" />
             </StackPanel>
@@ -957,6 +959,248 @@
                             </ScrollViewer>
                         </Border>
                     </Grid>
+                </Grid>
+
+                <Grid x:Name="CellStorageTabContent" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,18">
+                        <Border Width="260" Margin="0,0,14,14" Style="{StaticResource MetricCardStyle}">
+                            <StackPanel>
+                                <TextBlock x:Name="CellTodayMetricText" Foreground="#4F5BFF" Style="{StaticResource MetricValueStyle}" />
+                                <TextBlock Text="К отгрузке сегодня" Style="{StaticResource MetricLabelStyle}" />
+                                <TextBlock Text="Активные отгрузки на дату" Style="{StaticResource MetricHintStyle}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Width="260" Margin="0,0,14,14" Style="{StaticResource MetricCardStyle}">
+                            <StackPanel>
+                                <TextBlock x:Name="CellReadyMetricText" Foreground="#26A85B" Style="{StaticResource MetricValueStyle}" />
+                                <TextBlock Text="Готово к сборке" Style="{StaticResource MetricLabelStyle}" />
+                                <TextBlock Text="Товара хватает и ячейки есть" Style="{StaticResource MetricHintStyle}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Width="260" Margin="0,0,14,14" Style="{StaticResource MetricCardStyle}">
+                            <StackPanel>
+                                <TextBlock x:Name="CellShortMetricText" Foreground="#FF5B5B" Style="{StaticResource MetricValueStyle}" />
+                                <TextBlock Text="Не хватает товара" Style="{StaticResource MetricLabelStyle}" />
+                                <TextBlock Text="Нужна закупка или перемещение" Style="{StaticResource MetricHintStyle}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Width="260" Margin="0,0,0,14" Style="{StaticResource MetricCardStyle}">
+                            <StackPanel>
+                                <TextBlock x:Name="CellMissingMetricText" Foreground="#FF9F1A" Style="{StaticResource MetricValueStyle}" />
+                                <TextBlock Text="Без точной ячейки" Style="{StaticResource MetricLabelStyle}" />
+                                <TextBlock Text="Остаток есть, адрес не указан" Style="{StaticResource MetricHintStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </WrapPanel>
+
+                    <Grid Grid.Row="1" Margin="0,0,0,18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="440" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Margin="0,0,18,0" Padding="0" Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="420" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Margin="22,22,22,14">
+                                    <TextBlock Text="Отгрузки на сегодня" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
+                                    <TextBlock Text="Очередь кладовщика по активным отгрузкам." Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <DataGrid x:Name="CellShipmentsDataGrid"
+                                          Grid.Row="1"
+                                          Style="{StaticResource StockGridStyle}"
+                                          ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                          RowStyle="{StaticResource GridRowStyle}"
+                                          SelectionChanged="HandleCellShipmentSelectionChanged"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Отгрузка" Binding="{Binding Number}" Width="120" />
+                                        <DataGridTextColumn Header="Клиент" Binding="{Binding Customer}" Width="*" />
+                                        <DataGridTemplateColumn Header="Готовность" Width="150">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{Binding StatusBackground}" CornerRadius="10" Padding="10,4" HorizontalAlignment="Left">
+                                                        <TextBlock Text="{Binding Readiness}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding StatusForeground}" />
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Column="1" Padding="0" Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="420" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Margin="22,22,22,14">
+                                    <TextBlock x:Name="CellSelectedShipmentTitleText" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
+                                    <TextBlock x:Name="CellSelectedShipmentSubtitleText" Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <DataGrid x:Name="CellPickLinesDataGrid"
+                                          Grid.Row="1"
+                                          Style="{StaticResource StockGridStyle}"
+                                          ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                          RowStyle="{StaticResource GridRowStyle}"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="120" />
+                                        <DataGridTextColumn Header="Товар" Binding="{Binding Item}" Width="260" />
+                                        <DataGridTextColumn Header="Нужно" Binding="{Binding RequiredDisplay}" Width="100" />
+                                        <DataGridTextColumn Header="Доступно" Binding="{Binding AvailableDisplay}" Width="110" />
+                                        <DataGridTextColumn Header="Не хватает" Binding="{Binding ShortageDisplay}" Width="110" />
+                                        <DataGridTextColumn Header="Ячейки" Binding="{Binding CellDisplay}" Width="260" />
+                                        <DataGridTemplateColumn Header="Статус" Width="150">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{Binding StatusBackground}" CornerRadius="10" Padding="10,4" HorizontalAlignment="Left">
+                                                        <TextBlock Text="{Binding Status}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding StatusForeground}" />
+                                                    </Border>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <Border Grid.Row="2" Padding="0" Margin="0,0,0,18" Style="{StaticResource CardStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="300" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Margin="22,22,22,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Справочник ячеек" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
+                                    <TextBlock Text="Постоянные адреса склада. QR подготовлен, но рабочие операции могут заполняться вручную." Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" HorizontalAlignment="Right">
+                                    <ComboBox x:Name="StorageCellWarehouseFilterCombo"
+                                              Width="170"
+                                              Margin="0,0,10,0"
+                                              Style="{StaticResource FilterComboStyle}"
+                                              SelectionChanged="HandleStorageCellFilterChanged" />
+                                    <TextBox x:Name="StorageCellSearchBox"
+                                             Width="190"
+                                             Height="36"
+                                             Margin="0,0,10,0"
+                                             VerticalContentAlignment="Center"
+                                             TextChanged="HandleStorageCellSearchChanged" />
+                                    <Button Width="120"
+                                            Height="36"
+                                            Margin="0,0,8,0"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandleAddStorageCellClick"
+                                            Content="Новая" />
+                                    <Button Width="120"
+                                            Height="36"
+                                            Margin="0,0,8,0"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandleEditStorageCellClick"
+                                            Content="Изменить" />
+                                    <Button x:Name="ToggleStorageCellButton"
+                                            Width="140"
+                                            Height="36"
+                                            Margin="0,0,8,0"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandleToggleStorageCellClick"
+                                            Content="Закрыть" />
+                                    <Button Width="150"
+                                            Height="36"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandleEnsureStorageCellsClick"
+                                            Content="Шаблон" />
+                                </WrapPanel>
+                            </Grid>
+
+                            <DataGrid x:Name="StorageCellsDataGrid"
+                                      Grid.Row="1"
+                                      Style="{StaticResource StockGridStyle}"
+                                      ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                      RowStyle="{StaticResource GridRowStyle}"
+                                      SelectionChanged="HandleStorageCellSelectionChanged"
+                                      MouseDoubleClick="HandleStorageCellDoubleClick"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Ячейка" Binding="{Binding Code}" Width="160" />
+                                    <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="180" />
+                                    <DataGridTextColumn Header="Зона" Binding="{Binding Zone}" Width="130" />
+                                    <DataGridTextColumn Header="Тип" Binding="{Binding CellType}" Width="130" />
+                                    <DataGridTextColumn Header="Лимит" Binding="{Binding CapacityDisplay}" Width="100" />
+                                    <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="120" />
+                                    <DataGridTextColumn Header="QR" Binding="{Binding QrState}" Width="130" />
+                                    <DataGridTextColumn Header="Комментарий" Binding="{Binding Comment}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="3" Padding="0" Style="{StaticResource CardStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="360" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Margin="22,22,22,14">
+                                <TextBlock Text="Остатки по ячейкам" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
+                                <TextBlock Text="Адреса считаются из приемок, перемещений, инвентаризаций и списаний." Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <DataGrid x:Name="CellBalancesDataGrid"
+                                      Grid.Row="1"
+                                      Style="{StaticResource StockGridStyle}"
+                                      ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                      RowStyle="{StaticResource GridRowStyle}"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Ячейка" Binding="{Binding Cell}" Width="150" />
+                                    <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="160" />
+                                    <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="120" />
+                                    <DataGridTextColumn Header="Товар" Binding="{Binding Item}" Width="*" />
+                                    <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityDisplay}" Width="120" />
+                                    <DataGridTextColumn Header="Источник" Binding="{Binding Source}" Width="240" />
+                                    <DataGridTemplateColumn Header="Адрес" Width="130">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{Binding StatusBackground}" CornerRadius="10" Padding="10,4" HorizontalAlignment="Left">
+                                                    <TextBlock Text="{Binding Status}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding StatusForeground}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
                 </Grid>
 
                 <Grid x:Name="DocumentsTabContent" Visibility="Collapsed">

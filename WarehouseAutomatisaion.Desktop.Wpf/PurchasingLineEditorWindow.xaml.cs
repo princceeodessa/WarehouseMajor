@@ -9,15 +9,26 @@ public partial class PurchasingLineEditorWindow : Window
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
     private readonly CatalogChoice[] _catalogChoices;
+    private readonly IReadOnlyList<string> _targetLocationOptions;
     private readonly OperationalPurchasingLineRecord? _original;
+    private readonly bool _allowTargetLocation;
 
     public PurchasingLineEditorWindow(
         string title,
         string subtitle,
         IReadOnlyList<SalesCatalogItemOption> catalogItems,
-        OperationalPurchasingLineRecord? line = null)
+        OperationalPurchasingLineRecord? line = null,
+        bool allowTargetLocation = false,
+        IReadOnlyList<string>? targetLocationOptions = null)
     {
         _original = line;
+        _allowTargetLocation = allowTargetLocation;
+        _targetLocationOptions = (targetLocationOptions ?? Array.Empty<string>())
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
         _catalogChoices = catalogItems
             .Select(item => new CatalogChoice(item.Code, item.Name, item.Unit, item.DefaultPrice))
             .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
@@ -27,6 +38,8 @@ public partial class PurchasingLineEditorWindow : Window
         HeaderTitleText.Text = title;
         HeaderSubtitleText.Text = subtitle;
         ItemComboBox.ItemsSource = _catalogChoices;
+        TargetLocationTextBox.ItemsSource = _targetLocationOptions;
+        TargetLocationPanel.Visibility = _allowTargetLocation ? Visibility.Visible : Visibility.Collapsed;
         LoadDraft();
     }
 
@@ -61,6 +74,7 @@ public partial class PurchasingLineEditorWindow : Window
         QuantityTextBox.Text = _original.Quantity.ToString("N2", RuCulture);
         PriceTextBox.Text = _original.Price.ToString("N2", RuCulture);
         PlannedDatePicker.SelectedDate = _original.PlannedDate;
+        TargetLocationTextBox.Text = _original.TargetLocation;
         RelatedDocumentTextBox.Text = _original.RelatedDocument;
     }
 
@@ -116,6 +130,9 @@ public partial class PurchasingLineEditorWindow : Window
             Unit = unit,
             Price = price,
             PlannedDate = PlannedDatePicker.SelectedDate,
+            TargetLocation = _allowTargetLocation
+                ? TargetLocationTextBox.Text.Trim()
+                : _original?.TargetLocation ?? string.Empty,
             RelatedDocument = RelatedDocumentTextBox.Text.Trim(),
             Fields = _original?.Fields?.ToArray() ?? Array.Empty<WarehouseAutomatisaion.Infrastructure.Importing.OneCFieldValue>()
         };

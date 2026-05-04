@@ -9,6 +9,7 @@ public sealed class OperationalWarehouseWorkspace
         BindingList<OperationalWarehouseDocumentRecord> transferOrders,
         BindingList<OperationalWarehouseDocumentRecord> inventoryCounts,
         BindingList<OperationalWarehouseDocumentRecord> writeOffs,
+        BindingList<WarehouseStorageCellRecord> storageCells,
         BindingList<WarehouseOperationLogEntry> operationLog,
         IReadOnlyList<string> transferStatuses,
         IReadOnlyList<string> inventoryStatuses,
@@ -19,6 +20,7 @@ public sealed class OperationalWarehouseWorkspace
         TransferOrders = transferOrders;
         InventoryCounts = inventoryCounts;
         WriteOffs = writeOffs;
+        StorageCells = storageCells;
         OperationLog = operationLog;
         TransferStatuses = transferStatuses;
         InventoryStatuses = inventoryStatuses;
@@ -32,6 +34,8 @@ public sealed class OperationalWarehouseWorkspace
     public BindingList<OperationalWarehouseDocumentRecord> InventoryCounts { get; }
 
     public BindingList<OperationalWarehouseDocumentRecord> WriteOffs { get; }
+
+    public BindingList<WarehouseStorageCellRecord> StorageCells { get; }
 
     public BindingList<WarehouseOperationLogEntry> OperationLog { get; }
 
@@ -89,15 +93,23 @@ public sealed class OperationalWarehouseWorkspace
         IReadOnlyList<SalesCatalogItemOption>? catalogItems = null,
         IReadOnlyList<string>? warehouses = null)
     {
+        var normalizedWarehouses = (warehouses is { Count: > 0 } ? warehouses : new[] { "Главный склад", "Шоурум", "Монтажный склад" })
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         return new OperationalWarehouseWorkspace(
             new BindingList<OperationalWarehouseDocumentRecord>(),
             new BindingList<OperationalWarehouseDocumentRecord>(),
             new BindingList<OperationalWarehouseDocumentRecord>(),
+            new BindingList<WarehouseStorageCellRecord>(CreateDefaultStorageCells(normalizedWarehouses).ToList()),
             new BindingList<WarehouseOperationLogEntry>(),
             new[] { "Черновик", "К перемещению", "Перемещен" },
             new[] { "Черновик", "Проведена" },
             new[] { "Черновик", "Списано" },
-            (warehouses is { Count: > 0 } ? warehouses : new[] { "Главный склад", "Шоурум", "Монтажный склад" }).ToArray(),
+            normalizedWarehouses,
             (catalogItems ?? Array.Empty<SalesCatalogItemOption>()).ToArray())
         {
             CurrentOperator = string.IsNullOrWhiteSpace(currentOperator) ? Environment.UserName : currentOperator
@@ -109,6 +121,7 @@ public sealed class OperationalWarehouseWorkspace
         ReplaceBindingList(TransferOrders, source.TransferOrders, item => item.Clone());
         ReplaceBindingList(InventoryCounts, source.InventoryCounts, item => item.Clone());
         ReplaceBindingList(WriteOffs, source.WriteOffs, item => item.Clone());
+        ReplaceBindingList(StorageCells, source.StorageCells, item => item.Clone());
         ReplaceBindingList(OperationLog, source.OperationLog, item => item.Clone());
         CurrentOperator = source.CurrentOperator;
         Warehouses = source.Warehouses.ToArray();
@@ -123,6 +136,152 @@ public sealed class OperationalWarehouseWorkspace
             : salesWorkspace.CurrentOperator;
         Warehouses = salesWorkspace.Warehouses.ToArray();
         CatalogItems = salesWorkspace.CatalogItems.Select(item => item with { }).ToArray();
+        EnsureDefaultStorageCells(raiseChanged: false);
+    }
+
+    public static IReadOnlyList<WarehouseStorageCellRecord> CreateDefaultStorageCells(IReadOnlyList<string>? warehouses)
+    {
+        return WarehouseCellStoragePreparationPlan
+            .Create(warehouses, sharedDatabaseEnabled: true, currentRoleCode: "admin")
+            .TemplateCells
+            .Select(WarehouseStorageCellRecord.FromTemplate)
+            .ToArray();
+    }
+
+    public int EnsureDefaultStorageCells()
+    {
+        return EnsureDefaultStorageCells(raiseChanged: true);
+    }
+
+    internal int EnsureDefaultStorageCells(bool raiseChanged)
+    {
+        var existingKeys = StorageCells
+            .Select(BuildStorageCellKey)
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var added = 0;
+        foreach (var cell in CreateDefaultStorageCells(Warehouses))
+        {
+            var key = BuildStorageCellKey(cell);
+            if (string.IsNullOrWhiteSpace(key) || existingKeys.Contains(key))
+            {
+                continue;
+            }
+
+            StorageCells.Add(cell);
+            existingKeys.Add(key);
+            added++;
+        }
+
+        if (added > 0 && raiseChanged)
+        {
+            WriteOperationLog(
+                "Ячейки склада",
+                Guid.Empty,
+                "Справочник ячеек",
+                "Обновление шаблона ячеек",
+                "Успех",
+                $"Добавлено ячеек: {added:N0}.");
+            OnChanged();
+        }
+
+        return added;
+    }
+
+    public IReadOnlyList<string> GetActiveStorageCellCodes(string? warehouse = null)
+    {
+        return StorageCells
+            .Where(item => item.IsActive)
+            .Where(item => string.IsNullOrWhiteSpace(warehouse) || item.Warehouse.Equals(warehouse.Trim(), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(item => item.Warehouse, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(item => item.Code)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public WarehouseStorageCellRecord CreateStorageCellDraft(string? warehouse = null)
+    {
+        return new WarehouseStorageCellRecord
+        {
+            Id = Guid.NewGuid(),
+            Warehouse = NormalizeWarehouse(warehouse),
+            ZoneCode = "STG",
+            ZoneName = "Хранение",
+            Row = 1,
+            Rack = 1,
+            Shelf = 1,
+            Cell = 1,
+            CellType = "Штучная",
+            Capacity = 40m,
+            Status = "Активна"
+        };
+    }
+
+    public void AddStorageCell(WarehouseStorageCellRecord cell)
+    {
+        var normalized = NormalizeStorageCell(cell);
+        if (StorageCells.Any(item => IsSameStorageCell(item, normalized)))
+        {
+            throw new InvalidOperationException($"Ячейка {normalized.Code} уже есть на складе {normalized.Warehouse}.");
+        }
+
+        StorageCells.Add(normalized);
+        WriteOperationLog(
+            "Ячейки склада",
+            normalized.Id,
+            normalized.Code,
+            "Создание ячейки",
+            "Успех",
+            $"Добавлена ячейка {normalized.Code} на складе {normalized.Warehouse}.");
+        OnChanged();
+    }
+
+    public void UpdateStorageCell(WarehouseStorageCellRecord cell)
+    {
+        var normalized = NormalizeStorageCell(cell);
+        var existing = StorageCells.FirstOrDefault(item => item.Id == normalized.Id);
+        if (existing is null)
+        {
+            throw new InvalidOperationException("Ячейка не найдена.");
+        }
+
+        if (StorageCells.Any(item => item.Id != normalized.Id && IsSameStorageCell(item, normalized)))
+        {
+            throw new InvalidOperationException($"Ячейка {normalized.Code} уже есть на складе {normalized.Warehouse}.");
+        }
+
+        existing.CopyFrom(normalized);
+        WriteOperationLog(
+            "Ячейки склада",
+            existing.Id,
+            existing.Code,
+            "Изменение ячейки",
+            "Успех",
+            $"Обновлена ячейка {existing.Code} на складе {existing.Warehouse}.");
+        OnChanged();
+    }
+
+    public void SetStorageCellActive(Guid cellId, bool isActive)
+    {
+        var existing = StorageCells.FirstOrDefault(item => item.Id == cellId);
+        if (existing is null)
+        {
+            throw new InvalidOperationException("Ячейка не найдена.");
+        }
+
+        existing.Status = isActive ? "Активна" : "Закрыта";
+        WriteOperationLog(
+            "Ячейки склада",
+            existing.Id,
+            existing.Code,
+            isActive ? "Активация ячейки" : "Закрытие ячейки",
+            "Успех",
+            isActive
+                ? $"Ячейка {existing.Code} снова доступна."
+                : $"Ячейка {existing.Code} закрыта для новых операций.");
+        OnChanged();
     }
 
     public OperationalWarehouseDocumentRecord CreateTransferDraft(string? sourceWarehouse = null)
@@ -451,6 +610,50 @@ public sealed class OperationalWarehouseWorkspace
         return values.Any(value => source.Contains(value, StringComparison.OrdinalIgnoreCase));
     }
 
+    private WarehouseStorageCellRecord NormalizeStorageCell(WarehouseStorageCellRecord source)
+    {
+        var normalized = source.Clone();
+        normalized.Id = normalized.Id == Guid.Empty ? Guid.NewGuid() : normalized.Id;
+        normalized.Warehouse = NormalizeWarehouse(normalized.Warehouse);
+        normalized.ZoneCode = CleanCellPart(normalized.ZoneCode, "STG").ToUpperInvariant();
+        normalized.ZoneName = CleanCellPart(normalized.ZoneName, "Хранение");
+        normalized.Row = Math.Max(1, normalized.Row);
+        normalized.Rack = Math.Max(1, normalized.Rack);
+        normalized.Shelf = Math.Max(1, normalized.Shelf);
+        normalized.Cell = Math.Max(1, normalized.Cell);
+        normalized.CellType = CleanCellPart(normalized.CellType, "Штучная");
+        normalized.Status = CleanCellPart(normalized.Status, "Активна");
+        normalized.Comment = normalized.Comment.Trim();
+        normalized.Code = string.IsNullOrWhiteSpace(normalized.Code)
+            ? BuildGeneratedStorageCellCode(normalized)
+            : normalized.Code.Trim().ToUpperInvariant();
+        normalized.QrPayload = string.IsNullOrWhiteSpace(normalized.QrPayload)
+            ? WarehouseCellStoragePreparationPlan.BuildCellQrPayload(normalized.Warehouse, normalized.Code)
+            : normalized.QrPayload.Trim();
+        return normalized;
+    }
+
+    private static bool IsSameStorageCell(WarehouseStorageCellRecord left, WarehouseStorageCellRecord right)
+    {
+        return left.Warehouse.Equals(right.Warehouse, StringComparison.OrdinalIgnoreCase)
+               && left.Code.Equals(right.Code, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildGeneratedStorageCellCode(WarehouseStorageCellRecord cell)
+    {
+        return $"{cell.ZoneCode}-{cell.Row:00}-{cell.Rack:00}-{cell.Shelf:00}-{cell.Cell:00}";
+    }
+
+    private static string CleanCellPart(string value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    }
+
+    internal static string BuildStorageCellKey(WarehouseStorageCellRecord cell)
+    {
+        return $"{cell.Warehouse.Trim()}|{cell.Code.Trim()}";
+    }
+
     private static void ReplaceBindingList<T>(
         BindingList<T> target,
         IEnumerable<T> source,
@@ -568,6 +771,103 @@ public sealed class OperationalWarehouseLineRecord
             RelatedDocument = RelatedDocument,
             Fields = Fields.ToArray()
         };
+    }
+}
+
+public sealed class WarehouseStorageCellRecord
+{
+    public Guid Id { get; set; }
+
+    public string Warehouse { get; set; } = string.Empty;
+
+    public string Code { get; set; } = string.Empty;
+
+    public string ZoneCode { get; set; } = string.Empty;
+
+    public string ZoneName { get; set; } = string.Empty;
+
+    public int Row { get; set; }
+
+    public int Rack { get; set; }
+
+    public int Shelf { get; set; }
+
+    public int Cell { get; set; }
+
+    public string CellType { get; set; } = string.Empty;
+
+    public decimal Capacity { get; set; }
+
+    public string Status { get; set; } = "Активна";
+
+    public string QrPayload { get; set; } = string.Empty;
+
+    public string Comment { get; set; } = string.Empty;
+
+    public bool IsActive => !Status.Contains("закры", StringComparison.OrdinalIgnoreCase)
+                            && !Status.Contains("архив", StringComparison.OrdinalIgnoreCase)
+                            && !Status.Contains("неактив", StringComparison.OrdinalIgnoreCase);
+
+    public string DisplayName => string.IsNullOrWhiteSpace(ZoneName) ? Code : $"{Code} / {ZoneName}";
+
+    public static WarehouseStorageCellRecord FromTemplate(WarehouseCellStorageTemplateCell template)
+    {
+        return new WarehouseStorageCellRecord
+        {
+            Id = Guid.NewGuid(),
+            Warehouse = template.Warehouse,
+            Code = template.Code,
+            ZoneCode = template.ZoneCode,
+            ZoneName = template.ZoneName,
+            Row = template.Row,
+            Rack = template.Rack,
+            Shelf = template.Shelf,
+            Cell = template.Cell,
+            CellType = template.CellType,
+            Capacity = template.Capacity,
+            Status = template.Status,
+            QrPayload = template.QrPayload,
+            Comment = "Создано из шаблона ячеечного хранения"
+        };
+    }
+
+    public WarehouseStorageCellRecord Clone()
+    {
+        return new WarehouseStorageCellRecord
+        {
+            Id = Id == Guid.Empty ? Guid.NewGuid() : Id,
+            Warehouse = Warehouse,
+            Code = Code,
+            ZoneCode = ZoneCode,
+            ZoneName = ZoneName,
+            Row = Row,
+            Rack = Rack,
+            Shelf = Shelf,
+            Cell = Cell,
+            CellType = CellType,
+            Capacity = Capacity,
+            Status = Status,
+            QrPayload = QrPayload,
+            Comment = Comment
+        };
+    }
+
+    public void CopyFrom(WarehouseStorageCellRecord source)
+    {
+        Id = source.Id == Guid.Empty ? Id : source.Id;
+        Warehouse = source.Warehouse;
+        Code = source.Code;
+        ZoneCode = source.ZoneCode;
+        ZoneName = source.ZoneName;
+        Row = source.Row;
+        Rack = source.Rack;
+        Shelf = source.Shelf;
+        Cell = source.Cell;
+        CellType = source.CellType;
+        Capacity = source.Capacity;
+        Status = source.Status;
+        QrPayload = source.QrPayload;
+        Comment = source.Comment;
     }
 }
 

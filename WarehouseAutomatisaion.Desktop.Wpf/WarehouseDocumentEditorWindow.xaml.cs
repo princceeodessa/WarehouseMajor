@@ -54,6 +54,30 @@ public partial class WarehouseDocumentEditorWindow : Window
 
     private static string Ui(string? value) => TextMojibakeFixer.NormalizeText(value);
 
+    private IReadOnlyList<string> ResolveStorageCellOptions()
+    {
+        var warehouses = new[]
+            {
+                SourceWarehouseComboBox.Text,
+                _mode == WarehouseDocumentEditorMode.Transfer ? TargetWarehouseComboBox.Text : string.Empty,
+                _draft.SourceWarehouse,
+                _draft.TargetWarehouse
+            }
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var cells = warehouses.Length == 0
+            ? _workspace.GetActiveStorageCellCodes()
+            : warehouses.SelectMany(warehouse => _workspace.GetActiveStorageCellCodes(warehouse));
+
+        return cells
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+    }
+
     private void LoadDraft()
     {
         NumberTextBox.Text = _draft.Number;
@@ -81,7 +105,8 @@ public partial class WarehouseDocumentEditorWindow : Window
         Ui(BuildLineSubtitle()),
         _workspace.CatalogItems,
         allowNegativeQuantity: _mode == WarehouseDocumentEditorMode.Inventory,
-        allowTargetLocation: _mode == WarehouseDocumentEditorMode.Transfer)
+        allowTargetLocation: _mode == WarehouseDocumentEditorMode.Transfer,
+        storageCellOptions: ResolveStorageCellOptions())
         {
             Owner = this
         };
@@ -110,7 +135,8 @@ public partial class WarehouseDocumentEditorWindow : Window
             _workspace.CatalogItems,
             line,
             allowNegativeQuantity: _mode == WarehouseDocumentEditorMode.Inventory,
-            allowTargetLocation: _mode == WarehouseDocumentEditorMode.Transfer)
+            allowTargetLocation: _mode == WarehouseDocumentEditorMode.Transfer,
+            storageCellOptions: ResolveStorageCellOptions())
         {
             Owner = this
         };

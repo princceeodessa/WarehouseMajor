@@ -566,7 +566,6 @@ public partial class MainWindow : Window
         _navButtonsByKey["dashboard"] = NavDashboardButton;
         _navButtonsByKey["sales"] = NavSalesButton;
         _navButtonsByKey["customers"] = NavCustomersButton;
-        _navButtonsByKey["invoices"] = NavInvoicesButton;
         _navButtonsByKey["shipments"] = NavShipmentsButton;
         _navButtonsByKey["purchasing"] = NavPurchasingButton;
         _navButtonsByKey["warehouse"] = NavWarehouseButton;
@@ -597,13 +596,6 @@ public partial class MainWindow : Window
             Subtitle: "База клиентов, контактов и статусов работы.",
             Closable: true,
             Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateCustomers(_salesWorkspace)));
-
-        _sections["invoices"] = new SectionDefinition(
-            Key: "invoices",
-            Caption: "Счета",
-            Subtitle: "Выставление и контроль оплаты счетов.",
-            Closable: true,
-            Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateInvoices(_salesWorkspace)));
 
         _sections["shipments"] = new SectionDefinition(
             Key: "shipments",
@@ -647,7 +639,8 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new SystemSettingsWorkspaceView(
                 _startupStatus,
-                RecordsWorkspaceCatalog.CreateModel(_coverage, _salesWorkspace)));
+                RecordsWorkspaceCatalog.CreateModel(_coverage, _salesWorkspace),
+                _salesWorkspace.Warehouses));
     }
 
     private DashboardWorkspaceView CreateDashboardView()

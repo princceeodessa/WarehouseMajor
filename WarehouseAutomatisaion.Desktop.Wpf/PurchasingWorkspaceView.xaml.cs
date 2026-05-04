@@ -2750,7 +2750,12 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void CreateNewPurchase(Guid? supplierId = null)
     {
-        var dialog = new PurchasingDocumentEditorWindow(_workspace, PurchasingDocumentEditorMode.PurchaseOrder, null, supplierId)
+        var dialog = new PurchasingDocumentEditorWindow(
+            _workspace,
+            PurchasingDocumentEditorMode.PurchaseOrder,
+            null,
+            supplierId,
+            ResolveStorageCellOptions())
         {
             Owner = Window.GetWindow(this)
         };
@@ -2790,7 +2795,12 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         OperationalPurchasingDocumentRecord? document,
         Guid? preselectedSupplierId = null)
     {
-        var dialog = new PurchasingDocumentEditorWindow(_workspace, mode, document, preselectedSupplierId)
+        var dialog = new PurchasingDocumentEditorWindow(
+            _workspace,
+            mode,
+            document,
+            preselectedSupplierId,
+            ResolveStorageCellOptions())
         {
             Owner = Window.GetWindow(this)
         };
@@ -3496,6 +3506,32 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
+    }
+
+    private IReadOnlyList<string> ResolveStorageCellOptions()
+    {
+        try
+        {
+            var warehouseStore = WarehouseOperationalWorkspaceStore.CreateDefault();
+            var warehouseWorkspace = warehouseStore.TryLoadExisting(GetCurrentOperator(), _workspace.CatalogItems, _workspace.Warehouses);
+            var codes = warehouseWorkspace?.GetActiveStorageCellCodes();
+            if (codes is { Count: > 0 })
+            {
+                return codes;
+            }
+        }
+        catch
+        {
+            // Fallback below keeps receipt editing available even when the warehouse module is not loaded yet.
+        }
+
+        return OperationalWarehouseWorkspace
+            .CreateDefaultStorageCells(_workspace.Warehouses)
+            .Where(item => item.IsActive)
+            .Select(item => item.Code)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
     }
 
     private string GetCurrentOperator()

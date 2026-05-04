@@ -85,12 +85,12 @@
 
                 <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,10,0">
                     <TextBlock Text="Ячейка / место" Style="{StaticResource FieldLabelStyle}" />
-                    <TextBox x:Name="SourceLocationTextBox" Style="{StaticResource DialogMultilineTextBoxStyle}" Height="88" />
+                    <ComboBox x:Name="SourceLocationTextBox" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="1" Margin="10,0,0,0">
                     <TextBlock x:Name="TargetLocationLabelText" Text="Место назначения" Style="{StaticResource FieldLabelStyle}" />
-                    <TextBox x:Name="TargetLocationTextBox" Style="{StaticResource DialogMultilineTextBoxStyle}" Height="88" />
+                    <ComboBox x:Name="TargetLocationTextBox" />
                 </StackPanel>
             </Grid>
         </Border>

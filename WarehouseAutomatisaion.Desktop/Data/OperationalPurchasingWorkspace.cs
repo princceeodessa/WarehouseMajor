@@ -683,9 +683,26 @@ public sealed class OperationalPurchasingWorkspace
             Unit = line.Unit,
             Price = line.Price,
             PlannedDate = line.PlannedDate,
+            TargetLocation = FirstNonEmpty(
+                GetFieldDisplay(line.Fields, "Ячейка"),
+                GetFieldDisplay(line.Fields, "МестоХранения"),
+                GetFieldDisplay(line.Fields, "Размещение"),
+                GetFieldDisplay(line.Fields, "СкладскаяЯчейка")),
             RelatedDocument = line.RelatedDocument,
             Fields = line.Fields.ToArray()
         };
+    }
+
+    private static string GetFieldDisplay(IEnumerable<OneCFieldValue> fields, string fieldName)
+    {
+        return fields.FirstOrDefault(field => string.Equals(field.Name, fieldName, StringComparison.OrdinalIgnoreCase))
+            ?.DisplayValue
+            ?? string.Empty;
+    }
+
+    private static string FirstNonEmpty(params string[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
     }
 
     private static BindingList<OperationalPurchasingLineRecord> CloneLines(IEnumerable<OperationalPurchasingLineRecord> lines)
@@ -861,6 +878,8 @@ public sealed class OperationalPurchasingLineRecord
 
     public DateTime? PlannedDate { get; set; }
 
+    public string TargetLocation { get; set; } = string.Empty;
+
     public string RelatedDocument { get; set; } = string.Empty;
 
     public IReadOnlyList<OneCFieldValue> Fields { get; set; } = Array.Empty<OneCFieldValue>();
@@ -879,6 +898,7 @@ public sealed class OperationalPurchasingLineRecord
             Unit = Unit,
             Price = Price,
             PlannedDate = PlannedDate,
+            TargetLocation = TargetLocation,
             RelatedDocument = RelatedDocument,
             Fields = Fields.ToArray()
         };

@@ -351,6 +351,206 @@
 
             <TabItem>
                 <TabItem.Header>
+                    <TextBlock Text="Ячеечное хранение" Style="{StaticResource SettingsTabHeaderTextStyle}" />
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="0,18,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="0.92*" />
+                            <ColumnDefinition Width="1.08*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Row="0" Grid.Column="0" Margin="0,0,14,14" Padding="18" Style="{StaticResource PageCardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.ColumnSpan="2" Text="Контур ячеечного хранения" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                <TextBlock Grid.Row="1" Text="Статус" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="Доступ" Margin="18,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="CellStorageStatusText" Grid.Row="2" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock x:Name="CellStorageAccessText" Grid.Row="2" Grid.Column="1" Margin="18,4,0,0" Style="{StaticResource SettingsValueTextStyle}" />
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="0" Grid.Column="1" Margin="0,0,0,14" Padding="18" Style="{StaticResource PageCardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="0.72*" />
+                                    <ColumnDefinition Width="1.45*" />
+                                    <ColumnDefinition Width="1.05*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.ColumnSpan="4" Text="База для проектирования" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                <TextBlock Grid.Row="1" Text="Режим данных" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="Складов" Margin="18,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock Grid.Row="1" Grid.Column="2" Text="Маска адреса" Margin="18,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock Grid.Row="1" Grid.Column="3" Text="QR" Margin="18,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                <TextBlock x:Name="CellStorageModeText" Grid.Row="2" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock x:Name="CellStorageWarehouseCountText" Grid.Row="2" Grid.Column="1" Margin="18,4,0,0" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock x:Name="CellStorageAddressMaskText" Grid.Row="2" Grid.Column="2" Margin="18,4,0,0" TextWrapping="Wrap" Style="{StaticResource SettingsValueTextStyle}" />
+                                <TextBlock x:Name="CellStorageQrModeText" Grid.Row="2" Grid.Column="3" Margin="18,4,0,0" TextWrapping="Wrap" Style="{StaticResource SettingsValueTextStyle}" />
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="1" Grid.Column="0" Margin="0,0,14,0" Padding="18" Style="{StaticResource PageCardStyle}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Text="Готовность" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                <TextBlock x:Name="CellStorageWarehousesPreviewText"
+                                           Grid.Row="1"
+                                           Margin="0,6,0,12"
+                                           FontSize="12.5"
+                                           Foreground="#7280A0"
+                                           TextWrapping="Wrap" />
+                                <ItemsControl x:Name="CellStorageReadinessItemsControl" Grid.Row="2">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,14">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="92" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding State}"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#0B8F87" />
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" Foreground="#17213A" />
+                                                    <TextBlock Text="{Binding Detail}" Margin="0,3,0,0" FontSize="12.5" Foreground="#7280A0" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Grid.Row="3"
+                                           Text="Шаблон ячеек"
+                                           Margin="0,10,0,0"
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           Foreground="#17213A" />
+                                <DataGrid x:Name="CellStorageTemplateCellsGrid"
+                                          Grid.Row="4"
+                                          Margin="0,12,0,0"
+                                          Style="{StaticResource SettingsDataGridStyle}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="1.05*" />
+                                        <DataGridTextColumn Header="Ячейка" Binding="{Binding Code}" Width="1.05*" />
+                                        <DataGridTextColumn Header="Зона" Binding="{Binding ZoneName}" Width="0.8*" />
+                                        <DataGridTextColumn Header="Тип" Binding="{Binding CellType}" Width="0.8*" />
+                                        <DataGridTextColumn Header="Лимит" Binding="{Binding Capacity, StringFormat={}{0:N0}}" Width="0.55*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+
+                        <Grid Grid.Row="1" Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Margin="0,0,0,14" Padding="18" Style="{StaticResource PageCardStyle}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Справочники" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                    <DataGrid x:Name="CellStorageReferencesGrid"
+                                              Grid.Row="1"
+                                              Margin="0,12,0,0"
+                                              Style="{StaticResource SettingsDataGridStyle}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Контур" Binding="{Binding Area}" Width="1.1*" />
+                                            <DataGridTextColumn Header="Сейчас" Binding="{Binding CurrentState}" Width="0.85*" />
+                                            <DataGridTextColumn Header="Готовим под" Binding="{Binding PreparedFor}" Width="1.55*" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Row="1" Margin="0,0,0,14" Padding="18" Style="{StaticResource PageCardStyle}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Этапы внедрения" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                    <DataGrid x:Name="CellStorageStagesGrid"
+                                              Grid.Row="1"
+                                              Margin="0,12,0,0"
+                                              Style="{StaticResource SettingsDataGridStyle}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="№" Binding="{Binding Step}" Width="48" />
+                                            <DataGridTextColumn Header="Этап" Binding="{Binding Name}" Width="1.2*" />
+                                            <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="0.85*" />
+                                            <DataGridTextColumn Header="Состав" Binding="{Binding Scope}" Width="1.8*" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Row="2" Padding="18" Style="{StaticResource PageCardStyle}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="QR-подготовка" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
+                                    <TextBlock Grid.Row="1"
+                                               Text="Payload подготовлен как будущий ускоритель. Приемка, перемещения и отбор не зависят от сканера."
+                                               Margin="0,6,0,0"
+                                               FontSize="12.5"
+                                               Foreground="#7280A0"
+                                               TextWrapping="Wrap" />
+                                    <DataGrid x:Name="CellStorageQrPayloadsGrid"
+                                              Grid.Row="2"
+                                              Margin="0,12,0,0"
+                                              Style="{StaticResource SettingsDataGridStyle}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Объект" Binding="{Binding ObjectType}" Width="0.7*" />
+                                            <DataGridTextColumn Header="Код" Binding="{Binding ObjectCode}" Width="0.95*" />
+                                            <DataGridTextColumn Header="Статус" Binding="{Binding RequiredState}" Width="0.9*" />
+                                            <DataGridTextColumn Header="Назначение" Binding="{Binding Usage}" Width="1.7*" />
+                                            <DataGridTextColumn Header="Payload" Binding="{Binding Payload}" Width="2.1*" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem>
+                <TabItem.Header>
                     <TextBlock Text="База данных" Style="{StaticResource SettingsTabHeaderTextStyle}" />
                 </TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

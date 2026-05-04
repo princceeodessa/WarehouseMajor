@@ -34,7 +34,7 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
     {
         ["sales"] = "sales",
         ["orders"] = "sales",
-        ["invoices"] = "invoices",
+        ["invoices"] = "audit",
         ["shipments"] = "shipments",
         ["customers"] = "customers",
         ["catalog"] = "catalog"

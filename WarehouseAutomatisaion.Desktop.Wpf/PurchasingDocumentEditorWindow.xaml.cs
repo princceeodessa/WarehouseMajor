@@ -20,18 +20,26 @@ public partial class PurchasingDocumentEditorWindow : Window
     private readonly OperationalPurchasingWorkspace _workspace;
     private readonly OperationalPurchasingDocumentRecord _draft;
     private readonly ObservableCollection<OperationalPurchasingLineRecord> _lines;
+    private readonly IReadOnlyList<string> _storageCellOptions;
     private readonly PurchasingDocumentEditorMode _mode;
 
     public PurchasingDocumentEditorWindow(
         OperationalPurchasingWorkspace workspace,
         PurchasingDocumentEditorMode mode = PurchasingDocumentEditorMode.PurchaseOrder,
         OperationalPurchasingDocumentRecord? document = null,
-        Guid? preselectedSupplierId = null)
+        Guid? preselectedSupplierId = null,
+        IReadOnlyList<string>? storageCellOptions = null)
     {
         _workspace = workspace;
         _mode = mode;
         _draft = document?.Clone() ?? CreateDraft(workspace, mode, preselectedSupplierId);
         _lines = new ObservableCollection<OperationalPurchasingLineRecord>(_draft.Lines.Select(line => line.Clone()));
+        _storageCellOptions = (storageCellOptions ?? Array.Empty<string>())
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
 
         InitializeComponent();
         ConfigureHeader(document is null);
@@ -40,6 +48,9 @@ public partial class PurchasingDocumentEditorWindow : Window
         WarehouseComboBox.ItemsSource = _workspace.Warehouses.ToArray();
         StatusComboBox.ItemsSource = ResolveStatuses().ToArray();
         LinesGrid.ItemsSource = _lines;
+        TargetLocationColumn.Visibility = _mode == PurchasingDocumentEditorMode.PurchaseReceipt
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         LoadDraft();
         RefreshTotals();
     }
@@ -74,7 +85,9 @@ public partial class PurchasingDocumentEditorWindow : Window
         var dialog = new PurchasingLineEditorWindow(
             "Новая позиция",
             "Добавьте позицию закупки: номенклатуру, количество, цену и плановую дату.",
-            _workspace.CatalogItems)
+            _workspace.CatalogItems,
+            allowTargetLocation: _mode == PurchasingDocumentEditorMode.PurchaseReceipt,
+            targetLocationOptions: _storageCellOptions)
         {
             Owner = this
         };
@@ -101,7 +114,9 @@ public partial class PurchasingDocumentEditorWindow : Window
             "Изменение позиции",
             "Исправьте товар, количество, цену или плановую дату поставки.",
             _workspace.CatalogItems,
-            line)
+            line,
+            _mode == PurchasingDocumentEditorMode.PurchaseReceipt,
+            _storageCellOptions)
         {
             Owner = this
         };

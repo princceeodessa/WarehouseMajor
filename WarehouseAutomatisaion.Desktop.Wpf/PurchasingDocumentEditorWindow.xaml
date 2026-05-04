@@ -118,6 +118,7 @@
                         <DataGridTextColumn Header="Кол-во" Binding="{Binding Quantity, StringFormat=N2}" Width="90" IsReadOnly="True" />
                         <DataGridTextColumn Header="Цена" Binding="{Binding Price, StringFormat=N2}" Width="100" IsReadOnly="True" />
                         <DataGridTextColumn Header="Сумма" Binding="{Binding Amount, StringFormat=N2}" Width="110" IsReadOnly="True" />
+                        <DataGridTextColumn x:Name="TargetLocationColumn" Header="Ячейка" Binding="{Binding TargetLocation}" Width="130" IsReadOnly="True" />
                         <DataGridTextColumn Header="План" Binding="{Binding PlannedDate, StringFormat=dd.MM.yyyy}" Width="110" IsReadOnly="True" />
                     </DataGrid.Columns>
                 </DataGrid>

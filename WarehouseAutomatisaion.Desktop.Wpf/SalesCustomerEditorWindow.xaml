@@ -121,8 +121,11 @@
                                             </Grid.RowDefinitions>
 
                                             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
-                                                <TextBlock Text="Код" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="CodeTextBox" Style="{StaticResource InputStyle}" />
+                                                <TextBlock Text="Внутренний код" Style="{StaticResource FieldLabelStyle}" />
+                                                <TextBox x:Name="CodeTextBox"
+                                                         Style="{StaticResource InputStyle}"
+                                                         IsReadOnly="True"
+                                                         ToolTip="Служебный код карточки контрагента." />
                                             </StackPanel>
                                             <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
                                                 <TextBlock Text="Тип контрагента" Style="{StaticResource FieldLabelStyle}" />

@@ -17,6 +17,7 @@ public partial class SystemSettingsWorkspaceView : UserControl
 
     private readonly DesktopClientStartupResult _startupStatus;
     private readonly ApplicationUpdateOptions _updateOptions;
+    private readonly WarehouseCellStoragePreparationSnapshot _cellStoragePreparation;
     private readonly DesktopMySqlBackplaneService? _backplane;
     private readonly string _appSettingsPath;
     private readonly string _localSettingsPath;
@@ -24,10 +25,15 @@ public partial class SystemSettingsWorkspaceView : UserControl
 
     public SystemSettingsWorkspaceView(
         DesktopClientStartupResult startupStatus,
-        RecordsWorkspaceDefinition dataLinksDefinition)
+        RecordsWorkspaceDefinition dataLinksDefinition,
+        IReadOnlyList<string>? warehouses = null)
     {
         _startupStatus = startupStatus;
         _updateOptions = ApplicationUpdateSettings.Snapshot();
+        _cellStoragePreparation = WarehouseCellStoragePreparationPlan.Create(
+            warehouses,
+            startupStatus.UsesSharedDatabase,
+            startupStatus.PrimaryRoleCode);
         _backplane = startupStatus.UsesSharedDatabase
             ? DesktopMySqlBackplaneService.TryCreateDefault()
             : null;
@@ -74,8 +80,25 @@ public partial class SystemSettingsWorkspaceView : UserControl
         LocalSettingsPathText.Text = File.Exists(_localSettingsPath)
             ? _localSettingsPath
             : $"{_localSettingsPath} не создан";
+        PopulateCellStoragePreparation();
 
         SummaryCardsItemsControl.ItemsSource = BuildSummaryCards();
+    }
+
+    private void PopulateCellStoragePreparation()
+    {
+        CellStorageStatusText.Text = _cellStoragePreparation.Status;
+        CellStorageAccessText.Text = _cellStoragePreparation.AccessLevel;
+        CellStorageModeText.Text = _cellStoragePreparation.DataMode;
+        CellStorageAddressMaskText.Text = _cellStoragePreparation.AddressMask;
+        CellStorageQrModeText.Text = _cellStoragePreparation.QrMode;
+        CellStorageWarehouseCountText.Text = $"{_cellStoragePreparation.WarehouseCount:N0}";
+        CellStorageWarehousesPreviewText.Text = _cellStoragePreparation.WarehousesPreview;
+        CellStorageReadinessItemsControl.ItemsSource = _cellStoragePreparation.Readiness;
+        CellStorageTemplateCellsGrid.ItemsSource = _cellStoragePreparation.TemplateCells;
+        CellStorageQrPayloadsGrid.ItemsSource = _cellStoragePreparation.QrPayloads;
+        CellStorageReferencesGrid.ItemsSource = _cellStoragePreparation.References;
+        CellStorageStagesGrid.ItemsSource = _cellStoragePreparation.Stages;
     }
 
     private IReadOnlyList<SettingsSummaryCard> BuildSummaryCards()
@@ -109,7 +132,14 @@ public partial class SystemSettingsWorkspaceView : UserControl
                 Clean(_updateOptions.AssetName, "канал не задан"),
                 BrushFromHex("#F29A17"),
                 BrushFromHex("#FFF4E3"),
-                "\uE895")
+                "\uE895"),
+            new(
+                "Ячеечное хранение",
+                _cellStoragePreparation.Status,
+                _cellStoragePreparation.AddressMask,
+                BrushFromHex("#0B8F87"),
+                BrushFromHex("#E8F7F5"),
+                "\uE8F1")
         ];
     }
 

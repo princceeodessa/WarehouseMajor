@@ -10,6 +10,7 @@ public partial class WarehouseLineEditorWindow : Window
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
 
     private readonly IReadOnlyList<SalesCatalogItemOption> _catalogItems;
+    private readonly IReadOnlyList<string> _storageCellOptions;
     private readonly bool _allowNegativeQuantity;
     private readonly bool _allowTargetLocation;
     private readonly OperationalWarehouseLineRecord _draft;
@@ -20,10 +21,17 @@ public partial class WarehouseLineEditorWindow : Window
         IReadOnlyList<SalesCatalogItemOption> catalogItems,
         OperationalWarehouseLineRecord? line = null,
         bool allowNegativeQuantity = false,
-        bool allowTargetLocation = true)
+        bool allowTargetLocation = true,
+        IReadOnlyList<string>? storageCellOptions = null)
     {
         _catalogItems = catalogItems
             .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+        _storageCellOptions = (storageCellOptions ?? Array.Empty<string>())
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
         _allowNegativeQuantity = allowNegativeQuantity;
         _allowTargetLocation = allowTargetLocation;
@@ -43,6 +51,8 @@ public partial class WarehouseLineEditorWindow : Window
         }
 
         ItemComboBox.ItemsSource = _catalogItems;
+        SourceLocationTextBox.ItemsSource = _storageCellOptions;
+        TargetLocationTextBox.ItemsSource = _storageCellOptions;
         LoadDraft();
     }
 

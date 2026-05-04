@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
 
 function ConvertFrom-CodePoints {
     param([int[]]$CodePoints)
@@ -94,6 +95,31 @@ function Find-ElementByAutomationId {
     throw "UI element with AutomationId '$AutomationId' was not found."
 }
 
+function Find-OptionalElementByAutomationId {
+    param(
+        [System.Windows.Automation.AutomationElement]$Root,
+        [string]$AutomationId,
+        [datetime]$Deadline
+    )
+
+    $condition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+        $AutomationId
+    )
+
+    while ((Get-Date) -lt $Deadline) {
+        $element = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+
+        if ($null -ne $element) {
+            return $element
+        }
+
+        Start-Sleep -Milliseconds 200
+    }
+
+    return $null
+}
+
 function Find-ElementByName {
     param(
         [System.Windows.Automation.AutomationElement]$Root,
@@ -174,6 +200,65 @@ function Invoke-UiElement {
     throw "UI element '$($Element.Current.Name)' is not enabled."
 }
 
+function Set-UiElementValue {
+    param(
+        [System.Windows.Automation.AutomationElement]$Element,
+        [string]$Value
+    )
+
+    $valuePattern = $null
+    if (-not $Element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$valuePattern)) {
+        throw "UI element '$($Element.Current.Name)' does not support ValuePattern."
+    }
+
+    $valuePattern.SetValue($Value)
+}
+
+function Wait-RootWithElementByAutomationId {
+    param(
+        [int]$ProcessId,
+        [string]$AutomationId,
+        [datetime]$Deadline
+    )
+
+    while ((Get-Date) -lt $Deadline) {
+        $root = Get-RootElementByProcessId -ProcessId $ProcessId -Deadline $Deadline
+        $element = Find-OptionalElementByAutomationId -Root $root -AutomationId $AutomationId -Deadline ((Get-Date).AddSeconds(1))
+
+        if ($null -ne $element) {
+            return $root
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    throw "Application window with AutomationId '$AutomationId' was not found."
+}
+
+function Ensure-Authenticated {
+    param(
+        [int]$ProcessId,
+        [System.Windows.Automation.AutomationElement]$Root,
+        [datetime]$Deadline
+    )
+
+    $loginButton = Find-OptionalElementByAutomationId -Root $Root -AutomationId "LoginButton" -Deadline ((Get-Date).AddSeconds(1))
+    if ($null -eq $loginButton) {
+        return $Root
+    }
+
+    $userNameTextBox = Find-ElementByAutomationId -Root $Root -AutomationId "UserNameTextBox" -Deadline $Deadline
+    $passwordBox = Find-ElementByAutomationId -Root $Root -AutomationId "PasswordBox" -Deadline $Deadline
+
+    Set-UiElementValue -Element $userNameTextBox -Value "admin"
+    $passwordBox.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait("admin")
+    Start-Sleep -Milliseconds 200
+    Invoke-UiElement -Element $loginButton -Deadline $Deadline
+
+    return Wait-RootWithElementByAutomationId -ProcessId $ProcessId -AutomationId "NavDashboardButton" -Deadline $Deadline
+}
+
 function Wait-NewPriceListExport {
     param(
         [string]$ExportsPath,
@@ -205,18 +290,18 @@ $process = $null
 try {
     $process = Start-Process -FilePath $exe -PassThru
     $root = Get-RootElementByProcessId -ProcessId $process.Id -Deadline ((Get-Date).AddSeconds($TimeoutSeconds))
+    $root = Ensure-Authenticated -ProcessId $process.Id -Root $root -Deadline ((Get-Date).AddSeconds($TimeoutSeconds))
 
     $navigationButtons = @(
         "NavDashboardButton",
         "NavSalesButton",
         "NavCustomersButton",
-        "NavInvoicesButton",
         "NavShipmentsButton",
         "NavPurchasingButton",
         "NavWarehouseButton",
         "NavCatalogButton",
         "NavAuditButton",
-        "NavModelButton"
+        "NavSettingsButton"
     )
 
     foreach ($automationId in $navigationButtons) {

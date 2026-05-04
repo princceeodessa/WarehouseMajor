@@ -53,8 +53,8 @@ internal static class DesktopRemoteDatabaseSettings
             }
 
             var config = new DesktopRemoteDatabaseConfig();
-            MergeFromFile(config, Path.Combine(AppContext.BaseDirectory, "appsettings.json"));
-            MergeFromFile(config, Path.Combine(AppContext.BaseDirectory, "appsettings.local.json"));
+            MergeFromFile(config, Path.Combine(AppContext.BaseDirectory, "appsettings.json"), allowDisableRemote: true);
+            MergeFromFile(config, Path.Combine(AppContext.BaseDirectory, "appsettings.local.json"), allowDisableRemote: false);
             MergeFromEnvironment(config);
 
             _cached = config;
@@ -62,7 +62,7 @@ internal static class DesktopRemoteDatabaseSettings
         }
     }
 
-    private static void MergeFromFile(DesktopRemoteDatabaseConfig target, string path)
+    private static void MergeFromFile(DesktopRemoteDatabaseConfig target, string path, bool allowDisableRemote)
     {
         if (!File.Exists(path))
         {
@@ -78,6 +78,11 @@ internal static class DesktopRemoteDatabaseSettings
 
         if (TryGetBoolean(section, "Enabled", out var enabled))
         {
+            if (!enabled && !allowDisableRemote && target.Enabled)
+            {
+                return;
+            }
+
             target.Enabled = enabled;
         }
 
