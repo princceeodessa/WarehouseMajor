@@ -98,7 +98,7 @@ public sealed class OneCRecordSnapshot
 
     public OneCFieldValue? FindField(string fieldName)
     {
-        return Fields.FirstOrDefault(field => string.Equals(field.Name, fieldName, StringComparison.OrdinalIgnoreCase));
+        return Fields.FirstOrDefault(field => OneCTextNormalizer.TextEquals(field.Name, fieldName));
     }
 }
 
@@ -121,7 +121,7 @@ public sealed class OneCTabularSectionRowSnapshot
 
     public OneCFieldValue? FindField(string fieldName)
     {
-        return Fields.FirstOrDefault(field => string.Equals(field.Name, fieldName, StringComparison.OrdinalIgnoreCase));
+        return Fields.FirstOrDefault(field => OneCTextNormalizer.TextEquals(field.Name, fieldName));
     }
 }
 

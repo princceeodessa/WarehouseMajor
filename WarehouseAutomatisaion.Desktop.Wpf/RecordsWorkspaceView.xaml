@@ -187,12 +187,6 @@
                                            FontSize="13" />
                             </Grid>
                         </Border>
-                        <Button Style="{StaticResource IconCircleButtonStyle}" Visibility="Collapsed">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7F4;" FontSize="14" />
-                        </Button>
-                        <Button Style="{StaticResource IconCircleButtonStyle}" Visibility="Collapsed">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE897;" FontSize="14" />
-                        </Button>
                     </StackPanel>
 
                     <WrapPanel HorizontalAlignment="Right" Margin="0,12,0,0">

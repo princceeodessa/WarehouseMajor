@@ -32,9 +32,12 @@
                   Grid.Row="2"
                   Style="{StaticResource DialogComboBoxStyle}"
                   IsEditable="True"
+                  IsTextSearchEnabled="True"
+                  StaysOpenOnEdit="True"
                   MinWidth="560"
                   MaxDropDownHeight="360"
-                  VerticalContentAlignment="Center" />
+                  VerticalContentAlignment="Center"
+                  KeyDown="HandleValueKeyDown" />
 
         <StackPanel Grid.Row="3"
                     Margin="0,18,0,0"

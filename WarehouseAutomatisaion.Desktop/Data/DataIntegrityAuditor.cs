@@ -196,6 +196,85 @@ public static class DataIntegrityAuditor
                 shipment.ShipmentDate,
                 shipment.Lines);
         }
+
+        foreach (var returnDocument in workspace.Returns)
+        {
+            if (!HasOrderLink(returnDocument.SalesOrderId, returnDocument.SalesOrderNumber, orderIds, orderNumbers))
+            {
+                issues.Add(new DataIntegrityIssue(
+                    DataIntegritySeverity.Critical,
+                    "Возвраты",
+                    "Возврат",
+                    SafeNumber(returnDocument.Number),
+                    "Возврат не связан с заказом",
+                    $"Заказ-основание: {SafeValue(returnDocument.SalesOrderNumber)}.",
+                    "Привяжите возврат к существующему заказу, иначе нельзя надежно собрать цепочку заказа и проверить корректность возврата.",
+                    returnDocument.ReturnDate));
+            }
+
+            if (!HasCustomerLink(returnDocument.CustomerId, returnDocument.CustomerCode, returnDocument.CustomerName, customerIds, customerCodes, customerNames))
+            {
+                issues.Add(new DataIntegrityIssue(
+                    DataIntegritySeverity.Critical,
+                    "Возвраты",
+                    "Возврат",
+                    SafeNumber(returnDocument.Number),
+                    "Возврат не связан с клиентом",
+                    $"Клиент в документе: {SafeValue(returnDocument.CustomerName)}.",
+                    "Выберите существующего клиента в документе возврата.",
+                    returnDocument.ReturnDate));
+            }
+
+            AuditSalesLines(
+                issues,
+                "Возвраты",
+                "Возврат",
+                SafeNumber(returnDocument.Number),
+                returnDocument.ReturnDate,
+                returnDocument.Lines);
+        }
+
+        foreach (var cashReceipt in workspace.CashReceipts)
+        {
+            if (!HasOrderLink(cashReceipt.SalesOrderId, cashReceipt.SalesOrderNumber, orderIds, orderNumbers))
+            {
+                issues.Add(new DataIntegrityIssue(
+                    DataIntegritySeverity.Critical,
+                    "Деньги",
+                    "Поступление в кассу",
+                    SafeNumber(cashReceipt.Number),
+                    "Поступление в кассу не связано с заказом",
+                    $"Заказ-основание: {SafeValue(cashReceipt.SalesOrderNumber)}.",
+                    "Привяжите поступление к заказу, чтобы оплата попадала в цепочку документов и сумму оплаты счета.",
+                    cashReceipt.ReceiptDate));
+            }
+
+            if (!HasCustomerLink(cashReceipt.CustomerId, cashReceipt.CustomerCode, cashReceipt.CustomerName, customerIds, customerCodes, customerNames))
+            {
+                issues.Add(new DataIntegrityIssue(
+                    DataIntegritySeverity.Critical,
+                    "Деньги",
+                    "Поступление в кассу",
+                    SafeNumber(cashReceipt.Number),
+                    "Поступление в кассу не связано с клиентом",
+                    $"Клиент в документе: {SafeValue(cashReceipt.CustomerName)}.",
+                    "Выберите существующего клиента в поступлении или пересоздайте оплату из заказа.",
+                    cashReceipt.ReceiptDate));
+            }
+
+            if (cashReceipt.Amount <= 0m)
+            {
+                issues.Add(new DataIntegrityIssue(
+                    DataIntegritySeverity.Warning,
+                    "Деньги",
+                    "Поступление в кассу",
+                    SafeNumber(cashReceipt.Number),
+                    "Поступление в кассу с нулевой или отрицательной суммой",
+                    $"Сумма: {cashReceipt.Amount:N2} {SafeValue(cashReceipt.CurrencyCode)}.",
+                    "Исправьте сумму оплаты или удалите ошибочное поступление.",
+                    cashReceipt.ReceiptDate));
+            }
+        }
     }
 
     private static void AuditCatalogWorkspace(CatalogWorkspace workspace, ICollection<DataIntegrityIssue> issues)

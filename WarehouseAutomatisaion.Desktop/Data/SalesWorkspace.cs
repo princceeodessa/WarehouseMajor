@@ -543,6 +543,8 @@ public sealed class SalesWorkspace
             Status = InvoiceStatuses.First(),
             Manager = order.Manager,
             Comment = $"Основание: заказ {order.Number}",
+            ManualDiscountPercent = order.ManualDiscountPercent,
+            ManualDiscountAmount = order.ManualDiscountAmount,
             Lines = CloneLines(order.Lines)
         };
     }
@@ -568,6 +570,8 @@ public sealed class SalesWorkspace
             Carrier = "Собственный транспорт",
             Manager = order.Manager,
             Comment = $"Подготовлено из заказа {order.Number}",
+            ManualDiscountPercent = order.ManualDiscountPercent,
+            ManualDiscountAmount = order.ManualDiscountAmount,
             Lines = CloneLines(order.Lines)
         };
     }
@@ -593,6 +597,60 @@ public sealed class SalesWorkspace
             CashBox = "Основная касса",
             Manager = order.Manager,
             Comment = $"Оплата по заказу {order.Number}"
+        };
+    }
+
+    public SalesReturnRecord CreateReturnDraftFromOrder(Guid orderId)
+    {
+        var order = Orders.First(item => item.Id == orderId);
+
+        return new SalesReturnRecord
+        {
+            Id = Guid.NewGuid(),
+            Number = GetNextReturnNumber(),
+            ReturnDate = DateTime.Today,
+            SalesOrderId = order.Id,
+            SalesOrderNumber = order.Number,
+            CustomerId = order.CustomerId,
+            CustomerCode = order.CustomerCode,
+            CustomerName = order.CustomerName,
+            ContractNumber = order.ContractNumber,
+            CurrencyCode = order.CurrencyCode,
+            Warehouse = order.Warehouse,
+            Status = "Черновик",
+            Manager = order.Manager,
+            Reason = "Черновик возврата по заказу",
+            Comment = $"Основание: заказ {order.Number}",
+            ManualDiscountPercent = order.ManualDiscountPercent,
+            ManualDiscountAmount = order.ManualDiscountAmount,
+            Lines = CloneLines(order.Lines)
+        };
+    }
+
+    public SalesReturnRecord CreateReturnDraftFromShipment(Guid shipmentId)
+    {
+        var shipment = Shipments.First(item => item.Id == shipmentId);
+
+        return new SalesReturnRecord
+        {
+            Id = Guid.NewGuid(),
+            Number = GetNextReturnNumber(),
+            ReturnDate = DateTime.Today,
+            SalesOrderId = shipment.SalesOrderId,
+            SalesOrderNumber = shipment.SalesOrderNumber,
+            CustomerId = shipment.CustomerId,
+            CustomerCode = shipment.CustomerCode,
+            CustomerName = shipment.CustomerName,
+            ContractNumber = shipment.ContractNumber,
+            CurrencyCode = shipment.CurrencyCode,
+            Warehouse = shipment.Warehouse,
+            Status = "Черновик",
+            Manager = shipment.Manager,
+            Reason = "Черновик возврата по отгрузке",
+            Comment = $"Основание: отгрузка {shipment.Number}",
+            ManualDiscountPercent = shipment.ManualDiscountPercent,
+            ManualDiscountAmount = shipment.ManualDiscountAmount,
+            Lines = CloneLines(shipment.Lines)
         };
     }
 
@@ -719,6 +777,7 @@ public sealed class SalesWorkspace
         }
 
         CashReceipts.Add(copy);
+        RefreshPaymentStatuses(copy.SalesOrderId);
         WriteOperationLog("Поступление в кассу", copy.Id, copy.Number, "Создание оплаты", "Успех", $"Создано поступление {copy.Number} по заказу {copy.SalesOrderNumber}.");
         OnChanged();
     }
@@ -727,8 +786,105 @@ public sealed class SalesWorkspace
     {
         var existing = CashReceipts.First(item => item.Id == cashReceipt.Id);
         existing.CopyFrom(cashReceipt);
+        RefreshPaymentStatuses(existing.SalesOrderId);
         WriteOperationLog("Поступление в кассу", existing.Id, existing.Number, "Изменение оплаты", "Успех", $"Обновлено поступление {existing.Number}.");
         OnChanged();
+    }
+
+    public SalesWorkflowActionResult ConductReturn(Guid returnId)
+    {
+        var returnDocument = Returns.FirstOrDefault(item => item.Id == returnId);
+        if (returnDocument is null)
+        {
+            return CreateWorkflowResult(false, "Возврат не найден.", "Не удалось провести возврат.");
+        }
+
+        if (returnDocument.Status.Equals("Проведено", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWorkflowResult(true, $"Возврат {returnDocument.Number} уже проведен.", "Повторная проводка не требуется.");
+        }
+
+        if (returnDocument.Status.Equals("Отменено", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWorkflowResult(false, $"Возврат {returnDocument.Number} отменен.", "Отмененный возврат нельзя провести повторно. Создайте новый черновик возврата.");
+        }
+
+        if (returnDocument.Lines.Count == 0 || returnDocument.TotalAmount <= 0m)
+        {
+            WriteOperationLog("Возврат", returnDocument.Id, returnDocument.Number, "Проведение возврата", "Ошибка", "В возврате нет строк или сумма равна нулю.");
+            return CreateWorkflowResult(false, $"Не удалось провести возврат {returnDocument.Number}.", "Добавьте строки возврата с количеством и ценой.");
+        }
+
+        returnDocument.Status = "Проведено";
+        WriteOperationLog("Возврат", returnDocument.Id, returnDocument.Number, "Проведение возврата", "Успех", $"Возврат {returnDocument.Number} проведен без складского движения.");
+        OnChanged();
+        return CreateWorkflowResult(true, $"Возврат {returnDocument.Number} проведен.", "Статус зафиксирован. Складские остатки не изменены до включения правил приемки возврата.");
+    }
+
+    public SalesWorkflowActionResult CancelReturn(Guid returnId)
+    {
+        var returnDocument = Returns.FirstOrDefault(item => item.Id == returnId);
+        if (returnDocument is null)
+        {
+            return CreateWorkflowResult(false, "Возврат не найден.", "Не удалось отменить возврат.");
+        }
+
+        if (returnDocument.Status.Equals("Отменено", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWorkflowResult(true, $"Возврат {returnDocument.Number} уже отменен.", "Повторная отмена не требуется.");
+        }
+
+        returnDocument.Status = "Отменено";
+        WriteOperationLog("Возврат", returnDocument.Id, returnDocument.Number, "Отмена возврата", "Успех", $"Возврат {returnDocument.Number} отменен.");
+        OnChanged();
+        return CreateWorkflowResult(true, $"Возврат {returnDocument.Number} отменен.", "Документ исключен из рабочего процесса возврата.");
+    }
+
+    public SalesWorkflowActionResult ConductCashReceipt(Guid cashReceiptId)
+    {
+        var cashReceipt = CashReceipts.FirstOrDefault(item => item.Id == cashReceiptId);
+        if (cashReceipt is null)
+        {
+            return CreateWorkflowResult(false, "Поступление в кассу не найдено.", "Не удалось провести оплату.");
+        }
+
+        if (cashReceipt.Amount <= 0m)
+        {
+            WriteOperationLog("Поступление в кассу", cashReceipt.Id, cashReceipt.Number, "Проведение оплаты", "Ошибка", "Сумма поступления должна быть больше нуля.");
+            return CreateWorkflowResult(false, $"Не удалось провести поступление {cashReceipt.Number}.", "Сумма поступления должна быть больше нуля.");
+        }
+
+        if (cashReceipt.Status.Equals("Проведено", StringComparison.OrdinalIgnoreCase))
+        {
+            RefreshPaymentStatuses(cashReceipt.SalesOrderId);
+            return CreateWorkflowResult(true, $"Поступление {cashReceipt.Number} уже проведено.", "Повторная проводка не требуется.");
+        }
+
+        cashReceipt.Status = "Проведено";
+        RefreshPaymentStatuses(cashReceipt.SalesOrderId);
+        WriteOperationLog("Поступление в кассу", cashReceipt.Id, cashReceipt.Number, "Проведение оплаты", "Успех", $"Поступление {cashReceipt.Number} проведено.");
+        OnChanged();
+        return CreateWorkflowResult(true, $"Поступление {cashReceipt.Number} проведено.", $"Оплата участвует в расчете счетов по заказу {cashReceipt.SalesOrderNumber}.");
+    }
+
+    public SalesWorkflowActionResult CancelCashReceipt(Guid cashReceiptId)
+    {
+        var cashReceipt = CashReceipts.FirstOrDefault(item => item.Id == cashReceiptId);
+        if (cashReceipt is null)
+        {
+            return CreateWorkflowResult(false, "Поступление в кассу не найдено.", "Не удалось отменить оплату.");
+        }
+
+        if (cashReceipt.Status.Equals("Отменено", StringComparison.OrdinalIgnoreCase))
+        {
+            return CreateWorkflowResult(true, $"Поступление {cashReceipt.Number} уже отменено.", "Повторная отмена не требуется.");
+        }
+
+        cashReceipt.Status = "Отменено";
+        RefreshPaymentStatuses(cashReceipt.SalesOrderId);
+        WriteOperationLog("Поступление в кассу", cashReceipt.Id, cashReceipt.Number, "Отмена оплаты", "Успех", $"Поступление {cashReceipt.Number} отменено.");
+        OnChanged();
+        return CreateWorkflowResult(true, $"Поступление {cashReceipt.Number} отменено.", "Оплата больше не участвует в сумме оплаты счетов.");
     }
 
     public SalesOrderRecord DuplicateOrder(Guid orderId)
@@ -863,12 +1019,12 @@ public sealed class SalesWorkspace
         }
 
         var receivedAmount = CashReceipts
-            .Where(item => item.SalesOrderId == order.Id)
+            .Where(item => IsActiveCashReceipt(item) && item.SalesOrderId == order.Id)
             .Sum(item => item.Amount);
         var remainingAmount = Math.Round(order.TotalAmount - receivedAmount, 2, MidpointRounding.AwayFromZero);
         if (remainingAmount <= 0m)
         {
-            return CreateWorkflowResult(true, $"Заказ {order.Number} уже оплачен через кассу.", $"Связанные поступления: {CashReceipts.Count(item => item.SalesOrderId == order.Id):N0}.");
+            return CreateWorkflowResult(true, $"Заказ {order.Number} уже оплачен через кассу.", $"Связанные поступления: {CashReceipts.Count(item => IsActiveCashReceipt(item) && item.SalesOrderId == order.Id):N0}.");
         }
 
         var receipt = CreateCashReceiptDraftFromOrder(order.Id, remainingAmount);
@@ -926,6 +1082,46 @@ public sealed class SalesWorkspace
         WriteOperationLog("Счет", invoice.Id, invoice.Number, "Оплата счета", "Успех", $"Счет {invoice.Number} отмечен как оплаченный.");
         OnChanged();
         return CreateWorkflowResult(true, $"Счет {invoice.Number} оплачен.", "Документ закрыт по оплате.");
+    }
+
+    public SalesWorkflowActionResult RecordCashReceiptForInvoice(Guid invoiceId)
+    {
+        var invoice = Invoices.FirstOrDefault(item => item.Id == invoiceId);
+        if (invoice is null)
+        {
+            return CreateWorkflowResult(false, "Счет не найден.", "Не удалось создать поступление в кассу.");
+        }
+
+        var order = Orders.FirstOrDefault(item => item.Id == invoice.SalesOrderId)
+            ?? Orders.FirstOrDefault(item => item.Number.Equals(invoice.SalesOrderNumber, StringComparison.OrdinalIgnoreCase));
+        if (order is null)
+        {
+            return CreateWorkflowResult(false, "Заказ-основание не найден.", "Поступление в кассу создается только для счета, связанного с заказом.");
+        }
+
+        var receivedAmount = CashReceipts
+            .Where(item => IsActiveCashReceipt(item) && item.SalesOrderId == order.Id)
+            .Sum(item => item.Amount);
+        var remainingAmount = Math.Round(invoice.TotalAmount - receivedAmount, 2, MidpointRounding.AwayFromZero);
+        if (remainingAmount <= 0m)
+        {
+            invoice.Status = "Оплачен";
+            RefreshOrderLifecycle(order.Id);
+            WriteOperationLog("Счет", invoice.Id, invoice.Number, "Проверка оплаты", "Успех", $"Счет {invoice.Number} уже покрыт поступлениями в кассу.");
+            OnChanged();
+            return CreateWorkflowResult(true, $"Счет {invoice.Number} уже оплачен.", $"Связанные поступления по заказу: {CashReceipts.Count(item => IsActiveCashReceipt(item) && item.SalesOrderId == order.Id):N0}.");
+        }
+
+        var receipt = CreateCashReceiptDraftFromOrder(order.Id, remainingAmount);
+        receipt.Comment = $"Оплата по счету {invoice.Number}";
+        CashReceipts.Add(receipt);
+        invoice.Status = "Оплачен";
+        RefreshOrderLifecycle(order.Id);
+        WriteOperationLog("Поступление в кассу", receipt.Id, receipt.Number, "Поступление оплаты", "Успех", $"Оплата {receipt.Amount:N2} {receipt.CurrencyCode} по счету {invoice.Number}.");
+        WriteOperationLog("Счет", invoice.Id, invoice.Number, "Оплата счета", "Успех", $"Счет {invoice.Number} оплачен поступлением {receipt.Number}.");
+        OnChanged();
+
+        return CreateWorkflowResult(true, $"Создано поступление в кассу {receipt.Number}.", $"Сумма: {receipt.Amount:N2} {receipt.CurrencyCode}. Связано со счетом {invoice.Number}.");
     }
 
     public SalesWorkflowActionResult PrepareShipment(Guid shipmentId)
@@ -1150,6 +1346,42 @@ public sealed class SalesWorkspace
         }
     }
 
+    private void RefreshPaymentStatuses(Guid orderId)
+    {
+        if (orderId == Guid.Empty)
+        {
+            return;
+        }
+
+        var activePaidAmount = CashReceipts
+            .Where(item => IsActiveCashReceipt(item) && item.SalesOrderId == orderId)
+            .Sum(item => item.Amount);
+
+        foreach (var invoice in Invoices.Where(item => item.SalesOrderId == orderId))
+        {
+            if (invoice.TotalAmount > 0m && activePaidAmount >= invoice.TotalAmount)
+            {
+                invoice.Status = "Оплачен";
+            }
+            else if (activePaidAmount > 0m)
+            {
+                invoice.Status = "Частично оплачен";
+            }
+            else if (invoice.Status.Equals("Оплачен", StringComparison.OrdinalIgnoreCase)
+                     || invoice.Status.Equals("Частично оплачен", StringComparison.OrdinalIgnoreCase))
+            {
+                invoice.Status = "Ожидает оплату";
+            }
+        }
+
+        RefreshOrderLifecycle(orderId);
+    }
+
+    private static bool IsActiveCashReceipt(SalesCashReceiptRecord cashReceipt)
+    {
+        return !string.Equals(cashReceipt.Status, "Отменено", StringComparison.OrdinalIgnoreCase);
+    }
+
     private SalesWorkflowActionResult CreateWorkflowResult(bool succeeded, string message, string detail)
     {
         return new SalesWorkflowActionResult(succeeded, message, detail);
@@ -1321,6 +1553,16 @@ public sealed class SalesWorkspace
             .Max() + 1;
 
         return $"SH-{DateTime.Today:yyMMdd}-{next:000}";
+    }
+
+    private string GetNextReturnNumber()
+    {
+        var next = Returns
+            .Select(returnDocument => ParseNumericSuffix(returnDocument.Number))
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+
+        return $"RET-{DateTime.Today:yyMMdd}-{next:000}";
     }
 
     private string GetNextCashReceiptNumber()
@@ -1506,6 +1748,33 @@ public sealed class SalesCustomerContactRecord
     }
 }
 
+internal static class SalesDocumentTotals
+{
+    public static decimal CalculateSubtotal(IEnumerable<SalesOrderLineRecord> lines)
+    {
+        return Math.Round(lines.Sum(line => line.Amount), 2, MidpointRounding.AwayFromZero);
+    }
+
+    public static decimal CalculateDiscount(decimal subtotal, decimal manualDiscountPercent, decimal manualDiscountAmount)
+    {
+        if (subtotal <= 0m)
+        {
+            return 0m;
+        }
+
+        var rawDiscount = manualDiscountAmount > 0m
+            ? manualDiscountAmount
+            : subtotal * Math.Clamp(manualDiscountPercent, 0m, 100m) / 100m;
+        var rounded = Math.Round(Math.Max(0m, rawDiscount), 2, MidpointRounding.AwayFromZero);
+        return Math.Min(subtotal, rounded);
+    }
+
+    public static decimal CalculateTotal(decimal subtotal, decimal discount)
+    {
+        return Math.Round(Math.Max(0m, subtotal - discount), 2, MidpointRounding.AwayFromZero);
+    }
+}
+
 public sealed class SalesOrderRecord
 {
     public Guid Id { get; set; }
@@ -1532,11 +1801,19 @@ public sealed class SalesOrderRecord
 
     public string Comment { get; set; } = string.Empty;
 
+    public decimal ManualDiscountPercent { get; set; }
+
+    public decimal ManualDiscountAmount { get; set; }
+
     public BindingList<SalesOrderLineRecord> Lines { get; set; } = new();
 
     public int PositionCount => Lines.Count;
 
-    public decimal TotalAmount => Lines.Sum(line => line.Amount);
+    public decimal SubtotalAmount => SalesDocumentTotals.CalculateSubtotal(Lines);
+
+    public decimal EffectiveDiscountAmount => SalesDocumentTotals.CalculateDiscount(SubtotalAmount, ManualDiscountPercent, ManualDiscountAmount);
+
+    public decimal TotalAmount => SalesDocumentTotals.CalculateTotal(SubtotalAmount, EffectiveDiscountAmount);
 
     public SalesOrderRecord Clone()
     {
@@ -1554,6 +1831,8 @@ public sealed class SalesOrderRecord
             Status = Status,
             Manager = Manager,
             Comment = Comment,
+            ManualDiscountPercent = ManualDiscountPercent,
+            ManualDiscountAmount = ManualDiscountAmount,
             Lines = CloneLines(Lines)
         };
     }
@@ -1571,6 +1850,8 @@ public sealed class SalesOrderRecord
         Status = source.Status;
         Manager = source.Manager;
         Comment = source.Comment;
+        ManualDiscountPercent = source.ManualDiscountPercent;
+        ManualDiscountAmount = source.ManualDiscountAmount;
         Lines = CloneLines(source.Lines);
     }
 
@@ -1610,11 +1891,19 @@ public sealed class SalesInvoiceRecord
 
     public string Comment { get; set; } = string.Empty;
 
+    public decimal ManualDiscountPercent { get; set; }
+
+    public decimal ManualDiscountAmount { get; set; }
+
     public BindingList<SalesOrderLineRecord> Lines { get; set; } = new();
 
     public int PositionCount => Lines.Count;
 
-    public decimal TotalAmount => Lines.Sum(line => line.Amount);
+    public decimal SubtotalAmount => SalesDocumentTotals.CalculateSubtotal(Lines);
+
+    public decimal EffectiveDiscountAmount => SalesDocumentTotals.CalculateDiscount(SubtotalAmount, ManualDiscountPercent, ManualDiscountAmount);
+
+    public decimal TotalAmount => SalesDocumentTotals.CalculateTotal(SubtotalAmount, EffectiveDiscountAmount);
 
     public SalesInvoiceRecord Clone()
     {
@@ -1634,6 +1923,8 @@ public sealed class SalesInvoiceRecord
             Status = Status,
             Manager = Manager,
             Comment = Comment,
+            ManualDiscountPercent = ManualDiscountPercent,
+            ManualDiscountAmount = ManualDiscountAmount,
             Lines = CloneLines(Lines)
         };
     }
@@ -1653,6 +1944,8 @@ public sealed class SalesInvoiceRecord
         Status = source.Status;
         Manager = source.Manager;
         Comment = source.Comment;
+        ManualDiscountPercent = source.ManualDiscountPercent;
+        ManualDiscountAmount = source.ManualDiscountAmount;
         Lines = CloneLines(source.Lines);
     }
 
@@ -1694,11 +1987,19 @@ public sealed class SalesShipmentRecord
 
     public string Comment { get; set; } = string.Empty;
 
+    public decimal ManualDiscountPercent { get; set; }
+
+    public decimal ManualDiscountAmount { get; set; }
+
     public BindingList<SalesOrderLineRecord> Lines { get; set; } = new();
 
     public int PositionCount => Lines.Count;
 
-    public decimal TotalAmount => Lines.Sum(line => line.Amount);
+    public decimal SubtotalAmount => SalesDocumentTotals.CalculateSubtotal(Lines);
+
+    public decimal EffectiveDiscountAmount => SalesDocumentTotals.CalculateDiscount(SubtotalAmount, ManualDiscountPercent, ManualDiscountAmount);
+
+    public decimal TotalAmount => SalesDocumentTotals.CalculateTotal(SubtotalAmount, EffectiveDiscountAmount);
 
     public SalesShipmentRecord Clone()
     {
@@ -1719,6 +2020,8 @@ public sealed class SalesShipmentRecord
             Carrier = Carrier,
             Manager = Manager,
             Comment = Comment,
+            ManualDiscountPercent = ManualDiscountPercent,
+            ManualDiscountAmount = ManualDiscountAmount,
             Lines = CloneLines(Lines)
         };
     }
@@ -1739,6 +2042,8 @@ public sealed class SalesShipmentRecord
         Carrier = source.Carrier;
         Manager = source.Manager;
         Comment = source.Comment;
+        ManualDiscountPercent = source.ManualDiscountPercent;
+        ManualDiscountAmount = source.ManualDiscountAmount;
         Lines = CloneLines(source.Lines);
     }
 
@@ -1780,11 +2085,19 @@ public sealed class SalesReturnRecord
 
     public string Comment { get; set; } = string.Empty;
 
+    public decimal ManualDiscountPercent { get; set; }
+
+    public decimal ManualDiscountAmount { get; set; }
+
     public BindingList<SalesOrderLineRecord> Lines { get; set; } = new();
 
     public int PositionCount => Lines.Count;
 
-    public decimal TotalAmount => Lines.Sum(line => line.Amount);
+    public decimal SubtotalAmount => SalesDocumentTotals.CalculateSubtotal(Lines);
+
+    public decimal EffectiveDiscountAmount => SalesDocumentTotals.CalculateDiscount(SubtotalAmount, ManualDiscountPercent, ManualDiscountAmount);
+
+    public decimal TotalAmount => SalesDocumentTotals.CalculateTotal(SubtotalAmount, EffectiveDiscountAmount);
 
     public SalesReturnRecord Clone()
     {
@@ -1805,6 +2118,8 @@ public sealed class SalesReturnRecord
             Manager = Manager,
             Reason = Reason,
             Comment = Comment,
+            ManualDiscountPercent = ManualDiscountPercent,
+            ManualDiscountAmount = ManualDiscountAmount,
             Lines = CloneLines(Lines)
         };
     }
@@ -1825,6 +2140,8 @@ public sealed class SalesReturnRecord
         Manager = source.Manager;
         Reason = source.Reason;
         Comment = source.Comment;
+        ManualDiscountPercent = source.ManualDiscountPercent;
+        ManualDiscountAmount = source.ManualDiscountAmount;
         Lines = CloneLines(source.Lines);
     }
 

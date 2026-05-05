@@ -42,7 +42,12 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         PrimaryActionButton.Content = Clean(definition.PrimaryActionText);
         AutomationProperties.SetName(ImportButton, "Импорт");
         AutomationProperties.SetName(PrimaryActionButton, Clean(definition.PrimaryActionText));
-        PrimaryActionButton.Visibility = definition.ShowPrimaryAction && !string.IsNullOrWhiteSpace(definition.PrimaryActionText) ? Visibility.Visible : Visibility.Collapsed;
+        PrimaryActionButton.Visibility =
+            definition.ShowPrimaryAction
+            && definition.PrimaryAction is not null
+            && !string.IsNullOrWhiteSpace(definition.PrimaryActionText)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         PrimaryActionButton.IsEnabled = definition.PrimaryAction is not null;
         PrimaryActionButton.Opacity = PrimaryActionButton.IsEnabled ? 1d : 0.55d;
         ImportButton.Visibility = definition.ShowImportAction && definition.ImportAction is not null ? Visibility.Visible : Visibility.Collapsed;
@@ -58,7 +63,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         PrimaryFilterCombo.ItemsSource = definition.PrimaryFilterOptions.Select(Clean).ToArray();
         PrimaryFilterCombo.SelectedIndex = 0;
         _definition.SubscribeToChanges?.Invoke(HandleWorkspaceChanged);
-        RecordsGrid.PreviewMouseLeftButtonUp += HandleRecordsGridMouseLeftButtonUp;
+        RecordsGrid.MouseDoubleClick += HandleRecordsGridMouseDoubleClick;
         RecordsGrid.KeyDown += HandleRecordsGridKeyDown;
 
         BuildColumns();
@@ -89,7 +94,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
 
         _disposed = true;
         _searchDebounceTimer.Stop();
-        RecordsGrid.PreviewMouseLeftButtonUp -= HandleRecordsGridMouseLeftButtonUp;
+        RecordsGrid.MouseDoubleClick -= HandleRecordsGridMouseDoubleClick;
         RecordsGrid.KeyDown -= HandleRecordsGridKeyDown;
         _definition.UnsubscribeFromChanges?.Invoke(HandleWorkspaceChanged);
     }
@@ -290,7 +295,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         e.Handled = true;
     }
 
-    private void HandleRecordsGridMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    private void HandleRecordsGridMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Left || e.OriginalSource is not DependencyObject source)
         {

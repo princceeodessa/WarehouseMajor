@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -27,6 +28,10 @@ public partial class SalesDocumentEditorWindow : Window
     private readonly bool _editingExistingDocument;
     private bool _loading;
     private bool _hostedInWorkspace;
+    private bool _updatingDiscountFields;
+    private bool _discountPercentMode;
+    private decimal _manualDiscountPercent;
+    private decimal _manualDiscountAmount;
     private SalesOrderRecord? _orderDraft;
     private SalesInvoiceRecord? _invoiceDraft;
     private SalesShipmentRecord? _shipmentDraft;
@@ -252,6 +257,7 @@ public partial class SalesDocumentEditorWindow : Window
         SelectComboValue(ManagerComboBox, Ui(order.Manager));
         SelectComboValue(CurrencyComboBox, Ui(order.CurrencyCode));
         CommentTextBox.Text = Ui(order.Comment);
+        LoadDiscount(order.ManualDiscountPercent, order.ManualDiscountAmount);
         ReplaceLines(order.Lines);
     }
 
@@ -265,6 +271,7 @@ public partial class SalesDocumentEditorWindow : Window
         SelectComboValue(ManagerComboBox, Ui(invoice.Manager));
         SelectComboValue(CurrencyComboBox, Ui(invoice.CurrencyCode));
         CommentTextBox.Text = Ui(invoice.Comment);
+        LoadDiscount(invoice.ManualDiscountPercent, invoice.ManualDiscountAmount);
         ReplaceLines(invoice.Lines);
     }
 
@@ -278,6 +285,7 @@ public partial class SalesDocumentEditorWindow : Window
         SelectComboValue(ManagerComboBox, Ui(shipment.Manager));
         CarrierTextBox.Text = Ui(shipment.Carrier);
         CommentTextBox.Text = Ui(shipment.Comment);
+        LoadDiscount(shipment.ManualDiscountPercent, shipment.ManualDiscountAmount);
         ReplaceLines(shipment.Lines);
     }
 
@@ -288,12 +296,28 @@ public partial class SalesDocumentEditorWindow : Window
             return;
         }
 
+        ApplySelectedCustomerDefaults();
+    }
+
+    private void HandleCustomerLookupLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_loading || _mode != SalesDocumentEditorMode.Order)
+        {
+            return;
+        }
+
+        ApplySelectedCustomerDefaults();
+    }
+
+    private void ApplySelectedCustomerDefaults()
+    {
         var customer = GetSelectedCustomer();
         if (customer is null)
         {
             return;
         }
 
+        SelectComboValue(CustomerComboBox, BuildCustomerOption(customer));
         SelectComboValue(ManagerComboBox, Ui(customer.Manager));
         SelectComboValue(CurrencyComboBox, Ui(customer.CurrencyCode));
     }
@@ -344,7 +368,7 @@ public partial class SalesDocumentEditorWindow : Window
             return;
         }
 
-        var item = catalog.FirstOrDefault(value => BuildCatalogOption(value).Equals(selected.Trim(), StringComparison.CurrentCultureIgnoreCase));
+        var item = ResolveCatalogItem(catalog, selected);
         var quantity = PromptDecimal("Количество", "Введите количество.", "1");
         if (quantity <= 0m)
         {
@@ -368,31 +392,168 @@ public partial class SalesDocumentEditorWindow : Window
 
     private void HandleEditLineClick(object sender, RoutedEventArgs e)
     {
-        if (LinesGrid.SelectedItem is not SalesLineEditorRow row)
+        try
         {
-            ValidationText.Text = "Выберите позицию для изменения.";
-            return;
+            if (LinesGrid.SelectedItem is not SalesLineEditorRow row)
+            {
+                ValidationText.Text = "Выберите позицию для изменения.";
+                return;
+            }
+
+            var quantity = PromptDecimal("Изменить позицию", "Введите новое количество.", row.Quantity.ToString("N2", RuCulture));
+            if (quantity <= 0m)
+            {
+                return;
+            }
+
+            var price = PromptDecimal("Изменить позицию", "Введите новую цену.", row.Price.ToString("N2", RuCulture));
+            if (price < 0m)
+            {
+                return;
+            }
+
+            var index = _lines.IndexOf(row);
+            if (index >= 0)
+            {
+                _lines[index] = row with { Quantity = quantity, Price = price };
+            }
+
+            RefreshTotal();
+        }
+        catch (Exception exception)
+        {
+            App.WriteClientErrorLog(exception, "SalesDocumentEditorWindow.HandleEditLineClick");
+            ValidationText.Text = $"Не удалось изменить позицию: {exception.Message}";
+        }
+    }
+
+    private void HandleLinesGridDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        HandleEditLineClick(sender, e);
+    }
+
+    private void HandleLinesGridCellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+    {
+        if (e.EditAction == DataGridEditAction.Commit
+            && e.Row.Item is SalesLineEditorRow row
+            && e.EditingElement is TextBox textBox
+            && e.Column.DisplayIndex is >= 0 and <= 4)
+        {
+            e.Cancel = true;
+            var index = _lines.IndexOf(row);
+            if (index >= 0 && TryApplyInlineLineEdit(row, e.Column.DisplayIndex, textBox.Text, out var updated))
+            {
+                _lines[index] = updated;
+                ValidationText.Text = string.Empty;
+            }
+            else
+            {
+                ValidationText.Text = "Введите корректное значение позиции.";
+            }
         }
 
-        var quantity = PromptDecimal("Изменить позицию", "Введите новое количество.", row.Quantity.ToString("N2", RuCulture));
-        if (quantity <= 0m)
-        {
-            return;
-        }
+        Dispatcher.BeginInvoke(RefreshTotal);
+    }
 
-        var price = PromptDecimal("Изменить позицию", "Введите новую цену.", row.Price.ToString("N2", RuCulture));
-        if (price < 0m)
-        {
-            return;
-        }
-
-        var index = _lines.IndexOf(row);
-        if (index >= 0)
-        {
-            _lines[index] = row with { Quantity = quantity, Price = price };
-        }
-
+    private void HandleLinesGridCurrentCellChanged(object sender, EventArgs e)
+    {
         RefreshTotal();
+    }
+
+    private void HandleDiscountPercentChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading || _updatingDiscountFields)
+        {
+            return;
+        }
+
+        var text = DiscountPercentTextBox.Text;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _manualDiscountPercent = 0m;
+            _manualDiscountAmount = 0m;
+            _discountPercentMode = true;
+            RefreshTotal();
+            return;
+        }
+
+        if (!TryParseDecimal(text, out var value))
+        {
+            return;
+        }
+
+        _manualDiscountPercent = Math.Clamp(value, 0m, 100m);
+        _manualDiscountAmount = 0m;
+        _discountPercentMode = true;
+        RefreshTotal();
+    }
+
+    private void HandleDiscountAmountChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading || _updatingDiscountFields)
+        {
+            return;
+        }
+
+        var text = DiscountAmountTextBox.Text;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _manualDiscountAmount = 0m;
+            _manualDiscountPercent = 0m;
+            _discountPercentMode = false;
+            RefreshTotal();
+            return;
+        }
+
+        if (!TryParseDecimal(text, out var value))
+        {
+            return;
+        }
+
+        _manualDiscountAmount = Math.Max(0m, value);
+        _manualDiscountPercent = 0m;
+        _discountPercentMode = false;
+        RefreshTotal();
+    }
+
+    private static bool TryApplyInlineLineEdit(
+        SalesLineEditorRow row,
+        int displayIndex,
+        string value,
+        out SalesLineEditorRow updated)
+    {
+        updated = row;
+        switch (displayIndex)
+        {
+            case 0:
+                updated = row with { ItemCode = Ui(value).Trim() };
+                return true;
+            case 1:
+                updated = row with { ItemName = Ui(value).Trim() };
+                return true;
+            case 2:
+                updated = row with { Unit = Ui(value).Trim() };
+                return true;
+            case 3:
+                if (!TryParseDecimal(value, out var quantity) || quantity <= 0m)
+                {
+                    return false;
+                }
+
+                updated = row with { Quantity = quantity };
+                return true;
+            case 4:
+                if (!TryParseDecimal(value, out var price) || price < 0m)
+                {
+                    return false;
+                }
+
+                updated = row with { Price = price };
+                return true;
+            default:
+                return false;
+        }
     }
 
     private void HandleRemoveLineClick(object sender, RoutedEventArgs e)
@@ -483,6 +644,8 @@ public partial class SalesDocumentEditorWindow : Window
         order.Manager = ManagerComboBox.Text.Trim();
         order.CurrencyCode = CurrencyComboBox.SelectedItem?.ToString() ?? CurrencyComboBox.Text.Trim();
         order.Comment = CommentTextBox.Text.Trim();
+        order.ManualDiscountPercent = _discountPercentMode ? _manualDiscountPercent : 0m;
+        order.ManualDiscountAmount = _discountPercentMode ? 0m : _manualDiscountAmount;
         order.Lines = ToSalesLines();
 
         ResultOrder = order;
@@ -529,6 +692,8 @@ public partial class SalesDocumentEditorWindow : Window
         invoice.Manager = ManagerComboBox.Text.Trim();
         invoice.CurrencyCode = CurrencyComboBox.SelectedItem?.ToString() ?? CurrencyComboBox.Text.Trim();
         invoice.Comment = CommentTextBox.Text.Trim();
+        invoice.ManualDiscountPercent = _discountPercentMode ? _manualDiscountPercent : 0m;
+        invoice.ManualDiscountAmount = _discountPercentMode ? 0m : _manualDiscountAmount;
         invoice.Lines = ToSalesLines();
 
         ResultInvoice = invoice;
@@ -569,6 +734,8 @@ public partial class SalesDocumentEditorWindow : Window
         shipment.Carrier = CarrierTextBox.Text.Trim();
         shipment.Manager = ManagerComboBox.Text.Trim();
         shipment.Comment = CommentTextBox.Text.Trim();
+        shipment.ManualDiscountPercent = _discountPercentMode ? _manualDiscountPercent : 0m;
+        shipment.ManualDiscountAmount = _discountPercentMode ? 0m : _manualDiscountAmount;
         shipment.Lines = ToSalesLines();
 
         ResultShipment = shipment;
@@ -601,8 +768,9 @@ public partial class SalesDocumentEditorWindow : Window
 
     private SalesCustomerRecord? GetSelectedCustomer()
     {
-        var selected = CustomerComboBox.SelectedItem?.ToString() ?? CustomerComboBox.Text;
-        return _customerOptions.TryGetValue(selected.Trim(), out var customer) ? customer : null;
+        var selected = CustomerComboBox.SelectedItem?.ToString();
+        var text = string.IsNullOrWhiteSpace(CustomerComboBox.Text) ? selected : CustomerComboBox.Text;
+        return ResolveCustomer(text);
     }
 
     private bool ValidateLines()
@@ -654,7 +822,103 @@ public partial class SalesDocumentEditorWindow : Window
     private SalesOrderRecord? GetSelectedOrder()
     {
         var selected = OrderComboBox.SelectedItem?.ToString() ?? OrderComboBox.Text;
-        return _orderOptions.TryGetValue(selected.Trim(), out var order) ? order : null;
+        return ResolveOrder(selected);
+    }
+
+    private SalesOrderRecord? ResolveOrder(string? value)
+    {
+        var query = Ui(value).Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        if (_orderOptions.TryGetValue(query, out var direct))
+        {
+            return direct;
+        }
+
+        var exact = _workspace.Orders.FirstOrDefault(order =>
+            Ui(order.Number).Equals(query, StringComparison.CurrentCultureIgnoreCase));
+        if (exact is not null)
+        {
+            return exact;
+        }
+
+        var matches = _workspace.Orders
+            .Where(order =>
+                BuildOrderOption(order).Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                || Ui(order.Number).Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                || Ui(order.CustomerName).Contains(query, StringComparison.CurrentCultureIgnoreCase))
+            .OrderByDescending(order => order.OrderDate)
+            .Take(2)
+            .ToArray();
+
+        return matches.Length == 1 ? matches[0] : null;
+    }
+
+    private SalesCustomerRecord? ResolveCustomer(string? value)
+    {
+        var query = Ui(value).Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        if (_customerOptions.TryGetValue(query, out var direct))
+        {
+            return direct;
+        }
+
+        var exact = _workspace.Customers.FirstOrDefault(customer =>
+            Ui(customer.Name).Equals(query, StringComparison.CurrentCultureIgnoreCase)
+            || Ui(customer.Code).Equals(query, StringComparison.CurrentCultureIgnoreCase));
+        if (exact is not null)
+        {
+            return exact;
+        }
+
+        var matches = _workspace.Customers
+            .Where(customer =>
+                Ui(customer.Name).Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                || Ui(customer.Code).Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                || BuildCustomerOption(customer).Contains(query, StringComparison.CurrentCultureIgnoreCase))
+            .OrderBy(customer => Ui(customer.Name), StringComparer.CurrentCultureIgnoreCase)
+            .Take(2)
+            .ToArray();
+
+        return matches.Length == 1 ? matches[0] : null;
+    }
+
+    private static SalesCatalogItemOption? ResolveCatalogItem(
+        IReadOnlyList<SalesCatalogItemOption> catalog,
+        string value)
+    {
+        var query = Ui(value).Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return null;
+        }
+
+        var exact = catalog.FirstOrDefault(item =>
+            BuildCatalogOption(item).Equals(query, StringComparison.CurrentCultureIgnoreCase)
+            || Ui(item.Code).Equals(query, StringComparison.CurrentCultureIgnoreCase)
+            || Ui(item.Name).Equals(query, StringComparison.CurrentCultureIgnoreCase));
+        if (exact is not null)
+        {
+            return exact;
+        }
+
+        var matches = catalog
+            .Where(item =>
+                BuildCatalogOption(item).Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                || Ui(item.Code).Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                || Ui(item.Name).Contains(query, StringComparison.CurrentCultureIgnoreCase))
+            .OrderBy(item => Ui(item.Name), StringComparer.CurrentCultureIgnoreCase)
+            .Take(2)
+            .ToArray();
+
+        return matches.Length == 1 ? matches[0] : null;
     }
 
     private void ReplaceLines(IEnumerable<SalesOrderLineRecord> lines)
@@ -669,6 +933,13 @@ public partial class SalesDocumentEditorWindow : Window
                 line.Quantity,
                 line.Price));
         }
+    }
+
+    private void LoadDiscount(decimal percent, decimal amount)
+    {
+        _manualDiscountPercent = Math.Clamp(percent, 0m, 100m);
+        _manualDiscountAmount = Math.Max(0m, amount);
+        _discountPercentMode = _manualDiscountAmount <= 0m;
     }
 
     private System.ComponentModel.BindingList<SalesOrderLineRecord> ToSalesLines()
@@ -745,7 +1016,47 @@ public partial class SalesDocumentEditorWindow : Window
 
     private void RefreshTotal()
     {
-        TotalText.Text = $"Позиций: {_lines.Count:N0}. Сумма: {_lines.Sum(item => item.Amount):N2} ₽";
+        var subtotal = Math.Round(_lines.Sum(item => item.Amount), 2, MidpointRounding.AwayFromZero);
+        var discount = CalculateEditorDiscount(subtotal);
+        var total = Math.Round(Math.Max(0m, subtotal - discount), 2, MidpointRounding.AwayFromZero);
+        var vat = Math.Round(total * 20m / 120m, 2, MidpointRounding.AwayFromZero);
+        var derivedPercent = subtotal <= 0m ? 0m : Math.Round(discount / subtotal * 100m, 2, MidpointRounding.AwayFromZero);
+
+        TotalText.Text = $"Позиции: {_lines.Count:N0}. Сумма: {subtotal:N2} ₽. Скидка: {discount:N2} ₽.";
+
+        _updatingDiscountFields = true;
+        try
+        {
+            if (!DiscountPercentTextBox.IsKeyboardFocusWithin)
+            {
+                DiscountPercentTextBox.Text = (_discountPercentMode ? _manualDiscountPercent : derivedPercent).ToString("N2", RuCulture);
+            }
+
+            if (!DiscountAmountTextBox.IsKeyboardFocusWithin)
+            {
+                DiscountAmountTextBox.Text = discount.ToString("N2", RuCulture);
+            }
+
+            VatAmountTextBox.Text = vat.ToString("N2", RuCulture);
+            GrandTotalTextBox.Text = total.ToString("N2", RuCulture);
+        }
+        finally
+        {
+            _updatingDiscountFields = false;
+        }
+    }
+
+    private decimal CalculateEditorDiscount(decimal subtotal)
+    {
+        if (subtotal <= 0m)
+        {
+            return 0m;
+        }
+
+        var rawDiscount = _discountPercentMode
+            ? subtotal * Math.Clamp(_manualDiscountPercent, 0m, 100m) / 100m
+            : _manualDiscountAmount;
+        return Math.Min(subtotal, Math.Round(Math.Max(0m, rawDiscount), 2, MidpointRounding.AwayFromZero));
     }
 
     private void RenderRelatedDocuments()
@@ -874,6 +1185,13 @@ public partial class SalesDocumentEditorWindow : Window
             if (selected is not null)
             {
                 comboBox.SelectedItem = selected;
+                return;
+            }
+
+            if (comboBox.IsEditable)
+            {
+                comboBox.SelectedItem = null;
+                comboBox.Text = value;
                 return;
             }
         }

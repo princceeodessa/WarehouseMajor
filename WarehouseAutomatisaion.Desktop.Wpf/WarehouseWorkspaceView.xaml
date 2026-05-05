@@ -1016,6 +1016,22 @@
                                 <StackPanel Margin="22,22,22,14">
                                     <TextBlock Text="Отгрузки на сегодня" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
                                     <TextBlock Text="Очередь кладовщика по активным отгрузкам." Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
+                                    <TextBox x:Name="CellShipmentSearchBox"
+                                             Height="36"
+                                             Margin="0,14,0,0"
+                                             VerticalContentAlignment="Center"
+                                             ToolTip="Поиск по отгрузке, заказу, клиенту, складу или товару"
+                                             TextChanged="HandleCellShipmentSearchChanged" />
+                                    <CheckBox x:Name="CellOnlyProblemShipmentsCheckBox"
+                                              Margin="0,12,0,0"
+                                              Style="{StaticResource ProblemsOnlyStyle}"
+                                              Checked="HandleCellShipmentFilterChanged"
+                                              Unchecked="HandleCellShipmentFilterChanged"
+                                              Content="Только с дефицитом или без ячеек" />
+                                    <TextBlock x:Name="CellVisibleQueueText"
+                                               Margin="0,10,0,0"
+                                               FontSize="12.5"
+                                               Foreground="#98A3BC" />
                                 </StackPanel>
 
                                 <DataGrid x:Name="CellShipmentsDataGrid"
@@ -1053,6 +1069,14 @@
                                 <StackPanel Margin="22,22,22,14">
                                     <TextBlock x:Name="CellSelectedShipmentTitleText" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
                                     <TextBlock x:Name="CellSelectedShipmentSubtitleText" Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
+                                    <Button x:Name="CellOpenShipmentButton"
+                                            Width="150"
+                                            Height="38"
+                                            Margin="0,12,0,0"
+                                            HorizontalAlignment="Left"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandleOpenSelectedCellShipmentClick"
+                                            Content="Открыть отгрузку" />
                                 </StackPanel>
 
                                 <DataGrid x:Name="CellPickLinesDataGrid"

@@ -193,6 +193,17 @@
                                 </StackPanel>
                             </Button>
 
+                            <Button x:Name="NavFinanceButton"
+                                    Tag="finance"
+                                    AutomationProperties.Name="Возвраты и оплаты"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8FB;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Возвраты и оплаты" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
                             <Button x:Name="NavPurchasingButton"
                                     Tag="purchasing"
                                     AutomationProperties.Name="Закупки"

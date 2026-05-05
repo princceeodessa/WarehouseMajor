@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -16,6 +18,7 @@ internal static class RecordsWorkspaceCatalog
     private static readonly string[] CustomerFilters = ["Все клиенты", "Активные", "Новые", "Неактивные"];
     private static readonly string[] InvoiceFilters = ["Все счета", "Оплачено", "Частично оплачено", "Просрочено", "Не оплачено"];
     private static readonly string[] ShipmentFilters = ["Все отгрузки", "Запланировано", "В пути", "Доставлено", "Отменено"];
+    private static readonly string[] FinanceFilters = ["Все документы", "Возвраты", "Поступления в кассу"];
     private static readonly string[] PurchasingFilters = ["Все документы", "Заказы", "Счета", "Приемки"];
     private static readonly string[] ScenarioFilters = ["Все сценарии", "Критично", "Важно", "План", "Готово"];
 
@@ -138,16 +141,16 @@ internal static class RecordsWorkspaceCatalog
             MetricsFactory: () =>
             [
                 Metric("Все счета", salesWorkspace.Invoices.Count, "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8C7"),
-                Metric("Оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Оплачено"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8FB"),
-                Metric("Частично оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Частично оплачено"), "Актуально", "#FFB648", "#FFF5E8", "#1BC47D", "\uE7C2"),
-                Metric("Просрочено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Просрочено"), "Актуально", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uEA39"),
-                Metric("Не оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(item) == "Не оплачено"), "Актуально", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uE8C7")
+                Metric("Оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(salesWorkspace, item) == "Оплачено"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8FB"),
+                Metric("Частично оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(salesWorkspace, item) == "Частично оплачено"), "Актуально", "#FFB648", "#FFF5E8", "#1BC47D", "\uE7C2"),
+                Metric("Просрочено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(salesWorkspace, item) == "Просрочено"), "Актуально", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uEA39"),
+                Metric("Не оплачено", salesWorkspace.Invoices.Count(item => NormalizeInvoiceFilter(salesWorkspace, item) == "Не оплачено"), "Актуально", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uE8C7")
             ],
             RowsFactory: () => salesWorkspace.Invoices
                 .OrderByDescending(item => item.InvoiceDate)
                 .Select(item => new RecordsGridItem(
                     SearchText: SearchIndex(item.Number, item.SalesOrderNumber, item.CustomerName, item.Manager, item.Status),
-                    FilterValue: NormalizeInvoiceFilter(item),
+                    FilterValue: NormalizeInvoiceFilter(salesWorkspace, item),
                     DateValue: item.InvoiceDate,
                     Cells:
                     [
@@ -156,8 +159,8 @@ internal static class RecordsWorkspaceCatalog
                         Cell(Clean(item.CustomerName)),
                         Cell(item.InvoiceDate.ToString("dd.MM.yyyy", RuCulture)),
                         Cell(FormatMoney(item.TotalAmount, item.CurrencyCode), semiBold: true),
-                        Cell(FormatMoney(GetPaidAmount(item), item.CurrencyCode)),
-                        StatusCell(NormalizeInvoiceStatusLabel(item)),
+                        Cell(FormatMoney(GetPaidAmount(salesWorkspace, item), item.CurrencyCode)),
+                        StatusCell(NormalizeInvoiceStatusLabel(salesWorkspace, item)),
                         Cell(item.DueDate.ToString("dd.MM.yyyy", RuCulture)),
                         ActionCell()
                     ],
@@ -229,6 +232,132 @@ internal static class RecordsWorkspaceCatalog
             ],
             SubscribeToChanges: handler => salesWorkspace.Changed += handler,
             UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler);
+    }
+
+    public static RecordsWorkspaceDefinition CreateReturnsAndPayments(SalesWorkspace salesWorkspace)
+    {
+        return new RecordsWorkspaceDefinition(
+            Title: "Возвраты и оплаты",
+            Subtitle: "Журнал возвратов покупателей и поступлений в кассу по заказам.",
+            SearchPlaceholder: "Поиск по номеру, заказу, клиенту или комментарию...",
+            PrimaryActionText: "Выгрузить CSV",
+            PrimaryFilterOptions: FinanceFilters,
+            ShowDateRange: true,
+            PrimaryAction: () => ExportReturnsAndPaymentsJournal(salesWorkspace),
+            MetricsFactory: () =>
+            [
+                Metric("Все документы", salesWorkspace.Returns.Count + salesWorkspace.CashReceipts.Count, "Актуально", "#4F5BFF", "#EEF2FF", "#1BC47D", "\uE9D2"),
+                Metric("Возвраты", salesWorkspace.Returns.Count, "Черновики и проведенные", "#FF8A65", "#FFF0ED", "#FF6B6B", "\uE7BA"),
+                Metric("Поступления", salesWorkspace.CashReceipts.Count, "Касса", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8FB"),
+                new WorkspaceMetricCardDefinition("Сумма оплат", FormatMoney(salesWorkspace.CashReceipts.Where(IsActiveCashReceipt).Sum(item => item.Amount), GetJournalCurrencyCode(salesWorkspace)), "Без отмененных", "поступления в кассу", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uE8C7"),
+                Metric("Черновики возвратов", salesWorkspace.Returns.Count(item => Clean(item.Status).Equals("Черновик", StringComparison.OrdinalIgnoreCase)), "Не проводят склад", "#F29A17", "#FFF4E3", "#F29A17", "\uE9CE")
+            ],
+            RowsFactory: () => salesWorkspace.Returns
+                .Select(item => new RecordsGridItem(
+                    SearchText: SearchIndex(item.Number, item.SalesOrderNumber, item.CustomerName, item.Status, item.Reason, item.Comment, item.Manager),
+                    FilterValue: "Возвраты",
+                    DateValue: item.ReturnDate,
+                    Cells:
+                    [
+                        Cell("Возврат"),
+                        Cell(Clean(item.Number)),
+                        Cell(Clean(item.SalesOrderNumber)),
+                        Cell(Clean(item.CustomerName)),
+                        Cell(item.ReturnDate.ToString("dd.MM.yyyy", RuCulture)),
+                        Cell(FormatMoney(item.TotalAmount, item.CurrencyCode), semiBold: true),
+                        StatusCell(Clean(item.Status)),
+                        Cell(string.IsNullOrWhiteSpace(Clean(item.Reason)) ? Clean(item.Comment) : Clean(item.Reason)),
+                        ActionCell()
+                    ],
+                    RowActions: BuildReturnActions(salesWorkspace, item)))
+                .Concat(salesWorkspace.CashReceipts.Select(item => new RecordsGridItem(
+                    SearchText: SearchIndex(item.Number, item.SalesOrderNumber, item.CustomerName, item.Status, item.CashBox, item.Comment, item.Manager),
+                    FilterValue: "Поступления в кассу",
+                    DateValue: item.ReceiptDate,
+                    Cells:
+                    [
+                        Cell("Поступление в кассу"),
+                        Cell(Clean(item.Number)),
+                        Cell(Clean(item.SalesOrderNumber)),
+                        Cell(Clean(item.CustomerName)),
+                        Cell(item.ReceiptDate.ToString("dd.MM.yyyy", RuCulture)),
+                        Cell(FormatMoney(item.Amount, item.CurrencyCode), semiBold: true),
+                        StatusCell(Clean(item.Status)),
+                        Cell(string.IsNullOrWhiteSpace(Clean(item.Comment)) ? Clean(item.CashBox) : Clean(item.Comment)),
+                        ActionCell()
+                    ],
+                    RowActions: BuildCashReceiptActions(salesWorkspace, item))))
+                .OrderByDescending(item => item.DateValue ?? DateTime.MinValue)
+                .ToArray(),
+            Columns:
+            [
+                new RecordsGridColumnDefinition("Действия", 8, RecordsColumnKind.Action, 72, false),
+                new RecordsGridColumnDefinition("Тип", 0, WidthValue: 1.05),
+                new RecordsGridColumnDefinition("Документ", 1, WidthValue: 1.0),
+                new RecordsGridColumnDefinition("Заказ", 2, WidthValue: 0.95),
+                new RecordsGridColumnDefinition("Клиент", 3, WidthValue: 1.35),
+                new RecordsGridColumnDefinition("Дата", 4, WidthValue: 0.85),
+                new RecordsGridColumnDefinition("Сумма", 5, WidthValue: 0.95, Alignment: TextAlignment.Right),
+                new RecordsGridColumnDefinition("Статус", 6, RecordsColumnKind.Status, WidthValue: 0.9),
+                new RecordsGridColumnDefinition("Комментарий", 7, WidthValue: 1.35)
+            ],
+            EmptyStateText: "Возвратов и поступлений в кассу пока нет",
+            ShowImportAction: false,
+            SubscribeToChanges: handler => salesWorkspace.Changed += handler,
+            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler);
+    }
+
+    private static void ExportReturnsAndPaymentsJournal(SalesWorkspace salesWorkspace)
+    {
+        var directory = Path.Combine(AppContext.BaseDirectory, "exports");
+        Directory.CreateDirectory(directory);
+
+        var path = Path.Combine(directory, $"returns-payments-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
+        var builder = new StringBuilder();
+        builder.AppendLine("Тип;Документ;Заказ;Клиент;Дата;Сумма;Валюта;Статус;Комментарий");
+
+        foreach (var item in salesWorkspace.Returns
+            .Select(returnRecord => new
+            {
+                Type = "Возврат",
+                Document = Clean(returnRecord.Number),
+                Order = Clean(returnRecord.SalesOrderNumber),
+                Customer = Clean(returnRecord.CustomerName),
+                Date = returnRecord.ReturnDate,
+                Amount = returnRecord.TotalAmount,
+                Currency = Clean(returnRecord.CurrencyCode),
+                Status = Clean(returnRecord.Status),
+                Comment = string.IsNullOrWhiteSpace(Clean(returnRecord.Reason)) ? Clean(returnRecord.Comment) : Clean(returnRecord.Reason)
+            })
+            .Concat(salesWorkspace.CashReceipts.Select(receipt => new
+            {
+                Type = "Поступление в кассу",
+                Document = Clean(receipt.Number),
+                Order = Clean(receipt.SalesOrderNumber),
+                Customer = Clean(receipt.CustomerName),
+                Date = receipt.ReceiptDate,
+                Amount = receipt.Amount,
+                Currency = Clean(receipt.CurrencyCode),
+                Status = Clean(receipt.Status),
+                Comment = string.IsNullOrWhiteSpace(Clean(receipt.Comment)) ? Clean(receipt.CashBox) : Clean(receipt.Comment)
+            }))
+            .OrderByDescending(item => item.Date))
+        {
+            builder.AppendLine(string.Join(
+                ';',
+                Csv(item.Type),
+                Csv(item.Document),
+                Csv(item.Order),
+                Csv(item.Customer),
+                item.Date.ToString("dd.MM.yyyy", RuCulture),
+                item.Amount.ToString("N2", RuCulture),
+                Csv(item.Currency),
+                Csv(item.Status),
+                Csv(item.Comment)));
+        }
+
+        File.WriteAllText(path, builder.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        ShowMessage("Возвраты и оплаты", $"Журнал выгружен.\nФайл: {path}");
     }
 
     public static RecordsWorkspaceDefinition CreatePurchasing(SalesWorkspace salesWorkspace)
@@ -618,12 +747,16 @@ internal static class RecordsWorkspaceCatalog
         return
         [
             new RecordsGridActionDefinition("Открыть заказ", () => EditOrder(salesWorkspace, order)),
+            new RecordsGridActionDefinition("Связанные документы", () => ShowSalesDocumentLinks(salesWorkspace, order)),
             new RecordsGridActionDefinition("Печать", () => PrintOrder(order)),
+            new RecordsGridActionDefinition("Выгрузить PDF", () => ExportOrder(order, SalesDocumentExportFormat.Pdf)),
+            new RecordsGridActionDefinition("Выгрузить Excel", () => ExportOrder(order, SalesDocumentExportFormat.Excel)),
             new RecordsGridActionDefinition("Подтвердить", () => ShowWorkflowResult("Заказы", salesWorkspace.ConfirmOrder(order.Id))),
             new RecordsGridActionDefinition("В резерв", () => ShowWorkflowResult("Заказы", salesWorkspace.ReserveOrder(order.Id))),
             new RecordsGridActionDefinition("Снять резерв", () => ShowWorkflowResult("Заказы", salesWorkspace.ReleaseOrderReserve(order.Id))),
             new RecordsGridActionDefinition("Сформировать счет", () => CreateInvoiceFromOrder(salesWorkspace, order)),
             new RecordsGridActionDefinition("Подготовить отгрузку", () => CreateShipmentFromOrder(salesWorkspace, order)),
+            new RecordsGridActionDefinition("Создать черновик возврата", () => CreateReturnFromOrder(salesWorkspace, order)),
             new RecordsGridActionDefinition("Провести расходку и закрыть", () => ShowWorkflowResult("Заказы", salesWorkspace.ConductExpenseAndCloseOrder(order.Id))),
             new RecordsGridActionDefinition("Поступление в кассу", () => ShowWorkflowResult("Заказы", salesWorkspace.RecordCashReceiptForOrder(order.Id))),
             new RecordsGridActionDefinition("Дублировать", () => DuplicateOrder(salesWorkspace, order))
@@ -650,9 +783,13 @@ internal static class RecordsWorkspaceCatalog
         return
         [
             new RecordsGridActionDefinition("Открыть счет", () => EditInvoice(salesWorkspace, invoice)),
+            new RecordsGridActionDefinition("Связанные документы", () => ShowSalesDocumentLinks(salesWorkspace, invoice)),
             new RecordsGridActionDefinition("Печать", () => PrintInvoice(invoice)),
+            new RecordsGridActionDefinition("Выгрузить PDF", () => ExportInvoice(invoice, SalesDocumentExportFormat.Pdf)),
+            new RecordsGridActionDefinition("Выгрузить Excel", () => ExportInvoice(invoice, SalesDocumentExportFormat.Excel)),
             new RecordsGridActionDefinition("Выставить", () => ShowWorkflowResult("Счета", salesWorkspace.MarkInvoiceIssued(invoice.Id))),
             new RecordsGridActionDefinition("Отметить оплату", () => ShowWorkflowResult("Счета", salesWorkspace.MarkInvoicePaid(invoice.Id))),
+            new RecordsGridActionDefinition("Поступление в кассу", () => ShowWorkflowResult("Счета", salesWorkspace.RecordCashReceiptForInvoice(invoice.Id))),
             new RecordsGridActionDefinition("Создать отгрузку", () => CreateShipmentFromInvoice(salesWorkspace, invoice))
         ];
     }
@@ -662,9 +799,37 @@ internal static class RecordsWorkspaceCatalog
         return
         [
             new RecordsGridActionDefinition("Открыть отгрузку", () => EditShipment(salesWorkspace, shipment)),
+            new RecordsGridActionDefinition("Связанные документы", () => ShowSalesDocumentLinks(salesWorkspace, shipment)),
             new RecordsGridActionDefinition("Печать", () => PrintShipment(shipment)),
+            new RecordsGridActionDefinition("Выгрузить PDF", () => ExportShipment(shipment, SalesDocumentExportFormat.Pdf)),
+            new RecordsGridActionDefinition("Выгрузить Excel", () => ExportShipment(shipment, SalesDocumentExportFormat.Excel)),
             new RecordsGridActionDefinition("К сборке", () => ShowWorkflowResult("Отгрузки", salesWorkspace.PrepareShipment(shipment.Id))),
+            new RecordsGridActionDefinition("Создать черновик возврата", () => CreateReturnFromShipment(salesWorkspace, shipment)),
             new RecordsGridActionDefinition("Провести отгрузку", () => ShowWorkflowResult("Отгрузки", salesWorkspace.ShipShipment(shipment.Id)))
+        ];
+    }
+
+    private static IReadOnlyList<RecordsGridActionDefinition> BuildReturnActions(SalesWorkspace salesWorkspace, SalesReturnRecord returnDocument)
+    {
+        return
+        [
+            new RecordsGridActionDefinition("Связанные документы", () => ShowSalesDocumentLinks(salesWorkspace, returnDocument)),
+            new RecordsGridActionDefinition("Открыть заказ-основание", () => OpenOrderFromLink(salesWorkspace, returnDocument.SalesOrderId, returnDocument.SalesOrderNumber, "Возвраты")),
+            new RecordsGridActionDefinition("Печать возврата", () => PrintReturn(returnDocument)),
+            new RecordsGridActionDefinition("Провести возврат", () => ShowWorkflowResult("Возвраты", salesWorkspace.ConductReturn(returnDocument.Id))),
+            new RecordsGridActionDefinition("Отменить возврат", () => ShowWorkflowResult("Возвраты", salesWorkspace.CancelReturn(returnDocument.Id)))
+        ];
+    }
+
+    private static IReadOnlyList<RecordsGridActionDefinition> BuildCashReceiptActions(SalesWorkspace salesWorkspace, SalesCashReceiptRecord cashReceipt)
+    {
+        return
+        [
+            new RecordsGridActionDefinition("Связанные документы", () => ShowSalesDocumentLinks(salesWorkspace, cashReceipt)),
+            new RecordsGridActionDefinition("Открыть заказ-основание", () => OpenOrderFromLink(salesWorkspace, cashReceipt.SalesOrderId, cashReceipt.SalesOrderNumber, "Поступления в кассу")),
+            new RecordsGridActionDefinition("Печать ПКО", () => PrintCashReceipt(cashReceipt)),
+            new RecordsGridActionDefinition("Провести поступление", () => ShowWorkflowResult("Поступления в кассу", salesWorkspace.ConductCashReceipt(cashReceipt.Id))),
+            new RecordsGridActionDefinition("Отменить поступление", () => ShowWorkflowResult("Поступления в кассу", salesWorkspace.CancelCashReceipt(cashReceipt.Id)))
         ];
     }
 
@@ -739,6 +904,29 @@ internal static class RecordsWorkspaceCatalog
         }
     }
 
+    private static void ExportOrder(SalesOrderRecord order, SalesDocumentExportFormat format)
+    {
+        SalesDocumentExportService.ExportOrder(ResolveOwnerWindow(), order, format);
+    }
+
+    private static void ExportInvoice(SalesInvoiceRecord invoice, SalesDocumentExportFormat format)
+    {
+        SalesDocumentExportService.ExportTableDocument(
+            ResolveOwnerWindow(),
+            $"Счет {invoice.Number}",
+            BuildInvoicePrintDefinition(invoice),
+            format);
+    }
+
+    private static void ExportShipment(SalesShipmentRecord shipment, SalesDocumentExportFormat format)
+    {
+        SalesDocumentExportService.ExportTableDocument(
+            ResolveOwnerWindow(),
+            $"Расходная накладная {shipment.Number}",
+            BuildShipmentPrintDefinition(shipment),
+            format);
+    }
+
     private static void PrintInvoice(SalesInvoiceRecord invoice)
     {
         var definition = BuildInvoicePrintDefinition(invoice);
@@ -754,6 +942,24 @@ internal static class RecordsWorkspaceCatalog
         PrintDocumentComposer.Print(
             ResolveOwnerWindow(),
             $"Отгрузка {shipment.Number}",
+            (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definition, pageWidth, pageHeight));
+    }
+
+    private static void PrintReturn(SalesReturnRecord returnDocument)
+    {
+        var definition = BuildReturnPrintDefinition(returnDocument);
+        PrintDocumentComposer.Print(
+            ResolveOwnerWindow(),
+            $"Возврат {returnDocument.Number}",
+            (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definition, pageWidth, pageHeight));
+    }
+
+    private static void PrintCashReceipt(SalesCashReceiptRecord cashReceipt)
+    {
+        var definition = BuildCashReceiptPrintDefinition(cashReceipt);
+        PrintDocumentComposer.Print(
+            ResolveOwnerWindow(),
+            $"ПКО {cashReceipt.Number}",
             (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definition, pageWidth, pageHeight));
     }
 
@@ -775,11 +981,7 @@ internal static class RecordsWorkspaceCatalog
             ],
             Columns: BuildSalesPrintColumns(),
             Rows: BuildSalesLinePrintRows(invoice.Lines, invoice.CurrencyCode),
-            Totals:
-            [
-                new PrintableField("Итого", FormatMoney(invoice.TotalAmount, invoice.CurrencyCode)),
-                new PrintableField("Без налога (НДС)", string.Empty)
-            ],
+            Totals: BuildSalesPrintTotals(invoice.SubtotalAmount, invoice.EffectiveDiscountAmount, invoice.TotalAmount, invoice.CurrencyCode),
             Comment: invoice.Comment);
     }
 
@@ -801,12 +1003,91 @@ internal static class RecordsWorkspaceCatalog
             ],
             Columns: BuildSalesPrintColumns(),
             Rows: BuildSalesLinePrintRows(shipment.Lines, shipment.CurrencyCode),
+            Totals: BuildSalesPrintTotals(shipment.SubtotalAmount, shipment.EffectiveDiscountAmount, shipment.TotalAmount, shipment.CurrencyCode),
+            Comment: shipment.Comment);
+    }
+
+    private static PrintableTableDocumentDefinition BuildReturnPrintDefinition(SalesReturnRecord returnDocument)
+    {
+        return new PrintableTableDocumentDefinition(
+            Title: $"Возврат покупателя № {Clean(returnDocument.Number)} от {returnDocument.ReturnDate:dd.MM.yyyy}",
+            Subtitle: $"Покупатель: {Clean(returnDocument.CustomerName)}",
+            Facts:
+            [
+                new PrintableField("Покупатель", Clean(returnDocument.CustomerName)),
+                new PrintableField("Заказ-основание", Clean(returnDocument.SalesOrderNumber)),
+                new PrintableField("Дата возврата", returnDocument.ReturnDate.ToString("dd.MM.yyyy", RuCulture)),
+                new PrintableField("Склад", Clean(returnDocument.Warehouse)),
+                new PrintableField("Причина", Clean(returnDocument.Reason)),
+                new PrintableField("Статус", Clean(returnDocument.Status)),
+                new PrintableField("Договор", Clean(returnDocument.ContractNumber)),
+                new PrintableField("Менеджер", Clean(returnDocument.Manager))
+            ],
+            Columns: BuildSalesPrintColumns(),
+            Rows: BuildSalesLinePrintRows(returnDocument.Lines, returnDocument.CurrencyCode),
+            Totals: BuildSalesPrintTotals(returnDocument.SubtotalAmount, returnDocument.EffectiveDiscountAmount, returnDocument.TotalAmount, returnDocument.CurrencyCode, "Итого к возврату"),
+            Comment: returnDocument.Comment);
+    }
+
+    private static PrintableTableDocumentDefinition BuildCashReceiptPrintDefinition(SalesCashReceiptRecord cashReceipt)
+    {
+        return new PrintableTableDocumentDefinition(
+            Title: $"Приходный кассовый ордер № {Clean(cashReceipt.Number)} от {cashReceipt.ReceiptDate:dd.MM.yyyy}",
+            Subtitle: $"Плательщик: {Clean(cashReceipt.CustomerName)}",
+            Facts:
+            [
+                new PrintableField("Плательщик", Clean(cashReceipt.CustomerName)),
+                new PrintableField("Заказ-основание", Clean(cashReceipt.SalesOrderNumber)),
+                new PrintableField("Дата поступления", cashReceipt.ReceiptDate.ToString("dd.MM.yyyy", RuCulture)),
+                new PrintableField("Касса", Clean(cashReceipt.CashBox)),
+                new PrintableField("Договор", Clean(cashReceipt.ContractNumber)),
+                new PrintableField("Статус", Clean(cashReceipt.Status)),
+                new PrintableField("Менеджер", Clean(cashReceipt.Manager)),
+                new PrintableField("Валюта", Clean(cashReceipt.CurrencyCode))
+            ],
+            Columns:
+            [
+                new PrintableTableColumn("№", 0.35, TextAlignment.Center),
+                new PrintableTableColumn("Основание", 2.6),
+                new PrintableTableColumn("Касса", 1.2),
+                new PrintableTableColumn("Сумма", 1.0, TextAlignment.Right),
+                new PrintableTableColumn("Комментарий", 1.8)
+            ],
+            Rows:
+            [
+                new PrintableTableRow(
+                [
+                    "1",
+                    Clean(cashReceipt.SalesOrderNumber),
+                    Clean(cashReceipt.CashBox),
+                    FormatMoney(cashReceipt.Amount, cashReceipt.CurrencyCode),
+                    Clean(cashReceipt.Comment)
+                ])
+            ],
             Totals:
             [
-                new PrintableField("Итого", FormatMoney(shipment.TotalAmount, shipment.CurrencyCode)),
-                new PrintableField("Без налога (НДС)", string.Empty)
+                new PrintableField("Принято", FormatMoney(cashReceipt.Amount, cashReceipt.CurrencyCode))
             ],
-            Comment: shipment.Comment);
+            Comment: cashReceipt.Comment);
+    }
+
+    private static IReadOnlyList<PrintableField> BuildSalesPrintTotals(
+        decimal subtotal,
+        decimal discount,
+        decimal total,
+        string currencyCode,
+        string totalLabel = "Итого")
+    {
+        var totals = new List<PrintableField>();
+        if (discount > 0m)
+        {
+            totals.Add(new PrintableField("Сумма без скидки", FormatMoney(subtotal, currencyCode)));
+            totals.Add(new PrintableField("Скидка", FormatMoney(discount, currencyCode)));
+        }
+
+        totals.Add(new PrintableField(totalLabel, FormatMoney(total, currencyCode)));
+        totals.Add(new PrintableField("Без налога (НДС)", string.Empty));
+        return totals;
     }
 
     private static IReadOnlyList<PrintableTableColumn> BuildSalesPrintColumns()
@@ -881,6 +1162,71 @@ internal static class RecordsWorkspaceCatalog
         }
     }
 
+    private static void ShowSalesDocumentLinks(SalesWorkspace salesWorkspace, SalesOrderRecord order)
+    {
+        ShowSalesDocumentLinksDialog(new SalesDocumentLinksWindow(salesWorkspace, order));
+    }
+
+    private static void ShowSalesDocumentLinks(SalesWorkspace salesWorkspace, SalesInvoiceRecord invoice)
+    {
+        ShowSalesDocumentLinksDialog(new SalesDocumentLinksWindow(salesWorkspace, invoice));
+    }
+
+    private static void ShowSalesDocumentLinks(SalesWorkspace salesWorkspace, SalesShipmentRecord shipment)
+    {
+        ShowSalesDocumentLinksDialog(new SalesDocumentLinksWindow(salesWorkspace, shipment));
+    }
+
+    private static void ShowSalesDocumentLinks(SalesWorkspace salesWorkspace, SalesReturnRecord returnDocument)
+    {
+        ShowSalesDocumentLinksDialog(new SalesDocumentLinksWindow(salesWorkspace, returnDocument));
+    }
+
+    private static void ShowSalesDocumentLinks(SalesWorkspace salesWorkspace, SalesCashReceiptRecord cashReceipt)
+    {
+        ShowSalesDocumentLinksDialog(new SalesDocumentLinksWindow(salesWorkspace, cashReceipt));
+    }
+
+    private static void ShowSalesDocumentLinksDialog(SalesDocumentLinksWindow dialog)
+    {
+        var owner = ResolveOwnerWindow();
+        if (owner is not null)
+        {
+            dialog.Owner = owner;
+        }
+
+        dialog.ShowDialog();
+    }
+
+    private static void OpenOrderFromLink(SalesWorkspace salesWorkspace, Guid orderId, string orderNumber, string title)
+    {
+        var order = FindOrderByLink(salesWorkspace, orderId, orderNumber);
+        if (order is null)
+        {
+            ShowMessage(title, "Заказ-основание не найден.", MessageBoxImage.Warning);
+            return;
+        }
+
+        EditOrder(salesWorkspace, order);
+    }
+
+    private static SalesOrderRecord? FindOrderByLink(SalesWorkspace salesWorkspace, Guid orderId, string orderNumber)
+    {
+        if (orderId != Guid.Empty)
+        {
+            var orderById = salesWorkspace.Orders.FirstOrDefault(item => item.Id == orderId);
+            if (orderById is not null)
+            {
+                return orderById;
+            }
+        }
+
+        var cleanOrderNumber = Clean(orderNumber);
+        return string.IsNullOrWhiteSpace(cleanOrderNumber)
+            ? null
+            : salesWorkspace.Orders.FirstOrDefault(item => Clean(item.Number).Equals(cleanOrderNumber, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static void SetCustomerStatus(SalesWorkspace salesWorkspace, SalesCustomerRecord customer, string status)
     {
         var copy = customer.Clone();
@@ -928,6 +1274,22 @@ internal static class RecordsWorkspaceCatalog
         }
 
         CreateShipmentFromOrder(salesWorkspace, order);
+    }
+
+    private static void CreateReturnFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
+    {
+        var returnDocument = salesWorkspace.CreateReturnDraftFromOrder(order.Id);
+        salesWorkspace.AddReturn(returnDocument);
+        ShowMessage("Возвраты", $"Создан черновик возврата {returnDocument.Number} по заказу {order.Number}. Складские остатки не изменены.");
+        ShowSalesDocumentLinks(salesWorkspace, order);
+    }
+
+    private static void CreateReturnFromShipment(SalesWorkspace salesWorkspace, SalesShipmentRecord shipment)
+    {
+        var returnDocument = salesWorkspace.CreateReturnDraftFromShipment(shipment.Id);
+        salesWorkspace.AddReturn(returnDocument);
+        ShowMessage("Возвраты", $"Создан черновик возврата {returnDocument.Number} по отгрузке {shipment.Number}. Складские остатки не изменены.");
+        ShowSalesDocumentLinks(salesWorkspace, shipment);
     }
 
     private static void ShowWorkflowResult(string title, SalesWorkflowActionResult result)
@@ -1353,8 +1715,8 @@ internal static class RecordsWorkspaceCatalog
         var palette = normalized switch
         {
             "Новый" or "Новые" => ("#4F5BFF", "#EEF2FF"),
-            "Подтвержден" or "Подтвержденные" or "Активен" or "Активные" or "Оплачено" or "Доставлено" or "В наличии" or "Норма" => ("#1DAA63", "#EAF9F0"),
-            "Выставлен" or "Частично оплачено" or "Под контролем" or "Запланировано" or "Низкий остаток" => ("#F29A17", "#FFF4E3"),
+            "Подтвержден" or "Подтвержденные" or "Активен" or "Активные" or "Оплачено" or "Доставлено" or "В наличии" or "Норма" or "Проведено" => ("#1DAA63", "#EAF9F0"),
+            "Черновик" or "Выставлен" or "Частично оплачено" or "Под контролем" or "Запланировано" or "Низкий остаток" => ("#F29A17", "#FFF4E3"),
             "Просрочено" or "Не оплачено" or "Неактивен" or "Отменено" or "Нет в наличии" or "Критично" => ("#F15B5B", "#FFF0F0"),
             "В производстве" or "В пути" => ("#7B68EE", "#F1EEFF"),
             _ => ("#7180A0", "#F3F6FB")
@@ -1409,8 +1771,19 @@ internal static class RecordsWorkspaceCatalog
         };
     }
 
-    private static string NormalizeInvoiceFilter(SalesInvoiceRecord invoice)
+    private static string NormalizeInvoiceFilter(SalesWorkspace salesWorkspace, SalesInvoiceRecord invoice)
     {
+        var recordedPaidAmount = GetRecordedPaidAmount(salesWorkspace, invoice);
+        if (invoice.TotalAmount > 0m && recordedPaidAmount >= invoice.TotalAmount)
+        {
+            return "Оплачено";
+        }
+
+        if (recordedPaidAmount > 0m)
+        {
+            return "Частично оплачено";
+        }
+
         var status = Clean(invoice.Status);
         if (status.Equals("Оплачен", StringComparison.OrdinalIgnoreCase))
         {
@@ -1430,19 +1803,50 @@ internal static class RecordsWorkspaceCatalog
         return "Не оплачено";
     }
 
-    private static string NormalizeInvoiceStatusLabel(SalesInvoiceRecord invoice)
+    private static string NormalizeInvoiceStatusLabel(SalesWorkspace salesWorkspace, SalesInvoiceRecord invoice)
     {
-        return NormalizeInvoiceFilter(invoice);
+        return NormalizeInvoiceFilter(salesWorkspace, invoice);
     }
 
-    private static decimal GetPaidAmount(SalesInvoiceRecord invoice)
+    private static decimal GetPaidAmount(SalesWorkspace salesWorkspace, SalesInvoiceRecord invoice)
     {
-        return NormalizeInvoiceFilter(invoice) switch
+        var recordedPaidAmount = GetRecordedPaidAmount(salesWorkspace, invoice);
+        if (recordedPaidAmount > 0m)
         {
-            "Оплачено" => invoice.TotalAmount,
-            "Частично оплачено" => Math.Round(invoice.TotalAmount * 0.4m, 2),
-            _ => 0m
-        };
+            return Math.Min(invoice.TotalAmount, recordedPaidAmount);
+        }
+
+        return Clean(invoice.Status).Equals("Оплачен", StringComparison.OrdinalIgnoreCase)
+            ? invoice.TotalAmount
+            : 0m;
+    }
+
+    private static decimal GetRecordedPaidAmount(SalesWorkspace salesWorkspace, SalesInvoiceRecord invoice)
+    {
+        return salesWorkspace.CashReceipts
+            .Where(item =>
+                IsActiveCashReceipt(item)
+                && (
+                item.SalesOrderId == invoice.SalesOrderId
+                || Clean(item.SalesOrderNumber).Equals(Clean(invoice.SalesOrderNumber), StringComparison.OrdinalIgnoreCase)))
+            .Sum(item => item.Amount);
+    }
+
+    private static string GetJournalCurrencyCode(SalesWorkspace salesWorkspace)
+    {
+        var currencies = salesWorkspace.CashReceipts
+            .Where(IsActiveCashReceipt)
+            .Select(item => Clean(item.CurrencyCode))
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return currencies.Length == 1 ? currencies[0] : "RUB";
+    }
+
+    private static bool IsActiveCashReceipt(SalesCashReceiptRecord cashReceipt)
+    {
+        return !Clean(cashReceipt.Status).Equals("Отменено", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeShipmentFilter(string status)
@@ -1655,6 +2059,14 @@ internal static class RecordsWorkspaceCatalog
     private static string Clean(string? value)
     {
         return TextMojibakeFixer.NormalizeText(value);
+    }
+
+    private static string Csv(string? value)
+    {
+        var text = Clean(value);
+        return text.IndexOfAny([';', '"', '\r', '\n']) < 0
+            ? text
+            : $"\"{text.Replace("\"", "\"\"")}\"";
     }
 
     private static string Hex(System.Drawing.Color color)

@@ -251,8 +251,7 @@ function Ensure-Authenticated {
     $passwordBox = Find-ElementByAutomationId -Root $Root -AutomationId "PasswordBox" -Deadline $Deadline
 
     Set-UiElementValue -Element $userNameTextBox -Value "admin"
-    $passwordBox.SetFocus()
-    [System.Windows.Forms.SendKeys]::SendWait("admin")
+    Set-UiElementValue -Element $passwordBox -Value "admin"
     Start-Sleep -Milliseconds 200
     Invoke-UiElement -Element $loginButton -Deadline $Deadline
 
@@ -297,6 +296,7 @@ try {
         "NavSalesButton",
         "NavCustomersButton",
         "NavShipmentsButton",
+        "NavFinanceButton",
         "NavPurchasingButton",
         "NavWarehouseButton",
         "NavCatalogButton",

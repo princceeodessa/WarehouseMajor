@@ -11,13 +11,24 @@ public partial class LoginWindow : Window
     public LoginWindow()
     {
         InitializeComponent();
-        UserNameTextBox.Text = Environment.UserName;
+        UserNameComboBox.Text = Environment.UserName;
 
-        Loaded += (_, _) =>
+        Loaded += HandleLoaded;
+    }
+
+    private async void HandleLoaded(object sender, RoutedEventArgs e)
+    {
+        await LoadUserOptionsAsync();
+
+        UserNameComboBox.Focus();
+        if (UserNameComboBox.Items.Count > 1)
         {
-            UserNameTextBox.Focus();
-            UserNameTextBox.SelectAll();
-        };
+            UserNameComboBox.IsDropDownOpen = true;
+        }
+        else if (!string.IsNullOrWhiteSpace(UserNameComboBox.Text))
+        {
+            PasswordBox.Focus();
+        }
     }
 
     private void HandleLoginClick(object sender, RoutedEventArgs e)
@@ -38,18 +49,25 @@ public partial class LoginWindow : Window
         }
 
         e.Handled = true;
+        if (ReferenceEquals(sender, UserNameComboBox) && UserNameComboBox.IsDropDownOpen)
+        {
+            UserNameComboBox.IsDropDownOpen = false;
+            PasswordBox.Focus();
+            return;
+        }
+
         TryLogin();
     }
 
     private void TryLogin()
     {
-        var userName = UserNameTextBox.Text.Trim();
+        var userName = (UserNameComboBox.SelectedItem?.ToString() ?? UserNameComboBox.Text).Trim();
         var password = PasswordBox.Password;
 
         if (string.IsNullOrWhiteSpace(userName))
         {
             ShowError("Введите логин.");
-            UserNameTextBox.Focus();
+            UserNameComboBox.Focus();
             return;
         }
 
@@ -90,8 +108,46 @@ public partial class LoginWindow : Window
     private void SetBusy(bool isBusy)
     {
         LoginButton.IsEnabled = !isBusy;
-        UserNameTextBox.IsEnabled = !isBusy;
+        UserNameComboBox.IsEnabled = !isBusy;
         PasswordBox.IsEnabled = !isBusy;
         LoginButton.Content = isBusy ? "Проверяю..." : "Войти";
+    }
+
+    private async Task LoadUserOptionsAsync()
+    {
+        try
+        {
+            var users = await Task.Run(() =>
+            {
+                var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
+                if (backplane is null)
+                {
+                    return Array.Empty<string>();
+                }
+
+                return backplane.ListUserAccounts()
+                    .Where(item => item.IsActive && item.HasPassword)
+                    .Select(item => item.UserName)
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase)
+                    .ToArray();
+            });
+
+            if (users.Length == 0)
+            {
+                return;
+            }
+
+            UserNameComboBox.ItemsSource = users;
+            if (string.IsNullOrWhiteSpace(UserNameComboBox.Text)
+                || !users.Contains(UserNameComboBox.Text, StringComparer.OrdinalIgnoreCase))
+            {
+                UserNameComboBox.Text = users[0];
+            }
+        }
+        catch
+        {
+        }
     }
 }

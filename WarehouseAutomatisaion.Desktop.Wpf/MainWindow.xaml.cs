@@ -45,6 +45,8 @@ public partial class MainWindow : Window
     private bool _updateOperationInProgress;
     private bool _remoteSalesRefreshInProgress;
     private bool _applyingRemoteSalesRefresh;
+    private bool _salesWorkspaceSaveInProgress;
+    private bool _salesWorkspaceSaveQueued;
     private bool _salesWorkspaceSaveWarningShown;
     private bool _isSidebarCollapsed;
     private string _currentRoleCode = ManagerRoleCode;
@@ -90,11 +92,22 @@ public partial class MainWindow : Window
     {
         base.OnClosing(e);
         Loaded -= HandleWindowLoaded;
-        _salesWorkspace.Changed -= HandleSalesWorkspaceChanged;
-        _salesWorkspaceAutosaveTimer.Stop();
-        _salesWorkspaceAutosaveTimer.Tick -= HandleSalesWorkspaceAutosaveTimerTick;
-        _remoteSalesRefreshTimer.Stop();
-        _remoteSalesRefreshTimer.Tick -= HandleRemoteSalesRefreshTimerTick;
+        if (_salesWorkspace is not null)
+        {
+            _salesWorkspace.Changed -= HandleSalesWorkspaceChanged;
+        }
+
+        if (_salesWorkspaceAutosaveTimer is not null)
+        {
+            _salesWorkspaceAutosaveTimer.Stop();
+            _salesWorkspaceAutosaveTimer.Tick -= HandleSalesWorkspaceAutosaveTimerTick;
+        }
+
+        if (_remoteSalesRefreshTimer is not null)
+        {
+            _remoteSalesRefreshTimer.Stop();
+            _remoteSalesRefreshTimer.Tick -= HandleRemoteSalesRefreshTimerTick;
+        }
 
         foreach (var tab in _tabsByKey.Values)
         {
@@ -110,6 +123,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            App.WriteClientErrorLog(exception, "MainWindow.OnClosing");
             MessageBox.Show(
                 this,
                 $"Не удалось сохранить изменения при закрытии приложения.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
@@ -119,7 +133,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            _applicationUpdateService.Dispose();
+            _applicationUpdateService?.Dispose();
         }
     }
 
@@ -134,10 +148,54 @@ public partial class MainWindow : Window
         _salesWorkspaceAutosaveTimer.Start();
     }
 
-    private void HandleSalesWorkspaceAutosaveTimerTick(object? sender, EventArgs e)
+    private async void HandleSalesWorkspaceAutosaveTimerTick(object? sender, EventArgs e)
     {
         _salesWorkspaceAutosaveTimer.Stop();
-        TrySaveSalesWorkspace(showWarning: false);
+        await TrySaveSalesWorkspaceAsync(showWarning: false);
+    }
+
+    private async Task<bool> TrySaveSalesWorkspaceAsync(bool showWarning)
+    {
+        if (_salesWorkspaceSaveInProgress)
+        {
+            _salesWorkspaceSaveQueued = true;
+            return false;
+        }
+
+        _salesWorkspaceSaveInProgress = true;
+        try
+        {
+            var snapshot = SalesWorkspaceSnapshot.FromWorkspace(_salesWorkspace);
+            var currentOperator = _salesWorkspace.CurrentOperator;
+            await Task.Run(() => _salesWorkspaceStore.SaveSnapshot(snapshot, currentOperator));
+            _salesWorkspaceSaveWarningShown = false;
+            return true;
+        }
+        catch (Exception exception)
+        {
+            if (showWarning || !_salesWorkspaceSaveWarningShown)
+            {
+                _salesWorkspaceSaveWarningShown = true;
+                MessageBox.Show(
+                    this,
+                    $"Не удалось сохранить изменения заказов. Проверьте доступ к базе данных и права на запись.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
+                    AppBranding.MessageBoxTitle,
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
+            return false;
+        }
+        finally
+        {
+            _salesWorkspaceSaveInProgress = false;
+            if (_salesWorkspaceSaveQueued)
+            {
+                _salesWorkspaceSaveQueued = false;
+                _salesWorkspaceAutosaveTimer.Stop();
+                _salesWorkspaceAutosaveTimer.Start();
+            }
+        }
     }
 
     private bool TrySaveSalesWorkspace(bool showWarning)
@@ -169,6 +227,7 @@ public partial class MainWindow : Window
     {
         if (!_salesWorkspaceStore.IsServerModeEnabled
             || _remoteSalesRefreshInProgress
+            || _salesWorkspaceSaveInProgress
             || _salesWorkspaceAutosaveTimer.IsEnabled)
         {
             return;
@@ -567,6 +626,7 @@ public partial class MainWindow : Window
         _navButtonsByKey["sales"] = NavSalesButton;
         _navButtonsByKey["customers"] = NavCustomersButton;
         _navButtonsByKey["shipments"] = NavShipmentsButton;
+        _navButtonsByKey["finance"] = NavFinanceButton;
         _navButtonsByKey["purchasing"] = NavPurchasingButton;
         _navButtonsByKey["warehouse"] = NavWarehouseButton;
         _navButtonsByKey["catalog"] = NavCatalogButton;
@@ -603,6 +663,13 @@ public partial class MainWindow : Window
             Subtitle: "Исполнение, доставка и контроль статусов отгрузок.",
             Closable: true,
             Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateShipments(_salesWorkspace)));
+
+        _sections["finance"] = new SectionDefinition(
+            Key: "finance",
+            Caption: "Возвраты и оплаты",
+            Subtitle: "Возвраты покупателей, кассовые поступления и связи с заказами.",
+            Closable: true,
+            Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateReturnsAndPayments(_salesWorkspace)));
 
         _sections["purchasing"] = new SectionDefinition(
             Key: "purchasing",
@@ -750,55 +817,109 @@ public partial class MainWindow : Window
 
     private object CreateSectionContent(SectionDefinition section)
     {
-        var content = section.Factory();
-        if (content is Control control)
+        try
         {
-            if (content is ProductsWorkspaceView productsWorkspace)
+            var content = section.Factory();
+            if (content is Control control)
             {
-                productsWorkspace.NavigationRequested += (_, targetKey) =>
+                if (content is ProductsWorkspaceView productsWorkspace)
                 {
-                    Dispatcher.BeginInvoke(() =>
+                    productsWorkspace.NavigationRequested += (_, targetKey) =>
                     {
-                        if (!string.IsNullOrWhiteSpace(targetKey))
+                        Dispatcher.BeginInvoke(() =>
                         {
-                            OpenSection(targetKey);
-                        }
-                    });
-                };
-            }
-            else if (content is WarehouseWorkspaceView warehouseWorkspace)
-            {
-                warehouseWorkspace.NavigationRequested += (_, targetKey) =>
+                            if (!string.IsNullOrWhiteSpace(targetKey))
+                            {
+                                OpenSection(targetKey);
+                            }
+                        });
+                    };
+                }
+                else if (content is WarehouseWorkspaceView warehouseWorkspace)
                 {
-                    Dispatcher.BeginInvoke(() =>
+                    warehouseWorkspace.NavigationRequested += (_, targetKey) =>
                     {
-                        if (!string.IsNullOrWhiteSpace(targetKey))
+                        Dispatcher.BeginInvoke(() =>
                         {
-                            OpenSection(targetKey);
-                        }
-                    });
-                };
-            }
-            else if (content is ReportsWorkspaceView reportsWorkspace)
-            {
-                reportsWorkspace.NavigationRequested += (_, targetKey) =>
+                            if (!string.IsNullOrWhiteSpace(targetKey))
+                            {
+                                OpenSection(targetKey);
+                            }
+                        });
+                    };
+                }
+                else if (content is ReportsWorkspaceView reportsWorkspace)
                 {
-                    Dispatcher.BeginInvoke(() =>
+                    reportsWorkspace.NavigationRequested += (_, targetKey) =>
                     {
-                        if (!string.IsNullOrWhiteSpace(targetKey))
+                        Dispatcher.BeginInvoke(() =>
                         {
-                            OpenSection(targetKey);
-                        }
-                    });
-                };
+                            if (!string.IsNullOrWhiteSpace(targetKey))
+                            {
+                                OpenSection(targetKey);
+                            }
+                        });
+                    };
+                }
+
+                WpfTextNormalizer.NormalizeTree(control);
+                control.Loaded += (_, _) => WpfTextNormalizer.NormalizeTree(control);
+                return control;
             }
 
-            WpfTextNormalizer.NormalizeTree(control);
-            control.Loaded += (_, _) => WpfTextNormalizer.NormalizeTree(control);
-            return control;
+            throw new InvalidOperationException($"Unsupported section content type for '{section.Key}'.");
         }
+        catch (Exception exception)
+        {
+            App.WriteClientErrorLog(exception, $"CreateSectionContent:{section.Key}");
+            return CreateSectionErrorContent(section, exception);
+        }
+    }
 
-        throw new InvalidOperationException($"Unsupported section content type for '{section.Key}'.");
+    private static FrameworkElement CreateSectionErrorContent(SectionDefinition section, Exception exception)
+    {
+        var panel = new StackPanel
+        {
+            MaxWidth = 720
+        };
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Раздел не загрузился",
+            FontSize = 28,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = BrushFromHex("#17213A")
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"Не удалось открыть раздел «{section.Caption}». Приложение продолжит работу, подробности записаны в журнал ошибок.",
+            Margin = new Thickness(0, 10, 0, 0),
+            FontSize = 14,
+            Foreground = BrushFromHex("#5F6F95"),
+            TextWrapping = TextWrapping.Wrap
+        });
+        panel.Children.Add(new Border
+        {
+            Margin = new Thickness(0, 18, 0, 0),
+            Padding = new Thickness(16),
+            Background = BrushFromHex("#FFF4F4"),
+            BorderBrush = BrushFromHex("#F4B6B6"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Child = new TextBlock
+            {
+                Text = exception.Message,
+                Foreground = BrushFromHex("#8A1F1F"),
+                TextWrapping = TextWrapping.Wrap
+            }
+        });
+
+        return new Border
+        {
+            Padding = new Thickness(24),
+            Background = BrushFromHex("#F6F8FC"),
+            Child = panel
+        };
     }
 
     private object CreateTabHeader(string key, string caption, bool closable)

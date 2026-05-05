@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using WarehouseAutomatisaion.Desktop.Text;
 using WarehouseAutomatisaion.Infrastructure.Importing;
 
 namespace WarehouseAutomatisaion.Desktop.Data;
@@ -349,7 +350,7 @@ public static class SalesWorkspaceImportMerger
         BindingList<SalesOrderLineRecord>? fallback)
     {
         var sections = record.TabularSections
-            .Where(section => LineSectionNames.Contains(section.Name, StringComparer.OrdinalIgnoreCase))
+            .Where(section => LineSectionNames.Any(name => TextEquals(section.Name, name)))
             .ToArray();
         if (sections.Length == 0)
         {
@@ -560,7 +561,7 @@ public static class SalesWorkspaceImportMerger
             return "Пауза";
         }
 
-        if (IsTrue(record, "Покупатель") || record.Status.Contains("Покупатель", StringComparison.OrdinalIgnoreCase))
+        if (IsTrue(record, "Покупатель") || ContainsText(record.Status, "Покупатель"))
         {
             return "Активен";
         }
@@ -576,18 +577,18 @@ public static class SalesWorkspaceImportMerger
     private static string MapOrderStatus(OneCRecordSnapshot record, string? existingValue)
     {
         var status = FirstNonEmpty(record.Status, SafeDisplay(record.FindField("СостояниеЗаказа")));
-        if (status.Contains("резерв", StringComparison.OrdinalIgnoreCase))
+        if (ContainsText(status, "резерв"))
         {
             return "В резерве";
         }
 
-        if (status.Contains("отгруз", StringComparison.OrdinalIgnoreCase)
-            || status.Contains("готов", StringComparison.OrdinalIgnoreCase))
+        if (ContainsText(status, "отгруз")
+            || ContainsText(status, "готов"))
         {
             return "Готов к отгрузке";
         }
 
-        if (status.Contains("подтверж", StringComparison.OrdinalIgnoreCase)
+        if (ContainsText(status, "подтверж")
             || IsTrue(record, "Проведен"))
         {
             return "Подтвержден";
@@ -598,7 +599,7 @@ public static class SalesWorkspaceImportMerger
 
     private static string MapInvoiceStatus(OneCRecordSnapshot record, DateTime dueDate, string? existingValue)
     {
-        if (string.Equals(existingValue, "Оплачен", StringComparison.OrdinalIgnoreCase))
+        if (TextEquals(existingValue, "Оплачен"))
         {
             return "Оплачен";
         }
@@ -633,7 +634,7 @@ public static class SalesWorkspaceImportMerger
 
     private static bool IsTrue(OneCRecordSnapshot record, string fieldName)
     {
-        return string.Equals(record.FindField(fieldName)?.RawValue, "Истина", StringComparison.OrdinalIgnoreCase);
+        return TextEquals(record.FindField(fieldName)?.RawValue, "Истина");
     }
 
     private static string ExtractTaxId(OneCRecordSnapshot record)
@@ -676,11 +677,26 @@ public static class SalesWorkspaceImportMerger
     private static string SafeSectionValue(OneCRecordSnapshot record, string sectionName, string fieldName)
     {
         return record.TabularSections
-            .FirstOrDefault(section => section.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase))?
+            .FirstOrDefault(section => TextEquals(section.Name, sectionName))?
             .Rows
             .Select(row => SafeDisplay(row.FindField(fieldName)))
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
             ?? string.Empty;
+    }
+
+    private static bool TextEquals(string? left, string? right)
+    {
+        return string.Equals(
+            TextMojibakeFixer.NormalizeText(left),
+            TextMojibakeFixer.NormalizeText(right),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ContainsText(string? value, string fragment)
+    {
+        return TextMojibakeFixer
+            .NormalizeText(value)
+            .Contains(TextMojibakeFixer.NormalizeText(fragment), StringComparison.OrdinalIgnoreCase);
     }
 
     private static DateTime? ParseOneCDate(string? value)

@@ -387,12 +387,12 @@ public sealed class OneCImportService
         Func<RecordBuildContext, OneCRecordSnapshot> builder,
         bool allowSchemaProbeFallback = false)
     {
-        schemaMap.TryGetValue(objectName, out var schema);
+        TryGetSchema(schemaMap, objectName, out var schema);
         var mainEntry = SelectLatestEntry(manifestEntries, objectType, objectName, string.Empty);
         var manifestSectionEntries = manifestEntries
             .Where(entry =>
                 string.Equals(entry.ObjectType, objectType, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(entry.ObjectName, objectName, StringComparison.OrdinalIgnoreCase)
+                && OneCTextNormalizer.TextEquals(entry.ObjectName, objectName)
                 && !string.IsNullOrWhiteSpace(entry.SubobjectName))
             .ToList();
 
@@ -617,7 +617,8 @@ public sealed class OneCImportService
             }
 
             var sectionName = schema.TabularSections[schemaIndex].Name;
-            if (string.IsNullOrWhiteSpace(sectionName) || knownSections.Contains(sectionName))
+            if (string.IsNullOrWhiteSpace(sectionName)
+                || knownSections.Any(value => OneCTextNormalizer.TextEquals(value, sectionName)))
             {
                 continue;
             }
@@ -1194,22 +1195,35 @@ public sealed class OneCImportService
 
     private static string GetValue(IReadOnlyDictionary<string, string> row, string key)
     {
-        return row.TryGetValue(key, out var value) ? value : string.Empty;
+        if (row.TryGetValue(key, out var value))
+        {
+            return value;
+        }
+
+        foreach (var item in row)
+        {
+            if (OneCTextNormalizer.TextEquals(item.Key, key))
+            {
+                return item.Value;
+            }
+        }
+
+        return string.Empty;
     }
 
     private static string GetFieldRawValue(IEnumerable<OneCFieldValue> fields, string fieldName)
     {
-        return fields.FirstOrDefault(field => string.Equals(field.Name, fieldName, StringComparison.OrdinalIgnoreCase))?.RawValue ?? string.Empty;
+        return fields.FirstOrDefault(field => OneCTextNormalizer.TextEquals(field.Name, fieldName))?.RawValue ?? string.Empty;
     }
 
     private static string GetFieldDisplayValue(IEnumerable<OneCFieldValue> fields, string fieldName)
     {
-        return fields.FirstOrDefault(field => string.Equals(field.Name, fieldName, StringComparison.OrdinalIgnoreCase))?.DisplayValue ?? string.Empty;
+        return fields.FirstOrDefault(field => OneCTextNormalizer.TextEquals(field.Name, fieldName))?.DisplayValue ?? string.Empty;
     }
 
     private static bool IsTrue(IEnumerable<OneCFieldValue> fields, string fieldName)
     {
-        return string.Equals(GetFieldRawValue(fields, fieldName), "Истина", StringComparison.OrdinalIgnoreCase);
+        return OneCTextNormalizer.TextEquals(GetFieldRawValue(fields, fieldName), "Истина");
     }
 
     private static string NormalizeOneCValue(string? rawValue)
@@ -1285,7 +1299,7 @@ public sealed class OneCImportService
 
     private static string BoolToStatus(string rawValue)
     {
-        return string.Equals(rawValue, "Истина", StringComparison.OrdinalIgnoreCase)
+        return OneCTextNormalizer.TextEquals(rawValue, "Истина")
             ? "Проведен"
             : "Черновик";
     }
@@ -1313,12 +1327,35 @@ public sealed class OneCImportService
         return manifestEntries
             .Where(entry =>
                 string.Equals(entry.ObjectType, objectType, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(entry.ObjectName, objectName, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(entry.SubobjectName, subobjectName, StringComparison.OrdinalIgnoreCase))
+                && OneCTextNormalizer.TextEquals(entry.ObjectName, objectName)
+                && OneCTextNormalizer.TextEquals(entry.SubobjectName, subobjectName))
             .OrderByDescending(entry => entry.RowCount > 0)
             .ThenByDescending(entry => entry.RowCount)
             .ThenByDescending(entry => GetEntryTimestamp(entry.FilePath))
             .FirstOrDefault();
+    }
+
+    private static bool TryGetSchema(
+        IReadOnlyDictionary<string, OneCSchemaDefinition> schemaMap,
+        string objectName,
+        out OneCSchemaDefinition? schema)
+    {
+        if (schemaMap.TryGetValue(objectName, out schema))
+        {
+            return true;
+        }
+
+        foreach (var item in schemaMap)
+        {
+            if (OneCTextNormalizer.TextEquals(item.Key, objectName))
+            {
+                schema = item.Value;
+                return true;
+            }
+        }
+
+        schema = null;
+        return false;
     }
 
     private static List<Dictionary<string, string>> ReadCsvRows(string filePath)

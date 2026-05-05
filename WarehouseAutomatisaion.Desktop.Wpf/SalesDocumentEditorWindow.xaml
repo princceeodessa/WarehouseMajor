@@ -74,11 +74,22 @@
 
                 <StackPanel x:Name="CustomerPanel" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,14">
                     <TextBlock Text="Клиент" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="CustomerComboBox" Style="{StaticResource InputStyle}" SelectionChanged="HandleCustomerSelectionChanged" />
+                    <ComboBox x:Name="CustomerComboBox"
+                              Style="{StaticResource InputStyle}"
+                              IsEditable="True"
+                              IsTextSearchEnabled="True"
+                              StaysOpenOnEdit="True"
+                              SelectionChanged="HandleCustomerSelectionChanged"
+                              LostFocus="HandleCustomerLookupLostFocus" />
                 </StackPanel>
                 <StackPanel x:Name="OrderPanel" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,14">
                     <TextBlock Text="Основание / заказ" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="OrderComboBox" Style="{StaticResource InputStyle}" SelectionChanged="HandleOrderSelectionChanged" />
+                    <ComboBox x:Name="OrderComboBox"
+                              Style="{StaticResource InputStyle}"
+                              IsEditable="True"
+                              IsTextSearchEnabled="True"
+                              StaysOpenOnEdit="True"
+                              SelectionChanged="HandleOrderSelectionChanged" />
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="4" Margin="0,0,0,14">
                     <TextBlock Text="Статус" Style="{StaticResource FieldLabelStyle}" />
@@ -174,25 +185,84 @@
                     </StackPanel>
                 </Grid>
 
-                <DataGrid x:Name="LinesGrid" Grid.Row="1">
+                <DataGrid x:Name="LinesGrid"
+                          Grid.Row="1"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="False"
+                          CanUserAddRows="False"
+                          CellEditEnding="HandleLinesGridCellEditEnding"
+                          CurrentCellChanged="HandleLinesGridCurrentCellChanged"
+                          MouseDoubleClick="HandleLinesGridDoubleClick">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Код" Binding="{Binding ItemCode}" Width="1*" />
                         <DataGridTextColumn Header="Товар" Binding="{Binding ItemName}" Width="2.8*" />
                         <DataGridTextColumn Header="Ед." Binding="{Binding Unit}" Width="0.6*" />
                         <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityDisplay}" Width="0.9*" />
                         <DataGridTextColumn Header="Цена" Binding="{Binding PriceDisplay}" Width="1*" />
-                        <DataGridTextColumn Header="Сумма" Binding="{Binding AmountDisplay}" Width="1*" />
+                        <DataGridTextColumn Header="Сумма" Binding="{Binding AmountDisplay}" Width="1*" IsReadOnly="True" />
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>
         </Border>
 
         <Grid Grid.Row="4" Margin="0,18,0,0">
-            <StackPanel>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="430" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
                 <TextBlock x:Name="TotalText" FontSize="14" FontWeight="SemiBold" Foreground="#17213A" />
                 <TextBlock x:Name="ValidationText" Margin="0,5,0,0" Foreground="#D92D20" />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+
+            <Grid Grid.Column="1" Margin="18,0,18,0" VerticalAlignment="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="112" />
+                    <ColumnDefinition Width="74" />
+                    <ColumnDefinition Width="112" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="8" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Скидка руч., %" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Foreground="#6E7B98" />
+                <TextBox x:Name="DiscountPercentTextBox"
+                         Grid.Row="0"
+                         Grid.Column="1"
+                         Height="32"
+                         TextAlignment="Right"
+                         TextChanged="HandleDiscountPercentChanged" />
+                <TextBlock Text="НДС" Grid.Row="0" Grid.Column="2" Margin="12,0,6,0" VerticalAlignment="Center" Foreground="#6E7B98" />
+                <TextBox x:Name="VatAmountTextBox"
+                         Grid.Row="0"
+                         Grid.Column="3"
+                         Height="32"
+                         TextAlignment="Right"
+                         IsReadOnly="True" />
+
+                <TextBlock Text="Скидка руч., Σ" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Foreground="#6E7B98" />
+                <TextBox x:Name="DiscountAmountTextBox"
+                         Grid.Row="2"
+                         Grid.Column="1"
+                         Height="32"
+                         TextAlignment="Right"
+                         TextChanged="HandleDiscountAmountChanged" />
+                <TextBlock Text="Всего" Grid.Row="2" Grid.Column="2" Margin="12,0,6,0" VerticalAlignment="Center" Foreground="#17213A" FontWeight="SemiBold" />
+                <TextBox x:Name="GrandTotalTextBox"
+                         Grid.Row="2"
+                         Grid.Column="3"
+                         Height="32"
+                         TextAlignment="Right"
+                         FontWeight="SemiBold"
+                         IsReadOnly="True" />
+            </Grid>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Отмена"
                         Width="120"
                         Style="{StaticResource GhostButtonStyle}"

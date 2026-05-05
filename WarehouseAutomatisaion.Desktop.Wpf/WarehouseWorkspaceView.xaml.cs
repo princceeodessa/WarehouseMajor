@@ -399,7 +399,12 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         CellShortMetricText.Text = _cellStorageSnapshot.ShortShipmentCount.ToString("N0", RuCulture);
         CellMissingMetricText.Text = _cellStorageSnapshot.MissingCellLineCount.ToString("N0", RuCulture);
 
-        var shipments = _cellStorageSnapshot.TodayShipments
+        var shipmentRecords = GetFilteredCellShipments().ToArray();
+        CellVisibleQueueText.Text = shipmentRecords.Length == _cellStorageSnapshot.TodayShipments.Count
+            ? $"Показано: {shipmentRecords.Length:N0}"
+            : $"Показано: {shipmentRecords.Length:N0} из {_cellStorageSnapshot.TodayShipments.Count:N0}";
+
+        var shipments = shipmentRecords
             .Select(WarehouseCellShipmentViewModel.Create)
             .ToArray();
         var selectedId = (CellShipmentsDataGrid.SelectedItem as WarehouseCellShipmentViewModel)?.ShipmentId;
@@ -415,6 +420,23 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
 
         RefreshStorageCellFilters();
         RefreshStorageCellItems();
+    }
+
+    private IEnumerable<WarehouseTodayShipmentRecord> GetFilteredCellShipments()
+    {
+        var search = CellShipmentSearchBox.Text.Trim();
+        var onlyProblems = CellOnlyProblemShipmentsCheckBox.IsChecked == true;
+
+        return _cellStorageSnapshot.TodayShipments
+            .Where(item => !onlyProblems || !item.IsStockCovered || !item.IsCellCovered)
+            .Where(item => string.IsNullOrWhiteSpace(search)
+                           || Contains(item.SearchText, search)
+                           || _cellStorageSnapshot.PickLines.Any(line =>
+                               line.ShipmentId == item.ShipmentId
+                               && Contains(line.SearchText, search)))
+            .OrderBy(item => item.ReadinessWeight)
+            .ThenBy(item => item.ShipmentDate)
+            .ThenBy(item => item.ShipmentNumber, StringComparer.OrdinalIgnoreCase);
     }
 
     private void RefreshStorageCellFilters()
@@ -482,11 +504,13 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
             CellSelectedShipmentTitleText.Text = "Отгрузка не выбрана";
             CellSelectedShipmentSubtitleText.Text = "На сегодня нет активных отгрузок или они уже закрыты.";
             CellPickLinesDataGrid.ItemsSource = Array.Empty<WarehouseCellPickLineViewModel>();
+            CellOpenShipmentButton.IsEnabled = false;
             return;
         }
 
         CellSelectedShipmentTitleText.Text = $"{shipment.Number} / заказ {shipment.SalesOrderNumber}";
-        CellSelectedShipmentSubtitleText.Text = $"{shipment.Customer} / {shipment.Warehouse} / {shipment.Readiness}";
+        CellSelectedShipmentSubtitleText.Text = $"{shipment.Customer} / {shipment.Warehouse} / {shipment.Readiness} / нужно {shipment.RequiredDisplay}, дефицит {shipment.ShortageDisplay}";
+        CellOpenShipmentButton.IsEnabled = true;
         CellPickLinesDataGrid.ItemsSource = _cellStorageSnapshot.PickLines
             .Where(item => item.ShipmentId == shipment.ShipmentId)
             .Select(WarehouseCellPickLineViewModel.Create)
@@ -557,7 +581,9 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
                         item.Carrier,
                         item.Manager,
                         item.Comment,
-                        string.Join(' ', item.Lines.Select(line => $"{line.ItemCode} {line.ItemName}")))))
+                        string.Join(' ', item.Lines.Select(line => $"{line.ItemCode} {line.ItemName}"))),
+                    item.Id,
+                    true))
                 .ToArray(),
             InventorySection => _workspace.InventoryCounts
                 .Select(item => WarehouseDocumentItemViewModel.Create(
@@ -2009,6 +2035,40 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         RefreshSelectedCellShipment(CellShipmentsDataGrid.SelectedItem as WarehouseCellShipmentViewModel);
     }
 
+    private void HandleCellShipmentSearchChanged(object sender, TextChangedEventArgs e)
+    {
+        RefreshCellStorageItems();
+    }
+
+    private void HandleCellShipmentFilterChanged(object sender, RoutedEventArgs e)
+    {
+        RefreshCellStorageItems();
+    }
+
+    private void HandleOpenSelectedCellShipmentClick(object sender, RoutedEventArgs e)
+    {
+        if (CellShipmentsDataGrid.SelectedItem is not WarehouseCellShipmentViewModel shipment)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Выберите отгрузку в очереди кладовщика.", "Склад", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        SwitchSection(ExpenseInvoicesSection);
+        DocumentsSearchBox.Text = string.IsNullOrWhiteSpace(shipment.Record.ShipmentNumber)
+            ? shipment.Record.SalesOrderNumber
+            : shipment.Record.ShipmentNumber;
+        RefreshDocumentsItems();
+
+        var match = DocumentsDataGrid.Items
+            .Cast<WarehouseDocumentItemViewModel>()
+            .FirstOrDefault(item => string.Equals(item.Number, shipment.Record.ShipmentNumber, StringComparison.OrdinalIgnoreCase));
+        if (match is not null)
+        {
+            DocumentsDataGrid.SelectedItem = match;
+            DocumentsDataGrid.ScrollIntoView(match);
+        }
+    }
+
     private void HandleStorageCellFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressStorageCellFilterEvents)
@@ -2520,6 +2580,12 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
             return;
         }
 
+        if (string.Equals(item.SectionKey, ExpenseInvoicesSection, StringComparison.OrdinalIgnoreCase))
+        {
+            OpenSalesShipmentEditor(item.DocumentId.Value);
+            return;
+        }
+
         var document = item.SectionKey switch
         {
             TransfersSection => _workspace.TransferOrders.FirstOrDefault(entry => entry.Id == item.DocumentId.Value),
@@ -2550,6 +2616,31 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         };
 
         OpenDocumentEditorWindow(mode, document, persist);
+    }
+
+    private void OpenSalesShipmentEditor(Guid shipmentId)
+    {
+        var shipment = _salesWorkspace.Shipments.FirstOrDefault(entry => entry.Id == shipmentId);
+        if (shipment is null)
+        {
+            MessageBox.Show(Window.GetWindow(this)!, "Расходная накладная не найдена в продажах.", "Склад", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var dialog = new SalesDocumentEditorWindow(_salesWorkspace, shipment)
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        if (dialog.ShowDialog() != true || dialog.ResultShipment is null)
+        {
+            return;
+        }
+
+        _salesWorkspace.UpdateShipment(dialog.ResultShipment);
+        TryPersistSalesWorkspace();
+        RefreshDocumentsItems();
+        RefreshCellStorageItems();
     }
 
     private void OpenDocumentEditorWindow(
@@ -2595,12 +2686,14 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         }
     }
 
-    private void TryPersistSalesWorkspace()
+    private async void TryPersistSalesWorkspace()
     {
         var store = SalesWorkspaceStore.CreateDefault();
         try
         {
-            store.Save(_salesWorkspace);
+            var snapshot = SalesWorkspaceSnapshot.FromWorkspace(_salesWorkspace);
+            var currentOperator = _salesWorkspace.CurrentOperator;
+            await Task.Run(() => store.SaveSnapshot(snapshot, currentOperator));
             _salesPersistWarningShown = false;
         }
         catch (Exception exception)

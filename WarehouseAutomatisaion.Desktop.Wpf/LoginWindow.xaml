@@ -53,10 +53,15 @@
 
                 <StackPanel Grid.Row="1" Margin="0,28,0,0">
                     <TextBlock Text="Логин" Style="{StaticResource DialogFieldLabelStyle}" />
-                    <TextBox x:Name="UserNameTextBox"
-                             Style="{StaticResource DialogTextBoxStyle}"
+                    <ComboBox x:Name="UserNameComboBox"
+                             Style="{StaticResource DialogComboBoxStyle}"
                              Height="44"
                              FontSize="14"
+                             IsEditable="True"
+                             IsTextSearchEnabled="True"
+                             StaysOpenOnEdit="True"
+                             MaxDropDownHeight="260"
+                             AutomationProperties.AutomationId="UserNameTextBox"
                              AutomationProperties.Name="Логин"
                              KeyDown="HandleInputKeyDown" />
                 </StackPanel>

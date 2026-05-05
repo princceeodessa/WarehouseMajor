@@ -155,6 +155,23 @@ public sealed class SalesWorkspaceStore
         File.Move(tempPath, StoragePath, true);
     }
 
+    public void SaveSnapshot(SalesWorkspaceSnapshot snapshot, string currentOperator)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        if (TrySaveToBackplane(snapshot, currentOperator))
+        {
+            return;
+        }
+
+        if (_serverModeEnabled)
+        {
+            throw new InvalidOperationException("Не удалось сохранить изменения в серверную БД. Локальное сохранение отключено для общего режима.");
+        }
+
+        WriteSnapshot(snapshot);
+    }
+
     public bool HasRemoteChanges()
     {
         if (_backplane is null || _remoteMetadata is null)
@@ -345,6 +362,7 @@ public sealed class SalesWorkspaceStore
             if (TryResolveOrder(invoice.SalesOrderId, invoice.SalesOrderNumber, ordersById, ordersByNumber, out var order))
             {
                 changed |= FillInvoiceOrder(invoice, order);
+                changed |= EnrichOrderFromInvoice(order, invoice);
                 continue;
             }
 
@@ -360,6 +378,7 @@ public sealed class SalesWorkspaceStore
             if (TryResolveOrder(shipment.SalesOrderId, shipment.SalesOrderNumber, ordersById, ordersByNumber, out var order))
             {
                 changed |= FillShipmentOrder(shipment, order);
+                changed |= EnrichOrderFromShipment(order, shipment, workspace);
                 continue;
             }
 
@@ -371,6 +390,60 @@ public sealed class SalesWorkspaceStore
         }
 
         return changed;
+    }
+
+    private static bool EnrichOrderFromInvoice(SalesOrderRecord order, SalesInvoiceRecord invoice)
+    {
+        if (order.Lines.Count > 0 || invoice.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        order.Lines = CloneLines(invoice.Lines, order.Id);
+
+        if (string.IsNullOrWhiteSpace(order.Status))
+        {
+            order.Status = "Подтвержден";
+        }
+
+        if (string.IsNullOrWhiteSpace(order.Comment))
+        {
+            order.Comment = $"Строки восстановлены по счету {invoice.Number}.";
+        }
+
+        return true;
+    }
+
+    private static bool EnrichOrderFromShipment(
+        SalesOrderRecord order,
+        SalesShipmentRecord shipment,
+        SalesWorkspace workspace)
+    {
+        if (order.Lines.Count > 0 || shipment.Lines.Count == 0)
+        {
+            return false;
+        }
+
+        order.Lines = CloneLines(shipment.Lines, order.Id);
+
+        if (string.IsNullOrWhiteSpace(order.Warehouse))
+        {
+            order.Warehouse = string.IsNullOrWhiteSpace(shipment.Warehouse)
+                ? workspace.Warehouses.FirstOrDefault() ?? string.Empty
+                : shipment.Warehouse;
+        }
+
+        if (string.IsNullOrWhiteSpace(order.Status))
+        {
+            order.Status = "Готов к отгрузке";
+        }
+
+        if (string.IsNullOrWhiteSpace(order.Comment))
+        {
+            order.Comment = $"Строки восстановлены по отгрузке {shipment.Number}.";
+        }
+
+        return true;
     }
 
     private static bool EnrichCatalogItemsFromDocuments(SalesWorkspace workspace)
