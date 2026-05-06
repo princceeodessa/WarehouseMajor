@@ -1173,6 +1173,376 @@ CREATE TABLE IF NOT EXISTS app_module_snapshots (
     CONSTRAINT pk_app_module_snapshots PRIMARY KEY (module_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE IF NOT EXISTS app_module_states (
+    module_code VARCHAR(64) NOT NULL,
+    payload_hash CHAR(64) NOT NULL,
+    version_no INT UNSIGNED NOT NULL DEFAULT 1,
+    updated_by VARCHAR(128) NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_module_states PRIMARY KEY (module_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_catalog_lists (
+    list_kind VARCHAR(32) NOT NULL,
+    value_text VARCHAR(256) NOT NULL,
+    sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+    CONSTRAINT pk_app_catalog_lists PRIMARY KEY (list_kind, value_text)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_catalog_items (
+    id CHAR(36) NOT NULL,
+    code VARCHAR(128) NOT NULL,
+    name VARCHAR(512) NOT NULL,
+    unit_name VARCHAR(64) NULL,
+    category_name VARCHAR(256) NULL,
+    supplier_name VARCHAR(512) NULL,
+    default_warehouse VARCHAR(256) NULL,
+    status_text VARCHAR(128) NULL,
+    currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
+    default_price DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    barcode_value VARCHAR(256) NULL,
+    barcode_format VARCHAR(64) NULL,
+    qr_payload TEXT NULL,
+    notes TEXT NULL,
+    source_label VARCHAR(256) NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_catalog_items PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_catalog_price_types (
+    id CHAR(36) NOT NULL,
+    code VARCHAR(128) NOT NULL,
+    name VARCHAR(256) NOT NULL,
+    currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
+    base_price_type_name VARCHAR(256) NULL,
+    rounding_rule VARCHAR(256) NULL,
+    is_default TINYINT(1) NOT NULL DEFAULT 0,
+    is_manual_entry_only TINYINT(1) NOT NULL DEFAULT 0,
+    uses_psychological_rounding TINYINT(1) NOT NULL DEFAULT 0,
+    status_text VARCHAR(128) NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_catalog_price_types PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_catalog_discounts (
+    id CHAR(36) NOT NULL,
+    name VARCHAR(256) NOT NULL,
+    percent_value DECIMAL(9, 4) NOT NULL DEFAULT 0,
+    price_type_name VARCHAR(256) NULL,
+    period_text VARCHAR(128) NULL,
+    scope_text VARCHAR(256) NULL,
+    status_text VARCHAR(128) NULL,
+    comment_text TEXT NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_catalog_discounts PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_catalog_price_registrations (
+    id CHAR(36) NOT NULL,
+    number VARCHAR(128) NOT NULL,
+    document_date DATETIME(6) NOT NULL,
+    price_type_name VARCHAR(256) NULL,
+    currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
+    status_text VARCHAR(128) NULL,
+    comment_text TEXT NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_catalog_price_registrations PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_catalog_price_registration_lines (
+    id CHAR(36) NOT NULL,
+    registration_id CHAR(36) NOT NULL,
+    line_no INT UNSIGNED NOT NULL,
+    item_code VARCHAR(128) NULL,
+    item_name VARCHAR(512) NULL,
+    unit_name VARCHAR(64) NULL,
+    previous_price DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    new_price DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    CONSTRAINT pk_app_catalog_price_registration_lines PRIMARY KEY (id),
+    CONSTRAINT uq_app_catalog_price_registration_lines_line UNIQUE (registration_id, line_no),
+    CONSTRAINT fk_app_catalog_price_registration_lines_document
+        FOREIGN KEY (registration_id) REFERENCES app_catalog_price_registrations (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_catalog_operation_log (
+    id CHAR(36) NOT NULL,
+    logged_at DATETIME(6) NOT NULL,
+    actor_user_name VARCHAR(128) NOT NULL,
+    entity_type VARCHAR(128) NOT NULL,
+    entity_id CHAR(36) NULL,
+    entity_number VARCHAR(128) NULL,
+    action_text VARCHAR(256) NOT NULL,
+    result_text VARCHAR(128) NOT NULL,
+    message_text TEXT NULL,
+    CONSTRAINT pk_app_catalog_operation_log PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_warehouse_documents (
+    id CHAR(36) NOT NULL,
+    document_kind VARCHAR(32) NOT NULL,
+    document_type VARCHAR(128) NOT NULL,
+    number VARCHAR(128) NOT NULL,
+    document_date DATETIME(6) NOT NULL,
+    status_text VARCHAR(128) NULL,
+    source_warehouse VARCHAR(256) NULL,
+    target_warehouse VARCHAR(256) NULL,
+    related_document VARCHAR(256) NULL,
+    comment_text TEXT NULL,
+    source_label VARCHAR(256) NULL,
+    fields_json JSON NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_warehouse_documents PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_warehouse_document_lines (
+    id CHAR(36) NOT NULL,
+    document_id CHAR(36) NOT NULL,
+    document_kind VARCHAR(32) NOT NULL,
+    line_no INT UNSIGNED NOT NULL,
+    item_code VARCHAR(128) NULL,
+    item_name VARCHAR(512) NULL,
+    quantity DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    unit_name VARCHAR(64) NULL,
+    source_location VARCHAR(256) NULL,
+    target_location VARCHAR(256) NULL,
+    related_document VARCHAR(256) NULL,
+    fields_json JSON NULL,
+    CONSTRAINT pk_app_warehouse_document_lines PRIMARY KEY (id),
+    CONSTRAINT fk_app_warehouse_document_lines_document
+        FOREIGN KEY (document_id) REFERENCES app_warehouse_documents (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_warehouse_storage_cells (
+    id CHAR(36) NOT NULL,
+    warehouse_name VARCHAR(256) NOT NULL,
+    code VARCHAR(128) NOT NULL,
+    zone_code VARCHAR(64) NULL,
+    zone_name VARCHAR(256) NULL,
+    row_no INT NOT NULL DEFAULT 0,
+    rack_no INT NOT NULL DEFAULT 0,
+    shelf_no INT NOT NULL DEFAULT 0,
+    cell_no INT NOT NULL DEFAULT 0,
+    cell_type VARCHAR(128) NULL,
+    capacity DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    status_text VARCHAR(128) NULL,
+    qr_payload TEXT NULL,
+    comment_text TEXT NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_warehouse_storage_cells PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_warehouse_operation_log (
+    id CHAR(36) NOT NULL,
+    logged_at DATETIME(6) NOT NULL,
+    actor_user_name VARCHAR(128) NOT NULL,
+    entity_type VARCHAR(128) NOT NULL,
+    entity_id CHAR(36) NULL,
+    entity_number VARCHAR(128) NULL,
+    action_text VARCHAR(256) NOT NULL,
+    result_text VARCHAR(128) NOT NULL,
+    message_text TEXT NULL,
+    CONSTRAINT pk_app_warehouse_operation_log PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_purchasing_suppliers (
+    id CHAR(36) NOT NULL,
+    code VARCHAR(128) NOT NULL,
+    name VARCHAR(512) NOT NULL,
+    status_text VARCHAR(128) NULL,
+    tax_id VARCHAR(64) NULL,
+    phone VARCHAR(128) NULL,
+    email VARCHAR(256) NULL,
+    contract_text VARCHAR(256) NULL,
+    source_label VARCHAR(256) NULL,
+    fields_json JSON NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_purchasing_suppliers PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_purchasing_documents (
+    id CHAR(36) NOT NULL,
+    document_kind VARCHAR(32) NOT NULL,
+    document_type VARCHAR(128) NOT NULL,
+    number VARCHAR(128) NOT NULL,
+    document_date DATETIME(6) NOT NULL,
+    due_date DATETIME(6) NULL,
+    supplier_id CHAR(36) NULL,
+    supplier_name VARCHAR(512) NULL,
+    status_text VARCHAR(128) NULL,
+    contract_text VARCHAR(256) NULL,
+    warehouse_name VARCHAR(256) NULL,
+    related_order_id CHAR(36) NULL,
+    related_order_number VARCHAR(128) NULL,
+    comment_text TEXT NULL,
+    source_label VARCHAR(256) NULL,
+    fields_json JSON NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_purchasing_documents PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_purchasing_document_lines (
+    id CHAR(36) NOT NULL,
+    document_id CHAR(36) NOT NULL,
+    document_kind VARCHAR(32) NOT NULL,
+    line_no INT UNSIGNED NOT NULL,
+    section_name VARCHAR(256) NULL,
+    item_code VARCHAR(128) NULL,
+    item_name VARCHAR(512) NULL,
+    quantity DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    unit_name VARCHAR(64) NULL,
+    price DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    planned_date DATETIME(6) NULL,
+    target_location VARCHAR(256) NULL,
+    related_document VARCHAR(256) NULL,
+    fields_json JSON NULL,
+    CONSTRAINT pk_app_purchasing_document_lines PRIMARY KEY (id),
+    CONSTRAINT fk_app_purchasing_document_lines_document
+        FOREIGN KEY (document_id) REFERENCES app_purchasing_documents (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_purchasing_operation_log (
+    id CHAR(36) NOT NULL,
+    logged_at DATETIME(6) NOT NULL,
+    actor_user_name VARCHAR(128) NOT NULL,
+    entity_type VARCHAR(128) NOT NULL,
+    entity_id CHAR(36) NULL,
+    entity_number VARCHAR(128) NULL,
+    action_text VARCHAR(256) NOT NULL,
+    result_text VARCHAR(128) NOT NULL,
+    message_text TEXT NULL,
+    CONSTRAINT pk_app_purchasing_operation_log PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_sales_customers (
+    id CHAR(36) NOT NULL,
+    code VARCHAR(64) NOT NULL,
+    name VARCHAR(512) NOT NULL,
+    counterparty_type VARCHAR(128) NOT NULL,
+    is_buyer TINYINT(1) NOT NULL DEFAULT 1,
+    is_supplier TINYINT(1) NOT NULL DEFAULT 0,
+    is_other TINYINT(1) NOT NULL DEFAULT 0,
+    contract_number VARCHAR(128) NULL,
+    currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
+    manager_name VARCHAR(256) NULL,
+    status_text VARCHAR(128) NULL,
+    phone VARCHAR(128) NULL,
+    email VARCHAR(256) NULL,
+    inn VARCHAR(64) NULL,
+    kpp VARCHAR(64) NULL,
+    ogrn VARCHAR(64) NULL,
+    legal_address TEXT NULL,
+    actual_address TEXT NULL,
+    region VARCHAR(256) NULL,
+    city VARCHAR(256) NULL,
+    source_text VARCHAR(256) NULL,
+    responsible_name VARCHAR(256) NULL,
+    tags VARCHAR(512) NULL,
+    bank_account VARCHAR(128) NULL,
+    notes TEXT NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_sales_customers PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_sales_customer_contacts (
+    id CHAR(36) NOT NULL,
+    customer_id CHAR(36) NOT NULL,
+    line_no INT UNSIGNED NOT NULL,
+    contact_name VARCHAR(256) NULL,
+    contact_role VARCHAR(128) NULL,
+    phone VARCHAR(128) NULL,
+    email VARCHAR(256) NULL,
+    comment_text TEXT NULL,
+    CONSTRAINT pk_app_sales_customer_contacts PRIMARY KEY (id),
+    CONSTRAINT uq_app_sales_customer_contacts_line UNIQUE (customer_id, line_no),
+    CONSTRAINT fk_app_sales_customer_contacts_customer FOREIGN KEY (customer_id) REFERENCES app_sales_customers (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_sales_documents (
+    id CHAR(36) NOT NULL,
+    document_kind VARCHAR(32) NOT NULL,
+    number VARCHAR(128) NOT NULL,
+    document_date DATETIME(6) NOT NULL,
+    due_date DATETIME(6) NULL,
+    sales_order_id CHAR(36) NULL,
+    sales_order_number VARCHAR(128) NULL,
+    customer_id CHAR(36) NULL,
+    customer_code VARCHAR(64) NULL,
+    customer_name VARCHAR(512) NULL,
+    contract_number VARCHAR(128) NULL,
+    currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
+    warehouse_name VARCHAR(256) NULL,
+    status_text VARCHAR(128) NULL,
+    carrier_name VARCHAR(256) NULL,
+    manager_name VARCHAR(256) NULL,
+    reason_text VARCHAR(256) NULL,
+    comment_text TEXT NULL,
+    manual_discount_percent DECIMAL(9, 4) NOT NULL DEFAULT 0,
+    manual_discount_amount DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_sales_documents PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_sales_document_lines (
+    id CHAR(36) NOT NULL,
+    document_id CHAR(36) NOT NULL,
+    line_id CHAR(36) NOT NULL,
+    line_no INT UNSIGNED NOT NULL,
+    item_code VARCHAR(128) NULL,
+    item_name VARCHAR(512) NULL,
+    unit_name VARCHAR(64) NULL,
+    quantity DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    price DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    amount DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    CONSTRAINT pk_app_sales_document_lines PRIMARY KEY (id),
+    CONSTRAINT uq_app_sales_document_lines_line UNIQUE (document_id, line_no),
+    CONSTRAINT fk_app_sales_document_lines_document FOREIGN KEY (document_id) REFERENCES app_sales_documents (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_sales_cash_receipts (
+    id CHAR(36) NOT NULL,
+    number VARCHAR(128) NOT NULL,
+    receipt_date DATETIME(6) NOT NULL,
+    sales_order_id CHAR(36) NULL,
+    sales_order_number VARCHAR(128) NULL,
+    customer_id CHAR(36) NULL,
+    customer_code VARCHAR(64) NULL,
+    customer_name VARCHAR(512) NULL,
+    contract_number VARCHAR(128) NULL,
+    currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
+    amount DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    status_text VARCHAR(128) NULL,
+    cash_box VARCHAR(256) NULL,
+    manager_name VARCHAR(256) NULL,
+    comment_text TEXT NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_sales_cash_receipts PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS app_sales_operation_log (
+    id CHAR(36) NOT NULL,
+    logged_at DATETIME(6) NOT NULL,
+    actor_user_name VARCHAR(128) NOT NULL,
+    entity_type VARCHAR(128) NOT NULL,
+    entity_id CHAR(36) NULL,
+    entity_number VARCHAR(128) NULL,
+    action_text VARCHAR(256) NOT NULL,
+    result_text VARCHAR(128) NOT NULL,
+    message_text TEXT NULL,
+    CONSTRAINT pk_app_sales_operation_log PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS app_audit_events (
     id CHAR(36) NOT NULL,
     module_code VARCHAR(64) NOT NULL,

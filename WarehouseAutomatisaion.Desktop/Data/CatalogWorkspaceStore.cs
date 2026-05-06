@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
 using WarehouseAutomatisaion.Desktop.Text;
 using WarehouseAutomatisaion.Infrastructure.Importing;
 
@@ -9,7 +10,7 @@ public sealed class CatalogWorkspaceStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = false
     };
 
     private readonly DesktopMySqlBackplaneService? _backplane;
@@ -49,7 +50,7 @@ public sealed class CatalogWorkspaceStore
         var workspace = CatalogWorkspace.Create(currentOperator, seed);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
+        var backplaneRecord = _backplane?.TryLoadCatalogWorkspaceSnapshotRecord();
         if (backplaneRecord is not null)
         {
             var backplaneSnapshot = backplaneRecord.Snapshot;
@@ -61,6 +62,18 @@ public sealed class CatalogWorkspaceStore
             {
                 TrySaveToBackplane(backplaneSnapshot, currentOperator);
             }
+
+            return workspace;
+        }
+
+        var legacyBackplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
+        if (legacyBackplaneRecord is not null)
+        {
+            var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
+            NormalizeSnapshot(backplaneSnapshot);
+            ReconcileSnapshot(backplaneSnapshot, seed);
+            workspace.ReplaceFrom(backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
+            TrySaveToBackplane(backplaneSnapshot, currentOperator);
 
             return workspace;
         }
@@ -93,12 +106,8 @@ public sealed class CatalogWorkspaceStore
             }
 
             var backplane = _backplane;
-            var savedToBackplane = backplane?.TrySaveModuleSnapshot("catalog", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true;
-            if (savedToBackplane && backplane is not null)
-            {
-                _remoteMetadata = backplane.TryLoadModuleSnapshotMetadata("catalog");
-            }
-            else if (_serverModeEnabled)
+            var savedToBackplane = backplane is not null && TrySaveToBackplane(snapshot, currentOperator);
+            if (!savedToBackplane && _serverModeEnabled)
             {
                 throw CreateRemoteSaveException("товаров");
             }
@@ -119,12 +128,21 @@ public sealed class CatalogWorkspaceStore
         EnsureBackplaneReady(currentOperator);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
+        var backplaneRecord = _backplane?.TryLoadCatalogWorkspaceSnapshotRecord();
         if (backplaneRecord is not null)
         {
             var backplaneSnapshot = backplaneRecord.Snapshot;
             _remoteMetadata = backplaneRecord.Metadata;
             NormalizeSnapshot(backplaneSnapshot);
+            return backplaneSnapshot.ToWorkspace(currentOperator, currencies, warehouses);
+        }
+
+        var legacyBackplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
+        if (legacyBackplaneRecord is not null)
+        {
+            var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
+            NormalizeSnapshot(backplaneSnapshot);
+            TrySaveToBackplane(backplaneSnapshot, currentOperator);
             return backplaneSnapshot.ToWorkspace(currentOperator, currencies, warehouses);
         }
 
@@ -188,7 +206,7 @@ public sealed class CatalogWorkspaceStore
         }
 
         var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
-        var result = _backplane.TrySaveModuleSnapshot("catalog", snapshot, currentOperator, _remoteMetadata, auditEvents);
+        var result = _backplane.TrySaveCatalogWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
         if (result.Succeeded)
         {
             _remoteMetadata = result.Metadata;
@@ -200,7 +218,7 @@ public sealed class CatalogWorkspaceStore
             return false;
         }
 
-        var latest = _backplane.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
+        var latest = _backplane.TryLoadCatalogWorkspaceSnapshotRecord();
         if (latest is null)
         {
             return false;
@@ -208,7 +226,7 @@ public sealed class CatalogWorkspaceStore
 
         var merged = MergeSnapshots(latest.Snapshot, snapshot);
         NormalizeSnapshot(merged);
-        var retry = _backplane.TrySaveModuleSnapshot("catalog", merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
+        var retry = _backplane.TrySaveCatalogWorkspaceSnapshot(merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
         if (!retry.Succeeded)
         {
             throw new InvalidOperationException("Данные товаров на сервере изменились другим рабочим местом. Обновите данные и повторите действие.");
@@ -228,9 +246,35 @@ public sealed class CatalogWorkspaceStore
 
         Directory.CreateDirectory(directory);
         var tempPath = $"{StoragePath}.tmp";
-        var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
-        File.WriteAllText(tempPath, json, Encoding.UTF8);
+        var stopwatch = Stopwatch.StartNew();
+        using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
+        {
+            JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
+        }
+
         File.Move(tempPath, StoragePath, true);
+        stopwatch.Stop();
+        TryWritePerformanceLog(directory, snapshot, stopwatch.Elapsed);
+    }
+
+    private void TryWritePerformanceLog(string directory, CatalogWorkspaceSnapshot snapshot, TimeSpan elapsed)
+    {
+        try
+        {
+            var fileSize = File.Exists(StoragePath) ? new FileInfo(StoragePath).Length : 0;
+            if (elapsed.TotalMilliseconds < 500 && fileSize < 10 * 1024 * 1024)
+            {
+                return;
+            }
+
+            var logPath = Path.Combine(directory, "catalog-workspace-performance.log");
+            var message =
+                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}; save={elapsed.TotalMilliseconds:N0}ms; size={fileSize / 1024d / 1024d:N2}MB; items={snapshot.Items.Count}; priceTypes={snapshot.PriceTypes.Count}; discounts={snapshot.Discounts.Count}; registrations={snapshot.PriceRegistrations.Count}; log={snapshot.OperationLog.Count}{Environment.NewLine}";
+            File.AppendAllText(logPath, message, Encoding.UTF8);
+        }
+        catch
+        {
+        }
     }
 
     private void EnsureBackplaneReady(string currentOperator)
@@ -844,7 +888,7 @@ public sealed class CatalogWorkspaceStore
             .ToArray();
     }
 
-    private sealed class CatalogWorkspaceSnapshot
+    internal sealed class CatalogWorkspaceSnapshot
     {
         public string CurrentOperator { get; set; } = string.Empty;
 

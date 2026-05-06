@@ -6,7 +6,7 @@ using WarehouseAutomatisaion.Infrastructure.Importing;
 
 namespace WarehouseAutomatisaion.Desktop.Data;
 
-public sealed class DesktopMySqlBackplaneService
+public sealed partial class DesktopMySqlBackplaneService
 {
     private const string ErrorLogName = "desktop-mysql-backplane-error.log";
     private const int MysqlConnectTimeoutSeconds = 2;
@@ -25,7 +25,7 @@ public sealed class DesktopMySqlBackplaneService
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        WriteIndented = true
+        WriteIndented = false
     };
 
     private readonly OperationalMySqlDesktopOptions _options;
@@ -1024,6 +1024,10 @@ public sealed class DesktopMySqlBackplaneService
         script.AppendLine($"CREATE DATABASE IF NOT EXISTS `{_options.DatabaseName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;");
         script.AppendLine($"USE `{_options.DatabaseName}`;");
         script.AppendLine(AppSchemaSql);
+        script.AppendLine(AppSalesSchemaSql);
+        script.AppendLine(AppCatalogSchemaSql);
+        script.AppendLine(AppWarehouseSchemaSql);
+        script.AppendLine(AppPurchasingSchemaSql);
         script.AppendLine(AppSchemaMigrationSql);
         ExecuteSqlNonQuery(script.ToString(), useDatabase: false);
         _schemaEnsured = true;

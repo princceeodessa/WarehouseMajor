@@ -9,7 +9,7 @@ public sealed class WarehouseOperationalWorkspaceStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = false
     };
     private readonly DesktopMySqlBackplaneService? _backplane;
     private readonly bool _serverModeEnabled;
@@ -47,13 +47,23 @@ public sealed class WarehouseOperationalWorkspaceStore
         var workspace = OperationalWarehouseWorkspace.Create(currentOperator, salesWorkspace);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<WarehouseWorkspaceSnapshot>("warehouse");
+        var backplaneRecord = _backplane?.TryLoadWarehouseWorkspaceSnapshotRecord();
         if (backplaneRecord is not null)
         {
             var backplaneSnapshot = backplaneRecord.Snapshot;
             _remoteMetadata = backplaneRecord.Metadata;
             var persistedFromMySql = backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
             MergeWorkspace(workspace, persistedFromMySql);
+            return workspace;
+        }
+
+        var legacyBackplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<WarehouseWorkspaceSnapshot>("warehouse");
+        if (legacyBackplaneRecord is not null)
+        {
+            var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
+            var persistedFromMySql = backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
+            MergeWorkspace(workspace, persistedFromMySql);
+            TrySaveToBackplane(backplaneSnapshot, currentOperator);
             return workspace;
         }
 
@@ -79,12 +89,8 @@ public sealed class WarehouseOperationalWorkspaceStore
             var persisted = snapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
             MergeWorkspace(workspace, persisted);
             var backplane = _backplane;
-            var savedToBackplane = backplane?.TrySaveModuleSnapshot("warehouse", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true;
-            if (savedToBackplane && backplane is not null)
-            {
-                _remoteMetadata = backplane.TryLoadModuleSnapshotMetadata("warehouse");
-            }
-            else if (_serverModeEnabled)
+            var savedToBackplane = backplane is not null && TrySaveToBackplane(snapshot, currentOperator);
+            if (!savedToBackplane && _serverModeEnabled)
             {
                 throw CreateRemoteSaveException("склада");
             }
@@ -105,11 +111,19 @@ public sealed class WarehouseOperationalWorkspaceStore
         EnsureBackplaneReady(currentOperator);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<WarehouseWorkspaceSnapshot>("warehouse");
+        var backplaneRecord = _backplane?.TryLoadWarehouseWorkspaceSnapshotRecord();
         if (backplaneRecord is not null)
         {
             var backplaneSnapshot = backplaneRecord.Snapshot;
             _remoteMetadata = backplaneRecord.Metadata;
+            return backplaneSnapshot.ToWorkspace(currentOperator, catalogItems, warehouses);
+        }
+
+        var legacyBackplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<WarehouseWorkspaceSnapshot>("warehouse");
+        if (legacyBackplaneRecord is not null)
+        {
+            var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
+            TrySaveToBackplane(backplaneSnapshot, currentOperator);
             return backplaneSnapshot.ToWorkspace(currentOperator, catalogItems, warehouses);
         }
 
@@ -156,8 +170,11 @@ public sealed class WarehouseOperationalWorkspaceStore
         }
 
         var tempPath = $"{StoragePath}.tmp";
-        var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
-        File.WriteAllText(tempPath, json, Encoding.UTF8);
+        using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
+        {
+            JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
+        }
+
         File.Move(tempPath, StoragePath, true);
     }
 
@@ -189,7 +206,7 @@ public sealed class WarehouseOperationalWorkspaceStore
         }
 
         var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
-        var result = _backplane.TrySaveModuleSnapshot("warehouse", snapshot, currentOperator, _remoteMetadata, auditEvents);
+        var result = _backplane.TrySaveWarehouseWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
         if (result.Succeeded)
         {
             _remoteMetadata = result.Metadata;
@@ -201,14 +218,14 @@ public sealed class WarehouseOperationalWorkspaceStore
             return false;
         }
 
-        var latest = _backplane.TryLoadModuleSnapshotRecord<WarehouseWorkspaceSnapshot>("warehouse");
+        var latest = _backplane.TryLoadWarehouseWorkspaceSnapshotRecord();
         if (latest is null)
         {
             return false;
         }
 
         var merged = MergeSnapshots(latest.Snapshot, snapshot);
-        var retry = _backplane.TrySaveModuleSnapshot("warehouse", merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
+        var retry = _backplane.TrySaveWarehouseWorkspaceSnapshot(merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
         if (!retry.Succeeded)
         {
             throw new InvalidOperationException("Данные склада на сервере изменились другим рабочим местом. Обновите данные и повторите действие.");
@@ -495,7 +512,7 @@ public sealed class WarehouseOperationalWorkspaceStore
         return merged;
     }
 
-    private sealed class WarehouseWorkspaceSnapshot
+    internal sealed class WarehouseWorkspaceSnapshot
     {
         public string CurrentOperator { get; set; } = string.Empty;
 

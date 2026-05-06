@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -10,11 +11,12 @@ public sealed class SalesWorkspaceStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = false
     };
     private readonly DesktopMySqlBackplaneService? _backplane;
     private readonly bool _serverModeEnabled;
     private DesktopModuleSnapshotMetadata? _remoteMetadata;
+    private string _lastSavedSnapshotHash = string.Empty;
 
     public SalesWorkspaceStore(
         string storagePath,
@@ -75,11 +77,22 @@ public sealed class SalesWorkspaceStore
 
         _backplane?.TryEnsureUserProfile(currentOperator);
         SalesWorkspaceImportMerger.Merge(workspace);
+        var salesRowsRecord = _backplane?.TryLoadSalesWorkspaceSnapshotRecord();
+        if (salesRowsRecord is not null)
+        {
+            _remoteMetadata = salesRowsRecord.Metadata;
+            _lastSavedSnapshotHash = salesRowsRecord.Metadata.PayloadHash;
+            ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot, importRoots);
+            return RepairAndReturn(workspace, currentOperator);
+        }
+
         var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<SalesWorkspaceSnapshot>("sales");
         if (backplaneRecord is not null)
         {
-            _remoteMetadata = backplaneRecord.Metadata;
+            _remoteMetadata = null;
+            _lastSavedSnapshotHash = ComputeSnapshotHash(backplaneRecord.Snapshot);
             ApplySnapshotToWorkspace(workspace, backplaneRecord.Snapshot, operationalSnapshot, importRoots);
+            TrySeedSalesRows(backplaneRecord.Snapshot, currentOperator);
             return RepairAndReturn(workspace, currentOperator);
         }
 
@@ -115,9 +128,15 @@ public sealed class SalesWorkspaceStore
                 }
             }
 
-            if (_backplane?.TrySaveModuleSnapshot("sales", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true)
+            var seedResult = _backplane?.TrySaveSalesWorkspaceSnapshot(
+                snapshot,
+                currentOperator,
+                expectedMetadata: null,
+                auditEvents: CreateAuditSeeds(snapshot.OperationLog));
+            if (seedResult?.Succeeded == true)
             {
-                _remoteMetadata = _backplane.TryLoadModuleSnapshotMetadata("sales");
+                _remoteMetadata = seedResult.Metadata;
+                _lastSavedSnapshotHash = seedResult.Metadata?.PayloadHash ?? string.Empty;
             }
 
             return RepairAndReturn(workspace, currentOperator);
@@ -139,28 +158,15 @@ public sealed class SalesWorkspaceStore
         Directory.CreateDirectory(directory);
         RepairWorkspace(workspace);
         var snapshot = SalesWorkspaceSnapshot.FromWorkspace(workspace);
-        if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
+        var snapshotHash = ComputeSnapshotHash(snapshot);
+        if (IsSnapshotAlreadySaved(snapshotHash))
         {
             return;
         }
 
-        if (_serverModeEnabled)
+        if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
         {
-            throw new InvalidOperationException("Не удалось сохранить изменения в серверную БД. Локальное сохранение отключено для общего режима.");
-        }
-
-        var tempPath = $"{StoragePath}.tmp";
-        var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
-        File.WriteAllText(tempPath, json, Encoding.UTF8);
-        File.Move(tempPath, StoragePath, true);
-    }
-
-    public void SaveSnapshot(SalesWorkspaceSnapshot snapshot, string currentOperator)
-    {
-        ArgumentNullException.ThrowIfNull(snapshot);
-
-        if (TrySaveToBackplane(snapshot, currentOperator))
-        {
+            _lastSavedSnapshotHash = snapshotHash;
             return;
         }
 
@@ -170,6 +176,31 @@ public sealed class SalesWorkspaceStore
         }
 
         WriteSnapshot(snapshot);
+        _lastSavedSnapshotHash = snapshotHash;
+    }
+
+    public void SaveSnapshot(SalesWorkspaceSnapshot snapshot, string currentOperator)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var snapshotHash = ComputeSnapshotHash(snapshot);
+        if (IsSnapshotAlreadySaved(snapshotHash))
+        {
+            return;
+        }
+
+        if (TrySaveToBackplane(snapshot, currentOperator))
+        {
+            _lastSavedSnapshotHash = snapshotHash;
+            return;
+        }
+
+        if (_serverModeEnabled)
+        {
+            throw new InvalidOperationException("Не удалось сохранить изменения в серверную БД. Локальное сохранение отключено для общего режима.");
+        }
+
+        WriteSnapshot(snapshot);
+        _lastSavedSnapshotHash = snapshotHash;
     }
 
     public bool HasRemoteChanges()
@@ -179,7 +210,7 @@ public sealed class SalesWorkspaceStore
             return false;
         }
 
-        var latest = _backplane.TryLoadModuleSnapshotMetadata("sales");
+        var latest = _backplane.TryLoadSalesWorkspaceSnapshotMetadata();
         return latest is not null
                && (!string.Equals(latest.PayloadHash, _remoteMetadata.PayloadHash, StringComparison.OrdinalIgnoreCase)
                    || latest.VersionNo != _remoteMetadata.VersionNo);
@@ -187,7 +218,7 @@ public sealed class SalesWorkspaceStore
 
     public bool TryRefreshFromBackplane(SalesWorkspace workspace)
     {
-        var record = _backplane?.TryLoadModuleSnapshotRecord<SalesWorkspaceSnapshot>("sales");
+        var record = _backplane?.TryLoadSalesWorkspaceSnapshotRecord();
         if (record is null)
         {
             return false;
@@ -243,9 +274,48 @@ public sealed class SalesWorkspaceStore
 
         Directory.CreateDirectory(directory);
         var tempPath = $"{StoragePath}.tmp";
-        var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
-        File.WriteAllText(tempPath, json, Encoding.UTF8);
+        var stopwatch = Stopwatch.StartNew();
+        using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
+        {
+            JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
+        }
+
         File.Move(tempPath, StoragePath, true);
+        stopwatch.Stop();
+        TryWritePerformanceLog(directory, snapshot, stopwatch.Elapsed);
+    }
+
+    private void TryWritePerformanceLog(string directory, SalesWorkspaceSnapshot snapshot, TimeSpan elapsed)
+    {
+        try
+        {
+            var fileSize = File.Exists(StoragePath) ? new FileInfo(StoragePath).Length : 0;
+            if (elapsed.TotalMilliseconds < 500 && fileSize < 10 * 1024 * 1024)
+            {
+                return;
+            }
+
+            var logPath = Path.Combine(directory, "sales-workspace-performance.log");
+            var message =
+                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}; save={elapsed.TotalMilliseconds:N0}ms; size={fileSize / 1024d / 1024d:N2}MB; customers={snapshot.Customers.Count}; orders={snapshot.Orders.Count}; invoices={snapshot.Invoices.Count}; shipments={snapshot.Shipments.Count}; returns={snapshot.Returns.Count}; cash={snapshot.CashReceipts.Count}; log={snapshot.OperationLog.Count}{Environment.NewLine}";
+            File.AppendAllText(logPath, message, Encoding.UTF8);
+        }
+        catch
+        {
+        }
+    }
+
+    private bool IsSnapshotAlreadySaved(string snapshotHash)
+    {
+        return !string.IsNullOrWhiteSpace(snapshotHash)
+               && (string.Equals(snapshotHash, _lastSavedSnapshotHash, StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(snapshotHash, _remoteMetadata?.PayloadHash, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ComputeSnapshotHash(SalesWorkspaceSnapshot snapshot)
+    {
+        var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
     }
 
     private void EnsureBackplaneReady(string currentOperator)
@@ -932,7 +1002,7 @@ public sealed class SalesWorkspaceStore
         }
 
         var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
-        var result = _backplane.TrySaveModuleSnapshot("sales", snapshot, currentOperator, _remoteMetadata, auditEvents);
+        var result = _backplane.TrySaveSalesWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
         if (result.Succeeded)
         {
             _remoteMetadata = result.Metadata;
@@ -944,7 +1014,7 @@ public sealed class SalesWorkspaceStore
             return false;
         }
 
-        var latest = _backplane.TryLoadModuleSnapshotRecord<SalesWorkspaceSnapshot>("sales");
+        var latest = _backplane.TryLoadSalesWorkspaceSnapshotRecord();
         if (latest is null)
         {
             return false;
@@ -952,7 +1022,7 @@ public sealed class SalesWorkspaceStore
 
         var merged = MergeSnapshots(latest.Snapshot, snapshot);
         var mergedAuditEvents = CreateAuditSeeds(merged.OperationLog);
-        var retry = _backplane.TrySaveModuleSnapshot("sales", merged, currentOperator, latest.Metadata, mergedAuditEvents);
+        var retry = _backplane.TrySaveSalesWorkspaceSnapshot(merged, currentOperator, latest.Metadata, mergedAuditEvents);
         if (!retry.Succeeded)
         {
             throw new InvalidOperationException("Данные на сервере изменились другим рабочим местом. Обновите данные и повторите действие.");
@@ -960,6 +1030,24 @@ public sealed class SalesWorkspaceStore
 
         _remoteMetadata = retry.Metadata;
         return true;
+    }
+
+    private void TrySeedSalesRows(SalesWorkspaceSnapshot snapshot, string currentOperator)
+    {
+        if (_backplane is null)
+        {
+            return;
+        }
+
+        var result = _backplane.TrySaveSalesWorkspaceSnapshot(
+            snapshot,
+            currentOperator,
+            expectedMetadata: null,
+            auditEvents: CreateAuditSeeds(snapshot.OperationLog));
+        if (result.Succeeded)
+        {
+            _remoteMetadata = result.Metadata;
+        }
     }
 
     private static void ApplySnapshotToWorkspace(

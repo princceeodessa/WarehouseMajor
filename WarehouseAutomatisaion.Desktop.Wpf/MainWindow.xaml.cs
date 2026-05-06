@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private const double SidebarCollapsedWidth = 74d;
     private const string AdminRoleCode = "admin";
     private const string ManagerRoleCode = "manager";
+    private const int SalesWorkspaceAutosaveDelayMilliseconds = 5000;
 
     private static readonly WpfBrush ActiveNavBackground = BrushFromHex("#EEF2FF");
     private static readonly WpfBrush ActiveNavBorder = BrushFromHex("#C9D3F7");
@@ -69,7 +70,7 @@ public partial class MainWindow : Window
         _applicationUpdateService = new ApplicationUpdateService();
         _salesWorkspaceAutosaveTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(750)
+            Interval = TimeSpan.FromMilliseconds(SalesWorkspaceAutosaveDelayMilliseconds)
         };
         _salesWorkspaceAutosaveTimer.Tick += HandleSalesWorkspaceAutosaveTimerTick;
         _remoteSalesRefreshTimer = new DispatcherTimer

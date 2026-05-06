@@ -527,6 +527,11 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private void InitializeActionsMenu()
     {
+        ActionsButton.ContextMenu = BuildActionsMenu();
+    }
+
+    private ContextMenu BuildActionsMenu()
+    {
         var menu = new ContextMenu();
         menu.Items.Add(CreateMenuItem("Печать этикеток", (_, _) => PrintLabels(GetSelectedOrCurrentProducts())));
         menu.Items.Add(CreateMenuItem("Изменить категорию", HandleChangeCategoryClick));
@@ -535,7 +540,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         menu.Items.Add(CreateMenuItem("Выгрузить прайс-лист", (_, _) => ExportPriceList(GetPriceListScope())));
         menu.Items.Add(new Separator());
         menu.Items.Add(CreateMenuItem("Архивировать выбранные", (_, _) => ArchiveSelectedProducts()));
-        ActionsButton.ContextMenu = menu;
+        return menu;
     }
 
     private static MenuItem CreateMenuItem(string header, RoutedEventHandler handler)
@@ -547,8 +552,10 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private void HandleActionsClick(object sender, RoutedEventArgs e)
     {
-        ActionsButton.ContextMenu.PlacementTarget = ActionsButton;
-        ActionsButton.ContextMenu.IsOpen = true;
+        var menu = BuildActionsMenu();
+        ActionsButton.ContextMenu = menu;
+        menu.PlacementTarget = ActionsButton;
+        menu.IsOpen = true;
     }
 
     private void HandleRowActionsClick(object sender, RoutedEventArgs e)

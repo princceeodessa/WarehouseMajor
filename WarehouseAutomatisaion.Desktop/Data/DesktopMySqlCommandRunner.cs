@@ -44,6 +44,17 @@ internal static class DesktopMySqlCommandRunner
         return command.ExecuteNonQuery();
     }
 
+    public static MySqlConnection CreateOpenConnection(
+        OperationalMySqlDesktopOptions options,
+        bool useDatabase,
+        int connectTimeoutSeconds,
+        int commandTimeoutSeconds)
+    {
+        var connection = CreateConnection(options, useDatabase, connectTimeoutSeconds, commandTimeoutSeconds);
+        connection.Open();
+        return connection;
+    }
+
     private static MySqlConnection CreateConnection(
         OperationalMySqlDesktopOptions options,
         bool useDatabase,

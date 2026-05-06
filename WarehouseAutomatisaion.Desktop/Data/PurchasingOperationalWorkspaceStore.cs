@@ -9,7 +9,7 @@ public sealed class PurchasingOperationalWorkspaceStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = false
     };
     private readonly DesktopMySqlBackplaneService? _backplane;
     private readonly bool _serverModeEnabled;
@@ -47,7 +47,7 @@ public sealed class PurchasingOperationalWorkspaceStore
         var workspace = OperationalPurchasingWorkspace.Create(currentOperator, salesWorkspace);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
+        var backplaneRecord = _backplane?.TryLoadPurchasingWorkspaceSnapshotRecord();
         if (backplaneRecord is not null)
         {
             var backplaneSnapshot = backplaneRecord.Snapshot;
@@ -56,6 +56,22 @@ public sealed class PurchasingOperationalWorkspaceStore
             var persistedFromMySql = backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
             MergeWorkspace(workspace, persistedFromMySql);
             if (repaired)
+            {
+                TrySaveToBackplane(backplaneSnapshot, currentOperator);
+            }
+
+            return workspace;
+        }
+
+        var legacyBackplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
+        if (legacyBackplaneRecord is not null)
+        {
+            var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
+            _remoteMetadata = null;
+            var repaired = RepairSupplierLinks(backplaneSnapshot);
+            var persistedFromMySql = backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
+            MergeWorkspace(workspace, persistedFromMySql);
+            if (repaired || _backplane is not null)
             {
                 TrySaveToBackplane(backplaneSnapshot, currentOperator);
             }
@@ -90,13 +106,7 @@ public sealed class PurchasingOperationalWorkspaceStore
                 WriteSnapshot(snapshot);
             }
 
-            var backplane = _backplane;
-            var savedToBackplane = backplane?.TrySaveModuleSnapshot("purchasing", snapshot, currentOperator, CreateAuditSeeds(snapshot.OperationLog)) == true;
-            if (savedToBackplane && backplane is not null)
-            {
-                _remoteMetadata = backplane.TryLoadModuleSnapshotMetadata("purchasing");
-            }
-            else if (_serverModeEnabled)
+            if (!TrySaveToBackplane(snapshot, currentOperator) && _serverModeEnabled)
             {
                 throw CreateRemoteSaveException("закупок");
             }
@@ -117,11 +127,19 @@ public sealed class PurchasingOperationalWorkspaceStore
         EnsureBackplaneReady(currentOperator);
         _backplane?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
+        var backplaneRecord = _backplane?.TryLoadPurchasingWorkspaceSnapshotRecord();
         if (backplaneRecord is not null)
         {
             var backplaneSnapshot = backplaneRecord.Snapshot;
             _remoteMetadata = backplaneRecord.Metadata;
+            return backplaneSnapshot.ToWorkspace(currentOperator, catalogItems, warehouses);
+        }
+
+        var legacyBackplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
+        if (legacyBackplaneRecord is not null)
+        {
+            var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
+            _remoteMetadata = null;
             return backplaneSnapshot.ToWorkspace(currentOperator, catalogItems, warehouses);
         }
 
@@ -184,7 +202,7 @@ public sealed class PurchasingOperationalWorkspaceStore
         }
 
         var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
-        var result = _backplane.TrySaveModuleSnapshot("purchasing", snapshot, currentOperator, _remoteMetadata, auditEvents);
+        var result = _backplane.TrySavePurchasingWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
         if (result.Succeeded)
         {
             _remoteMetadata = result.Metadata;
@@ -196,7 +214,7 @@ public sealed class PurchasingOperationalWorkspaceStore
             return false;
         }
 
-        var latest = _backplane.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
+        var latest = _backplane.TryLoadPurchasingWorkspaceSnapshotRecord();
         if (latest is null)
         {
             return false;
@@ -204,7 +222,7 @@ public sealed class PurchasingOperationalWorkspaceStore
 
         var merged = MergeSnapshots(latest.Snapshot, snapshot);
         RepairSupplierLinks(merged);
-        var retry = _backplane.TrySaveModuleSnapshot("purchasing", merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
+        var retry = _backplane.TrySavePurchasingWorkspaceSnapshot(merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
         if (!retry.Succeeded)
         {
             throw new InvalidOperationException("Данные закупок на сервере изменились другим рабочим местом. Обновите данные и повторите действие.");
@@ -224,8 +242,11 @@ public sealed class PurchasingOperationalWorkspaceStore
 
         Directory.CreateDirectory(directory);
         var tempPath = $"{StoragePath}.tmp";
-        var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
-        File.WriteAllText(tempPath, json, Encoding.UTF8);
+        using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
+        {
+            JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
+        }
+
         File.Move(tempPath, StoragePath, true);
     }
 
@@ -623,7 +644,7 @@ public sealed class PurchasingOperationalWorkspaceStore
         return merged;
     }
 
-    private sealed class PurchasingWorkspaceSnapshot
+    internal sealed class PurchasingWorkspaceSnapshot
     {
         public string CurrentOperator { get; set; } = string.Empty;
 
