@@ -6,6 +6,10 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 
 public partial class LoginWindow : Window
 {
+    private readonly ApplicationUpdateService _applicationUpdateService = new();
+    private bool _loginInProgress;
+    private bool _updateInProgress;
+
     public DesktopClientStartupResult? StartupStatus { get; private set; }
 
     public LoginWindow()
@@ -14,6 +18,7 @@ public partial class LoginWindow : Window
         UserNameComboBox.Text = Environment.UserName;
 
         Loaded += HandleLoaded;
+        Closed += (_, _) => _applicationUpdateService.Dispose();
     }
 
     private async void HandleLoaded(object sender, RoutedEventArgs e)
@@ -36,14 +41,29 @@ public partial class LoginWindow : Window
         TryLogin();
     }
 
+    private async void HandleUpdateClick(object sender, RoutedEventArgs e)
+    {
+        if (_loginInProgress || _updateInProgress)
+        {
+            return;
+        }
+
+        await CheckForUpdatesBeforeLoginAsync();
+    }
+
     private void HandleCancelClick(object sender, RoutedEventArgs e)
     {
+        if (_updateInProgress)
+        {
+            return;
+        }
+
         DialogResult = false;
     }
 
     private void HandleInputKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter)
+        if (e.Key != Key.Enter || _updateInProgress)
         {
             return;
         }
@@ -61,6 +81,11 @@ public partial class LoginWindow : Window
 
     private void TryLogin()
     {
+        if (_updateInProgress)
+        {
+            return;
+        }
+
         var userName = (UserNameComboBox.SelectedItem?.ToString() ?? UserNameComboBox.Text).Trim();
         var password = PasswordBox.Password;
 
@@ -78,7 +103,7 @@ public partial class LoginWindow : Window
             return;
         }
 
-        SetBusy(true);
+        SetLoginBusy(true);
         try
         {
             var result = DesktopClientStartupService.Authenticate(userName, password);
@@ -95,7 +120,59 @@ public partial class LoginWindow : Window
         }
         finally
         {
-            SetBusy(false);
+            SetLoginBusy(false);
+        }
+    }
+
+    private async Task CheckForUpdatesBeforeLoginAsync()
+    {
+        HideError();
+        SetUpdateBusy(true, "Проверяю...");
+
+        try
+        {
+            var result = await _applicationUpdateService.CheckForUpdatesAsync();
+            if (result.State != ApplicationUpdateCheckState.UpdateAvailable || result.Release is null)
+            {
+                var icon = result.State == ApplicationUpdateCheckState.Failed
+                    ? MessageBoxImage.Warning
+                    : MessageBoxImage.Information;
+                MessageBox.Show(this, result.Message, AppBranding.MessageBoxTitle, MessageBoxButton.OK, icon);
+                return;
+            }
+
+            var confirmation = MessageBox.Show(
+                this,
+                $"Доступна версия {result.Release.Version}. Установить обновление сейчас?{Environment.NewLine}{Environment.NewLine}Приложение закроется и запустится заново после установки.",
+                AppBranding.MessageBoxTitle,
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirmation != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            SetUpdateBusy(true, "Скачиваю...");
+            var launchResult = await _applicationUpdateService.PrepareAndLaunchUpdateAsync(result.Release);
+            if (!launchResult.IsSuccess)
+            {
+                MessageBox.Show(this, launchResult.Message, AppBranding.MessageBoxTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            MessageBox.Show(this, launchResult.Message, AppBranding.MessageBoxTitle, MessageBoxButton.OK, MessageBoxImage.Information);
+            System.Windows.Application.Current.Shutdown(0);
+        }
+        catch (Exception exception)
+        {
+            ShowError($"Не удалось проверить обновление.{Environment.NewLine}{Environment.NewLine}{exception.Message}");
+        }
+        finally
+        {
+            if (IsVisible)
+            {
+                SetUpdateBusy(false, "Обновить");
+            }
         }
     }
 
@@ -105,12 +182,32 @@ public partial class LoginWindow : Window
         ErrorBorder.Visibility = Visibility.Visible;
     }
 
-    private void SetBusy(bool isBusy)
+    private void HideError()
     {
-        LoginButton.IsEnabled = !isBusy;
-        UserNameComboBox.IsEnabled = !isBusy;
-        PasswordBox.IsEnabled = !isBusy;
+        ErrorText.Text = string.Empty;
+        ErrorBorder.Visibility = Visibility.Collapsed;
+    }
+
+    private void SetLoginBusy(bool isBusy)
+    {
+        _loginInProgress = isBusy;
+        LoginButton.IsEnabled = !isBusy && !_updateInProgress;
+        LoginUpdateButton.IsEnabled = !isBusy && !_updateInProgress;
+        UserNameComboBox.IsEnabled = !isBusy && !_updateInProgress;
+        PasswordBox.IsEnabled = !isBusy && !_updateInProgress;
+        CancelButton.IsEnabled = !isBusy && !_updateInProgress;
         LoginButton.Content = isBusy ? "Проверяю..." : "Войти";
+    }
+
+    private void SetUpdateBusy(bool isBusy, string buttonText)
+    {
+        _updateInProgress = isBusy;
+        LoginUpdateButton.Content = buttonText;
+        LoginUpdateButton.IsEnabled = !isBusy && !_loginInProgress;
+        LoginButton.IsEnabled = !isBusy && !_loginInProgress;
+        UserNameComboBox.IsEnabled = !isBusy && !_loginInProgress;
+        PasswordBox.IsEnabled = !isBusy && !_loginInProgress;
+        CancelButton.IsEnabled = !isBusy && !_loginInProgress;
     }
 
     private async Task LoadUserOptionsAsync()

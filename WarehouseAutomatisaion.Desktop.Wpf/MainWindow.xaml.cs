@@ -53,6 +53,19 @@ public partial class MainWindow : Window
     private string _currentRoleCode = ManagerRoleCode;
 
     public MainWindow(DesktopClientStartupResult startupStatus)
+        : this(startupStatus, SalesWorkspaceStore.CreateDefault(), null)
+    {
+    }
+
+    internal MainWindow(DesktopClientStartupResult startupStatus, MainWindowStartupData startupData)
+        : this(startupStatus, startupData.SalesWorkspaceStore, startupData.SalesWorkspace)
+    {
+    }
+
+    private MainWindow(
+        DesktopClientStartupResult startupStatus,
+        SalesWorkspaceStore salesWorkspaceStore,
+        SalesWorkspace? salesWorkspace)
     {
         _startupStatus = startupStatus;
         InitializeComponent();
@@ -63,8 +76,8 @@ public partial class MainWindow : Window
         InitializeUserProfile();
 
         _demoWorkspace = DemoWorkspace.Create();
-        _salesWorkspaceStore = SalesWorkspaceStore.CreateDefault();
-        _salesWorkspace = TryLoadSalesWorkspace(_salesWorkspaceStore, _startupStatus.UserName);
+        _salesWorkspaceStore = salesWorkspaceStore;
+        _salesWorkspace = salesWorkspace ?? TryLoadSalesWorkspace(_salesWorkspaceStore, _startupStatus.UserName);
         _salesWorkspace.Changed += HandleSalesWorkspaceChanged;
         _coverage = FunctionalCoverageSnapshot.Create();
         _applicationUpdateService = new ApplicationUpdateService();
@@ -480,6 +493,16 @@ public partial class MainWindow : Window
         {
             return SalesWorkspace.Create(string.IsNullOrWhiteSpace(currentOperator) ? Environment.UserName : currentOperator);
         }
+    }
+
+    internal static Task<MainWindowStartupData> LoadStartupDataAsync(DesktopClientStartupResult startupStatus)
+    {
+        return Task.Run(() =>
+        {
+            var store = SalesWorkspaceStore.CreateDefault();
+            var workspace = TryLoadSalesWorkspace(store, startupStatus.UserName);
+            return new MainWindowStartupData(store, workspace);
+        });
     }
 
     private void InitializeUpdatePanel()
@@ -1119,3 +1142,7 @@ public partial class MainWindow : Window
         string Caption,
         string Subtitle);
 }
+
+internal sealed record MainWindowStartupData(
+    SalesWorkspaceStore SalesWorkspaceStore,
+    SalesWorkspace SalesWorkspace);

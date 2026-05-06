@@ -61,6 +61,23 @@ public sealed class SalesWorkspaceStore
         {
             workspace.AttachOneCImportSnapshot(null);
         }
+
+        _backplane?.TryEnsureUserProfile(currentOperator);
+        SalesWorkspaceImportMerger.Merge(workspace);
+
+        var canUseFastServerRows = _serverModeEnabled && !shouldAttachImportSnapshot;
+        var salesRowsRecord = canUseFastServerRows
+            ? _backplane?.TryLoadSalesWorkspaceSnapshotRecord()
+            : null;
+        if (salesRowsRecord is not null)
+        {
+            workspace.AttachOperationalSnapshot(null);
+            _remoteMetadata = salesRowsRecord.Metadata;
+            _lastSavedSnapshotHash = salesRowsRecord.Metadata.PayloadHash;
+            ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot: null, importRoots: importRoots);
+            return RepairAndReturn(workspace, currentOperator);
+        }
+
         DesktopOperationalSnapshot? operationalSnapshot = null;
         if (includeOperationalSnapshot)
         {
@@ -75,9 +92,7 @@ public sealed class SalesWorkspaceStore
             workspace.AttachOperationalSnapshot(null);
         }
 
-        _backplane?.TryEnsureUserProfile(currentOperator);
-        SalesWorkspaceImportMerger.Merge(workspace);
-        var salesRowsRecord = _backplane?.TryLoadSalesWorkspaceSnapshotRecord();
+        salesRowsRecord = _backplane?.TryLoadSalesWorkspaceSnapshotRecord();
         if (salesRowsRecord is not null)
         {
             _remoteMetadata = salesRowsRecord.Metadata;

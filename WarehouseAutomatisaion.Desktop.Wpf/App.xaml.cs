@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Diagnostics;
 using System.Text;
 using System.Windows;
 using System.Windows.Threading;
@@ -8,18 +9,22 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 
 public partial class App : System.Windows.Application
 {
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         WpfMouseWheelScrollFix.Register();
         RegisterGlobalExceptionHandlers();
 
+        StartupLoadingWindow? loadingWindow = null;
         try
         {
             base.OnStartup(e);
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+            var validateStopwatch = Stopwatch.StartNew();
             var infrastructureStatus = DesktopClientStartupService.ValidateInfrastructure();
+            validateStopwatch.Stop();
+            WriteStartupPerformanceLog("ValidateInfrastructure", validateStopwatch.Elapsed, infrastructureStatus);
             if (!infrastructureStatus.CanStart)
             {
                 System.Windows.MessageBox.Show(
@@ -40,13 +45,26 @@ public partial class App : System.Windows.Application
             }
 
             var startupStatus = loginWindow.StartupStatus;
-            var window = new MainWindow(startupStatus);
+            loadingWindow = new StartupLoadingWindow(startupStatus);
+            loadingWindow.Show();
+            loadingWindow.SetStatus("Читаю рабочую область из общей базы...");
+
+            var workspaceStopwatch = Stopwatch.StartNew();
+            var startupData = await WarehouseAutomatisaion.Desktop.Wpf.MainWindow.LoadStartupDataAsync(startupStatus);
+            workspaceStopwatch.Stop();
+            WriteStartupPerformanceLog("LoadMainWorkspace", workspaceStopwatch.Elapsed, startupStatus);
+
+            loadingWindow.SetStatus("Открываю интерфейс...");
+            var window = new MainWindow(startupStatus, startupData);
             MainWindow = window;
             window.Show();
             ShutdownMode = ShutdownMode.OnMainWindowClose;
+            loadingWindow.Close();
+            loadingWindow = null;
         }
         catch (Exception exception)
         {
+            loadingWindow?.Close();
             WriteClientErrorLog(exception, "App.OnStartup");
             System.Windows.MessageBox.Show(
                 $"Не удалось запустить WPF-клиент.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
@@ -54,6 +72,27 @@ public partial class App : System.Windows.Application
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown(-1);
+        }
+    }
+
+    private static void WriteStartupPerformanceLog(
+        string stage,
+        TimeSpan elapsed,
+        DesktopClientStartupResult? startupStatus)
+    {
+        try
+        {
+            var root = ResolveWorkspaceRoot();
+            var logDirectory = Path.Combine(root, "app_data");
+            Directory.CreateDirectory(logDirectory);
+            var logPath = Path.Combine(logDirectory, "desktop-startup-performance.log");
+            var mode = startupStatus?.UsesSharedDatabase == true ? "shared-db" : "local";
+            var entry =
+                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}; version={AppBranding.CurrentVersion}; stage={stage}; elapsed={elapsed.TotalMilliseconds:N0}ms; mode={mode}; canStart={startupStatus?.CanStart.ToString() ?? "n/a"}{Environment.NewLine}";
+            File.AppendAllText(logPath, entry, Encoding.UTF8);
+        }
+        catch
+        {
         }
     }
 
