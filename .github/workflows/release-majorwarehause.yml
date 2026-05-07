@@ -54,14 +54,39 @@ jobs:
           MAJORWAREHAUSE_CODESIGN_PFX_PASSWORD: ${{ secrets.MAJORWAREHAUSE_CODESIGN_PFX_PASSWORD }}
           MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER: ${{ vars.MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER }}
         run: |
-          if (-not [string]::IsNullOrWhiteSpace($env:MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON)) {
-              $localSettingsPath = Join-Path $PWD 'WarehouseAutomatisaion.Desktop.Wpf\appsettings.local.json'
-              $env:MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON | ConvertFrom-Json | Out-Null
-              [IO.File]::WriteAllText(
-                  $localSettingsPath,
-                  $env:MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON,
-                  [Text.UTF8Encoding]::new($false))
+          if ([string]::IsNullOrWhiteSpace($env:MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON)) {
+              throw 'Secret MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON is required for production releases.'
           }
+
+          $releaseSettings = $env:MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON | ConvertFrom-Json
+          if ($null -eq $releaseSettings.RemoteDatabase) {
+              throw 'Secret MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON must contain RemoteDatabase settings.'
+          }
+
+          $remoteDatabase = $releaseSettings.RemoteDatabase
+          if ([string]::IsNullOrWhiteSpace($remoteDatabase.Host) -or $remoteDatabase.Host -ieq 'db.example.com') {
+              throw 'RemoteDatabase.Host is not configured for production release.'
+          }
+          if ([string]::IsNullOrWhiteSpace($remoteDatabase.Database)) {
+              throw 'RemoteDatabase.Database is not configured for production release.'
+          }
+          if ([string]::IsNullOrWhiteSpace($remoteDatabase.User) -or $remoteDatabase.User -ieq 'warehouse_app') {
+              throw 'RemoteDatabase.User is not configured for production release.'
+          }
+          if ([string]::IsNullOrWhiteSpace($remoteDatabase.Password) -or $remoteDatabase.Password -ieq 'change-me' -or $remoteDatabase.Password -ieq 'configured-by-release-secret') {
+              throw 'RemoteDatabase.Password is not configured for production release.'
+          }
+
+          $localSettingsPath = Join-Path $PWD 'WarehouseAutomatisaion.Desktop.Wpf\appsettings.local.json'
+          [IO.File]::WriteAllText(
+              $localSettingsPath,
+              $env:MAJORWAREHAUSE_APPSETTINGS_LOCAL_JSON,
+              [Text.UTF8Encoding]::new($false))
+
+          $appSettingsPath = Join-Path $PWD 'WarehouseAutomatisaion.Desktop.Wpf\appsettings.json'
+          $appSettings = Get-Content -Raw -Path $appSettingsPath | ConvertFrom-Json
+          $appSettings.RemoteDatabase = $releaseSettings.RemoteDatabase
+          $appSettings | ConvertTo-Json -Depth 16 | Set-Content -Path $appSettingsPath -Encoding utf8NoBOM
 
           $buildArguments = @(
               '-ExecutionPolicy'

@@ -69,32 +69,43 @@ internal static class DesktopRemoteDatabaseSettings
             return;
         }
 
-        using var stream = File.OpenRead(path);
-        using var document = JsonDocument.Parse(stream);
-        if (!document.RootElement.TryGetProperty("RemoteDatabase", out var section))
+        try
         {
-            return;
-        }
-
-        if (TryGetBoolean(section, "Enabled", out var enabled))
-        {
-            if (!enabled && !allowDisableRemote && target.Enabled)
+            using var stream = File.OpenRead(path);
+            using var document = JsonDocument.Parse(stream);
+            if (!document.RootElement.TryGetProperty("RemoteDatabase", out var section))
             {
                 return;
             }
 
-            target.Enabled = enabled;
+            if (TryGetBoolean(section, "Enabled", out var enabled))
+            {
+                if (!enabled && !allowDisableRemote && target.Enabled)
+                {
+                    return;
+                }
+
+                target.Enabled = enabled;
+            }
+
+            var keepExistingConnection = !allowDisableRemote && target.Enabled && HasCompleteConnection(target);
+            target.Host = MergeConnectionString(target.Host, GetConfiguredString(section, "Host", "db.example.com"), keepExistingConnection);
+            target.Database = MergeConnectionString(target.Database, GetConfiguredString(section, "Database"), keepExistingConnection);
+            target.User = MergeConnectionString(target.User, GetConfiguredString(section, "User", "warehouse_app"), keepExistingConnection);
+            target.Password = MergeConnectionString(target.Password, GetConfiguredString(section, "Password", "change-me", "configured-by-release-secret"), keepExistingConnection);
+            target.MysqlExecutablePath = GetConfiguredString(section, "MysqlExecutablePath") ?? target.MysqlExecutablePath;
+
+            if (TryGetInt32(section, "Port", out var port))
+            {
+                if (!keepExistingConnection || target.Port <= 0)
+                {
+                    target.Port = port;
+                }
+            }
         }
-
-        target.Host = GetString(section, "Host") ?? target.Host;
-        target.Database = GetString(section, "Database") ?? target.Database;
-        target.User = GetString(section, "User") ?? target.User;
-        target.Password = GetString(section, "Password") ?? target.Password;
-        target.MysqlExecutablePath = GetString(section, "MysqlExecutablePath") ?? target.MysqlExecutablePath;
-
-        if (TryGetInt32(section, "Port", out var port))
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
-            target.Port = port;
+            return;
         }
     }
 
@@ -137,11 +148,49 @@ internal static class DesktopRemoteDatabaseSettings
         }
     }
 
-    private static string? GetString(JsonElement section, string propertyName)
+    private static string? GetConfiguredString(JsonElement section, string propertyName, params string[] placeholders)
     {
-        return section.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
+        if (!section.TryGetProperty(propertyName, out var value) || value.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var configuredValue = value.GetString();
+        if (string.IsNullOrWhiteSpace(configuredValue))
+        {
+            return null;
+        }
+
+        foreach (var placeholder in placeholders)
+        {
+            if (configuredValue.Equals(placeholder, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+        }
+
+        return configuredValue;
+    }
+
+    private static string MergeConnectionString(string currentValue, string? configuredValue, bool keepExistingConnection)
+    {
+        if (string.IsNullOrWhiteSpace(configuredValue))
+        {
+            return currentValue;
+        }
+
+        return keepExistingConnection && !string.IsNullOrWhiteSpace(currentValue)
+            ? currentValue
+            : configuredValue;
+    }
+
+    private static bool HasCompleteConnection(DesktopRemoteDatabaseConfig config)
+    {
+        return !string.IsNullOrWhiteSpace(config.Host)
+               && !string.IsNullOrWhiteSpace(config.Database)
+               && !string.IsNullOrWhiteSpace(config.User)
+               && !string.IsNullOrWhiteSpace(config.Password)
+               && config.Port > 0;
     }
 
     private static bool TryGetBoolean(JsonElement section, string propertyName, out bool value)
