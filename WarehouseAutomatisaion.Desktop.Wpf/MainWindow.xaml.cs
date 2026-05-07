@@ -568,7 +568,7 @@ public partial class MainWindow : Window
         var operatorName = string.IsNullOrWhiteSpace(startupStatus.UserName)
             ? Environment.UserName
             : startupStatus.UserName;
-        var workspace = SalesWorkspace.Create(operatorName);
+        var workspace = store.LoadServerCacheOrCreate(operatorName);
         return new MainWindowStartupData(
             store,
             workspace,

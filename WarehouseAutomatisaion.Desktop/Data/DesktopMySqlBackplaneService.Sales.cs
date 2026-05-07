@@ -1,6 +1,9 @@
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using MySqlConnector;
+using WarehouseAutomatisaion.Infrastructure.Importing;
 
 namespace WarehouseAutomatisaion.Desktop.Data;
 
@@ -11,17 +14,22 @@ public sealed partial class DesktopMySqlBackplaneService
 
     public DesktopModuleSnapshotRecord<SalesWorkspaceSnapshot>? TryLoadSalesWorkspaceSnapshotRecord()
     {
+        var totalStopwatch = Stopwatch.StartNew();
+        var telemetry = new List<string>();
         try
         {
-            EnsureDatabaseAndSchema();
-            var metadata = LoadSalesWorkspaceStateMetadata();
+            MeasureSalesLoadStage("schema", EnsureDatabaseAndSchema, telemetry);
+            var metadata = MeasureSalesLoadStage("metadata", LoadSalesWorkspaceStateMetadata, telemetry);
             if (metadata is null)
             {
                 return null;
             }
 
+            var snapshot = LoadSalesWorkspaceSnapshotRows(telemetry);
+            totalStopwatch.Stop();
+            TryWriteSalesLoadPerformanceLog(totalStopwatch.Elapsed, metadata, snapshot, telemetry);
             return new DesktopModuleSnapshotRecord<SalesWorkspaceSnapshot>(
-                LoadSalesWorkspaceSnapshotRows(),
+                snapshot,
                 metadata);
         }
         catch (Exception exception)
@@ -164,27 +172,97 @@ public sealed partial class DesktopMySqlBackplaneService
                ?? new DesktopModuleSnapshotMetadata(moduleCode, nextVersionNo, payloadHash, actor, DateTime.UtcNow);
     }
 
-    private SalesWorkspaceSnapshot LoadSalesWorkspaceSnapshotRows()
+    private SalesWorkspaceSnapshot LoadSalesWorkspaceSnapshotRows(ICollection<string>? telemetry = null)
     {
-        using var connection = DesktopMySqlCommandRunner.CreateOpenConnection(
-            _options,
-            useDatabase: true,
-            MysqlConnectTimeoutSeconds,
-            MysqlSalesCommandTimeoutSeconds);
+        using var connection = MeasureSalesLoadStage(
+            "open_connection",
+            () => DesktopMySqlCommandRunner.CreateOpenConnection(
+                _options,
+                useDatabase: true,
+                MysqlConnectTimeoutSeconds,
+                MysqlSalesCommandTimeoutSeconds),
+            telemetry);
 
         var snapshot = new SalesWorkspaceSnapshot
         {
-            Customers = LoadSalesCustomers(connection),
-            CashReceipts = LoadSalesCashReceipts(connection),
-            OperationLog = LoadSalesOperationLog(connection)
+            Customers = MeasureSalesLoadStage("customers", () => LoadSalesCustomers(connection), telemetry),
+            CashReceipts = MeasureSalesLoadStage("cash_receipts", () => LoadSalesCashReceipts(connection), telemetry),
+            OperationLog = MeasureSalesLoadStage("operation_log", () => LoadSalesOperationLog(connection), telemetry)
         };
 
-        var documents = LoadSalesDocuments(connection);
+        var documents = MeasureSalesLoadStage("documents_with_lines", () => LoadSalesDocuments(connection), telemetry);
         snapshot.Orders = documents.Orders;
         snapshot.Invoices = documents.Invoices;
         snapshot.Shipments = documents.Shipments;
         snapshot.Returns = documents.Returns;
         return snapshot;
+    }
+
+    private static T MeasureSalesLoadStage<T>(
+        string stage,
+        Func<T> action,
+        ICollection<string>? telemetry)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = action();
+        stopwatch.Stop();
+        telemetry?.Add($"{stage}={stopwatch.ElapsedMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)}ms");
+        return result;
+    }
+
+    private static void MeasureSalesLoadStage(
+        string stage,
+        Action action,
+        ICollection<string>? telemetry)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        action();
+        stopwatch.Stop();
+        telemetry?.Add($"{stage}={stopwatch.ElapsedMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)}ms");
+    }
+
+    private static void TryWriteSalesLoadPerformanceLog(
+        TimeSpan elapsed,
+        DesktopModuleSnapshotMetadata metadata,
+        SalesWorkspaceSnapshot snapshot,
+        IReadOnlyCollection<string> telemetry)
+    {
+        if (elapsed.TotalMilliseconds < 3000)
+        {
+            return;
+        }
+
+        try
+        {
+            var root = WorkspacePathResolver.ResolveWorkspaceRoot();
+            var directory = Path.Combine(root, "app_data");
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, "desktop-sales-load-performance.log");
+            var line = string.Join(
+                "; ",
+                DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss zzz", System.Globalization.CultureInfo.InvariantCulture),
+                $"total={elapsed.TotalMilliseconds.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)}ms",
+                $"version={metadata.VersionNo}",
+                $"orders={snapshot.Orders?.Count ?? 0}",
+                $"invoices={snapshot.Invoices?.Count ?? 0}",
+                $"shipments={snapshot.Shipments?.Count ?? 0}",
+                $"returns={snapshot.Returns?.Count ?? 0}",
+                $"customers={snapshot.Customers?.Count ?? 0}",
+                $"lines={CountSalesLines(snapshot)}",
+                string.Join("; ", telemetry));
+            File.AppendAllText(path, line + Environment.NewLine, new UTF8Encoding(false));
+        }
+        catch
+        {
+        }
+    }
+
+    private static int CountSalesLines(SalesWorkspaceSnapshot snapshot)
+    {
+        return (snapshot.Orders?.Sum(item => item.Lines?.Count ?? 0) ?? 0)
+               + (snapshot.Invoices?.Sum(item => item.Lines?.Count ?? 0) ?? 0)
+               + (snapshot.Shipments?.Sum(item => item.Lines?.Count ?? 0) ?? 0)
+               + (snapshot.Returns?.Sum(item => item.Lines?.Count ?? 0) ?? 0);
     }
 
     private DesktopModuleSnapshotMetadata? LoadSalesWorkspaceStateMetadata()

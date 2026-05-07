@@ -1523,6 +1523,78 @@ public sealed partial class DesktopMySqlBackplaneService
         PREPARE warehouse_stmt FROM @warehouse_ddl;
         EXECUTE warehouse_stmt;
         DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_index_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_documents'
+                AND INDEX_NAME = 'ix_app_sales_documents_date_number'
+        );
+        SET @warehouse_ddl = IF(@warehouse_index_missing, 'CREATE INDEX ix_app_sales_documents_date_number ON app_sales_documents (document_date DESC, number DESC)', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_index_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_documents'
+                AND INDEX_NAME = 'ix_app_sales_documents_kind_date'
+        );
+        SET @warehouse_ddl = IF(@warehouse_index_missing, 'CREATE INDEX ix_app_sales_documents_kind_date ON app_sales_documents (document_kind, document_date DESC, number DESC)', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_index_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_documents'
+                AND INDEX_NAME = 'ix_app_sales_documents_customer'
+        );
+        SET @warehouse_ddl = IF(@warehouse_index_missing, 'CREATE INDEX ix_app_sales_documents_customer ON app_sales_documents (customer_id, document_date DESC)', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_index_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_customers'
+                AND INDEX_NAME = 'ix_app_sales_customers_name_code'
+        );
+        SET @warehouse_ddl = IF(@warehouse_index_missing, 'CREATE INDEX ix_app_sales_customers_name_code ON app_sales_customers (name(191), code)', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_index_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_cash_receipts'
+                AND INDEX_NAME = 'ix_app_sales_cash_receipts_date_number'
+        );
+        SET @warehouse_ddl = IF(@warehouse_index_missing, 'CREATE INDEX ix_app_sales_cash_receipts_date_number ON app_sales_cash_receipts (receipt_date DESC, number DESC)', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_index_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_operation_log'
+                AND INDEX_NAME = 'ix_app_sales_operation_log_logged'
+        );
+        SET @warehouse_ddl = IF(@warehouse_index_missing, 'CREATE INDEX ix_app_sales_operation_log_logged ON app_sales_operation_log (logged_at DESC, id)', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
         """;
 }
 

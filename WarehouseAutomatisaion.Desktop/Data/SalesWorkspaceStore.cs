@@ -34,6 +34,15 @@ public sealed class SalesWorkspaceStore
 
     public bool IsServerModeEnabled => _serverModeEnabled && _backplane is not null;
 
+    private string ServerCachePath
+    {
+        get
+        {
+            var directory = Path.GetDirectoryName(StoragePath) ?? string.Empty;
+            return Path.Combine(directory, "sales-workspace.server-cache.json");
+        }
+    }
+
     public static SalesWorkspaceStore CreateDefault()
     {
         var root = WorkspacePathResolver.ResolveWorkspaceRoot();
@@ -74,6 +83,7 @@ public sealed class SalesWorkspaceStore
             workspace.AttachOperationalSnapshot(null);
             _remoteMetadata = salesRowsRecord.Metadata;
             _lastSavedSnapshotHash = salesRowsRecord.Metadata.PayloadHash;
+            TryWriteServerCache(salesRowsRecord.Snapshot);
             ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot: null, importRoots: importRoots);
             return RepairAndReturn(workspace, currentOperator);
         }
@@ -97,6 +107,7 @@ public sealed class SalesWorkspaceStore
         {
             _remoteMetadata = salesRowsRecord.Metadata;
             _lastSavedSnapshotHash = salesRowsRecord.Metadata.PayloadHash;
+            TryWriteServerCache(salesRowsRecord.Snapshot);
             ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot, importRoots);
             return RepairAndReturn(workspace, currentOperator);
         }
@@ -162,6 +173,39 @@ public sealed class SalesWorkspaceStore
         }
     }
 
+    public SalesWorkspace LoadServerCacheOrCreate(string currentOperator)
+    {
+        var operatorName = string.IsNullOrWhiteSpace(currentOperator) ? Environment.UserName : currentOperator;
+        var workspace = SalesWorkspace.Create(operatorName);
+        workspace.AttachOneCImportSnapshot(null);
+        workspace.AttachOperationalSnapshot(null);
+
+        try
+        {
+            var path = ServerCachePath;
+            if (!File.Exists(path))
+            {
+                return workspace;
+            }
+
+            var json = File.ReadAllText(path, Encoding.UTF8);
+            var snapshot = JsonSerializer.Deserialize<SalesWorkspaceSnapshot>(json, SerializerOptions);
+            if (snapshot is null)
+            {
+                return workspace;
+            }
+
+            ApplySnapshot(workspace, snapshot);
+            _lastSavedSnapshotHash = ComputeSnapshotHash(snapshot);
+            _ = RepairWorkspace(workspace);
+        }
+        catch
+        {
+        }
+
+        return workspace;
+    }
+
     public void Save(SalesWorkspace workspace)
     {
         var directory = Path.GetDirectoryName(StoragePath);
@@ -220,9 +264,14 @@ public sealed class SalesWorkspaceStore
 
     public bool HasRemoteChanges()
     {
-        if (_backplane is null || _remoteMetadata is null)
+        if (_backplane is null)
         {
             return false;
+        }
+
+        if (_remoteMetadata is null)
+        {
+            return true;
         }
 
         var latest = _backplane.TryLoadSalesWorkspaceSnapshotMetadata();
@@ -248,6 +297,8 @@ public sealed class SalesWorkspaceStore
 
         ApplySnapshotToWorkspace(workspace, record.Snapshot, workspace.OperationalSnapshot, importRoots: null);
         _remoteMetadata = record.Metadata;
+        _lastSavedSnapshotHash = record.Metadata.PayloadHash;
+        TryWriteServerCache(record.Snapshot);
         workspace.NotifyExternalChange();
         return true;
     }
@@ -1021,6 +1072,7 @@ public sealed class SalesWorkspaceStore
         if (result.Succeeded)
         {
             _remoteMetadata = result.Metadata;
+            TryWriteServerCache(snapshot);
             return true;
         }
 
@@ -1044,6 +1096,7 @@ public sealed class SalesWorkspaceStore
         }
 
         _remoteMetadata = retry.Metadata;
+        TryWriteServerCache(merged);
         return true;
     }
 
@@ -1062,6 +1115,37 @@ public sealed class SalesWorkspaceStore
         if (result.Succeeded)
         {
             _remoteMetadata = result.Metadata;
+            TryWriteServerCache(snapshot);
+        }
+    }
+
+    private void TryWriteServerCache(SalesWorkspaceSnapshot snapshot)
+    {
+        if (!_serverModeEnabled)
+        {
+            return;
+        }
+
+        try
+        {
+            var path = ServerCachePath;
+            var directory = Path.GetDirectoryName(path);
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(directory);
+            var tempPath = $"{path}.tmp";
+            using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
+            {
+                JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
+            }
+
+            File.Move(tempPath, path, true);
+        }
+        catch
+        {
         }
     }
 
