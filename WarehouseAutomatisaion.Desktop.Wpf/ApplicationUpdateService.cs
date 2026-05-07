@@ -54,7 +54,7 @@ internal sealed class ApplicationUpdateService : IDisposable
         }
 
         var requestUri =
-            $"https://api.github.com/repos/{Uri.EscapeDataString(_options.GitHubOwner)}/{Uri.EscapeDataString(_options.GitHubRepository)}/releases/latest";
+            $"https://api.github.com/repos/{Uri.EscapeDataString(_options.GitHubOwner)}/{Uri.EscapeDataString(_options.GitHubRepository)}/releases?per_page=30";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
@@ -81,33 +81,37 @@ internal sealed class ApplicationUpdateService : IDisposable
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        var root = document.RootElement;
-
-        var tagName = GetString(root, "tag_name") ?? GetString(root, "name");
-        if (!TryParseVersion(tagName, out var releaseVersion))
+        if (document.RootElement.ValueKind != JsonValueKind.Array)
         {
-            return ApplicationUpdateCheckResult.Failed("Не удалось разобрать версию последнего GitHub release.");
+            return ApplicationUpdateCheckResult.Failed("GitHub вернул неожиданный формат списка релизов.");
         }
 
-        var asset = FindAsset(root, _options.AssetName);
-        if (asset is null)
+        Version? releaseVersion = null;
+        ApplicationRelease? release = null;
+        foreach (var releaseElement in document.RootElement.EnumerateArray())
+        {
+            if (GetBoolean(releaseElement, "draft") || GetBoolean(releaseElement, "prerelease"))
+            {
+                continue;
+            }
+
+            if (!TryCreateRelease(releaseElement, out var candidateVersion, out var candidateRelease))
+            {
+                continue;
+            }
+
+            if (releaseVersion is null || candidateVersion > releaseVersion)
+            {
+                releaseVersion = candidateVersion;
+                release = candidateRelease;
+            }
+        }
+
+        if (releaseVersion is null || release is null)
         {
             return ApplicationUpdateCheckResult.Failed(
-                $"В релизе не найден архив {_options.AssetName}. Проверьте workflow публикации.");
+                $"В GitHub-релизах не найден архив {_options.AssetName}. Проверьте workflow публикации.");
         }
-
-        var downloadUrl = GetString(asset.Value, "browser_download_url");
-        if (string.IsNullOrWhiteSpace(downloadUrl))
-        {
-            return ApplicationUpdateCheckResult.Failed("У релиз-архива отсутствует browser_download_url.");
-        }
-
-        var release = new ApplicationRelease(
-            Version: FormatVersion(releaseVersion),
-            Tag: tagName ?? FormatVersion(releaseVersion),
-            DownloadUrl: downloadUrl,
-            PageUrl: GetString(root, "html_url") ?? string.Empty,
-            AssetName: GetString(asset.Value, "name") ?? _options.AssetName);
 
         if (releaseVersion <= currentVersion)
         {
@@ -119,6 +123,41 @@ internal sealed class ApplicationUpdateService : IDisposable
         return ApplicationUpdateCheckResult.UpdateAvailable(
             $"Доступна версия {release.Version}. Текущая версия: {CurrentVersion}.",
             release);
+    }
+
+    private bool TryCreateRelease(
+        JsonElement releaseElement,
+        out Version releaseVersion,
+        out ApplicationRelease? release)
+    {
+        releaseVersion = new Version(0, 0, 0, 0);
+        release = null;
+
+        var tagName = GetString(releaseElement, "tag_name") ?? GetString(releaseElement, "name");
+        if (!TryParseVersion(tagName, out releaseVersion))
+        {
+            return false;
+        }
+
+        var asset = FindAsset(releaseElement, _options.AssetName);
+        if (asset is null)
+        {
+            return false;
+        }
+
+        var downloadUrl = GetString(asset.Value, "browser_download_url");
+        if (string.IsNullOrWhiteSpace(downloadUrl))
+        {
+            return false;
+        }
+
+        release = new ApplicationRelease(
+            Version: FormatVersion(releaseVersion),
+            Tag: tagName ?? FormatVersion(releaseVersion),
+            DownloadUrl: downloadUrl,
+            PageUrl: GetString(releaseElement, "html_url") ?? string.Empty,
+            AssetName: GetString(asset.Value, "name") ?? _options.AssetName);
+        return true;
     }
 
     public async Task<ApplicationUpdateLaunchResult> PrepareAndLaunchUpdateAsync(
@@ -137,7 +176,7 @@ internal sealed class ApplicationUpdateService : IDisposable
 
             var archivePath = Path.Combine(tempRoot, release.AssetName);
             var extractPath = Path.Combine(tempRoot, "package");
-            var scriptPath = Path.Combine(tempRoot, "apply-update.cmd");
+            var scriptPath = Path.Combine(tempRoot, "apply-update.ps1");
             var logPath = Path.Combine(tempRoot, "update.log");
 
             Directory.CreateDirectory(tempRoot);
@@ -169,11 +208,11 @@ internal sealed class ApplicationUpdateService : IDisposable
 
             Process.Start(new ProcessStartInfo
             {
-                FileName = "cmd.exe",
-                Arguments = $"/c \"\"{scriptPath}\"\"",
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
                 WorkingDirectory = tempRoot,
-                CreateNoWindow = true,
-                UseShellExecute = false
+                WindowStyle = ProcessWindowStyle.Hidden,
+                UseShellExecute = true
             });
 
             return ApplicationUpdateLaunchResult.Success(
@@ -216,6 +255,12 @@ internal sealed class ApplicationUpdateService : IDisposable
         return element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+    }
+
+    private static bool GetBoolean(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var value)
+               && value.ValueKind == JsonValueKind.True;
     }
 
     private static bool TryParseVersion(string? rawValue, out Version version)
@@ -309,45 +354,92 @@ internal sealed class ApplicationUpdateService : IDisposable
         string targetExecutable,
         string logPath)
     {
+        var persistentLogPath = Path.Combine(targetDirectory, "app_data", "desktop-update.log");
+        var executableNameWithoutExtension = Path.GetFileNameWithoutExtension(targetExecutable);
         var script = new StringBuilder();
-        script.AppendLine("@echo off");
-        script.AppendLine("setlocal EnableExtensions");
-        script.AppendLine($"set \"APP_PID={processId}\"");
-        script.AppendLine($"set \"TEMP_ROOT={EscapeBatchValue(tempRoot)}\"");
-        script.AppendLine($"set \"SOURCE_DIR={EscapeBatchValue(sourceDirectory)}\"");
-        script.AppendLine($"set \"TARGET_DIR={EscapeBatchValue(targetDirectory)}\"");
-        script.AppendLine($"set \"TARGET_EXE={EscapeBatchValue(targetExecutable)}\"");
-        script.AppendLine($"set \"LOG_FILE={EscapeBatchValue(logPath)}\"");
-        script.AppendLine("call :log Starting desktop update");
-        script.AppendLine(":wait_for_exit");
-        script.AppendLine("tasklist /FI \"PID eq %APP_PID%\" | find \"%APP_PID%\" >nul");
-        script.AppendLine("if not errorlevel 1 (");
-        script.AppendLine("    timeout /t 1 /nobreak >nul");
-        script.AppendLine("    goto wait_for_exit");
-        script.AppendLine(")");
-        script.AppendLine("call :log Copying release files");
-        script.AppendLine("robocopy \"%SOURCE_DIR%\" \"%TARGET_DIR%\" /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP /XF appsettings.local.json /XD app_data >nul");
-        script.AppendLine("set \"ROBOCOPY_EXIT=%ERRORLEVEL%\"");
-        script.AppendLine("if %ROBOCOPY_EXIT% GEQ 8 (");
-        script.AppendLine("    call :log Robocopy failed with exit code %ROBOCOPY_EXIT%");
-        script.AppendLine("    goto end");
-        script.AppendLine(")");
-        script.AppendLine("call :log Launching updated application");
-        script.AppendLine("start \"\" \"%TARGET_EXE%\"");
-        script.AppendLine("call :log Scheduling temp cleanup");
-        script.AppendLine("start \"\" /b cmd /c \"timeout /t 5 /nobreak >nul & rd /s /q \"\"%TEMP_ROOT%\"\"\"");
-        script.AppendLine("exit /b 0");
-        script.AppendLine(":log");
-        script.AppendLine(">> \"%LOG_FILE%\" echo [%date% %time%] %*");
-        script.AppendLine("exit /b 0");
-        script.AppendLine(":end");
-        script.AppendLine("exit /b %ROBOCOPY_EXIT%");
+        script.AppendLine("$ErrorActionPreference = 'Stop'");
+        script.AppendLine("$ProgressPreference = 'SilentlyContinue'");
+        script.AppendLine($"$appPid = {processId}");
+        script.AppendLine($"$tempRoot = {ToPowerShellSingleQuotedString(tempRoot)}");
+        script.AppendLine($"$sourceDir = {ToPowerShellSingleQuotedString(sourceDirectory)}");
+        script.AppendLine($"$targetDir = {ToPowerShellSingleQuotedString(targetDirectory)}");
+        script.AppendLine($"$targetExe = {ToPowerShellSingleQuotedString(targetExecutable)}");
+        script.AppendLine($"$tempLog = {ToPowerShellSingleQuotedString(logPath)}");
+        script.AppendLine($"$persistentLog = {ToPowerShellSingleQuotedString(persistentLogPath)}");
+        script.AppendLine($"$targetProcessName = {ToPowerShellSingleQuotedString(executableNameWithoutExtension)}");
+        script.AppendLine();
+        script.AppendLine("function Write-UpdateLog {");
+        script.AppendLine("    param([string]$Message)");
+        script.AppendLine("    $line = ('[{0:yyyy-MM-dd HH:mm:ss.fff zzz}] {1}' -f [DateTimeOffset]::Now, $Message)");
+        script.AppendLine("    foreach ($path in @($tempLog, $persistentLog)) {");
+        script.AppendLine("        try {");
+        script.AppendLine("            $directory = Split-Path -Parent $path");
+        script.AppendLine("            if (-not [string]::IsNullOrWhiteSpace($directory)) { New-Item -ItemType Directory -Path $directory -Force | Out-Null }");
+        script.AppendLine("            Add-Content -LiteralPath $path -Value $line -Encoding UTF8");
+        script.AppendLine("        } catch { }");
+        script.AppendLine("    }");
+        script.AppendLine("}");
+        script.AppendLine();
+        script.AppendLine("try {");
+        script.AppendLine("    Write-UpdateLog 'Starting desktop update'");
+        script.AppendLine("    try {");
+        script.AppendLine("        $currentProcess = Get-Process -Id $appPid -ErrorAction SilentlyContinue");
+        script.AppendLine("        if ($null -ne $currentProcess) {");
+        script.AppendLine("            Write-UpdateLog \"Waiting for current process $appPid to exit\"");
+        script.AppendLine("            Wait-Process -Id $appPid -Timeout 120 -ErrorAction SilentlyContinue");
+        script.AppendLine("        }");
+        script.AppendLine("    } catch {");
+        script.AppendLine("        Write-UpdateLog \"Wait for current process failed: $($_.Exception.Message)\"");
+        script.AppendLine("    }");
+        script.AppendLine();
+        script.AppendLine("    Start-Sleep -Milliseconds 500");
+        script.AppendLine("    $remainingProcesses = Get-Process -Name $targetProcessName -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne $PID }");
+        script.AppendLine("    foreach ($process in $remainingProcesses) {");
+        script.AppendLine("        Write-UpdateLog \"Stopping remaining process $($process.Id) $($process.ProcessName)\"");
+        script.AppendLine("        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue");
+        script.AppendLine("    }");
+        script.AppendLine("    Start-Sleep -Milliseconds 700");
+        script.AppendLine();
+        script.AppendLine("    if (-not (Test-Path -LiteralPath $sourceDir)) { throw \"Source package directory was not found: $sourceDir\" }");
+        script.AppendLine("    if (-not (Test-Path -LiteralPath $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }");
+        script.AppendLine("    Write-UpdateLog \"Copying release files from $sourceDir to $targetDir\"");
+        script.AppendLine("    $robocopyArgs = @(");
+        script.AppendLine("        $sourceDir,");
+        script.AppendLine("        $targetDir,");
+        script.AppendLine("        '/E',");
+        script.AppendLine("        '/R:5',");
+        script.AppendLine("        '/W:1',");
+        script.AppendLine("        '/NFL',");
+        script.AppendLine("        '/NDL',");
+        script.AppendLine("        '/NP',");
+        script.AppendLine("        '/XF',");
+        script.AppendLine("        'appsettings.local.json',");
+        script.AppendLine("        '/XD',");
+        script.AppendLine("        'app_data'");
+        script.AppendLine("    )");
+        script.AppendLine("    & robocopy @robocopyArgs 2>&1 | ForEach-Object { Write-UpdateLog $_ }");
+        script.AppendLine("    $robocopyExit = $LASTEXITCODE");
+        script.AppendLine("    Write-UpdateLog \"Robocopy exit code: $robocopyExit\"");
+        script.AppendLine("    if ($robocopyExit -ge 8) { throw \"Robocopy failed with exit code $robocopyExit\" }");
+        script.AppendLine();
+        script.AppendLine("    if (-not (Test-Path -LiteralPath $targetExe)) { throw \"Updated executable was not found: $targetExe\" }");
+        script.AppendLine("    Write-UpdateLog \"Launching updated application: $targetExe\"");
+        script.AppendLine("    Start-Process -FilePath $targetExe -WorkingDirectory $targetDir");
+        script.AppendLine("    Write-UpdateLog 'Update completed successfully'");
+        script.AppendLine();
+        script.AppendLine("    $cleanupCommand = \"Start-Sleep -Seconds 8; Remove-Item -LiteralPath '$($tempRoot.Replace('''', ''''''))' -Recurse -Force -ErrorAction SilentlyContinue\"");
+        script.AppendLine("    Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $cleanupCommand -WindowStyle Hidden");
+        script.AppendLine("    exit 0");
+        script.AppendLine("} catch {");
+        script.AppendLine("    Write-UpdateLog \"Update failed: $($_.Exception.Message)\"");
+        script.AppendLine("    exit 1");
+        script.AppendLine("}");
         return script.ToString();
     }
 
-    private static string EscapeBatchValue(string value)
+    private static string ToPowerShellSingleQuotedString(string value)
     {
-        return value.Replace("%", "%%");
+        return $"'{value.Replace("'", "''")}'";
     }
 }
 
