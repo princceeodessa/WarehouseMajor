@@ -1,0 +1,88 @@
+<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.PrintPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="1180"
+        Height="820"
+        MinWidth="920"
+        MinHeight="640"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        Title="Предпросмотр печати"
+        Background="#F7F9FD">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <TextBlock x:Name="HeaderTitleText"
+                           FontSize="26"
+                           FontWeight="SemiBold"
+                           Foreground="#07142F"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="Проверьте документ перед отправкой на принтер."
+                           Margin="0,6,0,0"
+                           FontSize="13.5"
+                           Foreground="#6E7B98" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Top"
+                        Margin="18,1,0,0">
+                <Button x:Name="PrintButton"
+                        Content="Печать"
+                        MinWidth="132"
+                        Style="{StaticResource DialogPrimaryButtonStyle}"
+                        Click="HandlePrintClick" />
+                <Button Content="Закрыть"
+                        MinWidth="116"
+                        Margin="10,0,0,0"
+                        Style="{StaticResource DialogSecondaryButtonStyle}"
+                        Click="HandleCloseClick" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="2"
+                Background="#FFFFFF"
+                BorderBrush="#DCE3F2"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="10">
+            <FlowDocumentReader x:Name="PreviewReader"
+                                ViewingMode="Page"
+                                IsFindEnabled="True"
+                                IsPrintEnabled="False"
+                                Zoom="90"
+                                Background="#FFFFFF" />
+        </Border>
+
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="После нажатия «Печать» откроется стандартный выбор принтера."
+                       VerticalAlignment="Center"
+                       Foreground="#7180A0"
+                       FontSize="12.5" />
+
+            <TextBlock x:Name="StatusText"
+                       Grid.Column="1"
+                       VerticalAlignment="Center"
+                       Foreground="#506080"
+                       FontSize="12.5" />
+        </Grid>
+    </Grid>
+</Window>

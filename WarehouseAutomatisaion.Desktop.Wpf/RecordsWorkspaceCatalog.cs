@@ -748,7 +748,8 @@ internal static class RecordsWorkspaceCatalog
         [
             new RecordsGridActionDefinition("Открыть заказ", () => EditOrder(salesWorkspace, order)),
             new RecordsGridActionDefinition("Связанные документы", () => ShowSalesDocumentLinks(salesWorkspace, order)),
-            new RecordsGridActionDefinition("Печать", () => PrintOrder(order)),
+            new RecordsGridActionDefinition("Печать для заказчика", () => PrintOrderCustomer(order)),
+            new RecordsGridActionDefinition("Печать для сборки", () => PrintOrderPicking(salesWorkspace, order)),
             new RecordsGridActionDefinition("Выгрузить PDF", () => ExportOrder(order, SalesDocumentExportFormat.Pdf)),
             new RecordsGridActionDefinition("Выгрузить Excel", () => ExportOrder(order, SalesDocumentExportFormat.Excel)),
             new RecordsGridActionDefinition("Подтвердить", () => ShowWorkflowResult("Заказы", salesWorkspace.ConfirmOrder(order.Id))),
@@ -875,33 +876,127 @@ internal static class RecordsWorkspaceCatalog
         }
     }
 
-    private static void PrintOrder(SalesOrderRecord order)
+    private static void PrintOrderCustomer(SalesOrderRecord order)
     {
-        var printDialog = new PrintDialog();
-        if (printDialog.ShowDialog() != true)
-        {
-            return;
-        }
+        PrintDocumentComposer.Print(
+            ResolveOwnerWindow(),
+            $"Заказ покупателя {order.Number}",
+            (pageWidth, pageHeight) => SalesOrderPrintDocumentComposer.Build(order, pageWidth, pageHeight));
+    }
 
+    private static void PrintOrderPicking(SalesWorkspace salesWorkspace, SalesOrderRecord order)
+    {
+        var definition = BuildOrderPickingPrintDefinition(salesWorkspace, order);
+        PrintDocumentComposer.Print(
+            ResolveOwnerWindow(),
+            $"Лист сборки {order.Number}",
+            (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definition, pageWidth, pageHeight));
+    }
+
+    private static PrintableTableDocumentDefinition BuildOrderPickingPrintDefinition(SalesWorkspace salesWorkspace, SalesOrderRecord order)
+    {
+        var currentOperator = ResolveCurrentOperator(salesWorkspace);
+        var warehouseView = WarehouseWorkspace.Create(salesWorkspace);
+        var warehouseWorkspace = ResolveOperationalWarehouseWorkspace(salesWorkspace, currentOperator);
+        var purchasingWorkspace = ResolveOperationalPurchasingWorkspace(salesWorkspace, currentOperator);
+        var pickLines = WarehouseCellStorageOperations.BuildOrderPickLines(order, warehouseView, warehouseWorkspace, purchasingWorkspace);
+        var requiredTotal = pickLines.Sum(item => item.RequiredQuantity);
+        var availableTotal = pickLines.Sum(item => Math.Min(item.RequiredQuantity, item.AvailableQuantity));
+        var shortageTotal = pickLines.Sum(item => item.ShortageQuantity);
+        var cellShortageCount = pickLines.Count(item => item.IsStockCovered && !item.IsCellCovered);
+        var stockShortageCount = pickLines.Count(item => !item.IsStockCovered);
+        var readiness = pickLines.Count == 0
+            ? "Нет позиций"
+            : stockShortageCount > 0
+                ? $"Не хватает товара: {stockShortageCount:N0} строк"
+                : cellShortageCount > 0
+                    ? $"Нужно указать ячейки: {cellShortageCount:N0} строк"
+                    : "Готово к сборке";
+
+        return new PrintableTableDocumentDefinition(
+            Title: $"Лист сборки заказа № {Clean(order.Number)} от {order.OrderDate:dd.MM.yyyy}",
+            Subtitle: $"Для кладовщика: отбор товара без цен. Покупатель: {Clean(order.CustomerName)}",
+            Facts:
+            [
+                new PrintableField("Заказ", Clean(order.Number)),
+                new PrintableField("Покупатель", Clean(order.CustomerName)),
+                new PrintableField("Склад", Clean(order.Warehouse)),
+                new PrintableField("Дата печати", DateTime.Now.ToString("dd.MM.yyyy HH:mm", RuCulture)),
+                new PrintableField("Менеджер", Clean(order.Manager)),
+                new PrintableField("Статус", Clean(order.Status)),
+                new PrintableField("Позиций", pickLines.Count.ToString("N0", RuCulture)),
+                new PrintableField("Готовность", readiness)
+            ],
+            Columns:
+            [
+                new PrintableTableColumn("№", 0.32, TextAlignment.Center),
+                new PrintableTableColumn("Код", 0.85),
+                new PrintableTableColumn("Товар", 2.35),
+                new PrintableTableColumn("Ячейки", 2.1),
+                new PrintableTableColumn("К сборке", 0.78, TextAlignment.Right),
+                new PrintableTableColumn("Доступно", 0.78, TextAlignment.Right),
+                new PrintableTableColumn("Нехватка", 0.78, TextAlignment.Right),
+                new PrintableTableColumn("Ед.", 0.45),
+                new PrintableTableColumn("Статус", 1.0)
+            ],
+            Rows: pickLines
+                .Select((line, index) => new PrintableTableRow(
+                [
+                    (index + 1).ToString("N0", RuCulture),
+                    Clean(line.ItemCode),
+                    Clean(line.ItemName),
+                    Clean(line.CellSummary),
+                    FormatQuantity(line.RequiredQuantity),
+                    FormatQuantity(line.AvailableQuantity),
+                    line.ShortageQuantity > 0m ? FormatQuantity(line.ShortageQuantity) : "—",
+                    Clean(line.Unit),
+                    Clean(line.PickStatus)
+                ]))
+                .ToArray(),
+            Totals:
+            [
+                new PrintableField("Позиций", pickLines.Count.ToString("N0", RuCulture)),
+                new PrintableField("К отбору", FormatQuantity(requiredTotal)),
+                new PrintableField("Покрыто остатком", FormatQuantity(availableTotal)),
+                new PrintableField("Нехватка товара", shortageTotal > 0m ? FormatQuantity(shortageTotal) : "—"),
+                new PrintableField("Строк без полных ячеек", cellShortageCount > 0 ? cellShortageCount.ToString("N0", RuCulture) : "—")
+            ],
+            Comment: "Форма для сборки скрывает цены и суммы. Если строка без ячейки или с нехваткой, проверьте складские ячейки и остатки перед отгрузкой.");
+    }
+
+    private static OperationalWarehouseWorkspace ResolveOperationalWarehouseWorkspace(SalesWorkspace salesWorkspace, string currentOperator)
+    {
         try
         {
-            var document = SalesOrderPrintDocumentComposer.Build(
-                order,
-                printDialog.PrintableAreaWidth,
-                printDialog.PrintableAreaHeight);
-            printDialog.PrintDocument(
-                ((IDocumentPaginatorSource)document).DocumentPaginator,
-                Clean($"Заказ покупателя {order.Number}"));
+            return WarehouseOperationalWorkspaceStore.CreateDefault()
+                       .TryLoadExisting(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses)
+                   ?? OperationalWarehouseWorkspace.Create(currentOperator, salesWorkspace);
         }
-        catch (Exception exception)
+        catch
         {
-            MessageBox.Show(
-                ResolveOwnerWindow(),
-                $"Не удалось отправить заказ в печать.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
-                AppBranding.MessageBoxTitle,
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            return OperationalWarehouseWorkspace.Create(currentOperator, salesWorkspace);
         }
+    }
+
+    private static OperationalPurchasingWorkspace? ResolveOperationalPurchasingWorkspace(SalesWorkspace salesWorkspace, string currentOperator)
+    {
+        try
+        {
+            return PurchasingOperationalWorkspaceStore.CreateDefault()
+                       .TryLoadExisting(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses)
+                   ?? OperationalPurchasingWorkspace.Create(currentOperator, salesWorkspace);
+        }
+        catch
+        {
+            return OperationalPurchasingWorkspace.Create(currentOperator, salesWorkspace);
+        }
+    }
+
+    private static string ResolveCurrentOperator(SalesWorkspace salesWorkspace)
+    {
+        return string.IsNullOrWhiteSpace(salesWorkspace.CurrentOperator)
+            ? Environment.UserName
+            : salesWorkspace.CurrentOperator;
     }
 
     private static void ExportOrder(SalesOrderRecord order, SalesDocumentExportFormat format)

@@ -49,6 +49,32 @@ public static class WarehouseCellStorageOperations
         };
     }
 
+    public static IReadOnlyList<WarehouseShipmentPickLineRecord> BuildOrderPickLines(
+        SalesOrderRecord order,
+        WarehouseWorkspace warehouseView,
+        OperationalWarehouseWorkspace warehouseWorkspace,
+        OperationalPurchasingWorkspace? purchasingWorkspace)
+    {
+        var cellBalances = BuildCellBalances(warehouseView, warehouseWorkspace, purchasingWorkspace)
+            .Where(item => item.Quantity > 0m)
+            .OrderBy(item => item.Warehouse, StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(item => item.IsAddressed)
+            .ThenBy(item => item.Cell, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.ItemName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return BuildPickLines(
+                order.Id,
+                order.Number,
+                order.Number,
+                order.CustomerName,
+                order.Warehouse,
+                order.Lines,
+                warehouseView.StockBalances,
+                cellBalances)
+            .ToArray();
+    }
+
     private static IEnumerable<WarehouseCellBalanceRecord> BuildCellBalances(
         WarehouseWorkspace warehouseView,
         OperationalWarehouseWorkspace warehouseWorkspace,
@@ -255,16 +281,37 @@ public static class WarehouseCellStorageOperations
         IReadOnlyList<WarehouseStockBalanceRecord> stockBalances,
         IReadOnlyList<WarehouseCellBalanceRecord> cellBalances)
     {
-        foreach (var line in shipment.Lines)
+        return BuildPickLines(
+            shipment.Id,
+            shipment.Number,
+            shipment.SalesOrderNumber,
+            shipment.CustomerName,
+            shipment.Warehouse,
+            shipment.Lines,
+            stockBalances,
+            cellBalances);
+    }
+
+    private static IEnumerable<WarehouseShipmentPickLineRecord> BuildPickLines(
+        Guid shipmentId,
+        string shipmentNumber,
+        string salesOrderNumber,
+        string customerName,
+        string warehouse,
+        IEnumerable<SalesOrderLineRecord> lines,
+        IReadOnlyList<WarehouseStockBalanceRecord> stockBalances,
+        IReadOnlyList<WarehouseCellBalanceRecord> cellBalances)
+    {
+        foreach (var line in lines)
         {
             var available = stockBalances
-                .Where(item => WarehouseMatches(item.Warehouse, shipment.Warehouse)
+                .Where(item => WarehouseMatches(item.Warehouse, warehouse)
                                && MatchesItem(item.ItemCode, item.ItemName, line.ItemCode, line.ItemName))
                 .Sum(item => item.FreeQuantity);
 
             var cells = cellBalances
                 .Where(item => item.Quantity > 0m
-                               && WarehouseMatches(item.Warehouse, shipment.Warehouse)
+                               && WarehouseMatches(item.Warehouse, warehouse)
                                && MatchesItem(item.ItemCode, item.ItemName, line.ItemCode, line.ItemName))
                 .OrderByDescending(item => item.IsAddressed)
                 .ThenBy(item => item.Cell, StringComparer.OrdinalIgnoreCase)
@@ -281,10 +328,10 @@ public static class WarehouseCellStorageOperations
 
             yield return new WarehouseShipmentPickLineRecord
             {
-                ShipmentId = shipment.Id,
-                ShipmentNumber = Clean(shipment.Number),
-                SalesOrderNumber = Clean(shipment.SalesOrderNumber),
-                Warehouse = Clean(shipment.Warehouse),
+                ShipmentId = shipmentId,
+                ShipmentNumber = Clean(shipmentNumber),
+                SalesOrderNumber = Clean(salesOrderNumber),
+                Warehouse = Clean(warehouse),
                 ItemCode = Clean(line.ItemCode),
                 ItemName = Clean(line.ItemName),
                 Unit = Clean(line.Unit),
@@ -297,7 +344,7 @@ public static class WarehouseCellStorageOperations
                 PickStatus = status,
                 IsStockCovered = shortage <= 0m,
                 IsCellCovered = cellShortage <= 0m,
-                SearchText = BuildSearchText(shipment.Number, shipment.SalesOrderNumber, shipment.CustomerName, shipment.Warehouse, line.ItemCode, line.ItemName)
+                SearchText = BuildSearchText(shipmentNumber, salesOrderNumber, customerName, warehouse, line.ItemCode, line.ItemName)
             };
         }
     }
@@ -367,19 +414,19 @@ public static class WarehouseCellStorageOperations
 
         var status = Clean(shipment.Status).ToLowerInvariant();
         return shipment.ShipmentDate.Date <= workDate
-               && !status.Contains("отгруж", StringComparison.OrdinalIgnoreCase)
-               && !status.Contains("закры", StringComparison.OrdinalIgnoreCase)
-               && !status.Contains("отмен", StringComparison.OrdinalIgnoreCase)
-               && !status.Contains("архив", StringComparison.OrdinalIgnoreCase);
+               && !ContainsUi(status, "отгруж")
+               && !ContainsUi(status, "закры")
+               && !ContainsUi(status, "отмен")
+               && !ContainsUi(status, "архив");
     }
 
     private static bool IsDraftLike(string status)
     {
         var value = Clean(status).ToLowerInvariant();
-        return value.Contains("чернов", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("план", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("отмен", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("архив", StringComparison.OrdinalIgnoreCase);
+        return ContainsUi(value, "чернов")
+               || ContainsUi(value, "план")
+               || ContainsUi(value, "отмен")
+               || ContainsUi(value, "архив");
     }
 
     private static bool IsWarehouseName(string value, string documentWarehouse, WarehouseWorkspace warehouseView)
@@ -442,6 +489,11 @@ public static class WarehouseCellStorageOperations
     private static string Clean(string? value)
     {
         return TextMojibakeFixer.NormalizeText(value).Trim();
+    }
+
+    private static bool ContainsUi(string value, string fragment)
+    {
+        return Clean(value).Contains(Clean(fragment), StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class MutableCellBalance

@@ -19,23 +19,21 @@ internal static class PrintDocumentComposer
 
     public static bool Print(Window? owner, string jobTitle, Func<double, double, FlowDocument> buildDocument)
     {
-        var printDialog = new PrintDialog();
-        if (printDialog.ShowDialog() != true)
-        {
-            return false;
-        }
-
         try
         {
-            var document = buildDocument(printDialog.PrintableAreaWidth, printDialog.PrintableAreaHeight);
-            printDialog.PrintDocument(((IDocumentPaginatorSource)document).DocumentPaginator, Clean(jobTitle));
-            return true;
+            var preview = new PrintPreviewWindow(Clean(jobTitle), buildDocument);
+            if (owner is not null)
+            {
+                preview.Owner = owner;
+            }
+
+            return preview.ShowDialog() == true;
         }
         catch (Exception exception)
         {
             MessageBox.Show(
                 owner,
-                $"Не удалось отправить документ в печать.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
+                $"Не удалось открыть предпросмотр печати.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
                 AppBranding.MessageBoxTitle,
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
