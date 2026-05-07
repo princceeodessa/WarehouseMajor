@@ -1705,7 +1705,19 @@ public sealed partial class DesktopMySqlBackplaneService
     private static string ReadString(MySqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
-        return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);
+        if (reader.IsDBNull(ordinal))
+        {
+            return string.Empty;
+        }
+
+        var value = reader.GetValue(ordinal);
+        return value switch
+        {
+            string text => text,
+            byte[] bytes => Encoding.UTF8.GetString(bytes),
+            Guid guid => guid.ToString(),
+            _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty
+        };
     }
 
     private static bool ReadBoolean(MySqlDataReader reader, string name)
@@ -1763,7 +1775,7 @@ public sealed partial class DesktopMySqlBackplaneService
             is_buyer TINYINT(1) NOT NULL DEFAULT 1,
             is_supplier TINYINT(1) NOT NULL DEFAULT 0,
             is_other TINYINT(1) NOT NULL DEFAULT 0,
-            contract_number VARCHAR(128) NULL,
+            contract_number TEXT NULL,
             currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
             manager_name VARCHAR(256) NULL,
             status_text VARCHAR(128) NULL,
@@ -1811,7 +1823,7 @@ public sealed partial class DesktopMySqlBackplaneService
             customer_id CHAR(36) NULL,
             customer_code VARCHAR(64) NULL,
             customer_name VARCHAR(512) NULL,
-            contract_number VARCHAR(128) NULL,
+            contract_number TEXT NULL,
             currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
             warehouse_name VARCHAR(256) NULL,
             status_text VARCHAR(128) NULL,
@@ -1851,7 +1863,7 @@ public sealed partial class DesktopMySqlBackplaneService
             customer_id CHAR(36) NULL,
             customer_code VARCHAR(64) NULL,
             customer_name VARCHAR(512) NULL,
-            contract_number VARCHAR(128) NULL,
+            contract_number TEXT NULL,
             currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
             amount DECIMAL(18, 4) NOT NULL DEFAULT 0,
             status_text VARCHAR(128) NULL,

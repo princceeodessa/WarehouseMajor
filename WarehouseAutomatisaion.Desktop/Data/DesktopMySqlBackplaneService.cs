@@ -1524,6 +1524,45 @@ public sealed partial class DesktopMySqlBackplaneService
         EXECUTE warehouse_stmt;
         DEALLOCATE PREPARE warehouse_stmt;
 
+        SET @warehouse_column_resize = (
+            SELECT COUNT(*) > 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_customers'
+                AND COLUMN_NAME = 'contract_number'
+                AND DATA_TYPE <> 'text'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_resize, 'ALTER TABLE app_sales_customers MODIFY COLUMN contract_number TEXT NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_resize = (
+            SELECT COUNT(*) > 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_documents'
+                AND COLUMN_NAME = 'contract_number'
+                AND DATA_TYPE <> 'text'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_resize, 'ALTER TABLE app_sales_documents MODIFY COLUMN contract_number TEXT NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_resize = (
+            SELECT COUNT(*) > 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_cash_receipts'
+                AND COLUMN_NAME = 'contract_number'
+                AND DATA_TYPE <> 'text'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_resize, 'ALTER TABLE app_sales_cash_receipts MODIFY COLUMN contract_number TEXT NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
         SET @warehouse_index_missing = (
             SELECT COUNT(*) = 0
             FROM INFORMATION_SCHEMA.STATISTICS

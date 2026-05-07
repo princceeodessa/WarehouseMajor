@@ -1067,6 +1067,11 @@ public sealed class SalesWorkspaceStore
             return false;
         }
 
+        if (_serverModeEnabled && !HasSalesBusinessData(snapshot))
+        {
+            return false;
+        }
+
         var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
         var result = _backplane.TrySaveSalesWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
         if (result.Succeeded)
@@ -1128,6 +1133,13 @@ public sealed class SalesWorkspaceStore
 
         try
         {
+            if (!HasSalesBusinessData(snapshot)
+                && TryReadServerCacheSnapshot(out var cachedSnapshot)
+                && HasSalesBusinessData(cachedSnapshot))
+            {
+                return;
+            }
+
             var path = ServerCachePath;
             var directory = Path.GetDirectoryName(path);
             if (string.IsNullOrWhiteSpace(directory))
@@ -1147,6 +1159,37 @@ public sealed class SalesWorkspaceStore
         catch
         {
         }
+    }
+
+    private bool TryReadServerCacheSnapshot(out SalesWorkspaceSnapshot? snapshot)
+    {
+        snapshot = null;
+        try
+        {
+            var path = ServerCachePath;
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            var json = File.ReadAllText(path, Encoding.UTF8);
+            snapshot = JsonSerializer.Deserialize<SalesWorkspaceSnapshot>(json, SerializerOptions);
+            return snapshot is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool HasSalesBusinessData(SalesWorkspaceSnapshot snapshot)
+    {
+        return (snapshot.Customers?.Count ?? 0) > 0
+               || (snapshot.Orders?.Count ?? 0) > 0
+               || (snapshot.Invoices?.Count ?? 0) > 0
+               || (snapshot.Shipments?.Count ?? 0) > 0
+               || (snapshot.Returns?.Count ?? 0) > 0
+               || (snapshot.CashReceipts?.Count ?? 0) > 0;
     }
 
     private static void ApplySnapshotToWorkspace(
