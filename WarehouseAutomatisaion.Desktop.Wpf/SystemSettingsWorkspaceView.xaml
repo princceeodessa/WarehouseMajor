@@ -266,85 +266,108 @@
                     </Border>
 
                     <Border Grid.Column="1" Padding="18" Style="{StaticResource PageCardStyle}">
-                        <StackPanel>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
                             <TextBlock x:Name="UserEditorTitleText" Text="Новый пользователь" FontSize="18" FontWeight="SemiBold" Foreground="#17213A" />
 
-                            <TextBlock Text="Логин" Margin="0,16,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
-                            <TextBox x:Name="UserLoginTextBox"
-                                     Height="40"
-                                     FontSize="14"
-                                     Style="{StaticResource DialogTextBoxStyle}"
-                                     AutomationProperties.Name="Логин нового пользователя" />
+                            <ScrollViewer Grid.Row="1"
+                                          Margin="0,12,0,12"
+                                          Padding="0,0,8,0"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel>
+                                    <TextBlock Text="Логин" Style="{StaticResource SettingsLabelTextStyle}" />
+                                    <TextBox x:Name="UserLoginTextBox"
+                                             Height="40"
+                                             FontSize="14"
+                                             Style="{StaticResource DialogTextBoxStyle}"
+                                             AutomationProperties.Name="Логин нового пользователя" />
 
-                            <TextBlock Text="Имя" Margin="0,12,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
-                            <TextBox x:Name="UserDisplayNameTextBox"
-                                     Height="40"
-                                     FontSize="14"
-                                     Style="{StaticResource DialogTextBoxStyle}"
-                                     AutomationProperties.Name="Имя нового пользователя" />
+                                    <TextBlock Text="Имя" Margin="0,12,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                    <TextBox x:Name="UserDisplayNameTextBox"
+                                             Height="40"
+                                             FontSize="14"
+                                             Style="{StaticResource DialogTextBoxStyle}"
+                                             AutomationProperties.Name="Имя нового пользователя" />
 
-                            <TextBlock Text="Роль" Margin="0,12,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
-                            <ComboBox x:Name="UserRoleComboBox"
-                                      Height="40"
-                                      FontSize="14"
-                                      DisplayMemberPath="DisplayName"
-                                      SelectedValuePath="RoleCode"
-                                      AutomationProperties.Name="Роль нового пользователя" />
+                                    <TextBlock Text="Роль" Margin="0,12,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                    <ComboBox x:Name="UserRoleComboBox"
+                                              Height="40"
+                                              FontSize="14"
+                                              DisplayMemberPath="DisplayName"
+                                              SelectedValuePath="RoleCode"
+                                              AutomationProperties.Name="Роль нового пользователя" />
 
-                            <TextBlock Text="Пароль" Margin="0,12,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
-                            <PasswordBox x:Name="UserPasswordBox"
-                                         Height="40"
-                                         FontSize="14"
-                                         Padding="12,0"
-                                         VerticalContentAlignment="Center"
-                                         Background="#FFFFFF"
-                                         BorderBrush="#DDE5F4"
-                                         BorderThickness="1"
-                                         PasswordChanged="HandleUserPasswordChanged"
-                                         AutomationProperties.Name="Пароль нового пользователя" />
+                                    <TextBlock Text="Пароль" Margin="0,12,0,0" Style="{StaticResource SettingsLabelTextStyle}" />
+                                    <PasswordBox x:Name="UserPasswordBox"
+                                                 Height="40"
+                                                 FontSize="14"
+                                                 Padding="12,0"
+                                                 VerticalContentAlignment="Center"
+                                                 Background="#FFFFFF"
+                                                 BorderBrush="#DDE5F4"
+                                                 BorderThickness="1"
+                                                 PasswordChanged="HandleUserPasswordChanged"
+                                                 AutomationProperties.Name="Пароль нового пользователя" />
 
-                            <Button x:Name="SaveUserButton"
-                                    Content="Создать пользователя"
-                                    Margin="0,18,0,0"
-                                    Style="{StaticResource SettingsPrimaryButtonStyle}"
-                                    Click="HandleSaveUserClick" />
-                            <Button Content="Очистить форму"
-                                    Margin="0,10,0,0"
-                                    Style="{StaticResource SettingsActionButtonStyle}"
-                                    Click="HandleClearUserFormClick" />
+                                    <TextBlock Text="Действия"
+                                               Margin="0,18,0,0"
+                                               Style="{StaticResource SettingsLabelTextStyle}" />
+                                    <UniformGrid Columns="2" Margin="0,8,0,0">
+                                        <Button x:Name="ChangePasswordButton"
+                                                Content="Сменить пароль"
+                                                Margin="0,0,5,8"
+                                                Style="{StaticResource SettingsActionButtonStyle}"
+                                                Click="HandleChangePasswordClick" />
+                                        <Button x:Name="ResetLoginFailuresButton"
+                                                Content="Сбросить ошибки"
+                                                Margin="5,0,0,8"
+                                                Style="{StaticResource SettingsActionButtonStyle}"
+                                                Click="HandleResetLoginFailuresClick" />
+                                        <Button x:Name="DisableUserButton"
+                                                Content="Отключить"
+                                                Margin="0,0,5,0"
+                                                Style="{StaticResource SettingsActionButtonStyle}"
+                                                Click="HandleDisableUserClick" />
+                                        <Button x:Name="EnableUserButton"
+                                                Content="Включить"
+                                                Margin="5,0,0,0"
+                                                Style="{StaticResource SettingsActionButtonStyle}"
+                                                Click="HandleEnableUserClick" />
+                                    </UniformGrid>
+                                </StackPanel>
+                            </ScrollViewer>
 
-                            <TextBlock Text="Действия"
-                                       Margin="0,18,0,0"
-                                       Style="{StaticResource SettingsLabelTextStyle}" />
-                            <UniformGrid Columns="2" Margin="0,8,0,0">
-                                <Button x:Name="ChangePasswordButton"
-                                        Content="Сменить пароль"
-                                        Margin="0,0,5,8"
-                                        Style="{StaticResource SettingsActionButtonStyle}"
-                                        Click="HandleChangePasswordClick" />
-                                <Button x:Name="ResetLoginFailuresButton"
-                                        Content="Сбросить ошибки"
-                                        Margin="5,0,0,8"
-                                        Style="{StaticResource SettingsActionButtonStyle}"
-                                        Click="HandleResetLoginFailuresClick" />
-                                <Button x:Name="DisableUserButton"
-                                        Content="Отключить"
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Button x:Name="SaveUserButton"
+                                        Content="Создать пользователя"
                                         Margin="0,0,5,0"
-                                        Style="{StaticResource SettingsActionButtonStyle}"
-                                        Click="HandleDisableUserClick" />
-                                <Button x:Name="EnableUserButton"
-                                        Content="Включить"
+                                        Style="{StaticResource SettingsPrimaryButtonStyle}"
+                                        Click="HandleSaveUserClick" />
+                                <Button Grid.Column="1"
+                                        Content="Очистить форму"
                                         Margin="5,0,0,0"
                                         Style="{StaticResource SettingsActionButtonStyle}"
-                                        Click="HandleEnableUserClick" />
-                            </UniformGrid>
+                                        Click="HandleClearUserFormClick" />
+                            </Grid>
 
                             <TextBlock x:Name="UserFormStatusText"
-                                       Margin="0,14,0,0"
+                                       Grid.Row="3"
+                                       Margin="0,12,0,0"
                                        FontSize="12.5"
                                        Foreground="#7280A0"
                                        TextWrapping="Wrap" />
-                        </StackPanel>
+                        </Grid>
                     </Border>
                 </Grid>
             </TabItem>

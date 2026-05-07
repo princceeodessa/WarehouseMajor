@@ -1135,6 +1135,7 @@ public sealed class SalesWorkspaceStore
         {
             if (!HasSalesBusinessData(snapshot)
                 && TryReadServerCacheSnapshot(out var cachedSnapshot)
+                && cachedSnapshot is not null
                 && HasSalesBusinessData(cachedSnapshot))
             {
                 return;
