@@ -41,11 +41,13 @@ public partial class MainWindow : Window
     private readonly ApplicationUpdateService _applicationUpdateService;
     private readonly DispatcherTimer _salesWorkspaceAutosaveTimer;
     private readonly DispatcherTimer _remoteSalesRefreshTimer;
+    private readonly bool _loadRemoteWorkspaceAfterStartup;
 
     private ApplicationRelease? _availableRelease;
     private bool _updateOperationInProgress;
     private bool _remoteSalesRefreshInProgress;
     private bool _applyingRemoteSalesRefresh;
+    private bool _salesWorkspaceSaveBlockedUntilRemoteLoad;
     private bool _salesWorkspaceSaveInProgress;
     private bool _salesWorkspaceSaveQueued;
     private bool _salesWorkspaceSaveWarningShown;
@@ -58,16 +60,23 @@ public partial class MainWindow : Window
     }
 
     internal MainWindow(DesktopClientStartupResult startupStatus, MainWindowStartupData startupData)
-        : this(startupStatus, startupData.SalesWorkspaceStore, startupData.SalesWorkspace)
+        : this(
+            startupStatus,
+            startupData.SalesWorkspaceStore,
+            startupData.SalesWorkspace,
+            startupData.LoadRemoteWorkspaceAfterStartup)
     {
     }
 
     private MainWindow(
         DesktopClientStartupResult startupStatus,
         SalesWorkspaceStore salesWorkspaceStore,
-        SalesWorkspace? salesWorkspace)
+        SalesWorkspace? salesWorkspace,
+        bool loadRemoteWorkspaceAfterStartup = false)
     {
         _startupStatus = startupStatus;
+        _loadRemoteWorkspaceAfterStartup = loadRemoteWorkspaceAfterStartup;
+        _salesWorkspaceSaveBlockedUntilRemoteLoad = loadRemoteWorkspaceAfterStartup;
         InitializeComponent();
         WpfTextNormalizer.NormalizeTree(this);
         EnsureWindowFitsWorkArea();
@@ -153,7 +162,7 @@ public partial class MainWindow : Window
 
     private void HandleSalesWorkspaceChanged(object? sender, EventArgs e)
     {
-        if (_applyingRemoteSalesRefresh)
+        if (_applyingRemoteSalesRefresh || _salesWorkspaceSaveBlockedUntilRemoteLoad)
         {
             return;
         }
@@ -170,6 +179,11 @@ public partial class MainWindow : Window
 
     private async Task<bool> TrySaveSalesWorkspaceAsync(bool showWarning)
     {
+        if (_salesWorkspaceSaveBlockedUntilRemoteLoad)
+        {
+            return false;
+        }
+
         if (_salesWorkspaceSaveInProgress)
         {
             _salesWorkspaceSaveQueued = true;
@@ -214,6 +228,11 @@ public partial class MainWindow : Window
 
     private bool TrySaveSalesWorkspace(bool showWarning)
     {
+        if (_salesWorkspaceSaveBlockedUntilRemoteLoad)
+        {
+            return false;
+        }
+
         try
         {
             _salesWorkspaceStore.Save(_salesWorkspace);
@@ -256,7 +275,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            RefreshSalesWorkspaceFromServer(showStatus: true);
+            await RefreshSalesWorkspaceFromServerCoreAsync(showStatus: true);
         }
         catch
         {
@@ -267,14 +286,52 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RefreshSalesWorkspaceFromServer(bool showStatus)
+    private async Task RefreshSalesWorkspaceFromServerAsync(bool showStatus)
+    {
+        if (_remoteSalesRefreshInProgress)
+        {
+            return;
+        }
+
+        _remoteSalesRefreshInProgress = true;
+        try
+        {
+            await RefreshSalesWorkspaceFromServerCoreAsync(showStatus);
+        }
+        finally
+        {
+            _remoteSalesRefreshInProgress = false;
+        }
+    }
+
+    private async Task RefreshSalesWorkspaceFromServerCoreAsync(bool showStatus)
     {
         _applyingRemoteSalesRefresh = true;
         try
         {
-            if (_salesWorkspaceStore.TryRefreshFromBackplane(_salesWorkspace) && showStatus)
+            if (showStatus && _salesWorkspaceSaveBlockedUntilRemoteLoad)
+            {
+                ApplicationUpdateStatusText.Text = "Данные заказов загружаются из общей базы в фоне...";
+            }
+
+            var refreshed = await Task.Run(() => _salesWorkspaceStore.TryRefreshFromBackplane(_salesWorkspace));
+            if (!refreshed)
+            {
+                return;
+            }
+
+            _salesWorkspaceSaveBlockedUntilRemoteLoad = false;
+            if (showStatus)
             {
                 ApplicationUpdateStatusText.Text = "Данные заказов обновлены из общей базы.";
+            }
+        }
+        catch (Exception exception)
+        {
+            App.WriteClientErrorLog(exception, "MainWindow.RefreshSalesWorkspaceFromServerAsync");
+            if (showStatus && _salesWorkspaceSaveBlockedUntilRemoteLoad)
+            {
+                ApplicationUpdateStatusText.Text = "Не удалось быстро загрузить данные заказов из общей базы.";
             }
         }
         finally
@@ -501,8 +558,21 @@ public partial class MainWindow : Window
         {
             var store = SalesWorkspaceStore.CreateDefault();
             var workspace = TryLoadSalesWorkspace(store, startupStatus.UserName);
-            return new MainWindowStartupData(store, workspace);
+            return new MainWindowStartupData(store, workspace, LoadRemoteWorkspaceAfterStartup: false);
         });
+    }
+
+    internal static MainWindowStartupData CreateDeferredStartupData(DesktopClientStartupResult startupStatus)
+    {
+        var store = SalesWorkspaceStore.CreateDefault();
+        var operatorName = string.IsNullOrWhiteSpace(startupStatus.UserName)
+            ? Environment.UserName
+            : startupStatus.UserName;
+        var workspace = SalesWorkspace.Create(operatorName);
+        return new MainWindowStartupData(
+            store,
+            workspace,
+            LoadRemoteWorkspaceAfterStartup: store.IsServerModeEnabled);
     }
 
     private void InitializeUpdatePanel()
@@ -542,6 +612,10 @@ public partial class MainWindow : Window
         if (_salesWorkspaceStore.IsServerModeEnabled)
         {
             _remoteSalesRefreshTimer.Start();
+            if (_loadRemoteWorkspaceAfterStartup)
+            {
+                _ = RefreshSalesWorkspaceFromServerAsync(showStatus: true);
+            }
         }
 
         await RefreshUpdateStateAsync(showDialogOnNonUpdateResult: false);
@@ -1145,4 +1219,5 @@ public partial class MainWindow : Window
 
 internal sealed record MainWindowStartupData(
     SalesWorkspaceStore SalesWorkspaceStore,
-    SalesWorkspace SalesWorkspace);
+    SalesWorkspace SalesWorkspace,
+    bool LoadRemoteWorkspaceAfterStartup);

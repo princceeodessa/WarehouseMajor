@@ -9,6 +9,8 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 
 public partial class App : System.Windows.Application
 {
+    private static readonly TimeSpan MainWorkspaceLoadTimeout = TimeSpan.FromSeconds(10);
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -50,9 +52,27 @@ public partial class App : System.Windows.Application
             loadingWindow.SetStatus("Читаю рабочую область из общей базы...");
 
             var workspaceStopwatch = Stopwatch.StartNew();
-            var startupData = await WarehouseAutomatisaion.Desktop.Wpf.MainWindow.LoadStartupDataAsync(startupStatus);
+            var startupDataTask = WarehouseAutomatisaion.Desktop.Wpf.MainWindow.LoadStartupDataAsync(startupStatus);
+            var completedTask = await Task.WhenAny(startupDataTask, Task.Delay(MainWorkspaceLoadTimeout));
+            MainWindowStartupData startupData;
+            if (completedTask == startupDataTask)
+            {
+                startupData = await startupDataTask;
+            }
+            else
+            {
+                _ = startupDataTask.ContinueWith(
+                    task => WriteClientErrorLog(task.Exception!, "App.LoadMainWorkspaceBackground"),
+                    TaskContinuationOptions.OnlyOnFaulted);
+                loadingWindow.SetStatus("Открываю интерфейс. Данные подтянутся в фоне...");
+                startupData = WarehouseAutomatisaion.Desktop.Wpf.MainWindow.CreateDeferredStartupData(startupStatus);
+            }
+
             workspaceStopwatch.Stop();
-            WriteStartupPerformanceLog("LoadMainWorkspace", workspaceStopwatch.Elapsed, startupStatus);
+            WriteStartupPerformanceLog(
+                completedTask == startupDataTask ? "LoadMainWorkspace" : "LoadMainWorkspaceTimeout",
+                workspaceStopwatch.Elapsed,
+                startupStatus);
 
             loadingWindow.SetStatus("Открываю интерфейс...");
             var window = new MainWindow(startupStatus, startupData);
