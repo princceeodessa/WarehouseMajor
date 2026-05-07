@@ -27,6 +27,17 @@ public partial class MainWindow : Window
     private static readonly WpfBrush DefaultNavBackground = WpfBrushes.Transparent;
     private static readonly WpfBrush DefaultNavBorder = BrushFromHex("#E3E8F2");
     private static readonly WpfBrush DefaultNavForeground = BrushFromHex("#1B2740");
+    private static readonly HashSet<string> LazyUnloadSectionKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "sales",
+        "customers",
+        "shipments",
+        "finance",
+        "purchasing",
+        "warehouse",
+        "catalog",
+        "audit"
+    };
 
     private readonly Dictionary<string, SectionDefinition> _sections = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, TabItem> _tabsByKey = new(StringComparer.OrdinalIgnoreCase);
@@ -843,9 +854,14 @@ public partial class MainWindow : Window
             _tabsByKey[sectionKey] = tab;
             WorkspaceTabs.Items.Add(tab);
         }
+        else
+        {
+            EnsureSectionContentLoaded(sectionKey, tab);
+        }
 
         WorkspaceTabs.SelectedItem = tab;
         ApplySelection(sectionKey);
+        ReleaseInactiveSectionContent(sectionKey);
     }
 
     private bool CanOpenSection(string sectionKey)
@@ -885,6 +901,7 @@ public partial class MainWindow : Window
         {
             WorkspaceTabs.SelectedItem = existingTab;
             ApplySelection(key);
+            ReleaseInactiveSectionContent(key);
             return true;
         }
 
@@ -905,6 +922,7 @@ public partial class MainWindow : Window
         WorkspaceTabs.Items.Add(tab);
         WorkspaceTabs.SelectedItem = tab;
         ApplySelection(key);
+        ReleaseInactiveSectionContent(key);
         return true;
     }
 
@@ -971,6 +989,49 @@ public partial class MainWindow : Window
         {
             App.WriteClientErrorLog(exception, $"CreateSectionContent:{section.Key}");
             return CreateSectionErrorContent(section, exception);
+        }
+    }
+
+    private void EnsureSectionContentLoaded(string sectionKey, TabItem tab)
+    {
+        if (tab.Content is not null || !_sections.TryGetValue(sectionKey, out var section))
+        {
+            return;
+        }
+
+        tab.Content = CreateSectionContent(section);
+    }
+
+    private void ReleaseInactiveSectionContent(string selectedKey)
+    {
+        foreach (var pair in _tabsByKey.ToArray())
+        {
+            if (pair.Key.Equals(selectedKey, StringComparison.OrdinalIgnoreCase)
+                || !LazyUnloadSectionKeys.Contains(pair.Key)
+                || pair.Value.Content is null)
+            {
+                continue;
+            }
+
+            DisposeTabContent(pair.Key, pair.Value);
+            pair.Value.Content = null;
+        }
+    }
+
+    private void DisposeTabContent(string sectionKey, TabItem tab)
+    {
+        if (tab.Content is not IDisposable disposable)
+        {
+            return;
+        }
+
+        try
+        {
+            disposable.Dispose();
+        }
+        catch (Exception exception)
+        {
+            App.WriteClientErrorLog(exception, $"DisposeTabContent:{sectionKey}");
         }
     }
 
@@ -1075,10 +1136,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (tab.Content is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
+        DisposeTabContent(sectionKey, tab);
 
         WorkspaceTabs.Items.Remove(tab);
         _tabsByKey.Remove(sectionKey);
@@ -1092,7 +1150,9 @@ public partial class MainWindow : Window
 
         if (WorkspaceTabs.SelectedItem is TabItem selectedTab && selectedTab.Tag is string selectedKey)
         {
+            EnsureSectionContentLoaded(selectedKey, selectedTab);
             ApplySelection(selectedKey);
+            ReleaseInactiveSectionContent(selectedKey);
         }
         else
         {
@@ -1136,7 +1196,9 @@ public partial class MainWindow : Window
     {
         if (WorkspaceTabs.SelectedItem is TabItem selectedTab && selectedTab.Tag is string sectionKey)
         {
+            EnsureSectionContentLoaded(sectionKey, selectedTab);
             ApplySelection(sectionKey);
+            ReleaseInactiveSectionContent(sectionKey);
         }
     }
 
