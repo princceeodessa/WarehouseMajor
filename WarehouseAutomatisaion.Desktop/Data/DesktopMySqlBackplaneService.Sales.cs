@@ -11,6 +11,7 @@ public sealed partial class DesktopMySqlBackplaneService
 {
     private const string SalesModuleCode = "sales";
     private const int MysqlSalesCommandTimeoutSeconds = 90;
+    private const int MysqlSalesCleanupBatchSize = 250;
 
     public DesktopModuleSnapshotRecord<SalesWorkspaceSnapshot>? TryLoadSalesWorkspaceSnapshotRecord()
     {
@@ -339,7 +340,6 @@ public sealed partial class DesktopMySqlBackplaneService
 
         CreateSalesKeepTables(connection, transaction);
         PopulateSalesKeepTables(connection, transaction, customers, orders, invoices, shipments, returns, cashReceipts, operationLog);
-        DeleteMissingSalesRows(connection, transaction);
 
         InsertSalesCustomers(connection, transaction, customers);
         InsertSalesDocuments(
@@ -351,6 +351,7 @@ public sealed partial class DesktopMySqlBackplaneService
             returns);
         InsertSalesCashReceipts(connection, transaction, cashReceipts);
         InsertSalesOperationLog(connection, transaction, operationLog);
+        TryDeleteMissingSalesRows(connection, transaction);
     }
 
     private static void CreateSalesKeepTables(
@@ -398,46 +399,49 @@ public sealed partial class DesktopMySqlBackplaneService
             .Select(entry => EnsureId(entry.Id, $"sales-log|{entry.EntityNumber}|{entry.Action}|{entry.LoggedAt:O}")));
     }
 
-    private static void DeleteMissingSalesRows(
+    private static void TryDeleteMissingSalesRows(
         MySqlConnection connection,
         MySqlTransaction transaction)
     {
-        ExecuteMySqlNonQuery(connection, transaction, """
-            DELETE target
-            FROM app_sales_operation_log target
-            LEFT JOIN tmp_app_sales_keep_operation_log keep_rows ON keep_rows.id = target.id
-            WHERE keep_rows.id IS NULL;
-            """);
-        ExecuteMySqlNonQuery(connection, transaction, """
-            DELETE target
-            FROM app_sales_cash_receipts target
-            LEFT JOIN tmp_app_sales_keep_cash_receipts keep_rows ON keep_rows.id = target.id
-            WHERE keep_rows.id IS NULL;
-            """);
-        ExecuteMySqlNonQuery(connection, transaction, """
-            DELETE target
-            FROM app_sales_document_lines target
-            LEFT JOIN tmp_app_sales_keep_document_lines keep_rows ON keep_rows.id = target.id
-            WHERE keep_rows.id IS NULL;
-            """);
-        ExecuteMySqlNonQuery(connection, transaction, """
-            DELETE target
-            FROM app_sales_documents target
-            LEFT JOIN tmp_app_sales_keep_documents keep_rows ON keep_rows.id = target.id
-            WHERE keep_rows.id IS NULL;
-            """);
-        ExecuteMySqlNonQuery(connection, transaction, """
-            DELETE target
-            FROM app_sales_customer_contacts target
-            LEFT JOIN tmp_app_sales_keep_customer_contacts keep_rows ON keep_rows.id = target.id
-            WHERE keep_rows.id IS NULL;
-            """);
-        ExecuteMySqlNonQuery(connection, transaction, """
-            DELETE target
-            FROM app_sales_customers target
-            LEFT JOIN tmp_app_sales_keep_customers keep_rows ON keep_rows.id = target.id
-            WHERE keep_rows.id IS NULL;
-            """);
+        try
+        {
+            DeleteMissingRowsByKeep(connection, transaction, "app_sales_operation_log", "tmp_app_sales_keep_operation_log");
+            DeleteMissingRowsByKeep(connection, transaction, "app_sales_cash_receipts", "tmp_app_sales_keep_cash_receipts");
+            DeleteMissingRowsByKeep(connection, transaction, "app_sales_document_lines", "tmp_app_sales_keep_document_lines");
+            DeleteMissingRowsByKeep(connection, transaction, "app_sales_documents", "tmp_app_sales_keep_documents");
+            DeleteMissingRowsByKeep(connection, transaction, "app_sales_customer_contacts", "tmp_app_sales_keep_customer_contacts");
+            DeleteMissingRowsByKeep(connection, transaction, "app_sales_customers", "tmp_app_sales_keep_customers");
+        }
+        catch (MySqlException exception) when (exception.Number is 1205 or 1213)
+        {
+            TryWriteErrorLog(new InvalidOperationException(
+                "Sales cleanup skipped because MySQL rows are locked. New and changed sales rows were saved before cleanup.",
+                exception));
+        }
+    }
+
+    private static void DeleteMissingRowsByKeep(
+        MySqlConnection connection,
+        MySqlTransaction transaction,
+        string targetTable,
+        string keepTable)
+    {
+        while (true)
+        {
+            var affectedRows = ExecuteMySqlNonQuery(connection, transaction, $"""
+                DELETE FROM {targetTable}
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM {keepTable} keep_rows
+                    WHERE keep_rows.id = {targetTable}.id
+                )
+                LIMIT {MysqlSalesCleanupBatchSize};
+                """);
+            if (affectedRows < MysqlSalesCleanupBatchSize)
+            {
+                return;
+            }
+        }
     }
 
     private static List<SalesCustomerRecord> LoadSalesCustomers(MySqlConnection connection)
@@ -1652,13 +1656,13 @@ public sealed partial class DesktopMySqlBackplaneService
         }
     }
 
-    private static void ExecuteMySqlNonQuery(
+    private static int ExecuteMySqlNonQuery(
         MySqlConnection connection,
         MySqlTransaction transaction,
         string sql)
     {
         using var command = CreateMySqlCommand(connection, transaction, sql);
-        command.ExecuteNonQuery();
+        return command.ExecuteNonQuery();
     }
 
     private static MySqlCommand CreateMySqlCommand(
