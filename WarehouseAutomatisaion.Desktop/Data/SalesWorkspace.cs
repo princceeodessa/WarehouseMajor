@@ -1653,6 +1653,8 @@ public sealed class SalesCustomerRecord
 
     public BindingList<SalesCustomerContactRecord> Contacts { get; set; } = new();
 
+    public BindingList<SalesCustomerFileRecord> Files { get; set; } = new();
+
     public SalesCustomerRecord Clone()
     {
         return new SalesCustomerRecord
@@ -1682,7 +1684,8 @@ public sealed class SalesCustomerRecord
             Tags = Tags,
             BankAccount = BankAccount,
             Notes = Notes,
-            Contacts = CloneContacts(Contacts)
+            Contacts = CloneContacts(Contacts),
+            Files = CloneFiles(Files)
         };
     }
 
@@ -1713,12 +1716,20 @@ public sealed class SalesCustomerRecord
         BankAccount = source.BankAccount;
         Notes = source.Notes;
         Contacts = CloneContacts(source.Contacts);
+        Files = CloneFiles(source.Files);
     }
 
     private static BindingList<SalesCustomerContactRecord> CloneContacts(IEnumerable<SalesCustomerContactRecord>? contacts)
     {
         return new BindingList<SalesCustomerContactRecord>((contacts ?? Array.Empty<SalesCustomerContactRecord>())
             .Select(contact => contact.Clone())
+            .ToList());
+    }
+
+    private static BindingList<SalesCustomerFileRecord> CloneFiles(IEnumerable<SalesCustomerFileRecord>? files)
+    {
+        return new BindingList<SalesCustomerFileRecord>((files ?? Array.Empty<SalesCustomerFileRecord>())
+            .Select(file => file.Clone())
             .ToList());
     }
 }
@@ -1744,6 +1755,37 @@ public sealed class SalesCustomerContactRecord
             Phone = Phone,
             Email = Email,
             Comment = Comment
+        };
+    }
+}
+
+public sealed class SalesCustomerFileRecord
+{
+    public Guid Id { get; set; }
+
+    public string FileName { get; set; } = string.Empty;
+
+    public string StoredPath { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
+    public DateTime UploadedAt { get; set; }
+
+    public string UploadedBy { get; set; } = string.Empty;
+
+    public long SizeBytes { get; set; }
+
+    public SalesCustomerFileRecord Clone()
+    {
+        return new SalesCustomerFileRecord
+        {
+            Id = Id,
+            FileName = FileName,
+            StoredPath = StoredPath,
+            Description = Description,
+            UploadedAt = UploadedAt,
+            UploadedBy = UploadedBy,
+            SizeBytes = SizeBytes
         };
     }
 }

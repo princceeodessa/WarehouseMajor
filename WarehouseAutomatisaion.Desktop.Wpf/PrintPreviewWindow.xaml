@@ -59,12 +59,14 @@
                 BorderThickness="1"
                 CornerRadius="8"
                 Padding="10">
-            <FlowDocumentReader x:Name="PreviewReader"
-                                ViewingMode="Page"
-                                IsFindEnabled="True"
-                                IsPrintEnabled="False"
-                                Zoom="90"
-                                Background="#FFFFFF" />
+            <FlowDocumentScrollViewer x:Name="PreviewReader"
+                                      IsToolBarVisible="True"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      MinZoom="80"
+                                      MaxZoom="180"
+                                      Zoom="120"
+                                      Background="#FFFFFF" />
         </Border>
 
         <Grid Grid.Row="4">

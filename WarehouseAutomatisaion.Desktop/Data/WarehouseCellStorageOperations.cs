@@ -247,7 +247,8 @@ public static class WarehouseCellStorageOperations
 
         foreach (var stock in warehouseView.StockBalances)
         {
-            if (stock.FreeQuantity <= 0m)
+            var effectiveFreeQuantity = stock.FreeQuantity - CalculatePostedWriteOffQuantity(warehouseWorkspace, stock);
+            if (effectiveFreeQuantity <= 0m)
             {
                 continue;
             }
@@ -256,7 +257,7 @@ public static class WarehouseCellStorageOperations
                 .Where(item => WarehouseMatches(item.Warehouse, stock.Warehouse)
                                && MatchesItem(item.ItemCode, item.ItemName, stock.ItemCode, stock.ItemName))
                 .Sum(item => item.Quantity);
-            var unassignedQuantity = stock.FreeQuantity - addressedQuantity;
+            var unassignedQuantity = effectiveFreeQuantity - addressedQuantity;
             if (unassignedQuantity <= 0m)
             {
                 continue;
@@ -274,6 +275,18 @@ public static class WarehouseCellStorageOperations
         }
 
         return balances.Values.Select(item => item.ToRecord());
+    }
+
+    private static decimal CalculatePostedWriteOffQuantity(
+        OperationalWarehouseWorkspace warehouseWorkspace,
+        WarehouseStockBalanceRecord stock)
+    {
+        return warehouseWorkspace.WriteOffs
+            .Where(writeOff => !IsDraftLike(writeOff.Status))
+            .Where(writeOff => WarehouseMatches(writeOff.SourceWarehouse, stock.Warehouse))
+            .SelectMany(writeOff => writeOff.Lines)
+            .Where(line => MatchesItem(line.ItemCode, line.ItemName, stock.ItemCode, stock.ItemName))
+            .Sum(line => line.Quantity);
     }
 
     private static IEnumerable<WarehouseShipmentPickLineRecord> BuildPickLines(

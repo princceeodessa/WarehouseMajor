@@ -446,7 +446,7 @@
                 <Button x:Name="StockTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="stock" Content="Остатки" />
                 <Button x:Name="TransfersTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="transfers" Content="Перемещения" />
                 <Button x:Name="ReservationsTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="reservations" Content="Резервы" />
-                <Button x:Name="CellStorageTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="cellstorage" Content="Ячейки и отбор" />
+                <Button x:Name="CellStorageTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="cellstorage" Content="Ячейки" />
                 <Button x:Name="ExpenseInvoicesTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="expenseinvoices" Content="Расходные накладные" />
                 <Button x:Name="InventoryTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="inventory" Content="Инвентаризация" />
                 <Button x:Name="WriteOffsTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="writeoffs" Content="Списания" />
@@ -967,6 +967,8 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <WrapPanel Grid.Row="0" Margin="0,0,0,18">
@@ -1069,14 +1071,23 @@
                                 <StackPanel Margin="22,22,22,14">
                                     <TextBlock x:Name="CellSelectedShipmentTitleText" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
                                     <TextBlock x:Name="CellSelectedShipmentSubtitleText" Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
-                                    <Button x:Name="CellOpenShipmentButton"
-                                            Width="150"
-                                            Height="38"
-                                            Margin="0,12,0,0"
-                                            HorizontalAlignment="Left"
-                                            Style="{StaticResource QuickActionButtonStyle}"
-                                            Click="HandleOpenSelectedCellShipmentClick"
-                                            Content="Открыть отгрузку" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                        <Button x:Name="CellPickShipmentButton"
+                                                Width="120"
+                                                Height="38"
+                                                Margin="0,0,10,0"
+                                                HorizontalAlignment="Left"
+                                                Style="{StaticResource QuickActionButtonStyle}"
+                                                Click="HandlePickSelectedCellShipmentClick"
+                                                Content="Собрать" />
+                                        <Button x:Name="CellOpenShipmentButton"
+                                                Width="150"
+                                                Height="38"
+                                                HorizontalAlignment="Left"
+                                                Style="{StaticResource QuickActionButtonStyle}"
+                                                Click="HandleOpenSelectedCellShipmentClick"
+                                                Content="Открыть отгрузку" />
+                                    </StackPanel>
                                 </StackPanel>
 
                                 <DataGrid x:Name="CellPickLinesDataGrid"
@@ -1112,7 +1123,7 @@
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="300" />
+                                <RowDefinition Height="280" />
                             </Grid.RowDefinitions>
 
                             <Grid Margin="22,22,22,14">
@@ -1121,8 +1132,61 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
+                                    <TextBlock Text="Очередь товаров без ячеек" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
+                                    <TextBlock x:Name="UnassignedCellItemsHintText"
+                                               Text="Товары есть на свободном остатке, но не привязаны к адресу хранения."
+                                               Margin="0,6,0,0"
+                                               FontSize="13.5"
+                                               Foreground="#6E7B98"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        Width="140"
+                                        Height="36"
+                                        VerticalAlignment="Top"
+                                        Style="{StaticResource QuickActionButtonStyle}"
+                                        Click="HandlePlaceUnassignedCellClick"
+                                        Content="Разместить" />
+                            </Grid>
+
+                            <DataGrid x:Name="UnassignedCellItemsDataGrid"
+                                      Grid.Row="1"
+                                      Style="{StaticResource StockGridStyle}"
+                                      ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                      RowStyle="{StaticResource GridRowStyle}"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="180" />
+                                    <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="130" />
+                                    <DataGridTextColumn Header="Товар" Binding="{Binding Item}" Width="*" />
+                                    <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityDisplay}" Width="130" />
+                                    <DataGridTextColumn Header="Источник" Binding="{Binding Source}" Width="240" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="3" Padding="0" Margin="0,0,0,18" Style="{StaticResource CardStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="420" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="1.1*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid Grid.ColumnSpan="3" Margin="22,22,22,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
                                     <TextBlock Text="Справочник ячеек" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
-                                    <TextBlock Text="Постоянные адреса склада. QR подготовлен, но рабочие операции могут заполняться вручную." Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
+                                    <TextBlock Text="Постоянные адреса склада, QR-этикетки, сканирование, ревизии и перемещения." Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
                                 </StackPanel>
                                 <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" HorizontalAlignment="Right">
                                     <ComboBox x:Name="StorageCellWarehouseFilterCombo"
@@ -1136,6 +1200,19 @@
                                              Margin="0,0,10,0"
                                              VerticalContentAlignment="Center"
                                              TextChanged="HandleStorageCellSearchChanged" />
+                                    <TextBox x:Name="StorageCellScanBox"
+                                             Width="190"
+                                             Height="36"
+                                             Margin="0,0,10,0"
+                                             VerticalContentAlignment="Center"
+                                             ToolTip="Скан QR ячейки или ввод кода адреса"
+                                             KeyDown="HandleStorageCellScanKeyDown" />
+                                    <Button Width="90"
+                                            Height="36"
+                                            Margin="0,0,8,0"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandleStorageCellScanClick"
+                                            Content="Скан" />
                                     <Button Width="120"
                                             Height="36"
                                             Margin="0,0,8,0"
@@ -1155,6 +1232,38 @@
                                             Style="{StaticResource QuickActionButtonStyle}"
                                             Click="HandleToggleStorageCellClick"
                                             Content="Закрыть" />
+                                    <Button x:Name="ReviseStorageCellButton"
+                                            Width="120"
+                                            Height="36"
+                                            Margin="0,0,8,0"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandleReviseStorageCellClick"
+                                            Content="Ревизия" />
+                                    <Button x:Name="MoveStorageCellButton"
+                                            Width="130"
+                                            Height="36"
+                                            Margin="0,0,8,0"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandleMoveStorageCellClick"
+                                            Content="Переместить" />
+                                    <Button Width="120"
+                                            Height="36"
+                                            Margin="0,0,8,0"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandlePrintStorageCellLabelClick"
+                                            Content="QR / печать" />
+                                    <Button Width="110"
+                                            Height="36"
+                                            Margin="0,0,8,0"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandleExportStorageCellActClick"
+                                            Content="Акт" />
+                                    <Button Width="140"
+                                            Height="36"
+                                            Margin="0,0,8,0"
+                                            Style="{StaticResource QuickActionButtonStyle}"
+                                            Click="HandleImportStorageCellsClick"
+                                            Content="Импорт CSV" />
                                     <Button Width="150"
                                             Height="36"
                                             Style="{StaticResource QuickActionButtonStyle}"
@@ -1165,6 +1274,7 @@
 
                             <DataGrid x:Name="StorageCellsDataGrid"
                                       Grid.Row="1"
+                                      Grid.Column="0"
                                       Style="{StaticResource StockGridStyle}"
                                       ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
                                       RowStyle="{StaticResource GridRowStyle}"
@@ -1183,10 +1293,189 @@
                                     <DataGridTextColumn Header="Комментарий" Binding="{Binding Comment}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
+
+                            <Border Grid.Row="1"
+                                    Grid.Column="2"
+                                    Margin="0,0,18,0"
+                                    Background="#F8FAFF"
+                                    BorderBrush="#E4EAF5"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="14">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="150" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Margin="0,0,0,12">
+                                        <TextBlock x:Name="SelectedStorageCellTitleText"
+                                                   FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#17213A"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock x:Name="SelectedStorageCellSubtitleText"
+                                                   Margin="0,5,0,0"
+                                                   FontSize="12"
+                                                   Foreground="#6E7B98"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <DataGrid x:Name="SelectedStorageCellBalancesDataGrid"
+                                              Grid.Row="1"
+                                              Style="{StaticResource StockGridStyle}"
+                                              ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                              RowStyle="{StaticResource GridRowStyle}"
+                                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="92" />
+                                            <DataGridTextColumn Header="Товар" Binding="{Binding Item}" Width="*" />
+                                            <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityDisplay}" Width="90" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock Grid.Row="2"
+                                               Text="История ячейки"
+                                               Margin="0,12,0,8"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="#17213A" />
+                                    <DataGrid x:Name="SelectedStorageCellHistoryDataGrid"
+                                              Grid.Row="3"
+                                              Style="{StaticResource StockGridStyle}"
+                                              ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                              RowStyle="{StaticResource GridRowStyle}"
+                                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Дата" Binding="{Binding DateText}" Width="84" />
+                                            <DataGridTextColumn Header="Операция" Binding="{Binding Operation}" Width="110" />
+                                            <DataGridTextColumn Header="Документ" Binding="{Binding DocumentNumber}" Width="100" />
+                                            <DataGridTextColumn Header="Товар" Binding="{Binding Item}" Width="*" />
+                                            <DataGridTextColumn Header="+/-" Binding="{Binding QuantityDisplay}" Width="90" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
                         </Grid>
                     </Border>
 
-                    <Border Grid.Row="3" Padding="0" Style="{StaticResource CardStyle}">
+                    <Grid Grid.Row="4" Margin="0,0,0,18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.15*" />
+                            <ColumnDefinition Width="18" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Padding="0" Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="260" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Margin="22,22,22,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Правила размещения" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
+                                        <TextBlock Text="Основные и резервные ячейки, приоритет зон и запрет смешивания категорий." Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                        <Button Width="110"
+                                                Height="36"
+                                                Margin="0,0,8,0"
+                                                Style="{StaticResource QuickActionButtonStyle}"
+                                                Click="HandleAddPlacementRuleClick"
+                                                Content="Новое" />
+                                        <Button Width="120"
+                                                Height="36"
+                                                Margin="0,0,8,0"
+                                                Style="{StaticResource QuickActionButtonStyle}"
+                                                Click="HandleEditPlacementRuleClick"
+                                                Content="Изменить" />
+                                        <Button Width="110"
+                                                Height="36"
+                                                Style="{StaticResource QuickActionButtonStyle}"
+                                                Click="HandleDeletePlacementRuleClick"
+                                                Content="Удалить" />
+                                    </WrapPanel>
+                                </Grid>
+
+                                <DataGrid x:Name="PlacementRulesDataGrid"
+                                          Grid.Row="1"
+                                          Style="{StaticResource StockGridStyle}"
+                                          ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                          RowStyle="{StaticResource GridRowStyle}"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Товар / категория" Binding="{Binding Subject}" Width="*" />
+                                        <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="150" />
+                                        <DataGridTextColumn Header="Основная" Binding="{Binding PrimaryCell}" Width="110" />
+                                        <DataGridTextColumn Header="Резерв" Binding="{Binding ReserveCell}" Width="110" />
+                                        <DataGridTextColumn Header="Зоны" Binding="{Binding ZonePriority}" Width="150" />
+                                        <DataGridTextColumn Header="Смешивание" Binding="{Binding MixingRule}" Width="130" />
+                                        <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="100" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Column="2" Padding="0" Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="260" />
+                                </Grid.RowDefinitions>
+
+                                <Grid Margin="22,22,22,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Журнал ошибок ячеек" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />
+                                        <TextBlock Text="Ошибки операций и проверки целостности сохраняются отдельным списком." Margin="0,6,0,0" FontSize="13.5" Foreground="#6E7B98" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                        <Button Width="110"
+                                                Height="36"
+                                                Margin="0,0,8,0"
+                                                Style="{StaticResource QuickActionButtonStyle}"
+                                                Click="HandleAuditCellStorageIssuesClick"
+                                                Content="Проверить" />
+                                        <Button Width="100"
+                                                Height="36"
+                                                Style="{StaticResource QuickActionButtonStyle}"
+                                                Click="HandleClearCellStorageIssuesClick"
+                                                Content="Очистить" />
+                                    </WrapPanel>
+                                </Grid>
+
+                                <DataGrid x:Name="CellStorageIssuesDataGrid"
+                                          Grid.Row="1"
+                                          Style="{StaticResource StockGridStyle}"
+                                          ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                          RowStyle="{StaticResource GridRowStyle}"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Дата" Binding="{Binding DateText}" Width="100" />
+                                        <DataGridTextColumn Header="Важность" Binding="{Binding Severity}" Width="100" />
+                                        <DataGridTextColumn Header="Операция" Binding="{Binding Operation}" Width="120" />
+                                        <DataGridTextColumn Header="Ячейка" Binding="{Binding Cell}" Width="120" />
+                                        <DataGridTextColumn Header="Товар" Binding="{Binding Item}" Width="180" />
+                                        <DataGridTextColumn Header="Ошибка" Binding="{Binding Message}" Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <Border Grid.Row="5" Padding="0" Style="{StaticResource CardStyle}">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />

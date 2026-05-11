@@ -473,7 +473,8 @@ public sealed partial class DesktopMySqlBackplaneService
                 responsible_name,
                 tags,
                 bank_account,
-                notes
+                notes,
+                customer_files_json
             FROM app_sales_customers
             ORDER BY name, code;
             """))
@@ -508,6 +509,7 @@ public sealed partial class DesktopMySqlBackplaneService
                     Tags = ReadString(reader, "tags"),
                     BankAccount = ReadString(reader, "bank_account"),
                     Notes = ReadString(reader, "notes"),
+                    Files = DeserializeCustomerFiles(ReadString(reader, "customer_files_json")),
                     Contacts = new BindingList<SalesCustomerContactRecord>()
                 });
             }
@@ -843,7 +845,8 @@ public sealed partial class DesktopMySqlBackplaneService
                 responsible_name,
                 tags,
                 bank_account,
-                notes
+                notes,
+                customer_files_json
             )
             VALUES (
                 @id,
@@ -870,7 +873,8 @@ public sealed partial class DesktopMySqlBackplaneService
                 @responsible_name,
                 @tags,
                 @bank_account,
-                @notes
+                @notes,
+                @customer_files_json
             )
             ON DUPLICATE KEY UPDATE
                 code = VALUES(code),
@@ -896,7 +900,8 @@ public sealed partial class DesktopMySqlBackplaneService
                 responsible_name = VALUES(responsible_name),
                 tags = VALUES(tags),
                 bank_account = VALUES(bank_account),
-                notes = VALUES(notes);
+                notes = VALUES(notes),
+                customer_files_json = VALUES(customer_files_json);
             """);
         AddSalesCustomerParameters(customerCommand);
 
@@ -960,6 +965,7 @@ public sealed partial class DesktopMySqlBackplaneService
             SetParameter(customerCommand, "@tags", customer.Tags);
             SetParameter(customerCommand, "@bank_account", customer.BankAccount);
             SetParameter(customerCommand, "@notes", customer.Notes);
+            SetParameter(customerCommand, "@customer_files_json", SerializeCustomerFiles(customer.Files));
             customerCommand.ExecuteNonQuery();
 
             var lineNo = 1;
@@ -1462,6 +1468,34 @@ public sealed partial class DesktopMySqlBackplaneService
         }
     }
 
+    private static BindingList<SalesCustomerFileRecord> DeserializeCustomerFiles(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return new BindingList<SalesCustomerFileRecord>();
+        }
+
+        try
+        {
+            var files = JsonSerializer.Deserialize<List<SalesCustomerFileRecord>>(json, JsonOptions) ?? [];
+            return new BindingList<SalesCustomerFileRecord>(files);
+        }
+        catch
+        {
+            return new BindingList<SalesCustomerFileRecord>();
+        }
+    }
+
+    private static string SerializeCustomerFiles(IEnumerable<SalesCustomerFileRecord>? files)
+    {
+        var rows = (files ?? Array.Empty<SalesCustomerFileRecord>())
+            .Select(file => file.Clone())
+            .ToList();
+        return rows.Count == 0
+            ? "[]"
+            : JsonSerializer.Serialize(rows, JsonOptions);
+    }
+
     private static void AddSalesCustomerParameters(MySqlCommand command)
     {
         foreach (var name in new[]
@@ -1490,7 +1524,8 @@ public sealed partial class DesktopMySqlBackplaneService
                      "@responsible_name",
                      "@tags",
                      "@bank_account",
-                     "@notes"
+                     "@notes",
+                     "@customer_files_json"
                  })
         {
             AddParameter(command, name);
@@ -1693,7 +1728,9 @@ public sealed partial class DesktopMySqlBackplaneService
 
     private static BindingList<SalesOrderLineRecord> ToBindingList(IEnumerable<SalesOrderLineRecord> source)
     {
-        return new BindingList<SalesOrderLineRecord>(source.Select(item => item.Clone()).ToList());
+        return source is IList<SalesOrderLineRecord> list
+            ? new BindingList<SalesOrderLineRecord>(list)
+            : new BindingList<SalesOrderLineRecord>(source.ToList());
     }
 
     private static Guid EnsureId(Guid id, string fallbackSeed)
@@ -1797,6 +1834,7 @@ public sealed partial class DesktopMySqlBackplaneService
             tags VARCHAR(512) NULL,
             bank_account VARCHAR(128) NULL,
             notes TEXT NULL,
+            customer_files_json LONGTEXT NULL,
             created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
             updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
             CONSTRAINT pk_app_sales_customers PRIMARY KEY (id)

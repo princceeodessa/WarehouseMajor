@@ -2,9 +2,9 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Width="760"
-        Height="620"
+        Height="720"
         MinWidth="720"
-        MinHeight="560"
+        MinHeight="640"
         WindowStartupLocation="CenterOwner"
         Background="#F7F9FD">
     <Window.Resources>
@@ -41,6 +41,7 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -100,6 +101,34 @@
                                  Style="{StaticResource DialogMultilineTextBoxStyle}"
                                  Height="82"
                                  VerticalScrollBarVisibility="Hidden" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,16,0,0">
+                        <TextBlock Text="Ячейки хранения" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBlock x:Name="CellBalancesHintText"
+                                   Margin="0,0,0,8"
+                                   FontSize="12.5"
+                                   Foreground="#6E7B98"
+                                   TextWrapping="Wrap" />
+                        <DataGrid x:Name="CellBalancesGrid"
+                                  Height="130"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  HorizontalGridLinesBrush="#EEF2FA"
+                                  BorderThickness="1"
+                                  BorderBrush="#E4EAF5"
+                                  Background="#FFFFFF">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Ячейка" Binding="{Binding Cell}" Width="130" />
+                                <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="150" />
+                                <DataGridTextColumn Header="Кол-во" Binding="{Binding Quantity}" Width="100" />
+                                <DataGridTextColumn Header="Источник" Binding="{Binding Source}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
                     </StackPanel>
                 </Grid>
             </ScrollViewer>

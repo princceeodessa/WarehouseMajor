@@ -11,7 +11,7 @@ public sealed class WarehouseOperationalWorkspaceStore
     {
         WriteIndented = false
     };
-    private readonly DesktopMySqlBackplaneService? _backplane;
+    private DesktopMySqlBackplaneService? _backplane;
     private readonly bool _serverModeEnabled;
     private DesktopModuleSnapshotMetadata? _remoteMetadata;
 
@@ -29,7 +29,7 @@ public sealed class WarehouseOperationalWorkspaceStore
 
     public bool IsRemoteDatabaseRequired => _serverModeEnabled;
 
-    public bool IsServerModeEnabled => _serverModeEnabled && _backplane is not null;
+    public bool IsServerModeEnabled => _serverModeEnabled;
 
     public static WarehouseOperationalWorkspaceStore CreateDefault()
     {
@@ -45,30 +45,31 @@ public sealed class WarehouseOperationalWorkspaceStore
         EnsureBackplaneReady(currentOperator);
 
         var workspace = OperationalWarehouseWorkspace.Create(currentOperator, salesWorkspace);
-        _backplane?.TryEnsureUserProfile(currentOperator);
+        TryGetBackplane()?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = _backplane?.TryLoadWarehouseWorkspaceSnapshotRecord();
+        var backplaneRecord = TryGetBackplane()?.TryLoadWarehouseWorkspaceSnapshotRecord();
         if (backplaneRecord is not null)
         {
             var backplaneSnapshot = backplaneRecord.Snapshot;
             _remoteMetadata = backplaneRecord.Metadata;
+            if (TryPromoteLocalSnapshotIfNewer(backplaneRecord.Metadata, currentOperator, out var promotedSnapshot)
+                && promotedSnapshot is not null)
+            {
+                backplaneSnapshot = promotedSnapshot;
+            }
+
             var persistedFromMySql = backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
             MergeWorkspace(workspace, persistedFromMySql);
             return workspace;
         }
 
-        var legacyBackplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<WarehouseWorkspaceSnapshot>("warehouse");
+        var legacyBackplaneRecord = TryGetBackplane()?.TryLoadModuleSnapshotRecord<WarehouseWorkspaceSnapshot>("warehouse");
         if (legacyBackplaneRecord is not null)
         {
             var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
             var persistedFromMySql = backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
             MergeWorkspace(workspace, persistedFromMySql);
             TrySaveToBackplane(backplaneSnapshot, currentOperator);
-            return workspace;
-        }
-
-        if (_serverModeEnabled)
-        {
             return workspace;
         }
 
@@ -90,10 +91,6 @@ public sealed class WarehouseOperationalWorkspaceStore
             MergeWorkspace(workspace, persisted);
             var backplane = _backplane;
             var savedToBackplane = backplane is not null && TrySaveToBackplane(snapshot, currentOperator);
-            if (!savedToBackplane && _serverModeEnabled)
-            {
-                throw CreateRemoteSaveException("склада");
-            }
 
             return workspace;
         }
@@ -109,9 +106,9 @@ public sealed class WarehouseOperationalWorkspaceStore
         IReadOnlyList<string>? warehouses = null)
     {
         EnsureBackplaneReady(currentOperator);
-        _backplane?.TryEnsureUserProfile(currentOperator);
+        TryGetBackplane()?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = _backplane?.TryLoadWarehouseWorkspaceSnapshotRecord();
+        var backplaneRecord = TryGetBackplane()?.TryLoadWarehouseWorkspaceSnapshotRecord();
         if (backplaneRecord is not null)
         {
             var backplaneSnapshot = backplaneRecord.Snapshot;
@@ -119,17 +116,12 @@ public sealed class WarehouseOperationalWorkspaceStore
             return backplaneSnapshot.ToWorkspace(currentOperator, catalogItems, warehouses);
         }
 
-        var legacyBackplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<WarehouseWorkspaceSnapshot>("warehouse");
+        var legacyBackplaneRecord = TryGetBackplane()?.TryLoadModuleSnapshotRecord<WarehouseWorkspaceSnapshot>("warehouse");
         if (legacyBackplaneRecord is not null)
         {
             var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
             TrySaveToBackplane(backplaneSnapshot, currentOperator);
             return backplaneSnapshot.ToWorkspace(currentOperator, catalogItems, warehouses);
-        }
-
-        if (_serverModeEnabled)
-        {
-            return null;
         }
 
         if (!File.Exists(StoragePath))
@@ -164,10 +156,6 @@ public sealed class WarehouseOperationalWorkspaceStore
             return;
         }
 
-        if (_serverModeEnabled)
-        {
-            throw CreateRemoteSaveException("склада");
-        }
 
         var tempPath = $"{StoragePath}.tmp";
         using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
@@ -185,12 +173,44 @@ public sealed class WarehouseOperationalWorkspaceStore
             return;
         }
 
+        if (TryGetBackplane() is null)
+        {
+            return;
+        }
+
         if (_backplane is null)
         {
             throw new InvalidOperationException("Включен режим общей БД, но подключение к серверу недоступно. Локальная загрузка склада отключена.");
         }
 
-        _backplane.EnsureReady(currentOperator);
+        try
+        {
+            _backplane.EnsureReady(currentOperator);
+        }
+        catch
+        {
+        }
+    }
+
+    private DesktopMySqlBackplaneService? TryGetBackplane()
+    {
+        if (!_serverModeEnabled)
+        {
+            return _backplane;
+        }
+
+        if (_backplane?.IsConnectionHealthy == true)
+        {
+            return _backplane;
+        }
+
+        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
+        if (backplane is not null)
+        {
+            _backplane = backplane;
+        }
+
+        return _backplane?.IsConnectionHealthy == true ? _backplane : null;
     }
 
     private static InvalidOperationException CreateRemoteSaveException(string moduleName)
@@ -198,15 +218,77 @@ public sealed class WarehouseOperationalWorkspaceStore
         return new InvalidOperationException($"Не удалось сохранить данные {moduleName} в серверную БД. Локальное сохранение отключено для общего режима.");
     }
 
+    private bool TryPromoteLocalSnapshotIfNewer(
+        DesktopModuleSnapshotMetadata? remoteMetadata,
+        string currentOperator,
+        out WarehouseWorkspaceSnapshot? promotedSnapshot)
+    {
+        promotedSnapshot = null;
+        if (!_serverModeEnabled || !ShouldPromoteLocalSnapshot(remoteMetadata))
+        {
+            return false;
+        }
+
+        if (!TryReadLocalSnapshot(out var localSnapshot) || localSnapshot is null)
+        {
+            return false;
+        }
+
+        if (!TrySaveToBackplane(localSnapshot, currentOperator))
+        {
+            return false;
+        }
+
+        promotedSnapshot = localSnapshot;
+        return true;
+    }
+
+    private bool ShouldPromoteLocalSnapshot(DesktopModuleSnapshotMetadata? remoteMetadata)
+    {
+        if (!File.Exists(StoragePath))
+        {
+            return false;
+        }
+
+        if (remoteMetadata is null)
+        {
+            return true;
+        }
+
+        var localUpdatedAtUtc = File.GetLastWriteTimeUtc(StoragePath);
+        return localUpdatedAtUtc > remoteMetadata.UpdatedAtUtc.AddSeconds(1);
+    }
+
+    private bool TryReadLocalSnapshot(out WarehouseWorkspaceSnapshot? snapshot)
+    {
+        snapshot = null;
+        try
+        {
+            if (!File.Exists(StoragePath))
+            {
+                return false;
+            }
+
+            var json = File.ReadAllText(StoragePath, Encoding.UTF8);
+            snapshot = JsonSerializer.Deserialize<WarehouseWorkspaceSnapshot>(json, SerializerOptions);
+            return snapshot is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private bool TrySaveToBackplane(WarehouseWorkspaceSnapshot snapshot, string currentOperator)
     {
-        if (_backplane is null)
+        var backplane = TryGetBackplane();
+        if (backplane is null)
         {
             return false;
         }
 
         var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
-        var result = _backplane.TrySaveWarehouseWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
+        var result = backplane.TrySaveWarehouseWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
         if (result.Succeeded)
         {
             _remoteMetadata = result.Metadata;
@@ -218,14 +300,14 @@ public sealed class WarehouseOperationalWorkspaceStore
             return false;
         }
 
-        var latest = _backplane.TryLoadWarehouseWorkspaceSnapshotRecord();
+        var latest = backplane.TryLoadWarehouseWorkspaceSnapshotRecord();
         if (latest is null)
         {
             return false;
         }
 
         var merged = MergeSnapshots(latest.Snapshot, snapshot);
-        var retry = _backplane.TrySaveWarehouseWorkspaceSnapshot(merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
+        var retry = backplane.TrySaveWarehouseWorkspaceSnapshot(merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
         if (!retry.Succeeded)
         {
             throw new InvalidOperationException("Данные склада на сервере изменились другим рабочим местом. Обновите данные и повторите действие.");
@@ -257,6 +339,8 @@ public sealed class WarehouseOperationalWorkspaceStore
         MergeDocuments(target.InventoryCounts, persisted.InventoryCounts);
         MergeDocuments(target.WriteOffs, persisted.WriteOffs);
         MergeStorageCells(target.StorageCells, persisted.StorageCells);
+        MergePlacementRules(target.PlacementRules, persisted.PlacementRules);
+        MergeCellStorageIssues(target.CellStorageIssues, persisted.CellStorageIssues);
         MergeOperationLog(target.OperationLog, persisted.OperationLog);
 
         target.CurrentOperator = string.IsNullOrWhiteSpace(persisted.CurrentOperator)
@@ -369,6 +453,54 @@ public sealed class WarehouseOperationalWorkspaceStore
         target.Comment = FirstNonEmpty(source.Comment, target.Comment);
     }
 
+    private static void MergePlacementRules(
+        BindingList<WarehouseCellPlacementRuleRecord> target,
+        IEnumerable<WarehouseCellPlacementRuleRecord> persistedRules)
+    {
+        var targetByKey = target
+            .Select(item => (Key: BuildPlacementRuleKey(item), Item: item))
+            .Where(item => !string.IsNullOrWhiteSpace(item.Key))
+            .ToDictionary(item => item.Key, item => item.Item, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var persisted in persistedRules)
+        {
+            var key = BuildPlacementRuleKey(persisted);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            if (targetByKey.TryGetValue(key, out var current))
+            {
+                current.CopyFrom(persisted);
+                continue;
+            }
+
+            var clone = persisted.Clone();
+            target.Add(clone);
+            targetByKey[key] = clone;
+        }
+    }
+
+    private static void MergeCellStorageIssues(
+        BindingList<WarehouseCellIntegrityIssueRecord> target,
+        IEnumerable<WarehouseCellIntegrityIssueRecord> persistedIssues)
+    {
+        var merged = target
+            .Concat(persistedIssues.Select(item => item.Clone()))
+            .GroupBy(BuildCellStorageIssueKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderByDescending(item => item.CreatedAt).First())
+            .OrderByDescending(item => item.CreatedAt)
+            .Take(500)
+            .ToArray();
+
+        target.Clear();
+        foreach (var issue in merged)
+        {
+            target.Add(issue);
+        }
+    }
+
     private static OperationalWarehouseDocumentRecord MergeDocument(
         OperationalWarehouseDocumentRecord runtime,
         OperationalWarehouseDocumentRecord persisted)
@@ -422,6 +554,16 @@ public sealed class WarehouseOperationalWorkspaceStore
         return OperationalWarehouseWorkspace.BuildStorageCellKey(cell);
     }
 
+    private static string BuildPlacementRuleKey(WarehouseCellPlacementRuleRecord rule)
+    {
+        return OperationalWarehouseWorkspace.BuildPlacementRuleKey(rule);
+    }
+
+    private static string BuildCellStorageIssueKey(WarehouseCellIntegrityIssueRecord issue)
+    {
+        return OperationalWarehouseWorkspace.BuildCellStorageIssueKey(issue);
+    }
+
     private static bool IsLocalSource(string sourceLabel)
     {
         return sourceLabel.Contains("локаль", StringComparison.OrdinalIgnoreCase)
@@ -461,6 +603,11 @@ public sealed class WarehouseOperationalWorkspaceStore
             InventoryCounts = MergeRecords(server.InventoryCounts, local.InventoryCounts, BuildDocumentKey, item => item.Clone()),
             WriteOffs = MergeRecords(server.WriteOffs, local.WriteOffs, BuildDocumentKey, item => item.Clone()),
             StorageCells = MergeRecords(server.StorageCells, local.StorageCells, BuildStorageCellKey, item => item.Clone()),
+            PlacementRules = MergeRecords(server.PlacementRules, local.PlacementRules, BuildPlacementRuleKey, item => item.Clone()),
+            CellStorageIssues = MergeRecords(server.CellStorageIssues, local.CellStorageIssues, BuildCellStorageIssueKey, item => item.Clone())
+                .OrderByDescending(item => item.CreatedAt)
+                .Take(500)
+                .ToList(),
             OperationLog = server.OperationLog
                 .Concat(local.OperationLog)
                 .GroupBy(item => item.Id == Guid.Empty ? $"{item.EntityType}|{item.EntityNumber}|{item.Action}|{item.LoggedAt:O}" : item.Id.ToString("N"), StringComparer.OrdinalIgnoreCase)
@@ -524,6 +671,10 @@ public sealed class WarehouseOperationalWorkspaceStore
 
         public List<WarehouseStorageCellRecord> StorageCells { get; set; } = [];
 
+        public List<WarehouseCellPlacementRuleRecord> PlacementRules { get; set; } = [];
+
+        public List<WarehouseCellIntegrityIssueRecord> CellStorageIssues { get; set; } = [];
+
         public List<WarehouseOperationLogEntry> OperationLog { get; set; } = [];
 
         public static WarehouseWorkspaceSnapshot FromWorkspace(OperationalWarehouseWorkspace workspace)
@@ -535,6 +686,8 @@ public sealed class WarehouseOperationalWorkspaceStore
                 InventoryCounts = workspace.InventoryCounts.Select(item => item.Clone()).ToList(),
                 WriteOffs = workspace.WriteOffs.Select(item => item.Clone()).ToList(),
                 StorageCells = workspace.StorageCells.Select(item => item.Clone()).ToList(),
+                PlacementRules = workspace.PlacementRules.Select(item => item.Clone()).ToList(),
+                CellStorageIssues = workspace.CellStorageIssues.Select(item => item.Clone()).ToList(),
                 OperationLog = workspace.OperationLog.Select(item => item.Clone()).ToList()
             };
         }
@@ -565,6 +718,8 @@ public sealed class WarehouseOperationalWorkspaceStore
             }
 
             MergeStorageCells(workspace.StorageCells, StorageCells);
+            MergePlacementRules(workspace.PlacementRules, PlacementRules);
+            MergeCellStorageIssues(workspace.CellStorageIssues, CellStorageIssues);
 
             foreach (var logEntry in OperationLog)
             {

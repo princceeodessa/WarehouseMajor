@@ -47,11 +47,12 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
 
     private readonly SalesWorkspace _salesWorkspace;
     private readonly WarehouseOperationalWorkspaceStore _store;
-    private readonly OperationalWarehouseWorkspace _workspace;
     private readonly PurchasingOperationalWorkspaceStore _purchasingStore;
 
+    private OperationalWarehouseWorkspace _workspace;
     private WarehouseWorkspace _runtimeView;
     private OperationalPurchasingWorkspace _purchasingWorkspace;
+    private CatalogWorkspace? _catalogWorkspaceForRules;
     private WarehouseCellStorageSnapshot _cellStorageSnapshot = WarehouseCellStorageSnapshot.Empty;
     private string _activeSection = StockSection;
     private bool _syncingSearch;
@@ -59,6 +60,8 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     private bool _suppressStorageCellFilterEvents;
     private bool _persistWarningShown;
     private bool _salesPersistWarningShown;
+    private bool _operationalWorkspacesLoaded;
+    private bool _operationalWorkspacesLoading;
     private int _stockPage = 1;
     private int _documentsPage = 1;
     private WarehouseStockItemViewModel[] _filteredStockItems = Array.Empty<WarehouseStockItemViewModel>();
@@ -71,13 +74,9 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     {
         _salesWorkspace = salesWorkspace;
         _store = WarehouseOperationalWorkspaceStore.CreateDefault();
-        _workspace = _store.LoadOrCreate(
-            string.IsNullOrWhiteSpace(salesWorkspace.CurrentOperator) ? Environment.UserName : salesWorkspace.CurrentOperator,
-            salesWorkspace);
+        _workspace = OperationalWarehouseWorkspace.Create(GetCurrentOperator(), salesWorkspace);
         _purchasingStore = PurchasingOperationalWorkspaceStore.CreateDefault();
-        _purchasingWorkspace = _purchasingStore.LoadOrCreate(
-            string.IsNullOrWhiteSpace(salesWorkspace.CurrentOperator) ? Environment.UserName : salesWorkspace.CurrentOperator,
-            salesWorkspace);
+        _purchasingWorkspace = OperationalPurchasingWorkspace.Create(GetCurrentOperator(), salesWorkspace);
         _runtimeView = WarehouseWorkspace.Create(salesWorkspace);
 
         InitializeComponent();
@@ -138,7 +137,45 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     private void HandleLoaded(object sender, RoutedEventArgs e)
     {
         Loaded -= HandleLoaded;
-        Dispatcher.BeginInvoke(RefreshAll, System.Windows.Threading.DispatcherPriority.Background);
+        Dispatcher.BeginInvoke(() =>
+        {
+            RefreshAll();
+            _ = LoadOperationalWorkspacesAsync();
+        }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private async Task LoadOperationalWorkspacesAsync()
+    {
+        if (_operationalWorkspacesLoaded || _operationalWorkspacesLoading)
+        {
+            return;
+        }
+
+        _operationalWorkspacesLoading = true;
+        var currentOperator = GetCurrentOperator();
+
+        try
+        {
+            var warehouseTask = Task.Run(() => _store.LoadOrCreate(currentOperator, _salesWorkspace));
+            var purchasingTask = Task.Run(() => _purchasingStore.LoadOrCreate(currentOperator, _salesWorkspace));
+            await Task.WhenAll(warehouseTask, purchasingTask);
+
+            _workspace.Changed -= HandleWorkspaceChanged;
+            _workspace = warehouseTask.Result;
+            _workspace.Changed += HandleWorkspaceChanged;
+            _purchasingWorkspace = purchasingTask.Result;
+            _operationalWorkspacesLoaded = true;
+
+            RefreshAll();
+        }
+        catch (Exception exception)
+        {
+            ShowTransientWarning($"Не удалось загрузить складские данные из БД: {exception.Message}");
+        }
+        finally
+        {
+            _operationalWorkspacesLoading = false;
+        }
     }
 
     private void HandleSizeChanged(object sender, SizeChangedEventArgs e)
@@ -177,7 +214,7 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         menu.Items.Add(CreateMenuItem("Инвентаризация", (_, _) => CreateInventory()));
         menu.Items.Add(CreateMenuItem("Списание", (_, _) => CreateWriteOff()));
         menu.Items.Add(CreateMenuItem("Резервы", (_, _) => SwitchSection(ReservationsSection)));
-        menu.Items.Add(CreateMenuItem("Ячейки и отбор", (_, _) => SwitchSection(CellStorageSection)));
+        menu.Items.Add(CreateMenuItem("Ячейки", (_, _) => SwitchSection(CellStorageSection)));
         menu.Items.Add(CreateMenuItem("Расходные накладные", (_, _) => SwitchSection(ExpenseInvoicesSection)));
         menu.Items.Add(new Separator());
         menu.Items.Add(CreateMenuItem("Сбросить фильтры", (_, _) => ResetStockFilters(clearSearch: true)));
@@ -196,9 +233,6 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     {
         _workspace.RefreshReferenceData(_salesWorkspace);
         _runtimeView = WarehouseWorkspace.Create(_salesWorkspace);
-        _purchasingWorkspace = _purchasingStore.LoadOrCreate(
-            string.IsNullOrWhiteSpace(_salesWorkspace.CurrentOperator) ? Environment.UserName : _salesWorkspace.CurrentOperator,
-            _salesWorkspace);
         _cellStorageSnapshot = WarehouseCellStorageOperations.Build(
             _salesWorkspace,
             _runtimeView,
@@ -236,7 +270,7 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         InventoryMetricText.Text = (_workspace.InventoryCounts.Count(item =>
                 !EqualsUi(item.Status, "Проведена"))
             + _workspace.WriteOffs.Count(item =>
-                !EqualsUi(item.Status, "Проведена")))
+                !EqualsUi(item.Status, "Списано")))
             .ToString("N0", RuCulture);
     }
 
@@ -414,12 +448,39 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         CellShipmentsDataGrid.SelectedItem = selected;
         RefreshSelectedCellShipment(selected);
 
+        var unassignedRows = GetUnassignedCellBalances()
+            .Select(WarehouseCellBalanceViewModel.Create)
+            .ToArray();
+        UnassignedCellItemsDataGrid.ItemsSource = unassignedRows;
+        UnassignedCellItemsHintText.Text = unassignedRows.Length == 0
+            ? "Все свободные остатки привязаны к адресам хранения."
+            : $"Товары есть на свободном остатке, но не привязаны к адресу хранения. Строк: {unassignedRows.Length:N0}.";
+
         CellBalancesDataGrid.ItemsSource = _cellStorageSnapshot.CellBalances
             .Select(WarehouseCellBalanceViewModel.Create)
             .ToArray();
 
+        RefreshPlacementRuleItems();
+        RefreshCellStorageIssueItems();
         RefreshStorageCellFilters();
         RefreshStorageCellItems();
+    }
+
+    private void RefreshPlacementRuleItems()
+    {
+        PlacementRulesDataGrid.ItemsSource = _workspace.PlacementRules
+            .OrderBy(item => item.Warehouse, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.DisplayKey, StringComparer.CurrentCultureIgnoreCase)
+            .Select(WarehouseCellPlacementRuleViewModel.Create)
+            .ToArray();
+    }
+
+    private void RefreshCellStorageIssueItems()
+    {
+        CellStorageIssuesDataGrid.ItemsSource = _workspace.CellStorageIssues
+            .OrderByDescending(item => item.CreatedAt)
+            .Select(WarehouseCellIssueViewModel.Create)
+            .ToArray();
     }
 
     private IEnumerable<WarehouseTodayShipmentRecord> GetFilteredCellShipments()
@@ -504,12 +565,14 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
             CellSelectedShipmentTitleText.Text = "Отгрузка не выбрана";
             CellSelectedShipmentSubtitleText.Text = "На сегодня нет активных отгрузок или они уже закрыты.";
             CellPickLinesDataGrid.ItemsSource = Array.Empty<WarehouseCellPickLineViewModel>();
+            CellPickShipmentButton.IsEnabled = false;
             CellOpenShipmentButton.IsEnabled = false;
             return;
         }
 
         CellSelectedShipmentTitleText.Text = $"{shipment.Number} / заказ {shipment.SalesOrderNumber}";
         CellSelectedShipmentSubtitleText.Text = $"{shipment.Customer} / {shipment.Warehouse} / {shipment.Readiness} / нужно {shipment.RequiredDisplay}, дефицит {shipment.ShortageDisplay}";
+        CellPickShipmentButton.IsEnabled = true;
         CellOpenShipmentButton.IsEnabled = true;
         CellPickLinesDataGrid.ItemsSource = _cellStorageSnapshot.PickLines
             .Where(item => item.ShipmentId == shipment.ShipmentId)
@@ -1161,10 +1224,717 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         return (StorageCellsDataGrid.SelectedItem as WarehouseStorageCellViewModel)?.Record;
     }
 
+    private IEnumerable<WarehouseCellBalanceRecord> GetStorageCellBalances(WarehouseStorageCellRecord cell)
+    {
+        return _cellStorageSnapshot.CellBalances
+            .Where(item => item.IsAddressed)
+            .Where(item => item.Quantity > 0m)
+            .Where(item => Ui(item.Warehouse).Equals(Ui(cell.Warehouse), StringComparison.OrdinalIgnoreCase))
+            .Where(item => Ui(item.Cell).Equals(Ui(cell.Code), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(item => Ui(item.ItemName), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => Ui(item.ItemCode), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private IEnumerable<WarehouseCellBalanceRecord> GetUnassignedCellBalances()
+    {
+        return _cellStorageSnapshot.CellBalances
+            .Where(item => !item.IsAddressed)
+            .Where(item => item.Quantity > 0m)
+            .OrderBy(item => Ui(item.Warehouse), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => Ui(item.ItemName), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => Ui(item.ItemCode), StringComparer.OrdinalIgnoreCase);
+    }
+
     private void RefreshStorageCellActions()
     {
         var selected = GetSelectedStorageCell();
         ToggleStorageCellButton.Content = selected?.IsActive == false ? "Активировать" : "Закрыть";
+        ToggleStorageCellButton.IsEnabled = selected is not null;
+        ReviseStorageCellButton.Content = "Ревизия";
+        ReviseStorageCellButton.IsEnabled = selected is not null && selected.IsActive;
+        MoveStorageCellButton.IsEnabled = selected is not null && selected.IsActive;
+
+        if (selected is null)
+        {
+            SelectedStorageCellTitleText.Text = "Ячейка не выбрана";
+            SelectedStorageCellSubtitleText.Text = "Выберите ячейку, чтобы увидеть товары внутри и провести ревизию.";
+            SelectedStorageCellBalancesDataGrid.ItemsSource = Array.Empty<WarehouseCellBalanceViewModel>();
+            SelectedStorageCellHistoryDataGrid.ItemsSource = Array.Empty<WarehouseCellHistoryViewModel>();
+            return;
+        }
+
+        var cellBalances = GetStorageCellBalances(selected).ToArray();
+        var balanceRows = cellBalances
+            .Select(WarehouseCellBalanceViewModel.Create)
+            .ToArray();
+        var historyRows = BuildStorageCellHistory(selected)
+            .Select(WarehouseCellHistoryViewModel.Create)
+            .ToArray();
+
+        SelectedStorageCellTitleText.Text = $"{Ui(selected.Code)} / {Ui(selected.Warehouse)}";
+        SelectedStorageCellSubtitleText.Text = balanceRows.Length == 0
+            ? "В этой ячейке нет адресованных остатков."
+            : $"Позиций: {balanceRows.Length:N0}, всего: {cellBalances.Sum(item => item.Quantity):N0}.";
+        SelectedStorageCellBalancesDataGrid.Columns[0].Header = "Код";
+        SelectedStorageCellBalancesDataGrid.Columns[1].Header = "Товар";
+        SelectedStorageCellBalancesDataGrid.Columns[2].Header = "Кол-во";
+        SelectedStorageCellBalancesDataGrid.ItemsSource = balanceRows;
+        SelectedStorageCellHistoryDataGrid.ItemsSource = historyRows;
+    }
+
+    private IReadOnlyList<string> GetActiveStorageCellCodes(string warehouse, string? excludeCode = null)
+    {
+        return _workspace.StorageCells
+            .Where(item => item.IsActive)
+            .Where(item => WarehouseMatches(item.Warehouse, warehouse))
+            .Where(item => string.IsNullOrWhiteSpace(excludeCode)
+                           || !Ui(item.Code).Equals(Ui(excludeCode), StringComparison.OrdinalIgnoreCase))
+            .OrderBy(item => Ui(item.Code), StringComparer.CurrentCultureIgnoreCase)
+            .Select(item => item.Code)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private void ApplyStorageCellScan()
+    {
+        var raw = StorageCellScanBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            MessageBox.Show(Window.GetWindow(this), "Отсканируйте QR ячейки или введите код адреса.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var requestedWarehouse = string.Empty;
+        var requestedCell = raw;
+        if (WarehouseCellStoragePreparationPlan.TryParseQrPayload(raw, out var payload)
+            && payload.ObjectType.Equals("cell", StringComparison.OrdinalIgnoreCase))
+        {
+            if (payload.Values.TryGetValue("warehouse", out var parsedWarehouse))
+            {
+                requestedWarehouse = parsedWarehouse;
+            }
+
+            if (payload.Values.TryGetValue("cell", out var parsedCell))
+            {
+                requestedCell = parsedCell;
+            }
+        }
+
+        var match = _workspace.StorageCells.FirstOrDefault(item =>
+            (string.IsNullOrWhiteSpace(requestedWarehouse) || WarehouseMatches(item.Warehouse, requestedWarehouse))
+            && (Ui(item.Code).Equals(Ui(requestedCell), StringComparison.OrdinalIgnoreCase)
+                || Ui(item.QrPayload).Equals(Ui(raw), StringComparison.OrdinalIgnoreCase)));
+
+        if (match is null)
+        {
+            MessageBox.Show(Window.GetWindow(this), $"Ячейка по скану {Ui(raw)} не найдена.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        _suppressStorageCellFilterEvents = true;
+        try
+        {
+            StorageCellWarehouseFilterCombo.SelectedItem = StorageCellWarehouseFilterCombo.Items
+                .Cast<string>()
+                .FirstOrDefault(item => item.Equals(match.Warehouse, StringComparison.OrdinalIgnoreCase))
+                ?? AllStorageCellWarehousesFilter;
+            StorageCellSearchBox.Text = match.Code;
+        }
+        finally
+        {
+            _suppressStorageCellFilterEvents = false;
+        }
+
+        RefreshStorageCellItems();
+        var row = StorageCellsDataGrid.Items
+            .Cast<WarehouseStorageCellViewModel>()
+            .FirstOrDefault(item => item.Record.Id == match.Id);
+        if (row is not null)
+        {
+            StorageCellsDataGrid.SelectedItem = row;
+            StorageCellsDataGrid.ScrollIntoView(row);
+        }
+    }
+
+    private WarehouseStorageCellRecord? FindStorageCell(string warehouse, string code)
+    {
+        var normalizedCode = Ui(code);
+        if (string.IsNullOrWhiteSpace(normalizedCode))
+        {
+            return null;
+        }
+
+        return _workspace.StorageCells.FirstOrDefault(item =>
+            WarehouseMatches(item.Warehouse, warehouse)
+            && Ui(item.Code).Equals(normalizedCode, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IReadOnlyList<SalesCatalogItemOption> BuildCatalogOptions(WarehouseCellBalanceRecord balance)
+    {
+        return new[]
+        {
+            new SalesCatalogItemOption(
+                Ui(balance.ItemCode),
+                string.IsNullOrWhiteSpace(balance.ItemName) ? Ui(balance.ItemCode) : Ui(balance.ItemName),
+                string.IsNullOrWhiteSpace(balance.Unit) ? "шт" : Ui(balance.Unit),
+                0m)
+        };
+    }
+
+    private WarehouseCellPlacementRuleRecord? ResolvePlacementRule(WarehouseCellBalanceRecord balance)
+    {
+        var category = ResolveProductCategory(balance.ItemCode, balance.ItemName);
+        return _workspace.PlacementRules
+            .Where(item => item.IsActive)
+            .Where(item => WarehouseMatches(item.Warehouse, balance.Warehouse))
+            .OrderByDescending(item => !string.IsNullOrWhiteSpace(item.ItemCode))
+            .ThenByDescending(item => !string.IsNullOrWhiteSpace(item.ItemName))
+            .FirstOrDefault(item =>
+                (!string.IsNullOrWhiteSpace(item.ItemCode)
+                 && !string.IsNullOrWhiteSpace(balance.ItemCode)
+                 && Ui(item.ItemCode).Equals(Ui(balance.ItemCode), StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(item.ItemName)
+                    && !string.IsNullOrWhiteSpace(balance.ItemName)
+                    && Ui(item.ItemName).Equals(Ui(balance.ItemName), StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(item.Category)
+                    && !string.IsNullOrWhiteSpace(category)
+                    && Ui(item.Category).Equals(category, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private bool ValidatePlacementRule(
+        WarehouseCellBalanceRecord balance,
+        WarehouseStorageCellRecord targetCell,
+        WarehouseCellPlacementRuleRecord? rule,
+        out string error)
+    {
+        if (rule is null || !rule.IsActive)
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        var preferredCells = new[] { rule.PrimaryCellCode, rule.ReserveCellCode }
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(Ui)
+            .ToArray();
+        if (preferredCells.Length > 0
+            && preferredCells.All(item => !item.Equals(Ui(targetCell.Code), StringComparison.OrdinalIgnoreCase)))
+        {
+            error = $"По правилу размещения товар {Ui(balance.ItemName)} можно размещать только в ячейки: {string.Join(", ", preferredCells)}.";
+            return false;
+        }
+
+        var zonePriority = SplitRuleZones(rule.ZonePriority).ToArray();
+        if (preferredCells.Length == 0
+            && zonePriority.Length > 0
+            && zonePriority.All(zone => !ZoneMatches(targetCell, zone)))
+        {
+            error = $"Ячейка {Ui(targetCell.Code)} не входит в приоритетные зоны правила: {string.Join(", ", zonePriority)}.";
+            return false;
+        }
+
+        if (rule.ForbidMixedCategories && !CanMixCategoryInCell(balance, targetCell, rule, out error))
+        {
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private bool CanMixCategoryInCell(
+        WarehouseCellBalanceRecord balance,
+        WarehouseStorageCellRecord targetCell,
+        WarehouseCellPlacementRuleRecord rule,
+        out string error)
+    {
+        var targetCategory = FirstNonEmpty(rule.Category, ResolveProductCategory(balance.ItemCode, balance.ItemName));
+        if (string.IsNullOrWhiteSpace(targetCategory))
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        var existingDifferentCategory = _cellStorageSnapshot.CellBalances
+            .Where(item => item.IsAddressed)
+            .Where(item => item.Quantity > 0m)
+            .Where(item => WarehouseMatches(item.Warehouse, targetCell.Warehouse))
+            .Where(item => Ui(item.Cell).Equals(Ui(targetCell.Code), StringComparison.OrdinalIgnoreCase))
+            .Where(item => !MatchesCellItem(item, balance.ItemCode, balance.ItemName))
+            .Select(item => new
+            {
+                Balance = item,
+                Category = ResolveProductCategory(item.ItemCode, item.ItemName)
+            })
+            .FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.Category)
+                                    && !item.Category.Equals(targetCategory, StringComparison.OrdinalIgnoreCase));
+
+        if (existingDifferentCategory is null)
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        error = $"В ячейке {Ui(targetCell.Code)} уже лежит категория {existingDifferentCategory.Category}; правило запрещает смешивать с категорией {targetCategory}.";
+        return false;
+    }
+
+    private string ResolveProductCategory(string itemCode, string itemName)
+    {
+        try
+        {
+            _catalogWorkspaceForRules ??= CatalogWorkspaceStore
+                .CreateDefault()
+                .TryLoadExisting(GetCurrentOperator(), warehouses: _workspace.Warehouses);
+        }
+        catch
+        {
+            _catalogWorkspaceForRules = null;
+        }
+
+        var catalogItem = _catalogWorkspaceForRules?.Items.FirstOrDefault(item =>
+            (!string.IsNullOrWhiteSpace(itemCode)
+             && item.Code.Equals(itemCode, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrWhiteSpace(itemName)
+                && item.Name.Equals(itemName, StringComparison.OrdinalIgnoreCase)));
+        return Ui(catalogItem?.Category).Trim();
+    }
+
+    private static IEnumerable<string> SplitRuleZones(string zones)
+    {
+        return Ui(zones)
+            .Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(item => !string.IsNullOrWhiteSpace(item));
+    }
+
+    private static bool ZoneMatches(WarehouseStorageCellRecord cell, string zone)
+    {
+        return Ui(cell.ZoneCode).Equals(Ui(zone), StringComparison.OrdinalIgnoreCase)
+               || Ui(cell.ZoneName).Equals(Ui(zone), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ShowCellStorageWarning(
+        string operation,
+        string severity,
+        string warehouse,
+        string cellCode,
+        string itemCode,
+        string itemName,
+        string message,
+        string relatedDocument)
+    {
+        RegisterCellStorageIssue(operation, severity, warehouse, cellCode, itemCode, itemName, message, relatedDocument);
+        MessageBox.Show(Window.GetWindow(this), message, "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    private void RegisterCellStorageIssue(
+        string operation,
+        string severity,
+        string warehouse,
+        string cellCode,
+        string itemCode,
+        string itemName,
+        string message,
+        string relatedDocument)
+    {
+        var duplicate = _workspace.CellStorageIssues.Any(item =>
+            item.Status.Equals("Открыта", StringComparison.OrdinalIgnoreCase)
+            && item.Operation.Equals(operation, StringComparison.OrdinalIgnoreCase)
+            && item.Warehouse.Equals(warehouse, StringComparison.OrdinalIgnoreCase)
+            && item.CellCode.Equals(cellCode, StringComparison.OrdinalIgnoreCase)
+            && item.ItemCode.Equals(itemCode, StringComparison.OrdinalIgnoreCase)
+            && item.Message.Equals(message, StringComparison.OrdinalIgnoreCase));
+        if (!duplicate)
+        {
+            _workspace.AddCellStorageIssue(new WarehouseCellIntegrityIssueRecord
+            {
+                Id = Guid.NewGuid(),
+                CreatedAt = DateTime.Now,
+                Severity = severity,
+                Operation = operation,
+                Warehouse = warehouse,
+                CellCode = cellCode,
+                ItemCode = itemCode,
+                ItemName = itemName,
+                Message = message,
+                RelatedDocument = relatedDocument,
+                Status = "Открыта"
+            });
+            TryPersistWorkspace();
+        }
+
+        RefreshCellStorageIssueItems();
+    }
+
+    private static bool ValidateTargetCell(WarehouseStorageCellRecord? cell, string requestedCode, out string error)
+    {
+        if (cell is null)
+        {
+            error = $"Ячейка {Ui(requestedCode)} не найдена.";
+            return false;
+        }
+
+        if (!cell.IsActive)
+        {
+            error = $"Ячейка {Ui(cell.Code)} закрыта для операций.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private bool ValidateCellCapacity(WarehouseStorageCellRecord cell, decimal addingQuantity, out string error)
+    {
+        if (cell.Capacity <= 0m)
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        var currentQuantity = _cellStorageSnapshot.CellBalances
+            .Where(item => item.IsAddressed)
+            .Where(item => WarehouseMatches(item.Warehouse, cell.Warehouse))
+            .Where(item => Ui(item.Cell).Equals(Ui(cell.Code), StringComparison.OrdinalIgnoreCase))
+            .Sum(item => item.Quantity);
+
+        if (currentQuantity + addingQuantity <= cell.Capacity)
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        error = $"Лимит ячейки {Ui(cell.Code)}: {cell.Capacity:N0}. Сейчас внутри {currentQuantity:N0}, операция добавляет {addingQuantity:N0}.";
+        return false;
+    }
+
+    private static bool MatchesCellItem(WarehouseCellBalanceRecord balance, string itemCode, string itemName)
+    {
+        return (!string.IsNullOrWhiteSpace(balance.ItemCode)
+                && !string.IsNullOrWhiteSpace(itemCode)
+                && Ui(balance.ItemCode).Equals(Ui(itemCode), StringComparison.OrdinalIgnoreCase))
+               || (!string.IsNullOrWhiteSpace(balance.ItemName)
+                   && !string.IsNullOrWhiteSpace(itemName)
+                   && Ui(balance.ItemName).Equals(Ui(itemName), StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool WarehouseMatches(string left, string right)
+    {
+        var cleanLeft = Ui(left);
+        var cleanRight = Ui(right);
+        return string.IsNullOrWhiteSpace(cleanLeft)
+               || string.IsNullOrWhiteSpace(cleanRight)
+               || cleanLeft.Equals(cleanRight, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatQuantity(decimal quantity, string unit)
+    {
+        return $"{quantity:N2} {(string.IsNullOrWhiteSpace(unit) ? "шт" : Ui(unit))}";
+    }
+
+    private bool HasPostedPickingDocument(SalesShipmentRecord shipment)
+    {
+        var shipmentNumber = Ui(shipment.Number);
+        if (string.IsNullOrWhiteSpace(shipmentNumber))
+        {
+            return false;
+        }
+
+        return _workspace.WriteOffs.Any(document =>
+            !IsDraftLikeStatus(document.Status)
+            && (Ui(document.RelatedDocument).Equals(shipmentNumber, StringComparison.OrdinalIgnoreCase)
+                || Ui(document.Comment).Contains(shipmentNumber, StringComparison.OrdinalIgnoreCase))
+            && Ui(document.Comment).Contains("Отбор", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private CellPickAllocationResult BuildShipmentCellPickLines(SalesShipmentRecord shipment)
+    {
+        var buckets = _cellStorageSnapshot.CellBalances
+            .Where(item => item.IsAddressed)
+            .Where(item => item.Quantity > 0m)
+            .Where(item => WarehouseMatches(item.Warehouse, shipment.Warehouse))
+            .OrderBy(item => Ui(item.Cell), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => Ui(item.ItemName), StringComparer.CurrentCultureIgnoreCase)
+            .Select(item => new CellAllocationBucket(item))
+            .ToArray();
+
+        var result = new CellPickAllocationResult();
+        foreach (var shipmentLine in shipment.Lines.Where(item => item.Quantity > 0m))
+        {
+            var remaining = shipmentLine.Quantity;
+            foreach (var bucket in buckets.Where(item => item.RemainingQuantity > 0m && MatchesCellItem(item.Record, shipmentLine.ItemCode, shipmentLine.ItemName)))
+            {
+                var quantity = Math.Min(remaining, bucket.RemainingQuantity);
+                if (quantity <= 0m)
+                {
+                    continue;
+                }
+
+                result.Lines.Add(new OperationalWarehouseLineRecord
+                {
+                    Id = Guid.NewGuid(),
+                    ItemCode = shipmentLine.ItemCode,
+                    ItemName = shipmentLine.ItemName,
+                    Unit = string.IsNullOrWhiteSpace(shipmentLine.Unit) ? bucket.Record.Unit : shipmentLine.Unit,
+                    Quantity = quantity,
+                    SourceLocation = bucket.Record.Cell,
+                    TargetLocation = string.Empty,
+                    RelatedDocument = shipment.Number
+                });
+
+                bucket.RemainingQuantity -= quantity;
+                remaining -= quantity;
+                if (remaining <= 0m)
+                {
+                    break;
+                }
+            }
+
+            if (remaining > 0m)
+            {
+                result.Errors.Add($"Не хватает адресного остатка по товару {Ui(shipmentLine.ItemName)}: нужно {FormatQuantity(shipmentLine.Quantity, shipmentLine.Unit)}, не покрыто {FormatQuantity(remaining, shipmentLine.Unit)}.");
+            }
+        }
+
+        return result;
+    }
+
+    private static bool IsDraftLikeStatus(string status)
+    {
+        var value = Ui(status).ToLowerInvariant();
+        return value.Contains("чернов", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("план", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("отмен", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("архив", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsClosedShipmentStatus(string status)
+    {
+        var value = Ui(status).ToLowerInvariant();
+        return value.Contains("отгруж", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("закры", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("отмен", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("архив", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private IEnumerable<StorageCellHistoryRecord> BuildStorageCellHistory(WarehouseStorageCellRecord cell)
+    {
+        var rows = new List<StorageCellHistoryRecord>();
+
+        foreach (var receipt in _purchasingWorkspace.PurchaseReceipts
+                     .Where(item => !IsDraftLikeStatus(item.Status))
+                     .Where(item => WarehouseMatches(item.Warehouse, cell.Warehouse)))
+        {
+            foreach (var line in receipt.Lines.Where(line => LocationMatchesCell(line.TargetLocation, cell.Code)))
+            {
+                rows.Add(new StorageCellHistoryRecord(
+                    receipt.DocumentDate,
+                    "Приемка",
+                    receipt.Number,
+                    line.ItemCode,
+                    line.ItemName,
+                    line.Unit,
+                    line.Quantity,
+                    receipt.Comment));
+            }
+        }
+
+        foreach (var transfer in _workspace.TransferOrders
+                     .Where(item => !IsDraftLikeStatus(item.Status))
+                     .Where(item => WarehouseMatches(item.SourceWarehouse, cell.Warehouse) || WarehouseMatches(item.TargetWarehouse, cell.Warehouse)))
+        {
+            foreach (var line in transfer.Lines)
+            {
+                if (LocationMatchesCell(line.SourceLocation, cell.Code))
+                {
+                    rows.Add(new StorageCellHistoryRecord(
+                        transfer.DocumentDate,
+                        "Перемещение",
+                        transfer.Number,
+                        line.ItemCode,
+                        line.ItemName,
+                        line.Unit,
+                        -line.Quantity,
+                        transfer.Comment));
+                }
+
+                if (LocationMatchesCell(line.TargetLocation, cell.Code))
+                {
+                    rows.Add(new StorageCellHistoryRecord(
+                        transfer.DocumentDate,
+                        "Перемещение",
+                        transfer.Number,
+                        line.ItemCode,
+                        line.ItemName,
+                        line.Unit,
+                        line.Quantity,
+                        transfer.Comment));
+                }
+            }
+        }
+
+        foreach (var inventory in _workspace.InventoryCounts
+                     .Where(item => !IsDraftLikeStatus(item.Status))
+                     .Where(item => WarehouseMatches(item.SourceWarehouse, cell.Warehouse)))
+        {
+            foreach (var line in inventory.Lines.Where(line => LineTouchesCell(line, cell.Code)))
+            {
+                rows.Add(new StorageCellHistoryRecord(
+                    inventory.DocumentDate,
+                    "Ревизия",
+                    inventory.Number,
+                    line.ItemCode,
+                    line.ItemName,
+                    line.Unit,
+                    line.Quantity,
+                    inventory.Comment));
+            }
+        }
+
+        foreach (var writeOff in _workspace.WriteOffs
+                     .Where(item => !IsDraftLikeStatus(item.Status))
+                     .Where(item => WarehouseMatches(item.SourceWarehouse, cell.Warehouse)))
+        {
+            foreach (var line in writeOff.Lines.Where(line => LocationMatchesCell(line.SourceLocation, cell.Code)))
+            {
+                rows.Add(new StorageCellHistoryRecord(
+                    writeOff.DocumentDate,
+                    "Списание",
+                    writeOff.Number,
+                    line.ItemCode,
+                    line.ItemName,
+                    line.Unit,
+                    -line.Quantity,
+                    writeOff.Comment));
+            }
+        }
+
+        return rows
+            .OrderByDescending(item => item.Date)
+            .ThenByDescending(item => item.DocumentNumber, StringComparer.OrdinalIgnoreCase)
+            .Take(100);
+    }
+
+    private OperationalWarehouseDocumentRecord? FindLatestCellInventoryDocument(WarehouseStorageCellRecord cell)
+    {
+        return _workspace.InventoryCounts
+            .Where(item => !IsDraftLikeStatus(item.Status))
+            .Where(item => WarehouseMatches(item.SourceWarehouse, cell.Warehouse))
+            .Where(item => DocumentTouchesCell(item, cell))
+            .OrderByDescending(item => item.DocumentDate)
+            .ThenByDescending(item => item.Number, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+    }
+
+    private static bool DocumentTouchesCell(OperationalWarehouseDocumentRecord document, WarehouseStorageCellRecord cell)
+    {
+        return Ui(document.RelatedDocument).Equals(Ui(cell.Code), StringComparison.OrdinalIgnoreCase)
+               || Ui(document.TargetWarehouse).Equals(Ui(cell.Code), StringComparison.OrdinalIgnoreCase)
+               || document.Lines.Any(line => LineTouchesCell(line, cell.Code));
+    }
+
+    private static bool LineTouchesCell(OperationalWarehouseLineRecord line, string cellCode)
+    {
+        return LocationMatchesCell(line.SourceLocation, cellCode)
+               || LocationMatchesCell(line.TargetLocation, cellCode)
+               || LocationMatchesCell(line.RelatedDocument, cellCode);
+    }
+
+    private static bool LocationMatchesCell(string value, string cellCode)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+               && Ui(value).Equals(Ui(cellCode), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static PrintableLabelDefinition BuildPrintableCellLabel(WarehouseStorageCellRecord cell)
+    {
+        var generatedAt = DateTime.Now.ToString("dd.MM.yyyy HH:mm", RuCulture);
+        var payload = string.IsNullOrWhiteSpace(cell.QrPayload)
+            ? WarehouseCellStoragePreparationPlan.BuildCellQrPayload(cell.Warehouse, cell.Code)
+            : cell.QrPayload;
+        var marker = string.IsNullOrWhiteSpace(payload) ? cell.Code : payload;
+
+        return new PrintableLabelDefinition(
+            "Ячейка хранения",
+            Ui(cell.Code),
+            cell.IsActive ? "Активна" : Ui(cell.Status),
+            new[]
+            {
+                new PrintableField("Склад", Ui(cell.Warehouse)),
+                new PrintableField("Зона", string.IsNullOrWhiteSpace(cell.ZoneName) ? Ui(cell.ZoneCode) : Ui(cell.ZoneName)),
+                new PrintableField("Тип", Ui(cell.CellType)),
+                new PrintableField("Лимит", cell.Capacity <= 0m ? "Не задан" : cell.Capacity.ToString("N0", RuCulture)),
+                new PrintableField("Адрес", $"{cell.Row}-{cell.Rack}-{cell.Shelf}-{cell.Cell}")
+            },
+            marker,
+            payload,
+            $"Сформировано: {generatedAt}");
+    }
+
+    private static IReadOnlyDictionary<string, int> BuildHeaderMap(IReadOnlyList<string> cells)
+    {
+        var knownHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ячейка", "код", "адрес", "cell", "code", "склад", "warehouse", "кодзоны", "зонакод", "zonecode",
+            "зона", "zonename", "zone", "тип", "типячейки", "celltype", "type", "статус", "status",
+            "комментарий", "comment", "примечание", "qr", "payload", "qrpayload", "ряд", "row",
+            "стеллаж", "rack", "полка", "shelf", "место", "cellnumber", "place", "лимит", "вместимость", "capacity"
+        };
+
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < cells.Count; index++)
+        {
+            var key = NormalizeHeader(cells[index]);
+            if (!knownHeaders.Contains(key) || result.ContainsKey(key))
+            {
+                continue;
+            }
+
+            result[key] = index;
+        }
+
+        return result;
+    }
+
+    private static string Field(IReadOnlyList<string> cells, IReadOnlyDictionary<string, int> headerMap, int fallbackIndex, params string[] aliases)
+    {
+        foreach (var alias in aliases.Select(NormalizeHeader))
+        {
+            if (headerMap.TryGetValue(alias, out var index) && index >= 0 && index < cells.Count)
+            {
+                return Ui(cells[index]);
+            }
+        }
+
+        return fallbackIndex >= 0 && fallbackIndex < cells.Count ? Ui(cells[fallbackIndex]) : string.Empty;
+    }
+
+    private static string FirstNonEmpty(params string[] values)
+    {
+        return values.Select(Ui).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
+
+    private static string NormalizeHeader(string value)
+    {
+        return string.Concat(Ui(value).ToLowerInvariant().Where(char.IsLetterOrDigit));
+    }
+
+    private static bool TryParseIntFlexible(string value, out int result)
+    {
+        if (int.TryParse(Ui(value), NumberStyles.Integer, RuCulture, out result)
+            || int.TryParse(Ui(value), NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
+        {
+            return true;
+        }
+
+        if (TryParseDecimalFlexible(value, out var decimalValue))
+        {
+            result = (int)Math.Round(decimalValue, MidpointRounding.AwayFromZero);
+            return true;
+        }
+
+        result = 0;
+        return false;
     }
 
     private void HandleAddStorageCellClick(object sender, RoutedEventArgs e)
@@ -1231,6 +2001,636 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         {
             ShowStorageCellError(exception);
         }
+    }
+
+    private void HandleReviseStorageCellClick(object sender, RoutedEventArgs e)
+    {
+        var selected = GetSelectedStorageCell();
+        if (selected is null)
+        {
+            MessageBox.Show(
+                Window.GetWindow(this),
+                "Выберите ячейку для ревизии.",
+                "Ячеечное хранение",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var draft = _workspace.CreateInventoryDraft(selected.Warehouse);
+        draft.TargetWarehouse = selected.Code;
+        draft.RelatedDocument = selected.Code;
+        draft.Comment = $"Ревизия ячейки {selected.Code}.";
+
+        var dialog = new WarehouseCellRevisionWindow(
+            selected,
+            draft,
+            _workspace.CatalogItems,
+            GetStorageCellBalances(selected).ToArray())
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        if (dialog.ShowDialog() != true || dialog.ResultDocument is null)
+        {
+            return;
+        }
+
+        _workspace.AddInventoryCount(dialog.ResultDocument);
+        PersistAndRefresh();
+        MessageBox.Show(
+            Window.GetWindow(this),
+            $"Ревизия ячейки {Ui(selected.Code)} проведена. Создан документ {Ui(dialog.ResultDocument.Number)}.",
+            "Ячеечное хранение",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void HandlePlaceUnassignedCellClick(object sender, RoutedEventArgs e)
+    {
+        if (UnassignedCellItemsDataGrid.SelectedItem is not WarehouseCellBalanceViewModel selectedBalance)
+        {
+            MessageBox.Show(
+                Window.GetWindow(this),
+                "Выберите товар из очереди без ячейки.",
+                "Ячеечное хранение",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var balance = selectedBalance.Record;
+        var activeCells = _workspace.StorageCells
+            .Where(item => item.IsActive)
+            .Where(item => WarehouseMatches(item.Warehouse, balance.Warehouse))
+            .OrderBy(item => item.Code, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+        if (activeCells.Length == 0)
+        {
+            ShowCellStorageWarning(
+                "Размещение",
+                "Ошибка",
+                balance.Warehouse,
+                string.Empty,
+                balance.ItemCode,
+                balance.ItemName,
+                $"На складе {Ui(balance.Warehouse)} нет активных ячеек для размещения.",
+                string.Empty);
+            return;
+        }
+
+        var placementRule = ResolvePlacementRule(balance);
+        var dialog = new WarehouseCellGroupPlacementWindow(
+            balance,
+            activeCells,
+            _cellStorageSnapshot.CellBalances,
+            placementRule)
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        if (dialog.ShowDialog() != true || dialog.ResultPlacements.Count == 0)
+        {
+            return;
+        }
+
+        var totalQuantity = dialog.ResultPlacements.Sum(item => item.Quantity);
+        if (totalQuantity <= 0m || totalQuantity > balance.Quantity)
+        {
+            ShowCellStorageWarning(
+                "Размещение",
+                "Ошибка",
+                balance.Warehouse,
+                string.Empty,
+                balance.ItemCode,
+                balance.ItemName,
+                $"Сумма размещения должна быть больше нуля и не больше свободного остатка {FormatQuantity(balance.Quantity, balance.Unit)}.",
+                string.Empty);
+            return;
+        }
+
+        foreach (var placement in dialog.ResultPlacements)
+        {
+            if (!ValidatePlacementRule(balance, placement.Cell, placementRule, out var ruleError))
+            {
+                ShowCellStorageWarning(
+                    "Размещение",
+                    "Ошибка",
+                    balance.Warehouse,
+                    placement.Cell.Code,
+                    balance.ItemCode,
+                    balance.ItemName,
+                    ruleError,
+                    string.Empty);
+                return;
+            }
+        }
+
+        var document = _workspace.CreateInventoryDraft(balance.Warehouse);
+        document.Status = "Проведена";
+        document.SourceWarehouse = balance.Warehouse;
+        document.TargetWarehouse = dialog.ResultPlacements.Count == 1 ? dialog.ResultPlacements[0].Cell.Code : balance.Warehouse;
+        document.RelatedDocument = "Групповое размещение";
+        document.Comment = $"Размещение товара {Ui(balance.ItemName)} по ячейкам: {string.Join(", ", dialog.ResultPlacements.Select(item => $"{item.Cell.Code}={item.Quantity:N2}"))}.";
+        foreach (var placement in dialog.ResultPlacements)
+        {
+            document.Lines.Add(new OperationalWarehouseLineRecord
+            {
+                Id = Guid.NewGuid(),
+                ItemCode = balance.ItemCode,
+                ItemName = balance.ItemName,
+                Unit = string.IsNullOrWhiteSpace(balance.Unit) ? "шт" : balance.Unit,
+                Quantity = placement.Quantity,
+                SourceLocation = string.Empty,
+                TargetLocation = placement.Cell.Code,
+                RelatedDocument = placement.Cell.Code
+            });
+        }
+
+        _workspace.AddInventoryCount(document);
+        PersistAndRefresh();
+        MessageBox.Show(
+            Window.GetWindow(this),
+            $"Товар размещен по ячейкам. Строк: {dialog.ResultPlacements.Count:N0}. Создан документ {Ui(document.Number)}.",
+            "Ячеечное хранение",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void HandleMoveStorageCellClick(object sender, RoutedEventArgs e)
+    {
+        var sourceCell = GetSelectedStorageCell();
+        if (sourceCell is null)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Выберите ячейку-источник.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (!sourceCell.IsActive)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Закрытая ячейка не может быть источником перемещения.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (SelectedStorageCellBalancesDataGrid.SelectedItem is not WarehouseCellBalanceViewModel selectedBalance)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Выберите товар внутри ячейки для перемещения.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var balance = selectedBalance.Record;
+        var cellOptions = GetActiveStorageCellCodes(sourceCell.Warehouse, sourceCell.Code).ToArray();
+        if (cellOptions.Length == 0)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Нет другой активной ячейки для перемещения.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var draftLine = new OperationalWarehouseLineRecord
+        {
+            Id = Guid.NewGuid(),
+            ItemCode = balance.ItemCode,
+            ItemName = balance.ItemName,
+            Unit = string.IsNullOrWhiteSpace(balance.Unit) ? "шт" : balance.Unit,
+            Quantity = balance.Quantity,
+            SourceLocation = sourceCell.Code,
+            TargetLocation = cellOptions.FirstOrDefault() ?? string.Empty,
+            RelatedDocument = sourceCell.Code
+        };
+
+        var dialog = new WarehouseLineEditorWindow(
+            "Перемещение между ячейками",
+            $"Источник: {Ui(sourceCell.Code)}. Доступно: {FormatQuantity(balance.Quantity, balance.Unit)}.",
+            BuildCatalogOptions(balance),
+            draftLine,
+            allowNegativeQuantity: false,
+            allowTargetLocation: true,
+            storageCellOptions: GetActiveStorageCellCodes(sourceCell.Warehouse).ToArray())
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        if (dialog.ShowDialog() != true || dialog.ResultLine is null)
+        {
+            return;
+        }
+
+        var line = dialog.ResultLine;
+        if (!MatchesCellItem(balance, line.ItemCode, line.ItemName))
+        {
+            MessageBox.Show(Window.GetWindow(this), "Перемещать можно только выбранный товар.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (!Ui(line.SourceLocation).Equals(Ui(sourceCell.Code), StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show(Window.GetWindow(this), $"Источник должен быть выбранной ячейкой {Ui(sourceCell.Code)}.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (line.Quantity <= 0m || line.Quantity > balance.Quantity)
+        {
+            MessageBox.Show(
+                Window.GetWindow(this),
+                $"Количество для перемещения должно быть больше нуля и не больше остатка {FormatQuantity(balance.Quantity, balance.Unit)}.",
+                "Ячеечное хранение",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        if (Ui(line.TargetLocation).Equals(Ui(sourceCell.Code), StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show(Window.GetWindow(this), "Ячейка назначения должна отличаться от источника.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var targetCell = FindStorageCell(sourceCell.Warehouse, line.TargetLocation);
+        if (!ValidateTargetCell(targetCell, line.TargetLocation, out var targetError))
+        {
+            ShowCellStorageWarning("Перемещение", "Ошибка", sourceCell.Warehouse, line.TargetLocation, balance.ItemCode, balance.ItemName, targetError, string.Empty);
+            return;
+        }
+
+        if (!ValidateCellCapacity(targetCell!, line.Quantity, out var capacityError))
+        {
+            ShowCellStorageWarning("Перемещение", "Ошибка", sourceCell.Warehouse, targetCell!.Code, balance.ItemCode, balance.ItemName, capacityError, string.Empty);
+            return;
+        }
+
+        var placementRule = ResolvePlacementRule(balance);
+        if (!ValidatePlacementRule(balance, targetCell!, placementRule, out var ruleError))
+        {
+            ShowCellStorageWarning("Перемещение", "Ошибка", sourceCell.Warehouse, targetCell!.Code, balance.ItemCode, balance.ItemName, ruleError, string.Empty);
+            return;
+        }
+
+        var document = _workspace.CreateTransferDraft(sourceCell.Warehouse);
+        document.Status = "Перемещен";
+        document.SourceWarehouse = sourceCell.Warehouse;
+        document.TargetWarehouse = sourceCell.Warehouse;
+        document.RelatedDocument = $"{sourceCell.Code} -> {targetCell!.Code}";
+        document.Comment = $"Перемещение товара {Ui(balance.ItemName)} из {sourceCell.Code} в {targetCell.Code}.";
+        document.Lines.Add(new OperationalWarehouseLineRecord
+        {
+            Id = Guid.NewGuid(),
+            ItemCode = line.ItemCode,
+            ItemName = line.ItemName,
+            Unit = line.Unit,
+            Quantity = line.Quantity,
+            SourceLocation = sourceCell.Code,
+            TargetLocation = targetCell.Code,
+            RelatedDocument = document.RelatedDocument
+        });
+
+        _workspace.AddTransferOrder(document);
+        PersistAndRefresh();
+        MessageBox.Show(
+            Window.GetWindow(this),
+            $"Перемещение проведено. Создан документ {Ui(document.Number)}.",
+            "Ячеечное хранение",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void HandlePrintStorageCellLabelClick(object sender, RoutedEventArgs e)
+    {
+        var selected = GetSelectedStorageCell();
+        if (selected is null)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Выберите ячейку для печати QR-этикетки.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var labels = new[] { BuildPrintableCellLabel(selected) };
+        PrintDocumentComposer.Print(
+            Window.GetWindow(this),
+            "QR-этикетка ячейки",
+            (pageWidth, pageHeight) => PrintDocumentComposer.BuildLabelsDocument("QR-этикетка ячейки", labels, pageWidth, pageHeight));
+    }
+
+    private void HandleExportStorageCellActClick(object sender, RoutedEventArgs e)
+    {
+        var selected = GetSelectedStorageCell();
+        if (selected is null)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Выберите ячейку для выгрузки акта.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var document = FindLatestCellInventoryDocument(selected);
+        if (document is null)
+        {
+            MessageBox.Show(Window.GetWindow(this), $"По ячейке {Ui(selected.Code)} еще нет проведенной ревизии.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Filter = "CSV (*.csv)|*.csv",
+            FileName = $"cell-act-{selected.Code}-{document.DocumentDate:yyyyMMdd}.csv"
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var lines = new List<string>
+        {
+            "Акт ревизии ячейки",
+            $"Ячейка;{EscapeCsv(selected.Code)}",
+            $"Склад;{EscapeCsv(selected.Warehouse)}",
+            $"Документ;{EscapeCsv(document.Number)}",
+            $"Дата;{document.DocumentDate:dd.MM.yyyy}",
+            string.Empty,
+            "Код;Товар;Количество изменения;Ед.;Комментарий"
+        };
+
+        lines.AddRange(document.Lines
+            .Where(line => LineTouchesCell(line, selected.Code))
+            .Select(line => string.Join(";",
+                EscapeCsv(Ui(line.ItemCode)),
+                EscapeCsv(Ui(line.ItemName)),
+                line.Quantity.ToString("N2", RuCulture),
+                EscapeCsv(string.IsNullOrWhiteSpace(line.Unit) ? "шт" : Ui(line.Unit)),
+                EscapeCsv(Ui(document.Comment)))));
+
+        File.WriteAllLines(dialog.FileName, lines, new UTF8Encoding(true));
+        MessageBox.Show(Window.GetWindow(this), "Акт ревизии выгружен.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void HandleImportStorageCellsClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "CSV/TSV (*.csv;*.tsv;*.txt)|*.csv;*.tsv;*.txt|Все файлы (*.*)|*.*",
+            Title = "Импорт ячеек хранения"
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var rows = File.ReadAllLines(dialog.FileName, Encoding.UTF8)
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Select(SplitDelimitedLine)
+            .Where(cells => cells.Length > 0)
+            .ToArray();
+        if (rows.Length == 0)
+        {
+            MessageBox.Show(Window.GetWindow(this), "В файле нет строк для импорта.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var headerMap = BuildHeaderMap(rows[0]);
+        var startIndex = headerMap.Count > 0 ? 1 : 0;
+        var created = 0;
+        var updated = 0;
+        var skipped = 0;
+
+        for (var index = startIndex; index < rows.Length; index++)
+        {
+            var cells = rows[index];
+            var warehouse = FirstNonEmpty(
+                Field(cells, headerMap, 1, "склад", "warehouse"),
+                ResolvePrimaryWarehouseLabel());
+            var code = FirstNonEmpty(
+                Field(cells, headerMap, 0, "ячейка", "код", "адрес", "cell", "code"),
+                string.Empty);
+
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                skipped++;
+                continue;
+            }
+
+            var existing = FindStorageCell(warehouse, code);
+            var record = existing?.Clone() ?? _workspace.CreateStorageCellDraft(warehouse);
+            record.Warehouse = warehouse;
+            record.Code = code;
+            record.ZoneCode = FirstNonEmpty(Field(cells, headerMap, 2, "кодзоны", "зонакод", "zonecode"), record.ZoneCode);
+            record.ZoneName = FirstNonEmpty(Field(cells, headerMap, 3, "зона", "zonename", "zone"), record.ZoneName);
+            record.CellType = FirstNonEmpty(Field(cells, headerMap, 4, "тип", "типячейки", "celltype", "type"), record.CellType);
+            record.Status = FirstNonEmpty(Field(cells, headerMap, 5, "статус", "status"), record.Status);
+            record.Comment = FirstNonEmpty(Field(cells, headerMap, 6, "комментарий", "comment", "примечание"), record.Comment);
+            record.QrPayload = FirstNonEmpty(Field(cells, headerMap, 7, "qr", "payload", "qrpayload"), record.QrPayload);
+
+            if (TryParseIntFlexible(Field(cells, headerMap, 8, "ряд", "row"), out var row))
+            {
+                record.Row = row;
+            }
+
+            if (TryParseIntFlexible(Field(cells, headerMap, 9, "стеллаж", "rack"), out var rack))
+            {
+                record.Rack = rack;
+            }
+
+            if (TryParseIntFlexible(Field(cells, headerMap, 10, "полка", "shelf"), out var shelf))
+            {
+                record.Shelf = shelf;
+            }
+
+            if (TryParseIntFlexible(Field(cells, headerMap, 11, "место", "cellnumber", "place"), out var cellNumber))
+            {
+                record.Cell = cellNumber;
+            }
+
+            if (TryParseDecimalFlexible(Field(cells, headerMap, 12, "лимит", "вместимость", "capacity"), out var capacity))
+            {
+                record.Capacity = capacity;
+            }
+
+            try
+            {
+                if (existing is null)
+                {
+                    _workspace.AddStorageCell(record);
+                    created++;
+                }
+                else
+                {
+                    _workspace.UpdateStorageCell(record);
+                    updated++;
+                }
+            }
+            catch
+            {
+                skipped++;
+            }
+        }
+
+        PersistAndRefresh();
+        MessageBox.Show(
+            Window.GetWindow(this),
+            $"Импорт ячеек завершен. Создано: {created:N0}, обновлено: {updated:N0}, пропущено: {skipped:N0}.",
+            "Ячеечное хранение",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void HandleAddPlacementRuleClick(object sender, RoutedEventArgs e)
+    {
+        OpenPlacementRuleEditor(null);
+    }
+
+    private void HandleEditPlacementRuleClick(object sender, RoutedEventArgs e)
+    {
+        if (PlacementRulesDataGrid.SelectedItem is not WarehouseCellPlacementRuleViewModel selected)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Выберите правило размещения.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        OpenPlacementRuleEditor(selected.Record);
+    }
+
+    private void HandleDeletePlacementRuleClick(object sender, RoutedEventArgs e)
+    {
+        if (PlacementRulesDataGrid.SelectedItem is not WarehouseCellPlacementRuleViewModel selected)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Выберите правило размещения.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var result = MessageBox.Show(
+            Window.GetWindow(this),
+            $"Удалить правило {selected.Subject}?",
+            "Ячеечное хранение",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _workspace.RemovePlacementRule(selected.Record.Id);
+        PersistAndRefresh();
+    }
+
+    private void OpenPlacementRuleEditor(WarehouseCellPlacementRuleRecord? rule)
+    {
+        var dialog = new WarehouseCellPlacementRuleEditorWindow(
+            _workspace.Warehouses,
+            _workspace.CatalogItems,
+            _workspace.StorageCells.ToArray(),
+            rule)
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        if (dialog.ShowDialog() != true || dialog.ResultRule is null)
+        {
+            return;
+        }
+
+        _workspace.UpsertPlacementRule(dialog.ResultRule);
+        PersistAndRefresh();
+    }
+
+    private void HandleAuditCellStorageIssuesClick(object sender, RoutedEventArgs e)
+    {
+        var before = _workspace.CellStorageIssues.Count;
+        foreach (var balance in _cellStorageSnapshot.CellBalances.Where(item => item.IsAddressed && item.Quantity > 0m))
+        {
+            var cell = FindStorageCell(balance.Warehouse, balance.Cell);
+            if (cell is null)
+            {
+                RegisterCellStorageIssue(
+                    "Проверка целостности",
+                    "Ошибка",
+                    balance.Warehouse,
+                    balance.Cell,
+                    balance.ItemCode,
+                    balance.ItemName,
+                    $"Остаток находится в ячейке {Ui(balance.Cell)}, но такой ячейки нет в справочнике.",
+                    string.Empty);
+                continue;
+            }
+
+            if (!cell.IsActive)
+            {
+                RegisterCellStorageIssue(
+                    "Проверка целостности",
+                    "Предупреждение",
+                    balance.Warehouse,
+                    cell.Code,
+                    balance.ItemCode,
+                    balance.ItemName,
+                    $"В закрытой ячейке {Ui(cell.Code)} есть остаток товара.",
+                    string.Empty);
+            }
+
+            var rule = ResolvePlacementRule(balance);
+            if (!ValidatePlacementRule(balance, cell, rule, out var ruleError))
+            {
+                RegisterCellStorageIssue(
+                    "Проверка правил",
+                    "Ошибка",
+                    balance.Warehouse,
+                    cell.Code,
+                    balance.ItemCode,
+                    balance.ItemName,
+                    ruleError,
+                    string.Empty);
+            }
+        }
+
+        foreach (var cell in _workspace.StorageCells)
+        {
+            if (cell.Capacity <= 0m)
+            {
+                continue;
+            }
+
+            var quantity = _cellStorageSnapshot.CellBalances
+                .Where(item => item.IsAddressed && item.Quantity > 0m)
+                .Where(item => WarehouseMatches(item.Warehouse, cell.Warehouse))
+                .Where(item => Ui(item.Cell).Equals(Ui(cell.Code), StringComparison.OrdinalIgnoreCase))
+                .Sum(item => item.Quantity);
+            if (quantity <= cell.Capacity)
+            {
+                continue;
+            }
+
+            RegisterCellStorageIssue(
+                "Проверка лимитов",
+                "Ошибка",
+                cell.Warehouse,
+                cell.Code,
+                string.Empty,
+                string.Empty,
+                $"В ячейке {Ui(cell.Code)} превышен лимит: {quantity:N2} из {cell.Capacity:N2}.",
+                string.Empty);
+        }
+
+        TryPersistWorkspace();
+        RefreshCellStorageIssueItems();
+        var added = _workspace.CellStorageIssues.Count - before;
+        MessageBox.Show(
+            Window.GetWindow(this),
+            added <= 0 ? "Проверка завершена, новых ошибок нет." : $"Проверка завершена. Новых записей: {added:N0}.",
+            "Ячеечное хранение",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void HandleClearCellStorageIssuesClick(object sender, RoutedEventArgs e)
+    {
+        var result = MessageBox.Show(
+            Window.GetWindow(this),
+            "Очистить журнал ошибок ячеечного хранения?",
+            "Ячеечное хранение",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        _workspace.ClearCellStorageIssues();
+        PersistAndRefresh();
     }
 
     private void OpenStorageCellEditor(WarehouseStorageCellRecord cell, bool isNew)
@@ -2069,6 +3469,79 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         }
     }
 
+    private void HandlePickSelectedCellShipmentClick(object sender, RoutedEventArgs e)
+    {
+        if (CellShipmentsDataGrid.SelectedItem is not WarehouseCellShipmentViewModel selected)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Выберите отгрузку для сборки.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var shipment = _salesWorkspace.Shipments.FirstOrDefault(item => item.Id == selected.ShipmentId);
+        if (shipment is null)
+        {
+            MessageBox.Show(Window.GetWindow(this), "Отгрузка не найдена в рабочей области продаж.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (HasPostedPickingDocument(shipment))
+        {
+            MessageBox.Show(Window.GetWindow(this), $"По отгрузке {Ui(shipment.Number)} уже есть проведенный отбор.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var allocationResult = BuildShipmentCellPickLines(shipment);
+        if (allocationResult.Errors.Count > 0)
+        {
+            MessageBox.Show(
+                Window.GetWindow(this),
+                string.Join(Environment.NewLine, allocationResult.Errors.Take(8)),
+                "Отбор не проведен",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        if (allocationResult.Lines.Count == 0)
+        {
+            MessageBox.Show(Window.GetWindow(this), "В отгрузке нет строк для отбора.", "Ячеечное хранение", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var document = _workspace.CreateWriteOffDraft(shipment.Warehouse);
+        document.Status = "Списано";
+        document.SourceWarehouse = shipment.Warehouse;
+        document.RelatedDocument = shipment.Number;
+        document.Comment = $"Отбор по отгрузке {shipment.Number}.";
+        document.Lines = new BindingList<OperationalWarehouseLineRecord>(allocationResult.Lines);
+
+        _workspace.AddWriteOff(document);
+
+        var updatedShipment = shipment.Clone();
+        if (!IsClosedShipmentStatus(updatedShipment.Status))
+        {
+            updatedShipment.Status = "Готова к отгрузке";
+        }
+
+        var pickComment = $"Отбор из ячеек проведен документом {document.Number}.";
+        updatedShipment.Comment = string.IsNullOrWhiteSpace(updatedShipment.Comment)
+            ? pickComment
+            : updatedShipment.Comment.Contains(pickComment, StringComparison.OrdinalIgnoreCase)
+                ? updatedShipment.Comment
+                : $"{updatedShipment.Comment}{Environment.NewLine}{pickComment}";
+
+        _salesWorkspace.UpdateShipment(updatedShipment);
+        TryPersistSalesWorkspace();
+        PersistAndRefresh();
+
+        MessageBox.Show(
+            Window.GetWindow(this),
+            $"Отбор по отгрузке {Ui(shipment.Number)} проведен. Создано строк: {allocationResult.Lines.Count:N0}.",
+            "Ячеечное хранение",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
     private void HandleStorageCellFilterChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressStorageCellFilterEvents)
@@ -2082,6 +3555,22 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     private void HandleStorageCellSearchChanged(object sender, TextChangedEventArgs e)
     {
         RefreshStorageCellItems();
+    }
+
+    private void HandleStorageCellScanKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        ApplyStorageCellScan();
+    }
+
+    private void HandleStorageCellScanClick(object sender, RoutedEventArgs e)
+    {
+        ApplyStorageCellScan();
     }
 
     private void HandleStorageCellSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -2662,6 +4151,23 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         PersistAndRefresh();
     }
 
+    private string GetCurrentOperator()
+    {
+        return string.IsNullOrWhiteSpace(_salesWorkspace.CurrentOperator)
+            ? Environment.UserName
+            : _salesWorkspace.CurrentOperator;
+    }
+
+    private void ShowTransientWarning(string message)
+    {
+        MessageBox.Show(
+            Window.GetWindow(this),
+            Ui(message),
+            "Склад",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
+
     private void TryPersistWorkspace()
     {
         try
@@ -3073,6 +4579,7 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     private sealed class WarehouseCellBalanceViewModel
     {
         private WarehouseCellBalanceViewModel(
+            WarehouseCellBalanceRecord record,
             string cell,
             string warehouse,
             string code,
@@ -3083,6 +4590,7 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
             WpfBrush statusBackground,
             WpfBrush statusForeground)
         {
+            Record = record;
             Cell = cell;
             Warehouse = warehouse;
             Code = code;
@@ -3093,6 +4601,8 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
             StatusBackground = statusBackground;
             StatusForeground = statusForeground;
         }
+
+        public WarehouseCellBalanceRecord Record { get; }
 
         public string Cell { get; }
 
@@ -3118,6 +4628,7 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
             var palette = ResolveStatusPalette(status);
             var unit = string.IsNullOrWhiteSpace(record.Unit) ? "шт" : Ui(record.Unit);
             return new WarehouseCellBalanceViewModel(
+                record,
                 string.IsNullOrWhiteSpace(record.Cell) ? WarehouseCellStorageOperations.UnassignedCellName : Ui(record.Cell),
                 string.IsNullOrWhiteSpace(record.Warehouse) ? "Склад не указан" : Ui(record.Warehouse),
                 string.IsNullOrWhiteSpace(record.ItemCode) ? "—" : Ui(record.ItemCode),
@@ -3128,6 +4639,173 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
                 palette.Back,
                 palette.Fore);
         }
+    }
+
+    private sealed class WarehouseCellHistoryViewModel
+    {
+        private WarehouseCellHistoryViewModel(
+            string dateText,
+            string operation,
+            string documentNumber,
+            string item,
+            string quantityDisplay)
+        {
+            DateText = dateText;
+            Operation = operation;
+            DocumentNumber = documentNumber;
+            Item = item;
+            QuantityDisplay = quantityDisplay;
+        }
+
+        public string DateText { get; }
+
+        public string Operation { get; }
+
+        public string DocumentNumber { get; }
+
+        public string Item { get; }
+
+        public string QuantityDisplay { get; }
+
+        public static WarehouseCellHistoryViewModel Create(StorageCellHistoryRecord record)
+        {
+            var sign = record.Quantity > 0m ? "+" : string.Empty;
+            var unit = string.IsNullOrWhiteSpace(record.Unit) ? "шт" : Ui(record.Unit);
+            return new WarehouseCellHistoryViewModel(
+                record.Date == DateTime.MinValue ? "—" : record.Date.ToString("dd.MM.yy", RuCulture),
+                Ui(record.Operation),
+                string.IsNullOrWhiteSpace(record.DocumentNumber) ? "—" : Ui(record.DocumentNumber),
+                string.IsNullOrWhiteSpace(record.ItemName) ? Ui(record.ItemCode) : Ui(record.ItemName),
+                $"{sign}{record.Quantity:N0} {unit}");
+        }
+    }
+
+    private sealed record StorageCellHistoryRecord(
+        DateTime Date,
+        string Operation,
+        string DocumentNumber,
+        string ItemCode,
+        string ItemName,
+        string Unit,
+        decimal Quantity,
+        string Comment);
+
+    private sealed class WarehouseCellPlacementRuleViewModel
+    {
+        private WarehouseCellPlacementRuleViewModel(
+            WarehouseCellPlacementRuleRecord record,
+            string subject,
+            string warehouse,
+            string primaryCell,
+            string reserveCell,
+            string zonePriority,
+            string mixingRule,
+            string status)
+        {
+            Record = record;
+            Subject = subject;
+            Warehouse = warehouse;
+            PrimaryCell = primaryCell;
+            ReserveCell = reserveCell;
+            ZonePriority = zonePriority;
+            MixingRule = mixingRule;
+            Status = status;
+        }
+
+        public WarehouseCellPlacementRuleRecord Record { get; }
+
+        public string Subject { get; }
+
+        public string Warehouse { get; }
+
+        public string PrimaryCell { get; }
+
+        public string ReserveCell { get; }
+
+        public string ZonePriority { get; }
+
+        public string MixingRule { get; }
+
+        public string Status { get; }
+
+        public static WarehouseCellPlacementRuleViewModel Create(WarehouseCellPlacementRuleRecord record)
+        {
+            var subject = !string.IsNullOrWhiteSpace(record.ItemCode) || !string.IsNullOrWhiteSpace(record.ItemName)
+                ? $"{FirstNonEmpty(record.ItemName, record.ItemCode)} [{Ui(record.ItemCode)}]"
+                : $"Категория: {Ui(record.Category)}";
+
+            return new WarehouseCellPlacementRuleViewModel(
+                record,
+                Ui(subject),
+                Ui(record.Warehouse),
+                string.IsNullOrWhiteSpace(record.PrimaryCellCode) ? "—" : Ui(record.PrimaryCellCode),
+                string.IsNullOrWhiteSpace(record.ReserveCellCode) ? "—" : Ui(record.ReserveCellCode),
+                string.IsNullOrWhiteSpace(record.ZonePriority) ? "—" : Ui(record.ZonePriority),
+                record.ForbidMixedCategories ? "Запрещено" : "Разрешено",
+                record.IsActive ? "Активно" : "Отключено");
+        }
+    }
+
+    private sealed class WarehouseCellIssueViewModel
+    {
+        private WarehouseCellIssueViewModel(
+            string dateText,
+            string severity,
+            string operation,
+            string cell,
+            string item,
+            string message)
+        {
+            DateText = dateText;
+            Severity = severity;
+            Operation = operation;
+            Cell = cell;
+            Item = item;
+            Message = message;
+        }
+
+        public string DateText { get; }
+
+        public string Severity { get; }
+
+        public string Operation { get; }
+
+        public string Cell { get; }
+
+        public string Item { get; }
+
+        public string Message { get; }
+
+        public static WarehouseCellIssueViewModel Create(WarehouseCellIntegrityIssueRecord record)
+        {
+            return new WarehouseCellIssueViewModel(
+                record.CreatedAt == DateTime.MinValue ? "—" : record.CreatedAt.ToString("dd.MM HH:mm", RuCulture),
+                Ui(record.Severity),
+                Ui(record.Operation),
+                string.IsNullOrWhiteSpace(record.CellCode) ? "—" : Ui(record.CellCode),
+                string.IsNullOrWhiteSpace(record.ItemName) ? Ui(record.ItemCode) : Ui(record.ItemName),
+                Ui(record.Message));
+        }
+    }
+
+    private sealed class CellAllocationBucket
+    {
+        public CellAllocationBucket(WarehouseCellBalanceRecord record)
+        {
+            Record = record;
+            RemainingQuantity = record.Quantity;
+        }
+
+        public WarehouseCellBalanceRecord Record { get; }
+
+        public decimal RemainingQuantity { get; set; }
+    }
+
+    private sealed class CellPickAllocationResult
+    {
+        public List<OperationalWarehouseLineRecord> Lines { get; } = [];
+
+        public List<string> Errors { get; } = [];
     }
 
     private sealed class WarehouseStorageCellViewModel

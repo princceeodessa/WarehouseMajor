@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -46,13 +45,23 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private readonly SalesWorkspace _salesWorkspace;
     private readonly CatalogWorkspaceStore _store;
+    private readonly WarehouseOperationalWorkspaceStore _warehouseStore;
+    private readonly PurchasingOperationalWorkspaceStore _purchasingStore;
+    private readonly System.Windows.Threading.DispatcherTimer _searchDebounceTimer;
     private CatalogWorkspace _catalogWorkspace;
     private WarehouseWorkspace _warehouseWorkspace;
+    private WarehouseCellStorageSnapshot _cellStorageSnapshot = WarehouseCellStorageSnapshot.Empty;
     private IReadOnlyList<ProductRowViewModel> _allProducts = Array.Empty<ProductRowViewModel>();
+    private IReadOnlyList<ProductRowViewModel> _filteredProducts = Array.Empty<ProductRowViewModel>();
     private string _activeSection = ProductsSection;
+    private int _currentPage = 1;
+    private int _pageSize = 100;
     private bool _syncingSearch;
     private bool _suppressFilterEvents;
     private bool _persistWarningShown;
+    private bool _catalogSyncStarted;
+    private bool _catalogWorkspaceLoaded;
+    private bool _catalogWorkspaceLoading;
     private ProductRowViewModel? _selectedProduct;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -62,10 +71,15 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     {
         _salesWorkspace = salesWorkspace;
         _store = CatalogWorkspaceStore.CreateDefault();
-        _catalogWorkspace = _store.LoadOrCreate(
-            string.IsNullOrWhiteSpace(salesWorkspace.CurrentOperator) ? Environment.UserName : salesWorkspace.CurrentOperator,
-            salesWorkspace);
+        _warehouseStore = WarehouseOperationalWorkspaceStore.CreateDefault();
+        _purchasingStore = PurchasingOperationalWorkspaceStore.CreateDefault();
+        _catalogWorkspace = CatalogWorkspace.CreateEmpty(GetCurrentOperator(), salesWorkspace.Currencies, salesWorkspace.Warehouses);
         _warehouseWorkspace = WarehouseWorkspace.Create(salesWorkspace);
+        _searchDebounceTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(180)
+        };
+        _searchDebounceTimer.Tick += HandleSearchDebounceTick;
 
         InitializeComponent();
         WpfTextNormalizer.NormalizeTree(this);
@@ -77,7 +91,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         SizeChanged += HandleSizeChanged;
     }
 
-    public ObservableCollection<ProductRowViewModel> Products { get; } = new();
+    public IReadOnlyList<ProductRowViewModel> Products { get; private set; } = Array.Empty<ProductRowViewModel>();
 
     public ProductRowViewModel? SelectedProduct
     {
@@ -98,6 +112,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     public void Dispose()
     {
         SizeChanged -= HandleSizeChanged;
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Tick -= HandleSearchDebounceTick;
         UnhookEvents();
         TryPersistCatalog();
     }
@@ -133,7 +149,87 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         {
             RefreshAll();
             UpdateResponsiveLayout();
+            _ = LoadCatalogWorkspaceAsync();
         }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private async Task LoadCatalogWorkspaceAsync()
+    {
+        if (_catalogWorkspaceLoaded || _catalogWorkspaceLoading)
+        {
+            return;
+        }
+
+        _catalogWorkspaceLoading = true;
+        UpdateCatalogSyncStatus("Загружаем каталог товаров из БД...");
+
+        try
+        {
+            var currentOperator = GetCurrentOperator();
+            var loadedWorkspace = await Task.Run(() => _store.LoadOrCreate(currentOperator, _salesWorkspace));
+
+            _catalogWorkspace.Changed -= HandleCatalogWorkspaceChanged;
+            _catalogWorkspace = loadedWorkspace;
+            _catalogWorkspace.Changed += HandleCatalogWorkspaceChanged;
+            _catalogWorkspaceLoaded = true;
+
+            RefreshAll();
+            UpdateCatalogSyncStatus($"Каталог загружен: {_catalogWorkspace.Items.Count:N0} товаров.");
+            _ = TrySyncPendingCatalogAsync();
+        }
+        catch (Exception exception)
+        {
+            UpdateCatalogSyncStatus($"Не удалось загрузить каталог товаров: {exception.Message}");
+        }
+        finally
+        {
+            _catalogWorkspaceLoading = false;
+        }
+    }
+
+    private async Task TrySyncPendingCatalogAsync()
+    {
+        if (!_catalogWorkspaceLoaded || _catalogSyncStarted || !_store.HasPendingLocalSync)
+        {
+            return;
+        }
+
+        _catalogSyncStarted = true;
+        UpdateCatalogSyncStatus("Локальный каталог новее БД. Синхронизируем в фоне...");
+
+        var currentOperator = string.IsNullOrWhiteSpace(_salesWorkspace.CurrentOperator)
+            ? Environment.UserName
+            : _salesWorkspace.CurrentOperator;
+
+        try
+        {
+            var syncedWorkspace = await Task.Run(() => _store.TrySyncPendingLocalSnapshot(currentOperator, _salesWorkspace));
+            if (syncedWorkspace is not null)
+            {
+                _catalogWorkspace.ReplaceFrom(syncedWorkspace);
+                UpdateCatalogSyncStatus("Локальные изменения товаров отправлены в БД.");
+                return;
+            }
+
+            UpdateCatalogSyncStatus(_store.HasPendingLocalSync
+                ? "БД недоступна. Локальные изменения товаров отправим при следующем подключении."
+                : "Каталог товаров уже синхронизирован с БД.");
+        }
+        catch (Exception exception)
+        {
+            UpdateCatalogSyncStatus($"Не удалось синхронизировать каталог с БД: {exception.Message}");
+        }
+    }
+
+    private void UpdateCatalogSyncStatus(string message)
+    {
+        if (!IsInitialized)
+        {
+            return;
+        }
+
+        CatalogSyncStatusText.Text = message;
+        CatalogSyncStatusBadge.Visibility = Visibility.Visible;
     }
 
     private void HandleSizeChanged(object sender, SizeChangedEventArgs e)
@@ -163,6 +259,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     private void RefreshAll()
     {
         _warehouseWorkspace = WarehouseWorkspace.Create(_salesWorkspace);
+        _cellStorageSnapshot = BuildCellStorageSnapshot();
         _allProducts = BuildProducts();
 
         RefreshMetrics();
@@ -170,6 +267,35 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         ApplyFilters(keepSelected: true);
         ApplySection(_activeSection);
         UpdateResponsiveLayout();
+    }
+
+    private WarehouseCellStorageSnapshot BuildCellStorageSnapshot()
+    {
+        try
+        {
+            var currentOperator = GetCurrentOperator();
+            var warehouseWorkspace = _warehouseStore.TryLoadExisting(
+                                         currentOperator,
+                                         _salesWorkspace.CatalogItems,
+                                         _salesWorkspace.Warehouses)
+                                     ?? OperationalWarehouseWorkspace.Create(currentOperator, _salesWorkspace);
+            var purchasingWorkspace = _purchasingStore.TryLoadExisting(
+                                          currentOperator,
+                                          _salesWorkspace.CatalogItems,
+                                          _salesWorkspace.Warehouses)
+                                      ?? OperationalPurchasingWorkspace.Create(currentOperator, _salesWorkspace);
+
+            return WarehouseCellStorageOperations.Build(
+                _salesWorkspace,
+                _warehouseWorkspace,
+                warehouseWorkspace,
+                purchasingWorkspace,
+                DateTime.Today);
+        }
+        catch
+        {
+            return WarehouseCellStorageSnapshot.Empty;
+        }
     }
 
     private void UpdateResponsiveLayout()
@@ -222,9 +348,35 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             .Select(item =>
             {
                 stockByCode.TryGetValue(Ui(item.Code), out var stock);
-                return ProductRowViewModel.Create(item, stock);
+                return ProductRowViewModel.Create(item, stock, ResolveProductCellBalances(item));
             })
             .ToArray();
+    }
+
+    private IReadOnlyList<WarehouseCellBalanceRecord> ResolveProductCellBalances(CatalogItemRecord item)
+    {
+        return _cellStorageSnapshot.CellBalances
+            .Where(balance => balance.IsAddressed && balance.Quantity > 0m)
+            .Where(balance => ProductMatchesCellBalance(item.Code, item.Name, balance))
+            .OrderBy(balance => Ui(balance.Warehouse), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(balance => Ui(balance.Cell), StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+    }
+
+    private static bool ProductMatchesCellBalance(string productCode, string productName, WarehouseCellBalanceRecord balance)
+    {
+        var code = Ui(productCode);
+        var balanceCode = Ui(balance.ItemCode);
+        if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(balanceCode))
+        {
+            return code.Equals(balanceCode, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var name = Ui(productName);
+        var balanceName = Ui(balance.ItemName);
+        return !string.IsNullOrWhiteSpace(name)
+               && !string.IsNullOrWhiteSpace(balanceName)
+               && name.Equals(balanceName, StringComparison.OrdinalIgnoreCase);
     }
 
     private IReadOnlyList<CatalogItemRecord> BuildVisibleCatalogItems()
@@ -363,6 +515,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         var supplier = Ui(SupplierFilterCombo.SelectedItem as string);
         var status = Ui(StatusFilterCombo.SelectedItem as string);
         var onlyProblems = OnlyProblemsCheckBox.IsChecked == true;
+        var onlyWithoutCells = OnlyWithoutCellsCheckBox.IsChecked == true;
 
         var rows = _allProducts
             .Where(item => MatchesSearch(item, search))
@@ -371,26 +524,164 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             .Where(item => supplier == AllSuppliersFilter || item.Supplier.Equals(supplier, StringComparison.OrdinalIgnoreCase))
             .Where(item => status == AllStatusesFilter || item.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
             .Where(item => !onlyProblems || item.HasProblem)
+            .Where(item => !onlyWithoutCells || item.MissingCellPlacement)
+            .OrderByDescending(item => onlyWithoutCells && item.MissingCellPlacement)
+            .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        Products.Clear();
-        foreach (var row in rows)
+        _filteredProducts = rows;
+        MoveCurrentPageToProduct(previousId);
+        RebuildProductPage(previousId);
+    }
+
+    private void MoveCurrentPageToProduct(Guid? productId)
+    {
+        _currentPage = 1;
+        if (!productId.HasValue)
         {
-            row.PropertyChanged -= HandleProductPropertyChanged;
-            row.PropertyChanged += HandleProductPropertyChanged;
-            Products.Add(row);
+            return;
         }
 
-        SelectedProduct = previousId.HasValue
-            ? Products.FirstOrDefault(item => item.Id == previousId.Value) ?? Products.FirstOrDefault()
+        for (var index = 0; index < _filteredProducts.Count; index++)
+        {
+            if (_filteredProducts[index].Id == productId.Value)
+            {
+                _currentPage = (index / Math.Max(1, _pageSize)) + 1;
+                return;
+            }
+        }
+    }
+
+    private void RebuildProductPage(Guid? preferredProductId)
+    {
+        var pageSize = Math.Max(1, _pageSize);
+        var totalPages = Math.Max(1, (int)Math.Ceiling(_filteredProducts.Count / (double)pageSize));
+        _currentPage = Math.Clamp(_currentPage, 1, totalPages);
+
+        var skip = (_currentPage - 1) * pageSize;
+        var rows = _filteredProducts
+            .Skip(skip)
+            .Take(pageSize)
+            .ToArray();
+
+        Products = rows;
+        OnPropertyChanged(nameof(Products));
+
+        SelectedProduct = preferredProductId.HasValue
+            ? Products.FirstOrDefault(item => item.Id == preferredProductId.Value) ?? Products.FirstOrDefault()
             : Products.FirstOrDefault();
 
         ProductsGrid.SelectedItem = SelectedProduct;
-        ProductsCountText.Text = Products.Count == 0
-            ? $"Показано 0 из {_allProducts.Count:N0}"
-            : $"Показано 1–{Products.Count:N0} из {_allProducts.Count:N0}";
+        ProductsCountText.Text = BuildProductsCountText(rows.Length);
+        BuildProductsPager(totalPages);
         UpdateSearchPlaceholders();
         UpdateBulkActions();
+    }
+
+    private string BuildProductsCountText(int visibleCount)
+    {
+        if (_filteredProducts.Count == 0)
+        {
+            return $"Показано 0 из {_allProducts.Count:N0}";
+        }
+
+        var from = ((_currentPage - 1) * Math.Max(1, _pageSize)) + 1;
+        var to = from + visibleCount - 1;
+        var text = $"Показано {from:N0}-{to:N0} из {_filteredProducts.Count:N0}";
+        return _filteredProducts.Count == _allProducts.Count
+            ? text
+            : $"{text}, всего {_allProducts.Count:N0}";
+    }
+
+    private void BuildProductsPager(int totalPages)
+    {
+        ProductsPagerPanel.Children.Clear();
+        if (totalPages <= 1)
+        {
+            return;
+        }
+
+        ProductsPagerPanel.Children.Add(CreateProductsPagerButton("<", _currentPage > 1 ? _currentPage - 1 : null, false));
+
+        foreach (var token in BuildProductsPagerTokens(_currentPage, totalPages))
+        {
+            if (token is null)
+            {
+                ProductsPagerPanel.Children.Add(CreateProductsPagerLabel("..."));
+                continue;
+            }
+
+            var page = token.Value;
+            ProductsPagerPanel.Children.Add(CreateProductsPagerButton(page.ToString(RuCulture), page, page == _currentPage));
+        }
+
+        ProductsPagerPanel.Children.Add(CreateProductsPagerButton(">", _currentPage < totalPages ? _currentPage + 1 : null, false));
+    }
+
+    private static IEnumerable<int?> BuildProductsPagerTokens(int currentPage, int pageCount)
+    {
+        if (pageCount <= 5)
+        {
+            for (var page = 1; page <= pageCount; page++)
+            {
+                yield return page;
+            }
+
+            yield break;
+        }
+
+        yield return 1;
+        if (currentPage > 3)
+        {
+            yield return null;
+        }
+
+        var start = Math.Max(2, currentPage - 1);
+        var end = Math.Min(pageCount - 1, currentPage + 1);
+        for (var page = start; page <= end; page++)
+        {
+            yield return page;
+        }
+
+        if (currentPage < pageCount - 2)
+        {
+            yield return null;
+        }
+
+        yield return pageCount;
+    }
+
+    private FrameworkElement CreateProductsPagerLabel(string text)
+    {
+        return new TextBlock
+        {
+            Text = text,
+            Style = TryFindResource("TablePagerEllipsisTextStyle") as Style
+        };
+    }
+
+    private WpfButton CreateProductsPagerButton(string text, int? targetPage, bool active)
+    {
+        var button = new WpfButton
+        {
+            Content = text,
+            Style = TryFindResource(active ? "TablePagerActiveButtonStyle" : "TablePagerButtonStyle") as Style,
+            Cursor = targetPage.HasValue ? Cursors.Hand : Cursors.Arrow,
+            IsEnabled = targetPage.HasValue,
+            Opacity = targetPage.HasValue ? 1d : 0.45d
+        };
+
+        if (targetPage.HasValue)
+        {
+            button.Click += (_, _) =>
+            {
+                _currentPage = targetPage.Value;
+                RebuildProductPage(preferredProductId: null);
+            };
+        }
+
+        return button;
     }
 
     private static bool MatchesSearch(ProductRowViewModel item, string search)
@@ -401,14 +692,6 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         }
 
         return item.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private void HandleProductPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(ProductRowViewModel.IsSelected))
-        {
-            UpdateBulkActions();
-        }
     }
 
     private void RefreshDetails()
@@ -429,6 +712,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             DetailTransitText.Text = "0";
             DetailMinimumText.Text = "0";
             DetailDeficitText.Text = "0";
+            CellPlacementSummaryText.Text = "-";
+            CellPlacementsItemsControl.ItemsSource = Array.Empty<ProductCellPlacementViewModel>();
             MovementsItemsControl.ItemsSource = Array.Empty<ProductMovementViewModel>();
             DocumentsItemsControl.ItemsSource = Array.Empty<ProductDocumentViewModel>();
             return;
@@ -451,6 +736,12 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         DetailStatusText.Foreground = item.StatusForeground;
         DetailStatusPill.Background = item.StatusBackground;
         StockCaptionText.Text = $"Остатки на {DateTime.Now:dd.MM.yyyy HH:mm}";
+        CellPlacementSummaryText.Text = item.MissingCellPlacement
+            ? "нет ячеек"
+            : $"{item.CellPlacements.Count:N0}";
+        CellPlacementsItemsControl.ItemsSource = item.CellPlacements.Count == 0
+            ? new[] { new ProductCellPlacementViewModel("-", "Нет адресованных остатков", "-", "-") }
+            : item.CellPlacements;
         MovementsItemsControl.ItemsSource = BuildMovementItems(item);
         DocumentsItemsControl.ItemsSource = BuildDocumentItems(item);
     }
@@ -546,6 +837,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     private static MenuItem CreateMenuItem(string header, RoutedEventHandler handler)
     {
         var item = new MenuItem { Header = header };
+        System.Windows.Automation.AutomationProperties.SetName(item, header);
         item.Click += handler;
         return item;
     }
@@ -674,6 +966,19 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         TableSearchBox.CaretIndex = TableSearchBox.Text.Length;
         _syncingSearch = false;
 
+        UpdateSearchPlaceholders();
+        _searchDebounceTimer.Stop();
+        if (_suppressFilterEvents)
+        {
+            return;
+        }
+
+        _searchDebounceTimer.Start();
+    }
+
+    private void HandleSearchDebounceTick(object? sender, EventArgs e)
+    {
+        _searchDebounceTimer.Stop();
         ApplyFilters(keepSelected: true);
     }
 
@@ -695,6 +1000,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         SupplierFilterCombo.SelectedIndex = 0;
         StatusFilterCombo.SelectedIndex = 0;
         OnlyProblemsCheckBox.IsChecked = false;
+        OnlyWithoutCellsCheckBox.IsChecked = false;
         _suppressFilterEvents = false;
         ApplyFilters(keepSelected: false);
     }
@@ -721,6 +1027,30 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         UpdateBulkActions();
     }
 
+    private void HandleProductsPageSizeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ProductsPageSizeComboBox.SelectedItem is not ComboBoxItem item)
+        {
+            return;
+        }
+
+        if (!int.TryParse(new string(Ui(item.Content?.ToString()).TakeWhile(char.IsDigit).ToArray()), out var value)
+            || value <= 0)
+        {
+            return;
+        }
+
+        _pageSize = value;
+        if (_filteredProducts.Count == 0)
+        {
+            return;
+        }
+
+        var selectedId = SelectedProduct?.Id;
+        MoveCurrentPageToProduct(selectedId);
+        RebuildProductPage(selectedId);
+    }
+
     private void UpdateSearchPlaceholders()
     {
         HeaderSearchPlaceholderText.Visibility = string.IsNullOrWhiteSpace(HeaderSearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;
@@ -729,7 +1059,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private void UpdateBulkActions()
     {
-        var selected = Products.Count(item => item.IsSelected);
+        var selected = _allProducts.Count(item => item.IsSelected);
         BulkActionsPanel.Visibility = selected > 1 ? Visibility.Visible : Visibility.Collapsed;
         SelectedCountText.Text = $"Выбрано {selected:N0} товара";
         SelectAllCheckBox.IsChecked = Products.Count > 0 && Products.All(item => item.IsSelected);
@@ -737,7 +1067,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private ProductRowViewModel[] GetSelectedOrCurrentProducts()
     {
-        var selected = Products.Where(item => item.IsSelected).ToArray();
+        var selected = _allProducts.Where(item => item.IsSelected).ToArray();
         if (selected.Length > 0)
         {
             return selected;
@@ -748,13 +1078,13 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private ProductRowViewModel[] GetPriceListScope()
     {
-        var selected = Products.Where(item => item.IsSelected).ToArray();
+        var selected = _allProducts.Where(item => item.IsSelected).ToArray();
         if (selected.Length > 0)
         {
             return selected;
         }
 
-        return Products.ToArray();
+        return _filteredProducts.ToArray();
     }
 
     private void HandleImportClick(object sender, RoutedEventArgs e)
@@ -795,7 +1125,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private void HandleExportClick(object sender, RoutedEventArgs e)
     {
-        ExportProducts(Products.ToArray());
+        ExportProducts(_filteredProducts.ToArray());
     }
 
     private void HandleExportSelectedClick(object sender, RoutedEventArgs e)
@@ -934,7 +1264,10 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private void OpenProductEditor(CatalogItemRecord? item)
     {
-        var dialog = new ProductEditorWindow(_catalogWorkspace, item)
+        var dialog = new ProductEditorWindow(
+            _catalogWorkspace,
+            item,
+            item is null ? Array.Empty<WarehouseCellBalanceRecord>() : ResolveProductCellBalances(item))
         {
             Owner = Window.GetWindow(this)
         };
@@ -2026,6 +2359,11 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private void TryPersistCatalog()
     {
+        if (!_catalogWorkspaceLoaded)
+        {
+            return;
+        }
+
         try
         {
             _store.Save(_catalogWorkspace);
@@ -2079,6 +2417,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             double freeBarWidth,
             double reservedBarWidth,
             double transitBarWidth,
+            IReadOnlyList<ProductCellPlacementViewModel> cellPlacements,
+            string cellSummary,
             string searchText)
         {
             Record = record;
@@ -2102,6 +2442,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             FreeBarWidth = freeBarWidth;
             ReservedBarWidth = reservedBarWidth;
             TransitBarWidth = transitBarWidth;
+            CellPlacements = cellPlacements;
+            CellSummary = cellSummary;
             SearchText = searchText;
         }
 
@@ -2153,6 +2495,10 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
         public double TransitBarWidth { get; }
 
+        public IReadOnlyList<ProductCellPlacementViewModel> CellPlacements { get; }
+
+        public string CellSummary { get; }
+
         public string SearchText { get; }
 
         public bool IsSelected
@@ -2192,9 +2538,14 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
         public bool LowStock => Deficit > 0m;
 
-        public bool HasProblem => MissingPrice || MissingBarcode || MissingSupplier || LowStock;
+        public bool MissingCellPlacement => FreeQuantity + ReservedQuantity + InTransitQuantity > 0m && CellPlacements.Count == 0;
 
-        public static ProductRowViewModel Create(CatalogItemRecord item, WarehouseStockBalanceRecord? stock)
+        public bool HasProblem => MissingPrice || MissingBarcode || MissingSupplier || LowStock || MissingCellPlacement;
+
+        public static ProductRowViewModel Create(
+            CatalogItemRecord item,
+            WarehouseStockBalanceRecord? stock,
+            IReadOnlyList<WarehouseCellBalanceRecord> cellBalances)
         {
             var code = Fallback(Ui(item.Code), "ITEM");
             var name = Fallback(Ui(item.Name), "Без названия");
@@ -2211,6 +2562,10 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             var (foreground, background) = ResolveStatusBrushes(status);
             var total = Math.Max(1m, free + reserved + inTransit);
             const double barWidth = 82d;
+            var cellPlacements = cellBalances
+                .Select(ProductCellPlacementViewModel.Create)
+                .ToArray();
+            var cellSummary = BuildCellSummary(cellPlacements, free + reserved + inTransit);
             var searchText = string.Join(
                 " ",
                 code,
@@ -2219,7 +2574,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                 supplier,
                 warehouse,
                 status,
-                barcode);
+                barcode,
+                cellSummary);
 
             return new ProductRowViewModel(
                 item,
@@ -2243,12 +2599,29 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                 Scale(free),
                 Scale(reserved),
                 Scale(inTransit),
+                cellPlacements,
+                cellSummary,
                 searchText);
 
             double Scale(decimal value)
             {
                 return Math.Max(value <= 0m ? 0d : 5d, (double)(value / total) * barWidth);
             }
+        }
+
+        private static string BuildCellSummary(IReadOnlyList<ProductCellPlacementViewModel> placements, decimal stockQuantity)
+        {
+            if (placements.Count == 0)
+            {
+                return stockQuantity > 0m ? "Нет ячейки" : "-";
+            }
+
+            var preview = placements
+                .Take(2)
+                .Select(item => $"{item.Cell}: {item.Quantity}")
+                .ToArray();
+            var tail = placements.Count > preview.Length ? $" +{placements.Count - preview.Length}" : string.Empty;
+            return string.Join("; ", preview) + tail;
         }
 
         private static decimal ResolveMinimumStock(decimal free, decimal reserved, decimal inTransit)
@@ -2286,6 +2659,19 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         private static string Fallback(params string[] values)
         {
             return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "-";
+        }
+    }
+
+    public sealed record ProductCellPlacementViewModel(string Cell, string Warehouse, string Quantity, string Source)
+    {
+        public static ProductCellPlacementViewModel Create(WarehouseCellBalanceRecord balance)
+        {
+            var unit = string.IsNullOrWhiteSpace(balance.Unit) ? "шт" : Ui(balance.Unit);
+            return new ProductCellPlacementViewModel(
+                string.IsNullOrWhiteSpace(balance.Cell) ? "-" : Ui(balance.Cell),
+                string.IsNullOrWhiteSpace(balance.Warehouse) ? "-" : Ui(balance.Warehouse),
+                $"{balance.Quantity:N0} {unit}",
+                string.IsNullOrWhiteSpace(balance.SourceLabel) ? "-" : Ui(balance.SourceLabel));
         }
     }
 

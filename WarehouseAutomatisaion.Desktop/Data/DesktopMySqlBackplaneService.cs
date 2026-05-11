@@ -1537,6 +1537,18 @@ public sealed partial class DesktopMySqlBackplaneService
         EXECUTE warehouse_stmt;
         DEALLOCATE PREPARE warehouse_stmt;
 
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_customers'
+                AND COLUMN_NAME = 'customer_files_json'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_sales_customers ADD COLUMN customer_files_json LONGTEXT NULL AFTER notes', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
         SET @warehouse_column_resize = (
             SELECT COUNT(*) > 0
             FROM INFORMATION_SCHEMA.COLUMNS

@@ -1,0 +1,138 @@
+<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.WarehouseCellGroupPlacementWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="860"
+        Height="640"
+        MinWidth="780"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="#F6F8FC">
+    <Window.Resources>
+        <Style x:Key="CardStyle" TargetType="Border" BasedOn="{StaticResource DialogCardStyle}" />
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogPrimaryButtonStyle}" />
+        <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogSecondaryButtonStyle}" />
+    </Window.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Групповое размещение"
+                           FontSize="28"
+                           FontWeight="SemiBold"
+                           Foreground="#1B2440" />
+                <TextBlock x:Name="SubtitleText"
+                           Margin="0,8,0,0"
+                           FontSize="14"
+                           Foreground="#6E7B98"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button Content="Авто"
+                        Style="{StaticResource GhostButtonStyle}"
+                        Width="100"
+                        Margin="0,0,10,0"
+                        Click="HandleAutoDistributeClick" />
+                <Button Content="Добавить ячейку"
+                        Style="{StaticResource GhostButtonStyle}"
+                        Width="150"
+                        Click="HandleAddRowClick" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="16" Margin="0,0,0,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Товар" FontSize="12" Foreground="#6E7B98" />
+                    <TextBlock x:Name="ItemText" Margin="0,4,0,0" FontSize="15" FontWeight="SemiBold" Foreground="#17213A" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="Доступно без ячейки" FontSize="12" Foreground="#6E7B98" />
+                    <TextBlock x:Name="AvailableText" Margin="0,4,0,0" FontSize="15" FontWeight="SemiBold" Foreground="#17213A" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Правило" FontSize="12" Foreground="#6E7B98" />
+                    <TextBlock x:Name="RuleText" Margin="0,4,0,0" FontSize="15" FontWeight="SemiBold" Foreground="#17213A" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="0">
+            <DataGrid x:Name="RowsDataGrid"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="#EEF2FA"
+                      VerticalGridLinesBrush="#EEF2FA"
+                      BorderThickness="0"
+                      Background="#FFFFFF"
+                      RowHeight="46"
+                      ColumnHeaderHeight="40"
+                      SelectionMode="Single"
+                      SelectionUnit="FullRow"
+                      RowHeaderWidth="0"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="Ячейка" Width="180">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding CellCode}" VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                        <DataGridTemplateColumn.CellEditingTemplate>
+                            <DataTemplate>
+                                <ComboBox ItemsSource="{Binding DataContext.CellOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          SelectedItem="{Binding CellCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          IsEditable="True" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellEditingTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Количество" Binding="{Binding QuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="140" />
+                    <DataGridTextColumn Header="Подсказка" Binding="{Binding Hint}" Width="*" IsReadOnly="True" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <DockPanel Grid.Row="3" Margin="0,18,0,0">
+            <TextBlock x:Name="ValidationText"
+                       DockPanel.Dock="Left"
+                       VerticalAlignment="Center"
+                       Foreground="#D92D20"
+                       TextWrapping="Wrap" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Удалить строку"
+                        Style="{StaticResource GhostButtonStyle}"
+                        Width="140"
+                        Margin="0,0,10,0"
+                        Click="HandleRemoveRowClick" />
+                <Button Content="Отмена"
+                        Style="{StaticResource GhostButtonStyle}"
+                        Width="120"
+                        Margin="0,0,10,0"
+                        Click="HandleCancelClick" />
+                <Button Content="Разместить"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Width="140"
+                        Click="HandleSaveClick" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

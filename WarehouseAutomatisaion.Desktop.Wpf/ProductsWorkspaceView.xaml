@@ -211,6 +211,30 @@
                                Style="{StaticResource TopHeaderTitleStyle}" />
                     <TextBlock Text="Каталог товаров, качество данных и доступность на складах."
                                Style="{StaticResource TopHeaderSubtitleStyle}" />
+                    <Border x:Name="CatalogSyncStatusBadge"
+                            Visibility="Collapsed"
+                            Background="#EEF7FF"
+                            BorderBrush="#CFE8FF"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="10,6"
+                            Margin="0,10,0,0"
+                            HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe Fluent Icons"
+                                       Text="&#xE895;"
+                                       FontSize="12"
+                                       Foreground="#2B6CB0"
+                                       VerticalAlignment="Center" />
+                            <TextBlock x:Name="CatalogSyncStatusText"
+                                       Text="Синхронизация каталога с БД..."
+                                       Margin="8,0,0,0"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#2B4F72"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" Style="{StaticResource TopHeaderActionsWrapPanelStyle}">
@@ -368,6 +392,7 @@
                     <ComboBox x:Name="SupplierFilterCombo" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                     <ComboBox x:Name="StatusFilterCombo" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                     <CheckBox x:Name="OnlyProblemsCheckBox" Content="Только проблемные" Style="{StaticResource ProblemsOnlyStyle}" Margin="2,0,18,10" Checked="HandleFilterChanged" Unchecked="HandleFilterChanged" />
+                    <CheckBox x:Name="OnlyWithoutCellsCheckBox" Content="Без ячеек" Style="{StaticResource ProblemsOnlyStyle}" Margin="2,0,18,10" Checked="HandleFilterChanged" Unchecked="HandleFilterChanged" />
                     <Button Content="Сбросить" Style="{StaticResource TableFilterResetButtonStyle}" Margin="0,0,10,10" Click="HandleResetFiltersClick" />
                 </WrapPanel>
 
@@ -452,6 +477,7 @@
                                     </DataGridTemplateColumn>
                                     <DataGridTextColumn Header="Категория" Binding="{Binding Category}" Width="100" IsReadOnly="True" />
                                     <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="112" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="Ячейки" Binding="{Binding CellSummary}" Width="150" IsReadOnly="True" />
                                     <DataGridTemplateColumn Header="Остаток" Width="125" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
@@ -496,9 +522,21 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="ProductsCountText" Style="{StaticResource TableFooterTextStyle}" />
+                                <TextBlock x:Name="ProductsCountText"
+                                           AutomationProperties.AutomationId="ProductsCountText"
+                                           Style="{StaticResource TableFooterTextStyle}" />
                                 <StackPanel Grid.Column="1" Style="{StaticResource TablePagerPanelStyle}">
-                                    <TextBlock Text="Прокрутка колесом" Style="{StaticResource TableFooterTextStyle}" />
+                                    <StackPanel x:Name="ProductsPagerPanel" Style="{StaticResource TablePagerPanelStyle}" />
+                                    <ComboBox x:Name="ProductsPageSizeComboBox"
+                                              Width="100"
+                                              Style="{StaticResource TablePageSizeComboBoxStyle}"
+                                              Margin="14,0,0,0"
+                                              SelectedIndex="1"
+                                              SelectionChanged="HandleProductsPageSizeChanged">
+                                        <ComboBoxItem Content="50 / стр." />
+                                        <ComboBoxItem Content="100 / стр." />
+                                        <ComboBoxItem Content="200 / стр." />
+                                    </ComboBox>
                                 </StackPanel>
                             </Grid>
                         </Grid>
@@ -609,6 +647,28 @@
                                         <TextBlock x:Name="DetailDeficitText" Text="0" Margin="0,4,0,0" Foreground="#FF3045" FontSize="13" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Grid>
+
+                                <Border Height="1" Background="#EEF2FA" Margin="0,0,0,14" />
+                                <Grid>
+                                    <TextBlock Text="Ячейки хранения" Foreground="#17213A" FontSize="13" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="CellPlacementSummaryText" HorizontalAlignment="Right" Foreground="#7280A0" FontSize="11.5" />
+                                </Grid>
+                                <ItemsControl x:Name="CellPlacementsItemsControl" Margin="0,8,0,14">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="96" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Cell}" Foreground="#4F5BFF" FontSize="11.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Warehouse}" Foreground="#53617E" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Quantity}" Foreground="#17213A" FontSize="11.5" FontWeight="SemiBold" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
                                 <Border Height="1" Background="#EEF2FA" Margin="0,0,0,14" />
                                 <Grid>

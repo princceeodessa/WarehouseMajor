@@ -10,6 +10,8 @@ public sealed class OperationalWarehouseWorkspace
         BindingList<OperationalWarehouseDocumentRecord> inventoryCounts,
         BindingList<OperationalWarehouseDocumentRecord> writeOffs,
         BindingList<WarehouseStorageCellRecord> storageCells,
+        BindingList<WarehouseCellPlacementRuleRecord> placementRules,
+        BindingList<WarehouseCellIntegrityIssueRecord> cellStorageIssues,
         BindingList<WarehouseOperationLogEntry> operationLog,
         IReadOnlyList<string> transferStatuses,
         IReadOnlyList<string> inventoryStatuses,
@@ -21,6 +23,8 @@ public sealed class OperationalWarehouseWorkspace
         InventoryCounts = inventoryCounts;
         WriteOffs = writeOffs;
         StorageCells = storageCells;
+        PlacementRules = placementRules;
+        CellStorageIssues = cellStorageIssues;
         OperationLog = operationLog;
         TransferStatuses = transferStatuses;
         InventoryStatuses = inventoryStatuses;
@@ -36,6 +40,10 @@ public sealed class OperationalWarehouseWorkspace
     public BindingList<OperationalWarehouseDocumentRecord> WriteOffs { get; }
 
     public BindingList<WarehouseStorageCellRecord> StorageCells { get; }
+
+    public BindingList<WarehouseCellPlacementRuleRecord> PlacementRules { get; }
+
+    public BindingList<WarehouseCellIntegrityIssueRecord> CellStorageIssues { get; }
 
     public BindingList<WarehouseOperationLogEntry> OperationLog { get; }
 
@@ -105,6 +113,8 @@ public sealed class OperationalWarehouseWorkspace
             new BindingList<OperationalWarehouseDocumentRecord>(),
             new BindingList<OperationalWarehouseDocumentRecord>(),
             new BindingList<WarehouseStorageCellRecord>(CreateDefaultStorageCells(normalizedWarehouses).ToList()),
+            new BindingList<WarehouseCellPlacementRuleRecord>(),
+            new BindingList<WarehouseCellIntegrityIssueRecord>(),
             new BindingList<WarehouseOperationLogEntry>(),
             new[] { "Черновик", "К перемещению", "Перемещен" },
             new[] { "Черновик", "Проведена" },
@@ -122,6 +132,8 @@ public sealed class OperationalWarehouseWorkspace
         ReplaceBindingList(InventoryCounts, source.InventoryCounts, item => item.Clone());
         ReplaceBindingList(WriteOffs, source.WriteOffs, item => item.Clone());
         ReplaceBindingList(StorageCells, source.StorageCells, item => item.Clone());
+        ReplaceBindingList(PlacementRules, source.PlacementRules, item => item.Clone());
+        ReplaceBindingList(CellStorageIssues, source.CellStorageIssues, item => item.Clone());
         ReplaceBindingList(OperationLog, source.OperationLog, item => item.Clone());
         CurrentOperator = source.CurrentOperator;
         Warehouses = source.Warehouses.ToArray();
@@ -281,6 +293,74 @@ public sealed class OperationalWarehouseWorkspace
             isActive
                 ? $"Ячейка {existing.Code} снова доступна."
                 : $"Ячейка {existing.Code} закрыта для новых операций.");
+        OnChanged();
+    }
+
+    public void UpsertPlacementRule(WarehouseCellPlacementRuleRecord rule)
+    {
+        var normalized = NormalizePlacementRule(rule);
+        var existing = PlacementRules.FirstOrDefault(item => item.Id == normalized.Id)
+                       ?? PlacementRules.FirstOrDefault(item => BuildPlacementRuleKey(item).Equals(BuildPlacementRuleKey(normalized), StringComparison.OrdinalIgnoreCase));
+        if (existing is null)
+        {
+            PlacementRules.Add(normalized);
+            WriteOperationLog(
+                "Правила ячеек",
+                normalized.Id,
+                normalized.DisplayKey,
+                "Создание правила",
+                "Успех",
+                $"Добавлено правило размещения {normalized.DisplayKey}.");
+        }
+        else
+        {
+            existing.CopyFrom(normalized);
+            WriteOperationLog(
+                "Правила ячеек",
+                existing.Id,
+                existing.DisplayKey,
+                "Изменение правила",
+                "Успех",
+                $"Обновлено правило размещения {existing.DisplayKey}.");
+        }
+
+        OnChanged();
+    }
+
+    public void RemovePlacementRule(Guid ruleId)
+    {
+        var existing = PlacementRules.FirstOrDefault(item => item.Id == ruleId);
+        if (existing is null)
+        {
+            throw new InvalidOperationException("Правило размещения не найдено.");
+        }
+
+        PlacementRules.Remove(existing);
+        WriteOperationLog(
+            "Правила ячеек",
+            existing.Id,
+            existing.DisplayKey,
+            "Удаление правила",
+            "Успех",
+            $"Удалено правило размещения {existing.DisplayKey}.");
+        OnChanged();
+    }
+
+    public void AddCellStorageIssue(WarehouseCellIntegrityIssueRecord issue)
+    {
+        var normalized = NormalizeCellStorageIssue(issue);
+        CellStorageIssues.Insert(0, normalized);
+        while (CellStorageIssues.Count > 500)
+        {
+            CellStorageIssues.RemoveAt(CellStorageIssues.Count - 1);
+        }
+
+        OnChanged();
+    }
+
+    public void ClearCellStorageIssues()
+    {
+        CellStorageIssues.Clear();
         OnChanged();
     }
 
@@ -633,10 +713,59 @@ public sealed class OperationalWarehouseWorkspace
         return normalized;
     }
 
+    private WarehouseCellPlacementRuleRecord NormalizePlacementRule(WarehouseCellPlacementRuleRecord source)
+    {
+        var normalized = source.Clone();
+        normalized.Id = normalized.Id == Guid.Empty ? Guid.NewGuid() : normalized.Id;
+        normalized.Warehouse = NormalizeWarehouse(normalized.Warehouse);
+        normalized.ItemCode = normalized.ItemCode.Trim();
+        normalized.ItemName = normalized.ItemName.Trim();
+        normalized.Category = normalized.Category.Trim();
+        normalized.PrimaryCellCode = normalized.PrimaryCellCode.Trim().ToUpperInvariant();
+        normalized.ReserveCellCode = normalized.ReserveCellCode.Trim().ToUpperInvariant();
+        normalized.ZonePriority = normalized.ZonePriority.Trim();
+        normalized.Comment = normalized.Comment.Trim();
+        return normalized;
+    }
+
+    private WarehouseCellIntegrityIssueRecord NormalizeCellStorageIssue(WarehouseCellIntegrityIssueRecord source)
+    {
+        var normalized = source.Clone();
+        normalized.Id = normalized.Id == Guid.Empty ? Guid.NewGuid() : normalized.Id;
+        normalized.CreatedAt = normalized.CreatedAt == default ? DateTime.Now : normalized.CreatedAt;
+        normalized.Warehouse = NormalizeWarehouse(normalized.Warehouse);
+        normalized.CellCode = normalized.CellCode.Trim().ToUpperInvariant();
+        normalized.ItemCode = normalized.ItemCode.Trim();
+        normalized.ItemName = normalized.ItemName.Trim();
+        normalized.Severity = CleanCellPart(normalized.Severity, "Предупреждение");
+        normalized.Operation = CleanCellPart(normalized.Operation, "Ячеечное хранение");
+        normalized.Message = CleanCellPart(normalized.Message, "Ошибка ячеечного хранения");
+        normalized.Status = CleanCellPart(normalized.Status, "Открыта");
+        normalized.RelatedDocument = normalized.RelatedDocument.Trim();
+        return normalized;
+    }
+
     private static bool IsSameStorageCell(WarehouseStorageCellRecord left, WarehouseStorageCellRecord right)
     {
         return left.Warehouse.Equals(right.Warehouse, StringComparison.OrdinalIgnoreCase)
                && left.Code.Equals(right.Code, StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static string BuildPlacementRuleKey(WarehouseCellPlacementRuleRecord rule)
+    {
+        var itemKey = !string.IsNullOrWhiteSpace(rule.ItemCode)
+            ? $"C:{rule.ItemCode.Trim()}"
+            : !string.IsNullOrWhiteSpace(rule.ItemName)
+                ? $"N:{rule.ItemName.Trim()}"
+                : $"G:{rule.Category.Trim()}";
+        return $"{rule.Warehouse.Trim()}|{itemKey}";
+    }
+
+    internal static string BuildCellStorageIssueKey(WarehouseCellIntegrityIssueRecord issue)
+    {
+        return issue.Id != Guid.Empty
+            ? issue.Id.ToString("N")
+            : $"{issue.CreatedAt:O}|{issue.Warehouse}|{issue.CellCode}|{issue.Operation}|{issue.Message}";
     }
 
     private static string BuildGeneratedStorageCellCode(WarehouseStorageCellRecord cell)
@@ -868,6 +997,135 @@ public sealed class WarehouseStorageCellRecord
         Status = source.Status;
         QrPayload = source.QrPayload;
         Comment = source.Comment;
+    }
+}
+
+public sealed class WarehouseCellPlacementRuleRecord
+{
+    public Guid Id { get; set; }
+
+    public string Warehouse { get; set; } = string.Empty;
+
+    public string ItemCode { get; set; } = string.Empty;
+
+    public string ItemName { get; set; } = string.Empty;
+
+    public string Category { get; set; } = string.Empty;
+
+    public string PrimaryCellCode { get; set; } = string.Empty;
+
+    public string ReserveCellCode { get; set; } = string.Empty;
+
+    public string ZonePriority { get; set; } = string.Empty;
+
+    public bool ForbidMixedCategories { get; set; } = true;
+
+    public bool IsActive { get; set; } = true;
+
+    public string Comment { get; set; } = string.Empty;
+
+    public string DisplayKey
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(ItemCode) || !string.IsNullOrWhiteSpace(ItemName))
+            {
+                return string.IsNullOrWhiteSpace(ItemCode) ? ItemName : $"{ItemName} [{ItemCode}]";
+            }
+
+            return string.IsNullOrWhiteSpace(Category) ? "Общее правило" : $"Категория {Category}";
+        }
+    }
+
+    public WarehouseCellPlacementRuleRecord Clone()
+    {
+        return new WarehouseCellPlacementRuleRecord
+        {
+            Id = Id == Guid.Empty ? Guid.NewGuid() : Id,
+            Warehouse = Warehouse,
+            ItemCode = ItemCode,
+            ItemName = ItemName,
+            Category = Category,
+            PrimaryCellCode = PrimaryCellCode,
+            ReserveCellCode = ReserveCellCode,
+            ZonePriority = ZonePriority,
+            ForbidMixedCategories = ForbidMixedCategories,
+            IsActive = IsActive,
+            Comment = Comment
+        };
+    }
+
+    public void CopyFrom(WarehouseCellPlacementRuleRecord source)
+    {
+        Id = source.Id == Guid.Empty ? Id : source.Id;
+        Warehouse = source.Warehouse;
+        ItemCode = source.ItemCode;
+        ItemName = source.ItemName;
+        Category = source.Category;
+        PrimaryCellCode = source.PrimaryCellCode;
+        ReserveCellCode = source.ReserveCellCode;
+        ZonePriority = source.ZonePriority;
+        ForbidMixedCategories = source.ForbidMixedCategories;
+        IsActive = source.IsActive;
+        Comment = source.Comment;
+    }
+}
+
+public sealed class WarehouseCellIntegrityIssueRecord
+{
+    public Guid Id { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public string Severity { get; set; } = "Предупреждение";
+
+    public string Operation { get; set; } = string.Empty;
+
+    public string Warehouse { get; set; } = string.Empty;
+
+    public string CellCode { get; set; } = string.Empty;
+
+    public string ItemCode { get; set; } = string.Empty;
+
+    public string ItemName { get; set; } = string.Empty;
+
+    public string Message { get; set; } = string.Empty;
+
+    public string RelatedDocument { get; set; } = string.Empty;
+
+    public string Status { get; set; } = "Открыта";
+
+    public WarehouseCellIntegrityIssueRecord Clone()
+    {
+        return new WarehouseCellIntegrityIssueRecord
+        {
+            Id = Id == Guid.Empty ? Guid.NewGuid() : Id,
+            CreatedAt = CreatedAt,
+            Severity = Severity,
+            Operation = Operation,
+            Warehouse = Warehouse,
+            CellCode = CellCode,
+            ItemCode = ItemCode,
+            ItemName = ItemName,
+            Message = Message,
+            RelatedDocument = RelatedDocument,
+            Status = Status
+        };
+    }
+
+    public void CopyFrom(WarehouseCellIntegrityIssueRecord source)
+    {
+        Id = source.Id == Guid.Empty ? Id : source.Id;
+        CreatedAt = source.CreatedAt;
+        Severity = source.Severity;
+        Operation = source.Operation;
+        Warehouse = source.Warehouse;
+        CellCode = source.CellCode;
+        ItemCode = source.ItemCode;
+        ItemName = source.ItemName;
+        Message = source.Message;
+        RelatedDocument = source.RelatedDocument;
+        Status = source.Status;
     }
 }
 

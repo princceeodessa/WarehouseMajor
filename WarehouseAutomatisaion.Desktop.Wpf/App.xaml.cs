@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 using WarehouseAutomatisaion.Desktop.Data;
 
@@ -22,6 +23,7 @@ public partial class App : System.Windows.Application
         {
             base.OnStartup(e);
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            RegisterWorkspaceWindowBehavior();
 
             var validateStopwatch = Stopwatch.StartNew();
             var infrastructureStatus = DesktopClientStartupService.ValidateInfrastructure();
@@ -152,6 +154,73 @@ public partial class App : System.Windows.Application
             WriteClientErrorLog(args.Exception, "TaskScheduler.UnobservedTaskException");
             args.SetObserved();
         };
+    }
+
+    private static void RegisterWorkspaceWindowBehavior()
+    {
+        EventManager.RegisterClassHandler(
+            typeof(Window),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(HandleWorkspaceWindowLoaded),
+            handledEventsToo: true);
+        EventManager.RegisterClassHandler(
+            typeof(Window),
+            Keyboard.PreviewKeyDownEvent,
+            new KeyEventHandler(HandleWorkspaceWindowPreviewKeyDown),
+            handledEventsToo: true);
+    }
+
+    private static void HandleWorkspaceWindowLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Window window || !IsWorkspaceChildWindow(window))
+        {
+            return;
+        }
+
+        if (window.ResizeMode == ResizeMode.NoResize)
+        {
+            window.ResizeMode = ResizeMode.CanMinimize;
+        }
+
+        window.ShowInTaskbar = true;
+        window.Dispatcher.BeginInvoke(EnableVisibleApplicationWindows, DispatcherPriority.ApplicationIdle);
+    }
+
+    private static void HandleWorkspaceWindowPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Handled || e.Key != Key.Escape || sender is not Window window || !IsWorkspaceChildWindow(window))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        try
+        {
+            window.DialogResult = false;
+        }
+        catch (InvalidOperationException)
+        {
+            window.Close();
+        }
+    }
+
+    private static bool IsWorkspaceChildWindow(Window window)
+    {
+        return Current.MainWindow is Window mainWindow
+               && mainWindow.IsVisible
+               && !ReferenceEquals(window, mainWindow)
+               && window is not StartupLoadingWindow;
+    }
+
+    private static void EnableVisibleApplicationWindows()
+    {
+        foreach (Window window in Current.Windows)
+        {
+            if (window.IsVisible && !window.IsEnabled)
+            {
+                window.IsEnabled = true;
+            }
+        }
     }
 
     private static void HandleDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

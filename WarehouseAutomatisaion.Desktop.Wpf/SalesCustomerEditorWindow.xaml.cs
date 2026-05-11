@@ -1,9 +1,13 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
 using WarehouseAutomatisaion.Desktop.Data;
 using WarehouseAutomatisaion.Desktop.Text;
+using WarehouseAutomatisaion.Infrastructure.Importing;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
@@ -44,6 +48,7 @@ public partial class SalesCustomerEditorWindow : Window
     private readonly SalesCustomerRecord _draft;
     private readonly ObservableCollection<SalesCustomerContactEditorRow> _contacts = [];
     private readonly ObservableCollection<CustomerDocumentRelationRow> _documents = [];
+    private readonly ObservableCollection<SalesCustomerFileEditorRow> _files = [];
     private bool _hostedInWorkspace;
 
     public SalesCustomerEditorWindow(SalesWorkspace workspace, SalesCustomerRecord? customer = null)
@@ -65,10 +70,12 @@ public partial class SalesCustomerEditorWindow : Window
         ResponsibleComboBox.ItemsSource = workspace.Managers.Select(Ui).ToArray();
         ContactsGrid.ItemsSource = _contacts;
         DocumentsGrid.ItemsSource = _documents;
+        FilesGrid.ItemsSource = _files;
 
         LoadDraft();
         RenderCustomerSummary();
         RenderDocuments();
+        RenderFiles();
         ApplyCounterpartyTypeLayout();
     }
 
@@ -190,6 +197,24 @@ public partial class SalesCustomerEditorWindow : Window
             : $"Связанные документы клиента: {_documents.Count:N0}. Показаны заказы, счета, расходные накладные, возвраты и поступления в кассу.";
     }
 
+    private void RenderFiles()
+    {
+        _files.Clear();
+        foreach (var file in _draft.Files.Select(item => item.Clone()).OrderByDescending(item => item.UploadedAt))
+        {
+            _files.Add(SalesCustomerFileEditorRow.FromRecord(file));
+        }
+
+        RefreshFilesSummary();
+    }
+
+    private void RefreshFilesSummary()
+    {
+        FilesSummaryText.Text = _files.Count == 0
+            ? "Файлов пока нет."
+            : $"Файлов в карточке: {_files.Count:N0}.";
+    }
+
     private void HandleCounterpartyTypeChanged(object sender, SelectionChangedEventArgs e)
     {
         ApplyCounterpartyTypeLayout();
@@ -259,6 +284,112 @@ public partial class SalesCustomerEditorWindow : Window
         }
     }
 
+    private void HandleAddFileClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Выберите файл договора",
+            Filter = "Документы и изображения|*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.jpg;*.jpeg;*.png;*.txt|Все файлы|*.*",
+            Multiselect = true
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var sourcePath in dialog.FileNames)
+            {
+                AddCustomerFile(sourcePath);
+            }
+
+            RefreshFilesSummary();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                this,
+                $"Не удалось загрузить файл договора.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
+                AppBranding.MessageBoxTitle,
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private void HandleOpenFileClick(object sender, RoutedEventArgs e)
+    {
+        if (FilesGrid.SelectedItem is not SalesCustomerFileEditorRow row)
+        {
+            ValidationText.Text = "Выберите файл для открытия.";
+            return;
+        }
+
+        if (!File.Exists(row.StoredPath))
+        {
+            ValidationText.Text = "Файл не найден в хранилище приложения.";
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = row.StoredPath,
+            UseShellExecute = true
+        });
+    }
+
+    private void HandleRemoveFileClick(object sender, RoutedEventArgs e)
+    {
+        if (FilesGrid.SelectedItem is not SalesCustomerFileEditorRow row)
+        {
+            ValidationText.Text = "Выберите файл, который нужно убрать из карточки.";
+            return;
+        }
+
+        _files.Remove(row);
+        RefreshFilesSummary();
+    }
+
+    private void AddCustomerFile(string sourcePath)
+    {
+        if (!File.Exists(sourcePath))
+        {
+            return;
+        }
+
+        var customerId = _draft.Id == Guid.Empty ? Guid.NewGuid() : _draft.Id;
+        _draft.Id = customerId;
+
+        var storageDirectory = Path.Combine(
+            WorkspacePathResolver.ResolveWorkspaceRoot(),
+            "app_data",
+            "customer-files",
+            customerId.ToString("N"));
+        Directory.CreateDirectory(storageDirectory);
+
+        var sourceName = Path.GetFileName(sourcePath);
+        var extension = Path.GetExtension(sourceName);
+        var storedName = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}{extension}";
+        var storedPath = Path.Combine(storageDirectory, storedName);
+        File.Copy(sourcePath, storedPath, overwrite: false);
+
+        var info = new FileInfo(storedPath);
+        var row = new SalesCustomerFileEditorRow
+        {
+            Id = Guid.NewGuid(),
+            FileName = sourceName,
+            StoredPath = storedPath,
+            Description = GuessFileDescription(sourceName),
+            UploadedAt = DateTime.Now,
+            UploadedBy = Environment.UserName,
+            SizeBytes = info.Length
+        };
+
+        _files.Add(row);
+        FilesGrid.SelectedItem = row;
+    }
+
     private void HandleSaveClick(object sender, RoutedEventArgs e)
     {
         ValidationText.Text = string.Empty;
@@ -309,7 +440,8 @@ public partial class SalesCustomerEditorWindow : Window
             Tags = TagsTextBox.Text.Trim(),
             BankAccount = BankAccountTextBox.Text.Trim(),
             Notes = NotesTextBox.Text.Trim(),
-            Contacts = new System.ComponentModel.BindingList<SalesCustomerContactRecord>(contacts)
+            Contacts = new System.ComponentModel.BindingList<SalesCustomerContactRecord>(contacts),
+            Files = new System.ComponentModel.BindingList<SalesCustomerFileRecord>(_files.Select(item => item.ToRecord()).ToList())
         };
 
         CompleteEditing(success: true);
@@ -337,6 +469,25 @@ public partial class SalesCustomerEditorWindow : Window
         }
 
         DialogResult = success;
+    }
+
+    private static string GuessFileDescription(string fileName)
+    {
+        var name = Ui(fileName);
+        var extension = Path.GetExtension(name).ToLowerInvariant();
+        if (name.Contains("договор", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("contract", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Договор";
+        }
+
+        return extension switch
+        {
+            ".pdf" or ".doc" or ".docx" => "Документ",
+            ".jpg" or ".jpeg" or ".png" => "Скан",
+            ".xls" or ".xlsx" => "Таблица",
+            _ => "Файл"
+        };
     }
 
     private static void SelectComboValue(ComboBox comboBox, string value)
@@ -412,3 +563,58 @@ public sealed record CustomerDocumentRelationRow(
     string Date,
     string Status,
     string Amount);
+
+public sealed class SalesCustomerFileEditorRow
+{
+    public Guid Id { get; set; }
+
+    public string FileName { get; set; } = string.Empty;
+
+    public string StoredPath { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
+
+    public DateTime UploadedAt { get; set; }
+
+    public string UploadedBy { get; set; } = string.Empty;
+
+    public long SizeBytes { get; set; }
+
+    public string UploadedAtDisplay => UploadedAt == default
+        ? "-"
+        : UploadedAt.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("ru-RU"));
+
+    public string SizeDisplay => SizeBytes <= 0
+        ? "-"
+        : SizeBytes < 1024 * 1024
+            ? $"{SizeBytes / 1024d:N1} КБ"
+            : $"{SizeBytes / 1024d / 1024d:N1} МБ";
+
+    public static SalesCustomerFileEditorRow FromRecord(SalesCustomerFileRecord record)
+    {
+        return new SalesCustomerFileEditorRow
+        {
+            Id = record.Id == Guid.Empty ? Guid.NewGuid() : record.Id,
+            FileName = record.FileName,
+            StoredPath = record.StoredPath,
+            Description = record.Description,
+            UploadedAt = record.UploadedAt,
+            UploadedBy = record.UploadedBy,
+            SizeBytes = record.SizeBytes
+        };
+    }
+
+    public SalesCustomerFileRecord ToRecord()
+    {
+        return new SalesCustomerFileRecord
+        {
+            Id = Id == Guid.Empty ? Guid.NewGuid() : Id,
+            FileName = FileName.Trim(),
+            StoredPath = StoredPath.Trim(),
+            Description = Description.Trim(),
+            UploadedAt = UploadedAt == default ? DateTime.Now : UploadedAt,
+            UploadedBy = UploadedBy.Trim(),
+            SizeBytes = SizeBytes
+        };
+    }
+}

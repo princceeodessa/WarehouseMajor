@@ -11,11 +11,16 @@ public partial class ProductEditorWindow : Window
 
     private readonly CatalogWorkspace _workspace;
     private readonly CatalogItemRecord _draft;
+    private readonly IReadOnlyList<WarehouseCellBalanceRecord> _cellBalances;
 
-    public ProductEditorWindow(CatalogWorkspace workspace, CatalogItemRecord? item = null)
+    public ProductEditorWindow(
+        CatalogWorkspace workspace,
+        CatalogItemRecord? item = null,
+        IEnumerable<WarehouseCellBalanceRecord>? cellBalances = null)
     {
         _workspace = workspace;
         _draft = item?.Clone() ?? workspace.CreateItemDraft();
+        _cellBalances = (cellBalances ?? Array.Empty<WarehouseCellBalanceRecord>()).ToArray();
 
         InitializeComponent();
 
@@ -31,6 +36,7 @@ public partial class ProductEditorWindow : Window
         CurrencyComboBox.ItemsSource = workspace.Currencies.Select(Ui).ToArray();
 
         LoadDraft();
+        LoadCellBalances();
     }
 
     public CatalogItemRecord? ResultItem { get; private set; }
@@ -53,6 +59,21 @@ public partial class ProductEditorWindow : Window
         NotesTextBox.Text = Ui(_draft.Notes);
         SelectComboValue(StatusComboBox, Ui(_draft.Status));
         SelectComboValue(CurrencyComboBox, Ui(_draft.CurrencyCode));
+    }
+
+    private void LoadCellBalances()
+    {
+        var rows = _cellBalances
+            .Where(item => item.IsAddressed && item.Quantity > 0m)
+            .OrderBy(item => Ui(item.Warehouse), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => Ui(item.Cell), StringComparer.CurrentCultureIgnoreCase)
+            .Select(ProductCellBalanceRow.Create)
+            .ToArray();
+
+        CellBalancesHintText.Text = rows.Length == 0
+            ? "Адресованных остатков по товару пока нет."
+            : $"Адресованные остатки: {rows.Length:N0} яч.";
+        CellBalancesGrid.ItemsSource = rows;
     }
 
     private void HandleSaveClick(object sender, RoutedEventArgs e)
@@ -140,5 +161,18 @@ public partial class ProductEditorWindow : Window
                    NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign,
                    CultureInfo.InvariantCulture,
                    out result);
+    }
+
+    private sealed record ProductCellBalanceRow(string Cell, string Warehouse, string Quantity, string Source)
+    {
+        public static ProductCellBalanceRow Create(WarehouseCellBalanceRecord balance)
+        {
+            var unit = string.IsNullOrWhiteSpace(balance.Unit) ? "шт" : Ui(balance.Unit);
+            return new ProductCellBalanceRow(
+                string.IsNullOrWhiteSpace(balance.Cell) ? "-" : Ui(balance.Cell),
+                string.IsNullOrWhiteSpace(balance.Warehouse) ? "-" : Ui(balance.Warehouse),
+                $"{balance.Quantity:N0} {unit}",
+                string.IsNullOrWhiteSpace(balance.SourceLabel) ? "-" : Ui(balance.SourceLabel));
+        }
     }
 }

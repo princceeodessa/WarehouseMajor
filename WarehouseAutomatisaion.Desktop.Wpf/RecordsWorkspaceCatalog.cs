@@ -931,9 +931,11 @@ internal static class RecordsWorkspaceCatalog
             [
                 new PrintableTableColumn("№", 0.32, TextAlignment.Center),
                 new PrintableTableColumn("Код", 0.85),
-                new PrintableTableColumn("Товар", 2.35),
-                new PrintableTableColumn("Ячейки", 2.1),
+                new PrintableTableColumn("Товар", 2.05),
+                new PrintableTableColumn("План ячеек", 1.65),
+                new PrintableTableColumn("Факт ячейка", 1.05),
                 new PrintableTableColumn("К сборке", 0.78, TextAlignment.Right),
+                new PrintableTableColumn("Собрано", 0.72, TextAlignment.Right),
                 new PrintableTableColumn("Доступно", 0.78, TextAlignment.Right),
                 new PrintableTableColumn("Нехватка", 0.78, TextAlignment.Right),
                 new PrintableTableColumn("Ед.", 0.45),
@@ -946,7 +948,9 @@ internal static class RecordsWorkspaceCatalog
                     Clean(line.ItemCode),
                     Clean(line.ItemName),
                     Clean(line.CellSummary),
+                    string.Empty,
                     FormatQuantity(line.RequiredQuantity),
+                    string.Empty,
                     FormatQuantity(line.AvailableQuantity),
                     line.ShortageQuantity > 0m ? FormatQuantity(line.ShortageQuantity) : "—",
                     Clean(line.Unit),
@@ -961,7 +965,7 @@ internal static class RecordsWorkspaceCatalog
                 new PrintableField("Нехватка товара", shortageTotal > 0m ? FormatQuantity(shortageTotal) : "—"),
                 new PrintableField("Строк без полных ячеек", cellShortageCount > 0 ? cellShortageCount.ToString("N0", RuCulture) : "—")
             ],
-            Comment: "Форма для сборки скрывает цены и суммы. Если строка без ячейки или с нехваткой, проверьте складские ячейки и остатки перед отгрузкой.");
+            Comment: "Форма для сборки скрывает цены и суммы. Заполните факт ячейки и собранное количество вручную. Если строка без ячейки или с нехваткой, проверьте складские ячейки и остатки перед отгрузкой.");
     }
 
     private static OperationalWarehouseWorkspace ResolveOperationalWarehouseWorkspace(SalesWorkspace salesWorkspace, string currentOperator)
@@ -1518,7 +1522,7 @@ internal static class RecordsWorkspaceCatalog
         }
 
         var isNew = customer is null;
-        var key = isNew ? $"customer-new-{Guid.NewGuid():N}" : $"customer-{customer!.Id:N}";
+        var key = isNew ? "customer-new" : $"customer-{customer!.Id:N}";
         var caption = isNew ? "Новый клиент" : $"Клиент {Clean(customer!.Code)}";
         var subtitle = isNew
             ? "Создание карточки контрагента без блокировки основного окна."
@@ -1564,7 +1568,7 @@ internal static class RecordsWorkspaceCatalog
         }
 
         var isNew = order is null;
-        var key = isNew ? $"sales-order-new-{Guid.NewGuid():N}" : $"sales-order-{order!.Id:N}";
+        var key = isNew ? "sales-order-new" : $"sales-order-{order!.Id:N}";
         var caption = isNew ? "Новый заказ" : $"Заказ {Clean(order!.Number)}";
         var subtitle = isNew
             ? "Создание заказа покупателя в рабочей вкладке."
@@ -1618,7 +1622,7 @@ internal static class RecordsWorkspaceCatalog
         }
 
         var isNew = invoice is null;
-        var key = isNew ? $"sales-invoice-new-{Guid.NewGuid():N}" : $"sales-invoice-{invoice!.Id:N}";
+        var key = isNew ? "sales-invoice-new" : $"sales-invoice-{invoice!.Id:N}";
         var caption = isNew ? "Новый счет" : $"Счет {Clean(invoice!.Number)}";
         var subtitle = isNew
             ? "Создание счета на основании заказа."
@@ -1672,7 +1676,7 @@ internal static class RecordsWorkspaceCatalog
         }
 
         var isNew = shipment is null;
-        var key = isNew ? $"sales-shipment-new-{Guid.NewGuid():N}" : $"sales-shipment-{shipment!.Id:N}";
+        var key = isNew ? "sales-shipment-new" : $"sales-shipment-{shipment!.Id:N}";
         var caption = isNew ? "Новая отгрузка" : $"Отгрузка {Clean(shipment!.Number)}";
         var subtitle = isNew
             ? "Создание отгрузки на основании заказа."

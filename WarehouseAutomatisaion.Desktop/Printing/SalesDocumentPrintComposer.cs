@@ -11,7 +11,7 @@ public static class SalesDocumentPrintComposer
 
     public static string BuildOrderTitle(SalesOrderRecord order)
     {
-        return TextMojibakeFixer.NormalizeText($"Р—Р°РєР°Р· РїРѕРєСѓРїР°С‚РµР»СЏ в„– {Display(order.Number)} РѕС‚ {FormatLongDate(order.OrderDate)}");
+        return $"Заказ покупателя № {Display(order.Number)} от {FormatLongDate(order.OrderDate)}";
     }
 
     public static string DisplayOrderText(string? value)

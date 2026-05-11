@@ -13,10 +13,12 @@ public sealed class SalesWorkspaceStore
     {
         WriteIndented = false
     };
-    private readonly DesktopMySqlBackplaneService? _backplane;
+    private DesktopMySqlBackplaneService? _backplane;
     private readonly bool _serverModeEnabled;
     private DesktopModuleSnapshotMetadata? _remoteMetadata;
     private string _lastSavedSnapshotHash = string.Empty;
+    private bool _hasPendingLocalSync;
+    private DateTime _lastSyncedLocalSnapshotWriteUtc = DateTime.MinValue;
 
     public SalesWorkspaceStore(
         string storagePath,
@@ -32,7 +34,21 @@ public sealed class SalesWorkspaceStore
 
     public bool IsRemoteDatabaseRequired => _serverModeEnabled;
 
-    public bool IsServerModeEnabled => _serverModeEnabled && _backplane is not null;
+    public bool IsServerModeEnabled => _serverModeEnabled;
+
+    public bool HasPendingLocalSync
+    {
+        get
+        {
+            if (!_serverModeEnabled)
+            {
+                return false;
+            }
+
+            _hasPendingLocalSync = ShouldPromoteLocalSnapshot(_remoteMetadata);
+            return _hasPendingLocalSync;
+        }
+    }
 
     private string ServerCachePath
     {
@@ -42,6 +58,8 @@ public sealed class SalesWorkspaceStore
             return Path.Combine(directory, "sales-workspace.server-cache.json");
         }
     }
+
+    private string ServerCacheHashPath => $"{ServerCachePath}.hash";
 
     public static SalesWorkspaceStore CreateDefault()
     {
@@ -71,20 +89,21 @@ public sealed class SalesWorkspaceStore
             workspace.AttachOneCImportSnapshot(null);
         }
 
-        _backplane?.TryEnsureUserProfile(currentOperator);
+        TryGetBackplane()?.TryEnsureUserProfile(currentOperator);
         SalesWorkspaceImportMerger.Merge(workspace);
 
         var canUseFastServerRows = _serverModeEnabled && !shouldAttachImportSnapshot;
         var salesRowsRecord = canUseFastServerRows
-            ? _backplane?.TryLoadSalesWorkspaceSnapshotRecord()
+            ? TryGetBackplane()?.TryLoadSalesWorkspaceSnapshotRecord()
             : null;
         if (salesRowsRecord is not null)
         {
             workspace.AttachOperationalSnapshot(null);
             _remoteMetadata = salesRowsRecord.Metadata;
             _lastSavedSnapshotHash = salesRowsRecord.Metadata.PayloadHash;
-            TryWriteServerCache(salesRowsRecord.Snapshot);
-            ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot: null, importRoots: importRoots);
+            _hasPendingLocalSync = ShouldPromoteLocalSnapshot(salesRowsRecord.Metadata);
+            TryWriteServerCache(salesRowsRecord.Snapshot, salesRowsRecord.Metadata.PayloadHash);
+            ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot: null, importRoots: importRoots, cloneRecords: false);
             return RepairAndReturn(workspace, currentOperator);
         }
 
@@ -102,28 +121,24 @@ public sealed class SalesWorkspaceStore
             workspace.AttachOperationalSnapshot(null);
         }
 
-        salesRowsRecord = _backplane?.TryLoadSalesWorkspaceSnapshotRecord();
+        salesRowsRecord = TryGetBackplane()?.TryLoadSalesWorkspaceSnapshotRecord();
         if (salesRowsRecord is not null)
         {
             _remoteMetadata = salesRowsRecord.Metadata;
             _lastSavedSnapshotHash = salesRowsRecord.Metadata.PayloadHash;
-            TryWriteServerCache(salesRowsRecord.Snapshot);
-            ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot, importRoots);
+            _hasPendingLocalSync = ShouldPromoteLocalSnapshot(salesRowsRecord.Metadata);
+            TryWriteServerCache(salesRowsRecord.Snapshot, salesRowsRecord.Metadata.PayloadHash);
+            ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot, importRoots, cloneRecords: false);
             return RepairAndReturn(workspace, currentOperator);
         }
 
-        var backplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<SalesWorkspaceSnapshot>("sales");
+        var backplaneRecord = TryGetBackplane()?.TryLoadModuleSnapshotRecord<SalesWorkspaceSnapshot>("sales");
         if (backplaneRecord is not null)
         {
             _remoteMetadata = null;
             _lastSavedSnapshotHash = ComputeSnapshotHash(backplaneRecord.Snapshot);
             ApplySnapshotToWorkspace(workspace, backplaneRecord.Snapshot, operationalSnapshot, importRoots);
             TrySeedSalesRows(backplaneRecord.Snapshot, currentOperator);
-            return RepairAndReturn(workspace, currentOperator);
-        }
-
-        if (_serverModeEnabled)
-        {
             return RepairAndReturn(workspace, currentOperator);
         }
 
@@ -154,15 +169,13 @@ public sealed class SalesWorkspaceStore
                 }
             }
 
-            var seedResult = _backplane?.TrySaveSalesWorkspaceSnapshot(
-                snapshot,
-                currentOperator,
-                expectedMetadata: null,
-                auditEvents: CreateAuditSeeds(snapshot.OperationLog));
-            if (seedResult?.Succeeded == true)
+            if (TrySaveToBackplane(snapshot, currentOperator))
             {
-                _remoteMetadata = seedResult.Metadata;
-                _lastSavedSnapshotHash = seedResult.Metadata?.PayloadHash ?? string.Empty;
+                _lastSavedSnapshotHash = ComputeSnapshotHash(snapshot);
+            }
+            else if (_serverModeEnabled)
+            {
+                _hasPendingLocalSync = true;
             }
 
             return RepairAndReturn(workspace, currentOperator);
@@ -229,13 +242,13 @@ public sealed class SalesWorkspaceStore
             return;
         }
 
-        if (_serverModeEnabled)
-        {
-            throw new InvalidOperationException("Не удалось сохранить изменения в серверную БД. Локальное сохранение отключено для общего режима.");
-        }
 
         WriteSnapshot(snapshot);
         _lastSavedSnapshotHash = snapshotHash;
+        if (_serverModeEnabled)
+        {
+            _hasPendingLocalSync = true;
+        }
     }
 
     public void SaveSnapshot(SalesWorkspaceSnapshot snapshot, string currentOperator)
@@ -253,28 +266,50 @@ public sealed class SalesWorkspaceStore
             return;
         }
 
-        if (_serverModeEnabled)
-        {
-            throw new InvalidOperationException("Не удалось сохранить изменения в серверную БД. Локальное сохранение отключено для общего режима.");
-        }
 
         WriteSnapshot(snapshot);
         _lastSavedSnapshotHash = snapshotHash;
+        if (_serverModeEnabled)
+        {
+            _hasPendingLocalSync = true;
+        }
     }
 
-    public bool HasRemoteChanges()
+    public bool TrySyncPendingLocalSnapshot(string? currentOperator)
     {
-        if (_backplane is null)
+        if (!_serverModeEnabled)
         {
             return false;
         }
 
-        if (_remoteMetadata is null)
+        var latestMetadata = TryGetBackplane()?.TryLoadSalesWorkspaceSnapshotMetadata();
+        if (latestMetadata is not null)
+        {
+            _remoteMetadata = latestMetadata;
+        }
+
+        return TryPromoteLocalSnapshotIfNewer(_remoteMetadata, currentOperator, out _);
+    }
+
+    public bool HasRemoteChanges()
+    {
+        var backplane = TryGetBackplane();
+        if (backplane is null)
+        {
+            return false;
+        }
+
+        var latest = backplane.TryLoadSalesWorkspaceSnapshotMetadata();
+        if (TryPromoteLocalSnapshotIfNewer(latest, null, out _))
         {
             return true;
         }
 
-        var latest = _backplane.TryLoadSalesWorkspaceSnapshotMetadata();
+        if (_remoteMetadata is null)
+        {
+            return latest is not null;
+        }
+
         return latest is not null
                && (!string.Equals(latest.PayloadHash, _remoteMetadata.PayloadHash, StringComparison.OrdinalIgnoreCase)
                    || latest.VersionNo != _remoteMetadata.VersionNo);
@@ -282,7 +317,7 @@ public sealed class SalesWorkspaceStore
 
     public bool TryRefreshFromBackplane(SalesWorkspace workspace)
     {
-        var record = _backplane?.TryLoadSalesWorkspaceSnapshotRecord();
+        var record = TryGetBackplane()?.TryLoadSalesWorkspaceSnapshotRecord();
         if (record is null)
         {
             return false;
@@ -295,10 +330,10 @@ public sealed class SalesWorkspaceStore
             return false;
         }
 
-        ApplySnapshotToWorkspace(workspace, record.Snapshot, workspace.OperationalSnapshot, importRoots: null);
+        ApplySnapshotToWorkspace(workspace, record.Snapshot, workspace.OperationalSnapshot, importRoots: null, cloneRecords: false);
         _remoteMetadata = record.Metadata;
         _lastSavedSnapshotHash = record.Metadata.PayloadHash;
-        TryWriteServerCache(record.Snapshot);
+        TryWriteServerCache(record.Snapshot, record.Metadata.PayloadHash);
         workspace.NotifyExternalChange();
         return true;
     }
@@ -310,6 +345,12 @@ public sealed class SalesWorkspaceStore
             return workspace;
         }
 
+        if (_serverModeEnabled)
+        {
+            _lastSavedSnapshotHash = ComputeSnapshotHash(SalesWorkspaceSnapshot.FromWorkspace(workspace));
+            return workspace;
+        }
+
         var snapshot = SalesWorkspaceSnapshot.FromWorkspace(workspace);
         try
         {
@@ -318,10 +359,7 @@ public sealed class SalesWorkspaceStore
                 return workspace;
             }
 
-            if (!_serverModeEnabled)
-            {
-                WriteSnapshot(snapshot);
-            }
+            WriteSnapshot(snapshot);
         }
         catch
         {
@@ -373,9 +411,18 @@ public sealed class SalesWorkspaceStore
 
     private bool IsSnapshotAlreadySaved(string snapshotHash)
     {
-        return !string.IsNullOrWhiteSpace(snapshotHash)
-               && (string.Equals(snapshotHash, _lastSavedSnapshotHash, StringComparison.OrdinalIgnoreCase)
-                   || string.Equals(snapshotHash, _remoteMetadata?.PayloadHash, StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrWhiteSpace(snapshotHash))
+        {
+            return false;
+        }
+
+        if (string.Equals(snapshotHash, _lastSavedSnapshotHash, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !HasPendingLocalSync
+               && string.Equals(snapshotHash, _remoteMetadata?.PayloadHash, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ComputeSnapshotHash(SalesWorkspaceSnapshot snapshot)
@@ -391,12 +438,44 @@ public sealed class SalesWorkspaceStore
             return;
         }
 
+        if (TryGetBackplane() is null)
+        {
+            return;
+        }
+
         if (_backplane is null)
         {
             throw new InvalidOperationException("Включен режим общей БД, но подключение к серверу недоступно. Локальная загрузка заказов отключена.");
         }
 
-        _backplane.EnsureReady(currentOperator);
+        try
+        {
+            _backplane.EnsureReady(currentOperator);
+        }
+        catch
+        {
+        }
+    }
+
+    private DesktopMySqlBackplaneService? TryGetBackplane()
+    {
+        if (!_serverModeEnabled)
+        {
+            return _backplane;
+        }
+
+        if (_backplane?.IsConnectionHealthy == true)
+        {
+            return _backplane;
+        }
+
+        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
+        if (backplane is not null)
+        {
+            _backplane = backplane;
+        }
+
+        return _backplane?.IsConnectionHealthy == true ? _backplane : null;
     }
 
     private static bool RepairWorkspace(SalesWorkspace workspace)
@@ -1060,9 +1139,106 @@ public sealed class SalesWorkspaceStore
         return new Guid(bytes);
     }
 
+    private bool TryPromoteLocalSnapshotIfNewer(
+        DesktopModuleSnapshotMetadata? remoteMetadata,
+        string? currentOperator,
+        out SalesWorkspaceSnapshot? promotedSnapshot)
+    {
+        promotedSnapshot = null;
+        if (!_serverModeEnabled || !ShouldPromoteLocalSnapshot(remoteMetadata))
+        {
+            return false;
+        }
+
+        var localUpdatedAtUtc = File.GetLastWriteTimeUtc(StoragePath);
+        if (!TryReadLocalSnapshot(out var localSnapshot) || localSnapshot is null)
+        {
+            return false;
+        }
+
+        var snapshotHash = ComputeSnapshotHash(localSnapshot);
+        if (string.Equals(snapshotHash, remoteMetadata?.PayloadHash, StringComparison.OrdinalIgnoreCase))
+        {
+            _lastSavedSnapshotHash = snapshotHash;
+            MarkLocalSnapshotSynced(localUpdatedAtUtc);
+            return false;
+        }
+
+        var actorName = string.IsNullOrWhiteSpace(currentOperator) ? Environment.UserName : currentOperator;
+        if (!TrySaveToBackplane(localSnapshot, actorName))
+        {
+            _hasPendingLocalSync = true;
+            return false;
+        }
+
+        promotedSnapshot = localSnapshot;
+        _lastSavedSnapshotHash = snapshotHash;
+        MarkLocalSnapshotSynced(localUpdatedAtUtc);
+        return true;
+    }
+
+    private bool ShouldPromoteLocalSnapshot(DesktopModuleSnapshotMetadata? remoteMetadata)
+    {
+        if (!File.Exists(StoragePath))
+        {
+            return false;
+        }
+
+        if (remoteMetadata is null)
+        {
+            return true;
+        }
+
+        var localUpdatedAtUtc = File.GetLastWriteTimeUtc(StoragePath);
+        if (localUpdatedAtUtc <= _lastSyncedLocalSnapshotWriteUtc.AddMilliseconds(1))
+        {
+            return false;
+        }
+
+        return localUpdatedAtUtc > remoteMetadata.UpdatedAtUtc.AddSeconds(1);
+    }
+
+    private void MarkLocalSnapshotSynced(DateTime localUpdatedAtUtc)
+    {
+        if (localUpdatedAtUtc > _lastSyncedLocalSnapshotWriteUtc)
+        {
+            _lastSyncedLocalSnapshotWriteUtc = localUpdatedAtUtc;
+        }
+
+        _hasPendingLocalSync = false;
+    }
+
+    private bool TryReadLocalSnapshot(out SalesWorkspaceSnapshot? snapshot)
+    {
+        snapshot = null;
+        try
+        {
+            if (!File.Exists(StoragePath))
+            {
+                return false;
+            }
+
+            var json = File.ReadAllText(StoragePath, Encoding.UTF8);
+            snapshot = JsonSerializer.Deserialize<SalesWorkspaceSnapshot>(json, SerializerOptions);
+            return snapshot is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private bool TrySaveToBackplane(SalesWorkspaceSnapshot snapshot, string currentOperator)
     {
-        if (_backplane is null)
+        var snapshotHash = ComputeSnapshotHash(snapshot);
+        if (string.Equals(snapshotHash, _remoteMetadata?.PayloadHash, StringComparison.OrdinalIgnoreCase))
+        {
+            _lastSavedSnapshotHash = snapshotHash;
+            return true;
+        }
+
+        var backplane = TryGetBackplane();
+        if (backplane is null)
         {
             return false;
         }
@@ -1073,11 +1249,12 @@ public sealed class SalesWorkspaceStore
         }
 
         var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
-        var result = _backplane.TrySaveSalesWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
-        if (result.Succeeded)
+        var result = backplane.TrySaveSalesWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
+        if (result.Succeeded && result.Metadata is not null)
         {
             _remoteMetadata = result.Metadata;
-            TryWriteServerCache(snapshot);
+            _lastSavedSnapshotHash = result.Metadata.PayloadHash;
+            TryWriteServerCache(snapshot, result.Metadata.PayloadHash);
             return true;
         }
 
@@ -1086,7 +1263,7 @@ public sealed class SalesWorkspaceStore
             return false;
         }
 
-        var latest = _backplane.TryLoadSalesWorkspaceSnapshotRecord();
+        var latest = backplane.TryLoadSalesWorkspaceSnapshotRecord();
         if (latest is null)
         {
             return false;
@@ -1094,25 +1271,27 @@ public sealed class SalesWorkspaceStore
 
         var merged = MergeSnapshots(latest.Snapshot, snapshot);
         var mergedAuditEvents = CreateAuditSeeds(merged.OperationLog);
-        var retry = _backplane.TrySaveSalesWorkspaceSnapshot(merged, currentOperator, latest.Metadata, mergedAuditEvents);
-        if (!retry.Succeeded)
+        var retry = backplane.TrySaveSalesWorkspaceSnapshot(merged, currentOperator, latest.Metadata, mergedAuditEvents);
+        if (!retry.Succeeded || retry.Metadata is null)
         {
             throw new InvalidOperationException("Данные на сервере изменились другим рабочим местом. Обновите данные и повторите действие.");
         }
 
         _remoteMetadata = retry.Metadata;
-        TryWriteServerCache(merged);
+        _lastSavedSnapshotHash = retry.Metadata.PayloadHash;
+        TryWriteServerCache(merged, retry.Metadata.PayloadHash);
         return true;
     }
 
     private void TrySeedSalesRows(SalesWorkspaceSnapshot snapshot, string currentOperator)
     {
-        if (_backplane is null)
+        var backplane = TryGetBackplane();
+        if (backplane is null)
         {
             return;
         }
 
-        var result = _backplane.TrySaveSalesWorkspaceSnapshot(
+        var result = backplane.TrySaveSalesWorkspaceSnapshot(
             snapshot,
             currentOperator,
             expectedMetadata: null,
@@ -1120,11 +1299,11 @@ public sealed class SalesWorkspaceStore
         if (result.Succeeded)
         {
             _remoteMetadata = result.Metadata;
-            TryWriteServerCache(snapshot);
+            TryWriteServerCache(snapshot, result.Metadata?.PayloadHash);
         }
     }
 
-    private void TryWriteServerCache(SalesWorkspaceSnapshot snapshot)
+    private void TryWriteServerCache(SalesWorkspaceSnapshot snapshot, string? payloadHash = null)
     {
         if (!_serverModeEnabled)
         {
@@ -1142,6 +1321,15 @@ public sealed class SalesWorkspaceStore
             }
 
             var path = ServerCachePath;
+            var cacheHash = string.IsNullOrWhiteSpace(payloadHash) ? _remoteMetadata?.PayloadHash : payloadHash;
+            if (!string.IsNullOrWhiteSpace(cacheHash)
+                && File.Exists(path)
+                && TryReadServerCacheHash(out var existingHash)
+                && string.Equals(existingHash, cacheHash, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             var directory = Path.GetDirectoryName(path);
             if (string.IsNullOrWhiteSpace(directory))
             {
@@ -1156,9 +1344,33 @@ public sealed class SalesWorkspaceStore
             }
 
             File.Move(tempPath, path, true);
+            if (!string.IsNullOrWhiteSpace(cacheHash))
+            {
+                File.WriteAllText(ServerCacheHashPath, cacheHash, Encoding.UTF8);
+            }
         }
         catch
         {
+        }
+    }
+
+    private bool TryReadServerCacheHash(out string hash)
+    {
+        hash = string.Empty;
+        try
+        {
+            var path = ServerCacheHashPath;
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            hash = File.ReadAllText(path, Encoding.UTF8).Trim();
+            return !string.IsNullOrWhiteSpace(hash);
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -1197,7 +1409,8 @@ public sealed class SalesWorkspaceStore
         SalesWorkspace workspace,
         SalesWorkspaceSnapshot snapshot,
         DesktopOperationalSnapshot? operationalSnapshot,
-        IReadOnlyList<string>? importRoots)
+        IReadOnlyList<string>? importRoots,
+        bool cloneRecords = true)
     {
         if (operationalSnapshot?.HasSalesData == true)
         {
@@ -1205,7 +1418,7 @@ public sealed class SalesWorkspaceStore
             return;
         }
 
-        ApplySnapshot(workspace, snapshot);
+        ApplySnapshot(workspace, snapshot, cloneRecords);
         if (importRoots is { Count: > 0 })
         {
             AttachImportSnapshot(workspace, importRoots);
@@ -1217,15 +1430,15 @@ public sealed class SalesWorkspaceStore
         }
     }
 
-    private static void ApplySnapshot(SalesWorkspace workspace, SalesWorkspaceSnapshot snapshot)
+    private static void ApplySnapshot(SalesWorkspace workspace, SalesWorkspaceSnapshot snapshot, bool cloneRecords = true)
     {
-        ReplaceList(workspace.Customers, snapshot.Customers, item => item.Clone());
-        ReplaceList(workspace.Orders, snapshot.Orders, item => item.Clone());
-        ReplaceList(workspace.Invoices, snapshot.Invoices, item => item.Clone());
-        ReplaceList(workspace.Shipments, snapshot.Shipments, item => item.Clone());
-        ReplaceList(workspace.Returns, snapshot.Returns, item => item.Clone());
-        ReplaceList(workspace.CashReceipts, snapshot.CashReceipts, item => item.Clone());
-        ReplaceList(workspace.OperationLog, snapshot.OperationLog, item => item.Clone());
+        ReplaceList(workspace.Customers, snapshot.Customers, cloneRecords ? item => item.Clone() : item => item);
+        ReplaceList(workspace.Orders, snapshot.Orders, cloneRecords ? item => item.Clone() : item => item);
+        ReplaceList(workspace.Invoices, snapshot.Invoices, cloneRecords ? item => item.Clone() : item => item);
+        ReplaceList(workspace.Shipments, snapshot.Shipments, cloneRecords ? item => item.Clone() : item => item);
+        ReplaceList(workspace.Returns, snapshot.Returns, cloneRecords ? item => item.Clone() : item => item);
+        ReplaceList(workspace.CashReceipts, snapshot.CashReceipts, cloneRecords ? item => item.Clone() : item => item);
+        ReplaceList(workspace.OperationLog, snapshot.OperationLog, cloneRecords ? item => item.Clone() : item => item);
     }
 
     private static SalesWorkspaceSnapshot MergeSnapshots(SalesWorkspaceSnapshot server, SalesWorkspaceSnapshot local)

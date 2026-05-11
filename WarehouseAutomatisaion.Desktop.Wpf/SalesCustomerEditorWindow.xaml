@@ -355,10 +355,49 @@
                     </TabItem>
 
                     <TabItem Header="Файлы">
-                        <StackPanel Margin="0,16,0,0">
-                            <TextBlock Text="Файлы" Style="{StaticResource SectionTitleStyle}" />
-                            <TextBlock Text="Раздел подготовлен под хранение договоров, сканов и вложений контрагента." Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
-                        </StackPanel>
+                        <Grid Margin="0,16,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid>
+                                <StackPanel>
+                                    <TextBlock Text="Файлы" Style="{StaticResource SectionTitleStyle}" />
+                                    <TextBlock x:Name="FilesSummaryText"
+                                               Text="Файлов пока нет."
+                                               Margin="0,4,0,0"
+                                               Style="{StaticResource SectionHintStyle}" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="Загрузить"
+                                            Style="{StaticResource DialogSecondaryButtonStyle}"
+                                            Width="112"
+                                            Margin="0,0,8,0"
+                                            Click="HandleAddFileClick" />
+                                    <Button Content="Открыть"
+                                            Style="{StaticResource DialogSecondaryButtonStyle}"
+                                            Width="104"
+                                            Margin="0,0,8,0"
+                                            Click="HandleOpenFileClick" />
+                                    <Button Content="Убрать"
+                                            Style="{StaticResource DialogSecondaryButtonStyle}"
+                                            Width="96"
+                                            Click="HandleRemoveFileClick" />
+                                </StackPanel>
+                            </Grid>
+
+                            <DataGrid x:Name="FilesGrid" Grid.Row="1" IsReadOnly="True" MinHeight="300" Margin="0,14,0,0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Файл" Binding="{Binding FileName}" Width="2*" />
+                                    <DataGridTextColumn Header="Тип" Binding="{Binding Description}" Width="1*" />
+                                    <DataGridTextColumn Header="Загружен" Binding="{Binding UploadedAtDisplay}" Width="1.1*" />
+                                    <DataGridTextColumn Header="Размер" Binding="{Binding SizeDisplay}" Width="0.8*" />
+                                    <DataGridTextColumn Header="Кем" Binding="{Binding UploadedBy}" Width="1*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
                     </TabItem>
 
                     <TabItem Header="Отчеты">

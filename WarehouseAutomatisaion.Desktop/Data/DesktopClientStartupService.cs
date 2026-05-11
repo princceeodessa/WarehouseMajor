@@ -32,9 +32,13 @@ public static class DesktopClientStartupService
         }
         catch (Exception exception)
         {
-            return DesktopClientStartupResult.Failure(
-                "Не удалось подключить клиент к серверной БД. Локальный fallback в общем режиме отключен. " +
-                $"Проверьте доступ к MySQL, права пользователя и наличие операционной схемы.\n\n{exception.Message}");
+            return DesktopClientStartupResult.OfflineFallback(
+                Environment.UserName,
+                config.Host,
+                config.Port,
+                config.Database,
+                config.User,
+                exception.Message);
         }
     }
 
@@ -58,8 +62,13 @@ public static class DesktopClientStartupService
         }
         catch (Exception exception)
         {
-            return DesktopClientStartupResult.Failure(
-                "Не удалось выполнить вход. Проверьте подключение к серверной БД и повторите попытку.\n\n" + exception.Message);
+            return DesktopClientStartupResult.OfflineFallback(
+                userName,
+                config.Host,
+                config.Port,
+                config.Database,
+                config.User,
+                exception.Message);
         }
     }
 }
@@ -98,6 +107,37 @@ public sealed record DesktopClientStartupResult(
             CanStart: true,
             UsesSharedDatabase: false,
             Message: "Клиент запущен в локальном режиме.",
+            UserName: normalizedUserName,
+            DisplayName: normalizedUserName,
+            PrimaryRoleCode: roleCode,
+            PrimaryRoleDisplayName: DesktopRoleCatalog.GetDisplayName(roleCode),
+            RoleCodes: new[] { roleCode });
+    }
+
+    public static DesktopClientStartupResult OfflineFallback(
+        string actorName,
+        string host,
+        int port,
+        string database,
+        string user,
+        string? reason = null)
+    {
+        var normalizedUserName = string.IsNullOrWhiteSpace(actorName) ? Environment.UserName : actorName.Trim();
+        var roleCode = DesktopRoleCatalog.ResolveDefaultRoleCode(normalizedUserName);
+        var message = "Серверная БД временно недоступна. Клиент запущен в локальном fallback; изменения будут записаны в JSON и синхронизированы с БД после восстановления подключения.";
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            message += $"{Environment.NewLine}{Environment.NewLine}{reason}";
+        }
+
+        return new DesktopClientStartupResult(
+            CanStart: true,
+            UsesSharedDatabase: false,
+            Message: message,
+            Host: host,
+            Port: port,
+            Database: database,
+            User: user,
             UserName: normalizedUserName,
             DisplayName: normalizedUserName,
             PrimaryRoleCode: roleCode,

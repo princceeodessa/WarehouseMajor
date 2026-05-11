@@ -19,6 +19,8 @@ public partial class MainWindow : Window
     private const string AdminRoleCode = "admin";
     private const string ManagerRoleCode = "manager";
     private const int SalesWorkspaceAutosaveDelayMilliseconds = 5000;
+    private const int MaxOpenSectionTabs = 5;
+    private const int MaxOpenDynamicEditorTabs = 6;
 
     private static readonly WpfBrush ActiveNavBackground = BrushFromHex("#EEF2FF");
     private static readonly WpfBrush ActiveNavBorder = BrushFromHex("#C9D3F7");
@@ -43,6 +45,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, TabItem> _tabsByKey = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, WpfButton> _navButtonsByKey = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DynamicTabDefinition> _dynamicTabsByKey = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, long> _tabAccessOrder = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly DemoWorkspace _demoWorkspace;
     private readonly DesktopClientStartupResult _startupStatus;
@@ -63,6 +66,7 @@ public partial class MainWindow : Window
     private bool _salesWorkspaceSaveQueued;
     private bool _salesWorkspaceSaveWarningShown;
     private bool _isSidebarCollapsed;
+    private long _nextTabAccessStamp;
     private string _currentRoleCode = ManagerRoleCode;
 
     public MainWindow(DesktopClientStartupResult startupStatus)
@@ -323,6 +327,19 @@ public partial class MainWindow : Window
             if (showStatus && _salesWorkspaceSaveBlockedUntilRemoteLoad)
             {
                 ApplicationUpdateStatusText.Text = "Данные заказов загружаются из общей базы в фоне...";
+            }
+
+            if (_salesWorkspaceStore.HasPendingLocalSync)
+            {
+                if (showStatus)
+                {
+                    ApplicationUpdateStatusText.Text = "Локальные изменения заказов отправляются в общую БД...";
+                }
+
+                var currentOperator = string.IsNullOrWhiteSpace(_salesWorkspace.CurrentOperator)
+                    ? Environment.UserName
+                    : _salesWorkspace.CurrentOperator;
+                _ = await Task.Run(() => _salesWorkspaceStore.TrySyncPendingLocalSnapshot(currentOperator));
             }
 
             var refreshed = await Task.Run(() => _salesWorkspaceStore.TryRefreshFromBackplane(_salesWorkspace));
@@ -860,8 +877,10 @@ public partial class MainWindow : Window
         }
 
         WorkspaceTabs.SelectedItem = tab;
+        MarkTabAccess(sectionKey);
         ApplySelection(sectionKey);
         ReleaseInactiveSectionContent(sectionKey);
+        PruneInactiveSectionTabs(sectionKey);
     }
 
     private bool CanOpenSection(string sectionKey)
@@ -900,9 +919,16 @@ public partial class MainWindow : Window
         if (_tabsByKey.TryGetValue(key, out var existingTab))
         {
             WorkspaceTabs.SelectedItem = existingTab;
+            MarkTabAccess(key);
             ApplySelection(key);
             ReleaseInactiveSectionContent(key);
+            PruneInactiveSectionTabs(key);
             return true;
+        }
+
+        if (!CanOpenDynamicEditorTab(key))
+        {
+            return false;
         }
 
         var content = contentFactory();
@@ -921,8 +947,10 @@ public partial class MainWindow : Window
         _tabsByKey[key] = tab;
         WorkspaceTabs.Items.Add(tab);
         WorkspaceTabs.SelectedItem = tab;
+        MarkTabAccess(key);
         ApplySelection(key);
         ReleaseInactiveSectionContent(key);
+        PruneInactiveSectionTabs(key);
         return true;
     }
 
@@ -1000,6 +1028,78 @@ public partial class MainWindow : Window
         }
 
         tab.Content = CreateSectionContent(section);
+    }
+
+    private bool CanOpenDynamicEditorTab(string requestedKey)
+    {
+        if (_dynamicTabsByKey.Count < MaxOpenDynamicEditorTabs)
+        {
+            return true;
+        }
+
+        var oldestEditorKey = _dynamicTabsByKey.Keys
+            .Where(key => !key.Equals(requestedKey, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(GetTabAccessStamp)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(oldestEditorKey)
+            && _tabsByKey.TryGetValue(oldestEditorKey, out var oldestEditorTab))
+        {
+            WorkspaceTabs.SelectedItem = oldestEditorTab;
+            MarkTabAccess(oldestEditorKey);
+            ApplySelection(oldestEditorKey);
+        }
+
+        MessageBox.Show(
+            this,
+            "Открыто слишком много вкладок редактирования. Закройте одну из рабочих вкладок и повторите действие.",
+            AppBranding.MessageBoxTitle,
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+        return false;
+    }
+
+    private void MarkTabAccess(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return;
+        }
+
+        _tabAccessOrder[key] = ++_nextTabAccessStamp;
+    }
+
+    private long GetTabAccessStamp(string key)
+    {
+        return _tabAccessOrder.TryGetValue(key, out var stamp) ? stamp : 0;
+    }
+
+    private void PruneInactiveSectionTabs(string selectedKey)
+    {
+        var openSectionCount = _tabsByKey.Keys.Count(key => _sections.ContainsKey(key));
+        if (openSectionCount <= MaxOpenSectionTabs)
+        {
+            return;
+        }
+
+        var removableKeys = _tabsByKey.Keys
+            .Where(key => _sections.ContainsKey(key)
+                          && !key.Equals("dashboard", StringComparison.OrdinalIgnoreCase)
+                          && !key.Equals(selectedKey, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(GetTabAccessStamp)
+            .ToList();
+
+        foreach (var key in removableKeys)
+        {
+            if (openSectionCount <= MaxOpenSectionTabs)
+            {
+                break;
+            }
+
+            if (RemoveTab(key))
+            {
+                openSectionCount--;
+            }
+        }
     }
 
     private void ReleaseInactiveSectionContent(string selectedKey)
@@ -1131,16 +1231,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!_tabsByKey.TryGetValue(sectionKey, out var tab))
+        if (!_tabsByKey.ContainsKey(sectionKey))
         {
             return;
         }
 
-        DisposeTabContent(sectionKey, tab);
-
-        WorkspaceTabs.Items.Remove(tab);
-        _tabsByKey.Remove(sectionKey);
-        _dynamicTabsByKey.Remove(sectionKey);
+        RemoveTab(sectionKey);
 
         if (WorkspaceTabs.Items.Count == 0)
         {
@@ -1151,13 +1247,31 @@ public partial class MainWindow : Window
         if (WorkspaceTabs.SelectedItem is TabItem selectedTab && selectedTab.Tag is string selectedKey)
         {
             EnsureSectionContentLoaded(selectedKey, selectedTab);
+            MarkTabAccess(selectedKey);
             ApplySelection(selectedKey);
             ReleaseInactiveSectionContent(selectedKey);
+            PruneInactiveSectionTabs(selectedKey);
         }
         else
         {
             OpenSection("dashboard");
         }
+    }
+
+    private bool RemoveTab(string sectionKey)
+    {
+        if (!_tabsByKey.TryGetValue(sectionKey, out var tab))
+        {
+            return false;
+        }
+
+        DisposeTabContent(sectionKey, tab);
+
+        WorkspaceTabs.Items.Remove(tab);
+        _tabsByKey.Remove(sectionKey);
+        _dynamicTabsByKey.Remove(sectionKey);
+        _tabAccessOrder.Remove(sectionKey);
+        return true;
     }
 
     private void ApplySelection(string sectionKey)
@@ -1197,8 +1311,10 @@ public partial class MainWindow : Window
         if (WorkspaceTabs.SelectedItem is TabItem selectedTab && selectedTab.Tag is string sectionKey)
         {
             EnsureSectionContentLoaded(sectionKey, selectedTab);
+            MarkTabAccess(sectionKey);
             ApplySelection(sectionKey);
             ReleaseInactiveSectionContent(sectionKey);
+            PruneInactiveSectionTabs(sectionKey);
         }
     }
 

@@ -11,7 +11,7 @@ public sealed class PurchasingOperationalWorkspaceStore
     {
         WriteIndented = false
     };
-    private readonly DesktopMySqlBackplaneService? _backplane;
+    private DesktopMySqlBackplaneService? _backplane;
     private readonly bool _serverModeEnabled;
     private DesktopModuleSnapshotMetadata? _remoteMetadata;
 
@@ -29,7 +29,7 @@ public sealed class PurchasingOperationalWorkspaceStore
 
     public bool IsRemoteDatabaseRequired => _serverModeEnabled;
 
-    public bool IsServerModeEnabled => _serverModeEnabled && _backplane is not null;
+    public bool IsServerModeEnabled => _serverModeEnabled;
 
     public static PurchasingOperationalWorkspaceStore CreateDefault()
     {
@@ -45,13 +45,19 @@ public sealed class PurchasingOperationalWorkspaceStore
         EnsureBackplaneReady(currentOperator);
 
         var workspace = OperationalPurchasingWorkspace.Create(currentOperator, salesWorkspace);
-        _backplane?.TryEnsureUserProfile(currentOperator);
+        TryGetBackplane()?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = _backplane?.TryLoadPurchasingWorkspaceSnapshotRecord();
+        var backplaneRecord = TryGetBackplane()?.TryLoadPurchasingWorkspaceSnapshotRecord();
         if (backplaneRecord is not null)
         {
             var backplaneSnapshot = backplaneRecord.Snapshot;
             _remoteMetadata = backplaneRecord.Metadata;
+            if (TryPromoteLocalSnapshotIfNewer(backplaneRecord.Metadata, currentOperator, out var promotedSnapshot)
+                && promotedSnapshot is not null)
+            {
+                backplaneSnapshot = promotedSnapshot;
+            }
+
             var repaired = RepairSupplierLinks(backplaneSnapshot);
             var persistedFromMySql = backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
             MergeWorkspace(workspace, persistedFromMySql);
@@ -63,7 +69,7 @@ public sealed class PurchasingOperationalWorkspaceStore
             return workspace;
         }
 
-        var legacyBackplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
+        var legacyBackplaneRecord = TryGetBackplane()?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
         if (legacyBackplaneRecord is not null)
         {
             var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
@@ -76,11 +82,6 @@ public sealed class PurchasingOperationalWorkspaceStore
                 TrySaveToBackplane(backplaneSnapshot, currentOperator);
             }
 
-            return workspace;
-        }
-
-        if (_serverModeEnabled)
-        {
             return workspace;
         }
 
@@ -106,10 +107,6 @@ public sealed class PurchasingOperationalWorkspaceStore
                 WriteSnapshot(snapshot);
             }
 
-            if (!TrySaveToBackplane(snapshot, currentOperator) && _serverModeEnabled)
-            {
-                throw CreateRemoteSaveException("закупок");
-            }
 
             return workspace;
         }
@@ -125,9 +122,9 @@ public sealed class PurchasingOperationalWorkspaceStore
         IReadOnlyList<string>? warehouses = null)
     {
         EnsureBackplaneReady(currentOperator);
-        _backplane?.TryEnsureUserProfile(currentOperator);
+        TryGetBackplane()?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = _backplane?.TryLoadPurchasingWorkspaceSnapshotRecord();
+        var backplaneRecord = TryGetBackplane()?.TryLoadPurchasingWorkspaceSnapshotRecord();
         if (backplaneRecord is not null)
         {
             var backplaneSnapshot = backplaneRecord.Snapshot;
@@ -135,17 +132,12 @@ public sealed class PurchasingOperationalWorkspaceStore
             return backplaneSnapshot.ToWorkspace(currentOperator, catalogItems, warehouses);
         }
 
-        var legacyBackplaneRecord = _backplane?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
+        var legacyBackplaneRecord = TryGetBackplane()?.TryLoadModuleSnapshotRecord<PurchasingWorkspaceSnapshot>("purchasing");
         if (legacyBackplaneRecord is not null)
         {
             var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
             _remoteMetadata = null;
             return backplaneSnapshot.ToWorkspace(currentOperator, catalogItems, warehouses);
-        }
-
-        if (_serverModeEnabled)
-        {
-            return null;
         }
 
         if (!File.Exists(StoragePath))
@@ -186,23 +178,82 @@ public sealed class PurchasingOperationalWorkspaceStore
             return;
         }
 
-        if (_serverModeEnabled)
-        {
-            throw CreateRemoteSaveException("закупок");
-        }
 
         WriteSnapshot(snapshot);
     }
 
+    private bool TryPromoteLocalSnapshotIfNewer(
+        DesktopModuleSnapshotMetadata? remoteMetadata,
+        string currentOperator,
+        out PurchasingWorkspaceSnapshot? promotedSnapshot)
+    {
+        promotedSnapshot = null;
+        if (!_serverModeEnabled || !ShouldPromoteLocalSnapshot(remoteMetadata))
+        {
+            return false;
+        }
+
+        if (!TryReadLocalSnapshot(out var localSnapshot) || localSnapshot is null)
+        {
+            return false;
+        }
+
+        RepairSupplierLinks(localSnapshot);
+        if (!TrySaveToBackplane(localSnapshot, currentOperator))
+        {
+            return false;
+        }
+
+        promotedSnapshot = localSnapshot;
+        return true;
+    }
+
+    private bool ShouldPromoteLocalSnapshot(DesktopModuleSnapshotMetadata? remoteMetadata)
+    {
+        if (!File.Exists(StoragePath))
+        {
+            return false;
+        }
+
+        if (remoteMetadata is null)
+        {
+            return true;
+        }
+
+        var localUpdatedAtUtc = File.GetLastWriteTimeUtc(StoragePath);
+        return localUpdatedAtUtc > remoteMetadata.UpdatedAtUtc.AddSeconds(1);
+    }
+
+    private bool TryReadLocalSnapshot(out PurchasingWorkspaceSnapshot? snapshot)
+    {
+        snapshot = null;
+        try
+        {
+            if (!File.Exists(StoragePath))
+            {
+                return false;
+            }
+
+            var json = File.ReadAllText(StoragePath, Encoding.UTF8);
+            snapshot = JsonSerializer.Deserialize<PurchasingWorkspaceSnapshot>(json, SerializerOptions);
+            return snapshot is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private bool TrySaveToBackplane(PurchasingWorkspaceSnapshot snapshot, string currentOperator)
     {
-        if (_backplane is null)
+        var backplane = TryGetBackplane();
+        if (backplane is null)
         {
             return false;
         }
 
         var auditEvents = CreateAuditSeeds(snapshot.OperationLog);
-        var result = _backplane.TrySavePurchasingWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
+        var result = backplane.TrySavePurchasingWorkspaceSnapshot(snapshot, currentOperator, _remoteMetadata, auditEvents);
         if (result.Succeeded)
         {
             _remoteMetadata = result.Metadata;
@@ -214,7 +265,7 @@ public sealed class PurchasingOperationalWorkspaceStore
             return false;
         }
 
-        var latest = _backplane.TryLoadPurchasingWorkspaceSnapshotRecord();
+        var latest = backplane.TryLoadPurchasingWorkspaceSnapshotRecord();
         if (latest is null)
         {
             return false;
@@ -222,7 +273,7 @@ public sealed class PurchasingOperationalWorkspaceStore
 
         var merged = MergeSnapshots(latest.Snapshot, snapshot);
         RepairSupplierLinks(merged);
-        var retry = _backplane.TrySavePurchasingWorkspaceSnapshot(merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
+        var retry = backplane.TrySavePurchasingWorkspaceSnapshot(merged, currentOperator, latest.Metadata, CreateAuditSeeds(merged.OperationLog));
         if (!retry.Succeeded)
         {
             throw new InvalidOperationException("Данные закупок на сервере изменились другим рабочим местом. Обновите данные и повторите действие.");
@@ -257,12 +308,44 @@ public sealed class PurchasingOperationalWorkspaceStore
             return;
         }
 
+        if (TryGetBackplane() is null)
+        {
+            return;
+        }
+
         if (_backplane is null)
         {
             throw new InvalidOperationException("Включен режим общей БД, но подключение к серверу недоступно. Локальная загрузка закупок отключена.");
         }
 
-        _backplane.EnsureReady(currentOperator);
+        try
+        {
+            _backplane.EnsureReady(currentOperator);
+        }
+        catch
+        {
+        }
+    }
+
+    private DesktopMySqlBackplaneService? TryGetBackplane()
+    {
+        if (!_serverModeEnabled)
+        {
+            return _backplane;
+        }
+
+        if (_backplane?.IsConnectionHealthy == true)
+        {
+            return _backplane;
+        }
+
+        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
+        if (backplane is not null)
+        {
+            _backplane = backplane;
+        }
+
+        return _backplane?.IsConnectionHealthy == true ? _backplane : null;
     }
 
     private static InvalidOperationException CreateRemoteSaveException(string moduleName)

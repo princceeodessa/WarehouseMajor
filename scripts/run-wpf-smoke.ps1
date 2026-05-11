@@ -1,7 +1,9 @@
 param(
     [string]$ExePath = "",
     [int]$TimeoutSeconds = 45,
-    [switch]$SkipPriceListExport
+    [switch]$SkipPriceListExport,
+    [string]$UserName = $env:WAREHOUSE_SMOKE_USERNAME,
+    [string]$Password = $env:WAREHOUSE_SMOKE_PASSWORD
 )
 
 $ErrorActionPreference = "Stop"
@@ -55,13 +57,26 @@ function Get-RootElementByProcessId {
     )
 
     while ((Get-Date) -lt $Deadline) {
-        $element = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
+        $elements = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
             [System.Windows.Automation.TreeScope]::Children,
             $condition
         )
 
-        if ($null -ne $element) {
-            return $element
+        foreach ($element in $elements) {
+            $isWindow = $element.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window
+            if ($isWindow -and $element.Current.ClassName -ne "Popup") {
+                return $element
+            }
+        }
+
+        foreach ($element in $elements) {
+            if ($element.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) {
+                return $element
+            }
+        }
+
+        if ($elements.Count -gt 0) {
+            return $elements.Item(0)
         }
 
         Start-Sleep -Milliseconds 250
@@ -200,6 +215,51 @@ function Invoke-UiElement {
     throw "UI element '$($Element.Current.Name)' is not enabled."
 }
 
+function Wait-ProcessResponding {
+    param(
+        [System.Diagnostics.Process]$Process,
+        [string]$Stage,
+        [datetime]$Deadline
+    )
+
+    while ((Get-Date) -lt $Deadline) {
+        if ($Process.HasExited) {
+            throw "Application exited during '$Stage'."
+        }
+
+        $Process.Refresh()
+        if ($Process.Responding) {
+            return
+        }
+
+        Start-Sleep -Milliseconds 250
+    }
+
+    throw "Application stopped responding during '$Stage'."
+}
+
+function Wait-CatalogProductsLoaded {
+    param(
+        [int]$ProcessId,
+        [datetime]$Deadline
+    )
+
+    while ((Get-Date) -lt $Deadline) {
+        $root = Get-RootElementByProcessId -ProcessId $ProcessId -Deadline $Deadline
+        $countText = Find-OptionalElementByAutomationId -Root $root -AutomationId "ProductsCountText" -Deadline ((Get-Date).AddSeconds(1))
+        if ($null -ne $countText) {
+            $text = $countText.Current.Name
+            if (-not [string]::IsNullOrWhiteSpace($text) -and ($text.Contains("-") -or $text.Contains([string][char]0x2013))) {
+                return $root
+            }
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+
+    throw "Catalog products were not loaded before timeout."
+}
+
 function Set-UiElementValue {
     param(
         [System.Windows.Automation.AutomationElement]$Element,
@@ -239,7 +299,9 @@ function Ensure-Authenticated {
     param(
         [int]$ProcessId,
         [System.Windows.Automation.AutomationElement]$Root,
-        [datetime]$Deadline
+        [datetime]$Deadline,
+        [string]$UserName,
+        [string]$Password
     )
 
     $loginButton = Find-OptionalElementByAutomationId -Root $Root -AutomationId "LoginButton" -Deadline ((Get-Date).AddSeconds(1))
@@ -247,13 +309,28 @@ function Ensure-Authenticated {
         return $Root
     }
 
+    if ([string]::IsNullOrWhiteSpace($UserName)) {
+        $UserName = "admin"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Password)) {
+        $Password = "admin"
+    }
+
     $userNameTextBox = Find-ElementByAutomationId -Root $Root -AutomationId "UserNameTextBox" -Deadline $Deadline
     $passwordBox = Find-ElementByAutomationId -Root $Root -AutomationId "PasswordBox" -Deadline $Deadline
 
-    Set-UiElementValue -Element $userNameTextBox -Value "admin"
-    Set-UiElementValue -Element $passwordBox -Value "admin"
+    Set-UiElementValue -Element $userNameTextBox -Value $UserName
+    Set-UiElementValue -Element $passwordBox -Value $Password
     Start-Sleep -Milliseconds 200
     Invoke-UiElement -Element $loginButton -Deadline $Deadline
+
+    Start-Sleep -Seconds 2
+    $rootAfterLogin = Get-RootElementByProcessId -ProcessId $ProcessId -Deadline $Deadline
+    $errorText = Find-OptionalElementByAutomationId -Root $rootAfterLogin -AutomationId "ErrorText" -Deadline ((Get-Date).AddSeconds(1))
+    if ($null -ne $errorText -and -not [string]::IsNullOrWhiteSpace($errorText.Current.Name)) {
+        throw "Smoke authentication failed for user '$UserName': $($errorText.Current.Name)"
+    }
 
     return Wait-RootWithElementByAutomationId -ProcessId $ProcessId -AutomationId "NavDashboardButton" -Deadline $Deadline
 }
@@ -289,7 +366,7 @@ $process = $null
 try {
     $process = Start-Process -FilePath $exe -PassThru
     $root = Get-RootElementByProcessId -ProcessId $process.Id -Deadline ((Get-Date).AddSeconds($TimeoutSeconds))
-    $root = Ensure-Authenticated -ProcessId $process.Id -Root $root -Deadline ((Get-Date).AddSeconds($TimeoutSeconds))
+    $root = Ensure-Authenticated -ProcessId $process.Id -Root $root -Deadline ((Get-Date).AddSeconds($TimeoutSeconds)) -UserName $UserName -Password $Password
 
     $navigationButtons = @(
         "NavDashboardButton",
@@ -307,21 +384,13 @@ try {
     foreach ($automationId in $navigationButtons) {
         $button = Find-ElementByAutomationId -Root $root -AutomationId $automationId -Deadline ((Get-Date).AddSeconds($TimeoutSeconds))
         Invoke-UiElement -Element $button
-        Start-Sleep -Milliseconds 250
-
-        if ($process.HasExited) {
-            throw "Application exited after clicking '$automationId'."
-        }
-
-        $process.Refresh()
-        if (-not $process.Responding) {
-            throw "Application stopped responding after clicking '$automationId'."
-        }
+        Wait-ProcessResponding -Process $process -Stage "clicking '$automationId'" -Deadline ((Get-Date).AddSeconds(30))
     }
 
     $catalogButton = Find-ElementByAutomationId -Root $root -AutomationId "NavCatalogButton" -Deadline ((Get-Date).AddSeconds($TimeoutSeconds))
     Invoke-UiElement -Element $catalogButton
-    Start-Sleep -Milliseconds 500
+    Wait-ProcessResponding -Process $process -Stage "opening catalog" -Deadline ((Get-Date).AddSeconds(30))
+    $root = Wait-CatalogProductsLoaded -ProcessId $process.Id -Deadline ((Get-Date).AddSeconds($TimeoutSeconds))
 
     $actionsButton = Find-ElementByAutomationId -Root $root -AutomationId "ActionsButton" -Deadline ((Get-Date).AddSeconds($TimeoutSeconds))
     if ($actionsButton.Current.Name -ne $ExpectedActionsName) {

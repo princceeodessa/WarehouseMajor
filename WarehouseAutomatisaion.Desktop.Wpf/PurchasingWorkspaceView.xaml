@@ -154,7 +154,12 @@
             <Setter Property="SelectionUnit" Value="FullRow" />
             <Setter Property="IsReadOnly" Value="False" />
             <Setter Property="RowHeaderWidth" Value="0" />
+            <Setter Property="EnableRowVirtualization" Value="True" />
+            <Setter Property="EnableColumnVirtualization" Value="True" />
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden" />
+            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
         </Style>
 
         <Style x:Key="GridHeaderStyle" TargetType="DataGridColumnHeader">
