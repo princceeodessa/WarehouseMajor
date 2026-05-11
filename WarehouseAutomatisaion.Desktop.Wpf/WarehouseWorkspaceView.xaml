@@ -614,6 +614,7 @@
                                           Style="{StaticResource StockGridStyle}"
                                           ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
                                           RowStyle="{StaticResource GridRowStyle}"
+                                          HorizontalAlignment="Stretch"
                                           SelectionChanged="HandleStockSelectionChanged"
                                           ScrollViewer.VerticalScrollBarVisibility="Hidden"
                                           ScrollViewer.HorizontalScrollBarVisibility="Auto">
@@ -634,9 +635,9 @@
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
 
-                                        <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="118" />
+                                        <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="130" MinWidth="120" />
 
-                                        <DataGridTemplateColumn Header="Товар" Width="260">
+                                        <DataGridTemplateColumn Header="Товар" Width="*" MinWidth="240">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <TextBlock Text="{Binding Item}"
@@ -647,9 +648,9 @@
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
 
-                                        <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="125" />
+                                        <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="140" MinWidth="130" />
 
-                                        <DataGridTemplateColumn Width="210">
+                                        <DataGridTemplateColumn Width="220" MinWidth="200">
                                             <DataGridTemplateColumn.Header>
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="Свободно" />
@@ -678,11 +679,11 @@
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
 
-                                        <DataGridTextColumn Header="Резерв" Binding="{Binding ReservedDisplay}" Width="74" />
-                                        <DataGridTextColumn Header="В пути" Binding="{Binding InTransitDisplay}" Width="74" />
-                                        <DataGridTextColumn Header="Мин. остаток" Binding="{Binding MinimumDisplay}" Width="96" />
+                                        <DataGridTextColumn Header="Резерв" Binding="{Binding ReservedDisplay}" Width="90" MinWidth="80" />
+                                        <DataGridTextColumn Header="В пути" Binding="{Binding InTransitDisplay}" Width="90" MinWidth="80" />
+                                        <DataGridTextColumn Header="Мин. остаток" Binding="{Binding MinimumDisplay}" Width="130" MinWidth="120" />
 
-                                        <DataGridTemplateColumn Header="Статус" Width="150">
+                                        <DataGridTemplateColumn Header="Статус" Width="130" MinWidth="110">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border Background="{Binding StatusBackground}"
@@ -698,7 +699,7 @@
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
 
-                                        <DataGridTextColumn Header="Обновлено" Binding="{Binding UpdatedDisplay}" Width="120" />
+                                        <DataGridTextColumn Header="Обновлено" Binding="{Binding UpdatedDisplay}" Width="160" MinWidth="140" />
 
                                         <DataGridTemplateColumn Header="" Width="42">
                                             <DataGridTemplateColumn.CellTemplate>
