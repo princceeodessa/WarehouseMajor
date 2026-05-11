@@ -5,7 +5,7 @@ using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class WarehouseLineEditorWindow : Window
+public partial class WarehouseLineEditorWindow : Wpf.Ui.Controls.FluentWindow
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
 

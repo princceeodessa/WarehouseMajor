@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
@@ -7,7 +7,7 @@ using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class WarehouseCellGroupPlacementWindow : Window
+public partial class WarehouseCellGroupPlacementWindow : Wpf.Ui.Controls.FluentWindow
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
 

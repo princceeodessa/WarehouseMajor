@@ -1,6 +1,7 @@
-<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.StartupLoadingWindow"
+<ui:FluentWindow x:Class="WarehouseAutomatisaion.Desktop.Wpf.StartupLoadingWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         Title="Запуск MajorWarehause"
         Width="460"
         Height="250"
@@ -10,11 +11,13 @@
         MaxHeight="250"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="#F5F7FB"
-        ShowInTaskbar="False">
+        Background="{DynamicResource ApplicationBackgroundBrush}"
+        ShowInTaskbar="False"
+        WindowBackdropType="Mica"
+        ExtendsContentIntoTitleBar="False">
     <Grid Margin="26">
-        <Border Background="#FFFFFF"
-                BorderBrush="#E3EAF6"
+        <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="18"
                 Padding="26">
@@ -30,23 +33,23 @@
                     <Border Width="42"
                             Height="42"
                             CornerRadius="14"
-                            Background="#4F5BFF">
+                            Background="{DynamicResource AccentFillColorDefaultBrush}">
                         <TextBlock Text="MW"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    FontSize="13"
                                    FontWeight="SemiBold"
-                                   Foreground="#FFFFFF" />
+                                   Foreground="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
                     </Border>
                     <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="Загрузка системы"
                                    FontSize="22"
                                    FontWeight="SemiBold"
-                                   Foreground="#17213A" />
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         <TextBlock x:Name="ConnectionText"
                                    Margin="0,4,0,0"
                                    FontSize="12.5"
-                                   Foreground="#7A86A5"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                    TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </StackPanel>
@@ -57,23 +60,23 @@
                            Text="Читаю данные из общей базы..."
                            FontSize="14"
                            FontWeight="SemiBold"
-                           Foreground="#24314F"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                            TextWrapping="Wrap" />
 
                 <ProgressBar Grid.Row="2"
                              Margin="0,16,0,0"
                              Height="8"
                              IsIndeterminate="True"
-                             Foreground="#4F5BFF"
-                             Background="#EEF2FF" />
+                             Foreground="{DynamicResource AccentFillColorDefaultBrush}"
+                             Background="{DynamicResource AccentFillColorTertiaryBrush}" />
 
                 <TextBlock Grid.Row="3"
                            Margin="0,16,0,0"
                            Text="Первый запуск после обновления может занять несколько минут. Не закрывайте приложение, пока идет чтение данных."
                            FontSize="12.5"
-                           Foreground="#6E7B98"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap" />
             </Grid>
         </Border>
     </Grid>
-</Window>
+</ui:FluentWindow>

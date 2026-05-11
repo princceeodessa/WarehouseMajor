@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\blagodar\\\\WarehouseAutomatisaion\\\\.claude\\\\worktrees\\\\stupefied-sammet-e92d88\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\blagodar\\\\WarehouseAutomatisaion\\\\.claude\\\\worktrees\\\\stupefied-sammet-e92d88\" -Force)",
+      "Bash(Select-Object Name)",
+      "PowerShell(Get-ChildItem -Path \"$env:LOCALAPPDATA\", \"$env:APPDATA\", \"$env:USERPROFILE\" -Recurse -Filter \"appsettings.local.json\" -ErrorAction SilentlyContinue | Select-Object FullName)"
+    ]
+  }
+}

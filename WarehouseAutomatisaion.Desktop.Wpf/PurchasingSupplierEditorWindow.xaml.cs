@@ -3,7 +3,7 @@ using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class PurchasingSupplierEditorWindow : Window
+public partial class PurchasingSupplierEditorWindow : Wpf.Ui.Controls.FluentWindow
 {
     private readonly OperationalPurchasingWorkspace _workspace;
     private readonly OperationalPurchasingSupplierRecord _draft;

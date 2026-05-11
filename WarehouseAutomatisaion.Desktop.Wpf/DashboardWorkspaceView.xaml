@@ -1,14 +1,15 @@
 <UserControl x:Class="WarehouseAutomatisaion.Desktop.Wpf.DashboardWorkspaceView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             Background="#F7F9FF">
+             Background="{DynamicResource ApplicationBackgroundBrush}">
     <UserControl.Resources>
         <Style x:Key="PageCardStyle" TargetType="Border">
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#E8EDF8" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="18" />
         </Style>
@@ -16,14 +17,14 @@
         <Style x:Key="GhostButtonStyle" TargetType="Button" BasedOn="{StaticResource TopActionButtonStyle}">
             <Setter Property="Height" Value="40" />
             <Setter Property="Padding" Value="18,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#E4EAF5" />
-            <Setter Property="Foreground" Value="#4D5B79" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             <Setter Property="FontSize" Value="14" />
         </Style>
 
         <Style x:Key="ActionButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
-            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
             <Setter Property="Template">
@@ -47,10 +48,10 @@
             <Setter Property="Width" Value="36" />
             <Setter Property="Height" Value="36" />
             <Setter Property="Margin" Value="10,0,0,0" />
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#E4EAF5" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#6A7898" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -70,14 +71,14 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F8FAFF" />
-                    <Setter Property="BorderBrush" Value="#C6D1F7" />
-                    <Setter Property="Foreground" Value="#4F5BFF" />
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorSecondaryBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource AccentFillColorDefaultBrush}" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#EEF2FF" />
-                    <Setter Property="BorderBrush" Value="#9CADFF" />
-                    <Setter Property="Foreground" Value="#3742D6" />
+                    <Setter Property="Background" Value="{DynamicResource AccentFillColorTertiaryBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorSecondaryBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource AccentFillColorTertiaryBrush}" />
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
                     <Setter Property="Cursor" Value="Arrow" />
@@ -87,7 +88,7 @@
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Background="#F7F9FF">
+    <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Background="{DynamicResource ApplicationBackgroundBrush}">
         <Grid Margin="28,20,28,28">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -106,19 +107,19 @@
                     <TextBlock x:Name="GreetingTitleText"
                                FontSize="34"
                                FontWeight="SemiBold"
-                               Foreground="#1A2440" />
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                     <TextBlock x:Name="GreetingSubtitleText"
                                Margin="0,8,0,0"
                                FontSize="15"
-                               Foreground="#7280A0" />
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" HorizontalAlignment="Right">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Border Width="320"
                                 Height="42"
-                                Background="#FFFFFF"
-                                BorderBrush="#E4EAF5"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                                 BorderThickness="1"
                                 CornerRadius="12"
                                 Padding="14,0,14,0">
@@ -133,14 +134,14 @@
                                 <TextBlock x:Name="HeaderSearchPlaceholderText"
                                            Text="Поиск по заказам, клиентам, счетам..."
                                            FontSize="14"
-                                           Foreground="#9AA5BD"
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                            VerticalAlignment="Center"
                                            IsHitTestVisible="False" />
                                 <TextBlock FontFamily="Segoe Fluent Icons"
                                            Text="&#xE721;"
                                            HorizontalAlignment="Right"
                                            VerticalAlignment="Center"
-                                           Foreground="#909AB5"
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                            FontSize="14" />
                             </Grid>
                         </Border>
@@ -151,7 +152,7 @@
                                 Click="HandleNavigationButtonClick">
                             <Grid>
                                 <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7F4;" FontSize="14" />
-                                <Border Width="16" Height="16" Background="#FF5F6D" CornerRadius="8" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-4,0">
+                                <Border Width="16" Height="16" Background="{DynamicResource SystemFillColorCriticalBrush}" CornerRadius="8" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-4,0">
                                     <TextBlock x:Name="NotificationBadgeText" Foreground="White" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                             </Grid>
@@ -171,7 +172,7 @@
                 <TextBlock Text="Быстрые переходы"
                            FontSize="18"
                            FontWeight="SemiBold"
-                           Foreground="#1A2440" />
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                 <ItemsControl x:Name="QuickLinksItemsControl" Margin="0,14,0,0">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -205,7 +206,7 @@
                                                    Margin="14,7,0,0"
                                                    FontSize="18"
                                                    FontWeight="SemiBold"
-                                                   Foreground="#1A2440" />
+                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                     </StackPanel>
                                     <Grid Grid.Row="1" Margin="56,8,0,0">
                                         <Grid.ColumnDefinitions>
@@ -214,13 +215,13 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{Binding Subtitle}"
                                                    FontSize="14"
-                                                   Foreground="#7280A0"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                    TextWrapping="Wrap"
                                                    MaxWidth="150" />
                                         <TextBlock Grid.Column="1"
                                                    Text="→"
                                                    FontSize="18"
-                                                   Foreground="#7D8BB0"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                    VerticalAlignment="Bottom" />
                                     </Grid>
                                 </Grid>
@@ -245,9 +246,9 @@
                             <TextBlock Text="Срочные задачи"
                                        FontSize="18"
                                        FontWeight="SemiBold"
-                                       Foreground="#1A2440" />
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                             <Border Background="#FFECEE" CornerRadius="10" Padding="6,2" Margin="10,0,0,0">
-                                <TextBlock x:Name="UrgentTaskBadgeText" Foreground="#FF5F6D" FontSize="12" FontWeight="SemiBold" />
+                                <TextBlock x:Name="UrgentTaskBadgeText" Foreground="{DynamicResource SystemFillColorCriticalBrush}" FontSize="12" FontWeight="SemiBold" />
                             </Border>
                         </StackPanel>
                         <ItemsControl x:Name="UrgentTasksItemsControl" Margin="0,16,0,0">
@@ -262,7 +263,7 @@
                                             Margin="0,0,0,14"
                                             HorizontalContentAlignment="Stretch"
                                             Cursor="Hand">
-                                        <Border BorderBrush="#EEF2FA" BorderThickness="1" CornerRadius="16" Padding="14">
+                                        <Border BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="16" Padding="14">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="42" />
@@ -278,12 +279,12 @@
                                                                VerticalAlignment="Center" />
                                                 </Border>
                                                 <StackPanel Grid.Column="1" Margin="12,0,0,0">
-                                                    <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" Foreground="#1A2440" />
-                                                    <TextBlock Text="{Binding Subtitle}" Margin="0,4,0,0" FontSize="13" Foreground="#7280A0" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                    <TextBlock Text="{Binding Subtitle}" Margin="0,4,0,0" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="2" HorizontalAlignment="Right">
                                                     <TextBlock Text="{Binding Value}" FontSize="26" FontWeight="SemiBold" Foreground="{Binding AccentBrush}" HorizontalAlignment="Right" />
-                                                    <TextBlock Text="→" FontSize="16" Foreground="#7D8BB0" HorizontalAlignment="Right" />
+                                                    <TextBlock Text="→" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" />
                                                 </StackPanel>
                                             </Grid>
                                         </Border>
@@ -316,15 +317,15 @@
                             <TextBlock Text="Аналитика"
                                        FontSize="18"
                                        FontWeight="SemiBold"
-                                       Foreground="#1A2440" />
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                             <Border Grid.Column="1"
-                                    Background="#FFFFFF"
-                                    BorderBrush="#E4EAF5"
+                                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                                     BorderThickness="1"
                                     CornerRadius="12"
                                     Padding="14,8">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE787;" Foreground="#7280A0" FontSize="13" Margin="0,0,8,0" />
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE787;" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="13" Margin="0,0,8,0" />
                                     <TextBlock x:Name="AnalyticsRangeText" FontSize="13" Foreground="#42506D" />
                                 </StackPanel>
                             </Border>
@@ -366,13 +367,13 @@
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Выручка" FontSize="16" FontWeight="SemiBold" Foreground="#1A2440" />
+                                        <TextBlock Text="Выручка" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                         <TextBlock Text="    " />
-                                        <TextBlock Text="●" Foreground="#4F5BFF" FontSize="16" />
-                                        <TextBlock Text=" Выручка" FontSize="13" Foreground="#7280A0" />
+                                        <TextBlock Text="●" Foreground="{DynamicResource AccentFillColorDefaultBrush}" FontSize="16" />
+                                        <TextBlock Text=" Выручка" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                         <TextBlock Text="    " />
                                         <TextBlock Text="●" Foreground="#BBC4D9" FontSize="16" />
-                                        <TextBlock Text=" Прошлый период" FontSize="13" Foreground="#7280A0" />
+                                        <TextBlock Text=" Прошлый период" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                     <Canvas x:Name="RevenueChartCanvas" Grid.Row="1" Height="250" Margin="0,12,0,0" />
                                 </Grid>
@@ -384,7 +385,7 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="Заказы по статусам" FontSize="16" FontWeight="SemiBold" Foreground="#1A2440" />
+                                    <TextBlock Text="Заказы по статусам" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                     <Grid x:Name="StatusChartBodyGrid" Grid.Row="1" Margin="0,14,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="220" />
@@ -405,8 +406,8 @@
                                                             <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
                                                         <Ellipse Width="10" Height="10" Fill="{Binding ColorBrush}" Margin="0,4,10,0" />
-                                                        <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="13" Foreground="#4F5BFF" TextTrimming="CharacterEllipsis" />
-                                                        <TextBlock Grid.Column="2" Text="{Binding ValueText}" FontSize="13" Foreground="#7280A0" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="13" Foreground="{DynamicResource AccentFillColorDefaultBrush}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="2" Text="{Binding ValueText}" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                                     </Grid>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -424,7 +425,7 @@
                     <TextBlock Text="Срочные действия"
                                FontSize="18"
                                FontWeight="SemiBold"
-                               Foreground="#1A2440" />
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                     <ItemsControl x:Name="QuickActionItemsControl" Margin="0,16,0,0">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -453,12 +454,12 @@
                                                         Margin="14,2,0,0"
                                                         FontSize="15"
                                                         FontWeight="SemiBold"
-                                                        Foreground="#1A2440"
+                                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                                         TextWrapping="Wrap"
                                                         MaxWidth="148" />
                                         </StackPanel>
                                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                                             <TextBlock Text="{Binding Subtitle}" FontSize="13" Foreground="#7280A0" TextWrapping="Wrap" />
+                                             <TextBlock Text="{Binding Subtitle}" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                                              <TextBlock Text="{Binding Hint}" Margin="0,8,0,0" FontSize="12" Foreground="#98A5BE" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <Button Grid.Row="2"

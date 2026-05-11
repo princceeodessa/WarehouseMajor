@@ -5,7 +5,7 @@ using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class PurchasingLineEditorWindow : Window
+public partial class PurchasingLineEditorWindow : Wpf.Ui.Controls.FluentWindow
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
     private readonly CatalogChoice[] _catalogChoices;

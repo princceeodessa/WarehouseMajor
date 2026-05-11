@@ -4,7 +4,7 @@ using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class ProductTextInputWindow : Window
+public partial class ProductTextInputWindow : Wpf.Ui.Controls.FluentWindow
 {
     public ProductTextInputWindow(
         string title,

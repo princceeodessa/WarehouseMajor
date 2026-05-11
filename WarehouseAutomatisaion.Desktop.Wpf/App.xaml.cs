@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using WarehouseAutomatisaion.Desktop.Data;
+using Wpf.Ui.Appearance;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
@@ -23,6 +24,7 @@ public partial class App : System.Windows.Application
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         WpfMouseWheelScrollFix.Register();
         RegisterGlobalExceptionHandlers();
+        InitializeFluentTheme();
 
         StartupLoadingWindow? loadingWindow = null;
         try
@@ -160,6 +162,22 @@ public partial class App : System.Windows.Application
             WriteClientErrorLog(args.Exception, "TaskScheduler.UnobservedTaskException");
             args.SetObserved();
         };
+    }
+
+    private static void InitializeFluentTheme()
+    {
+        try
+        {
+            // Apply Fluent v2 Light theme + sync system accent color so DynamicResource
+            // tokens (SystemAccentColorBrush, TextFillColorPrimaryBrush, etc.) resolve.
+            // Background type is set per-window via ui:FluentWindow / WindowBackdrop.
+            ApplicationThemeManager.Apply(ApplicationTheme.Light, WindowBackdropType.Mica, updateAccent: true);
+        }
+        catch (Exception exception)
+        {
+            // Theme initialisation must never block app startup.
+            WriteClientErrorLog(exception, "App.InitializeFluentTheme");
+        }
     }
 
     private static void RegisterWorkspaceWindowBehavior()

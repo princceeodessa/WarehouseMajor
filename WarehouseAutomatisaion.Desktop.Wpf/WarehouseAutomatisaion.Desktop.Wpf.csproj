@@ -18,16 +18,17 @@
 
   <ItemGroup>
     <PackageReference Include="QRCoder" Version="1.8.0" />
+    <PackageReference Include="WPF-UI" Version="3.1.1" />
   </ItemGroup>
 
   <PropertyGroup>
     <AssemblyName>MajorWarehause</AssemblyName>
     <Title>MajorWarehause</Title>
     <Product>MajorWarehause</Product>
-    <Version>1.0.38</Version>
-    <AssemblyVersion>1.0.38.0</AssemblyVersion>
-    <FileVersion>1.0.38.0</FileVersion>
-    <InformationalVersion>1.0.38</InformationalVersion>
+    <Version>1.0.39</Version>
+    <AssemblyVersion>1.0.39.0</AssemblyVersion>
+    <FileVersion>1.0.39.0</FileVersion>
+    <InformationalVersion>1.0.39</InformationalVersion>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
