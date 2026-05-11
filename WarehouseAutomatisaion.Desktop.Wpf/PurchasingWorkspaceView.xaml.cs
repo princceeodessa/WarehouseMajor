@@ -355,6 +355,7 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         ApplySectionButton(PaymentsTabButton, _activeSection == PaymentsSection);
         ApplySectionButton(DiscrepanciesTabButton, _activeSection == DiscrepanciesSection);
         ApplySectionButton(JournalTabButton, _activeSection == JournalSection);
+        NewSupplierInTabButton.Visibility = _activeSection == SuppliersSection ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static void ApplySectionButton(WpfButton button, bool isActive)
@@ -665,6 +666,10 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void UpdateEmptyStateCopy()
     {
+        EmptyStatePrimaryButtonText.Text = _activeSection == SuppliersSection
+            ? "Создать поставщика"
+            : "Создать первую закупку";
+
         switch (_activeSection)
         {
             case SuppliersSection:
@@ -2240,6 +2245,22 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void HandleNewPurchaseClick(object sender, RoutedEventArgs e)
     {
+        CreateNewPurchase();
+    }
+
+    private void HandleNewSupplierClick(object sender, RoutedEventArgs e)
+    {
+        OpenSupplierEditor(null);
+    }
+
+    private void HandleEmptyStatePrimaryClick(object sender, RoutedEventArgs e)
+    {
+        if (_activeSection == SuppliersSection)
+        {
+            OpenSupplierEditor(null);
+            return;
+        }
+
         CreateNewPurchase();
     }
 

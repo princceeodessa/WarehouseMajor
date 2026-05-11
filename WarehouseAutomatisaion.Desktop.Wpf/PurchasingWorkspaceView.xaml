@@ -426,6 +426,22 @@
                                 <ComboBox x:Name="SupplierFilterCombo" Style="{StaticResource FilterComboStyle}" Width="118" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                                 <ComboBox x:Name="WarehouseFilterCombo" Style="{StaticResource FilterComboStyle}" Width="110" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                                 <ComboBox x:Name="DocumentTypeFilterCombo" Style="{StaticResource FilterComboStyle}" Width="122" Margin="0,0,0,10" SelectionChanged="HandleFilterChanged" />
+                                <Button x:Name="NewSupplierInTabButton"
+                                        Style="{StaticResource TableFilterActionButtonStyle}"
+                                        Width="160"
+                                        Margin="10,0,0,10"
+                                        Visibility="Collapsed"
+                                        Click="HandleNewSupplierClick">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock FontFamily="Segoe Fluent Icons"
+                                                   Text="&#xE710;"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="Новый поставщик"
+                                                   Margin="8,0,0,0"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
                             </WrapPanel>
                             <WrapPanel Margin="0,0,0,10">
                                 <DatePicker x:Name="DateFromPicker" Width="132" Style="{StaticResource TableFilterDatePickerStyle}" Margin="0,0,10,10" SelectedDateChanged="HandleFilterChanged" />
@@ -521,10 +537,17 @@
                                         </Border>
                                         <TextBlock x:Name="EmptyStateTitleText" Text="Нет закупочных документов" Style="{StaticResource TableEmptyTitleStyle}" />
                                         <TextBlock x:Name="EmptyStateHintText" Text="Создайте первый документ вручную или импортируйте данные." Style="{StaticResource TableEmptyHintStyle}" />
-                                        <Button Style="{StaticResource PrimaryButtonStyle}" Width="220" HorizontalAlignment="Center" Margin="0,22,0,0" Click="HandleNewPurchaseClick">
+                                        <Button x:Name="EmptyStatePrimaryButton"
+                                                Style="{StaticResource PrimaryButtonStyle}"
+                                                Width="220"
+                                                HorizontalAlignment="Center"
+                                                Margin="0,22,0,0"
+                                                Click="HandleEmptyStatePrimaryClick">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
-                                                <TextBlock Text="Создать первую закупку" Margin="8,0,0,0" />
+                                                <TextBlock x:Name="EmptyStatePrimaryButtonText"
+                                                           Text="Создать первую закупку"
+                                                           Margin="8,0,0,0" />
                                             </StackPanel>
                                         </Button>
                                         <Button Style="{StaticResource GhostButtonStyle}" Width="220" HorizontalAlignment="Center" Margin="0,12,0,0" Click="HandleImportClick">Импортировать данные</Button>
