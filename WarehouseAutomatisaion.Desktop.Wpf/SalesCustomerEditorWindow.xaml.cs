@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -11,7 +11,7 @@ using WarehouseAutomatisaion.Infrastructure.Importing;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class SalesCustomerEditorWindow : Wpf.Ui.Controls.FluentWindow
+public partial class SalesCustomerEditorWindow : Window
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
 

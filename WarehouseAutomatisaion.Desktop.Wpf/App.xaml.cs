@@ -9,6 +9,7 @@ using System.Windows.Interop;
 using System.Windows.Threading;
 using WarehouseAutomatisaion.Desktop.Data;
 using Wpf.Ui.Appearance;
+using Wpf.Ui.Controls;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
@@ -170,7 +171,7 @@ public partial class App : System.Windows.Application
         {
             // Apply Fluent v2 Light theme + sync system accent color so DynamicResource
             // tokens (SystemAccentColorBrush, TextFillColorPrimaryBrush, etc.) resolve.
-            // Background type is set per-window via ui:FluentWindow / WindowBackdrop.
+            // Per-window Mica backdrop is applied in HandleApplyMicaBackdrop below.
             ApplicationThemeManager.Apply(ApplicationTheme.Light, WindowBackdropType.Mica, updateAccent: true);
         }
         catch (Exception exception)
@@ -180,8 +181,32 @@ public partial class App : System.Windows.Application
         }
     }
 
+    private static void HandleApplyMicaBackdrop(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Window window)
+        {
+            return;
+        }
+
+        try
+        {
+            // Apply Mica backdrop to every Window once it is loaded. WindowBackdrop
+            // gracefully no-ops on Windows 10 and falls back to a solid background.
+            WindowBackdrop.ApplyBackdrop(window, WindowBackdropType.Mica);
+        }
+        catch (Exception exception)
+        {
+            WriteClientErrorLog(exception, "App.HandleApplyMicaBackdrop");
+        }
+    }
+
     private static void RegisterWorkspaceWindowBehavior()
     {
+        EventManager.RegisterClassHandler(
+            typeof(Window),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(HandleApplyMicaBackdrop),
+            handledEventsToo: true);
         EventManager.RegisterClassHandler(
             typeof(Window),
             FrameworkElement.LoadedEvent,

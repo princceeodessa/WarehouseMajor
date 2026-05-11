@@ -1,11 +1,11 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using WarehouseAutomatisaion.Desktop.Data;
 using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class WarehouseCellPlacementRuleEditorWindow : Wpf.Ui.Controls.FluentWindow
+public partial class WarehouseCellPlacementRuleEditorWindow : Window
 {
     private readonly IReadOnlyList<SalesCatalogItemOption> _catalogItems;
     private readonly IReadOnlyList<WarehouseStorageCellRecord> _cells;

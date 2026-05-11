@@ -1,11 +1,11 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class PrintPreviewWindow : Wpf.Ui.Controls.FluentWindow
+public partial class PrintPreviewWindow : Window
 {
     private const double PreviewPageWidth = 793.7;
     private const double PreviewPageHeight = 1122.5;

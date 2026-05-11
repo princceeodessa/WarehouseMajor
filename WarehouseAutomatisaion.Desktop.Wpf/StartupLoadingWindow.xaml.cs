@@ -1,9 +1,9 @@
-﻿using System.Windows;
+using System.Windows;
 using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class StartupLoadingWindow : Wpf.Ui.Controls.FluentWindow
+public partial class StartupLoadingWindow : Window
 {
     public StartupLoadingWindow(DesktopClientStartupResult startupStatus)
     {

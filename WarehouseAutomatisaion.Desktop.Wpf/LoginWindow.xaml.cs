@@ -1,10 +1,10 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Input;
 using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class LoginWindow : Wpf.Ui.Controls.FluentWindow
+public partial class LoginWindow : Window
 {
     private readonly ApplicationUpdateService _applicationUpdateService = new();
     private bool _loginInProgress;

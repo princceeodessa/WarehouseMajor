@@ -12,7 +12,7 @@ using WpfSolidColorBrush = System.Windows.Media.SolidColorBrush;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
+public partial class MainWindow : Window
 {
     private const double SidebarExpandedWidth = 214d;
     private const double SidebarCollapsedWidth = 74d;

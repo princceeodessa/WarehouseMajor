@@ -1,10 +1,10 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Input;
 using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class ProductTextInputWindow : Wpf.Ui.Controls.FluentWindow
+public partial class ProductTextInputWindow : Window
 {
     public ProductTextInputWindow(
         string title,

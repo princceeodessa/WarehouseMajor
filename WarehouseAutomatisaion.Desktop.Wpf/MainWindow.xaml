@@ -1,4 +1,4 @@
-<ui:FluentWindow x:Class="WarehouseAutomatisaion.Desktop.Wpf.MainWindow"
+<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -11,10 +11,8 @@
         MinWidth="1240"
         MinHeight="760"
         WindowStartupLocation="CenterScreen"
-        WindowBackdropType="Mica"
-        ExtendsContentIntoTitleBar="False"
         Background="{DynamicResource ApplicationBackgroundBrush}">
-    <ui:FluentWindow.Resources>
+    <Window.Resources>
         <Style x:Key="SidebarNavButtonStyle" TargetType="Button">
             <Setter Property="Height" Value="42" />
             <Setter Property="Margin" Value="0,0,0,8" />
@@ -90,7 +88,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
-    </ui:FluentWindow.Resources>
+    </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
@@ -431,4 +429,4 @@
             </Grid>
         </Grid>
     </Grid>
-</ui:FluentWindow>
+</Window>

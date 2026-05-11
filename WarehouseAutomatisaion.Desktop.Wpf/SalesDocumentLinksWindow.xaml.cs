@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using System.Windows;
 using WarehouseAutomatisaion.Desktop.Data;
@@ -6,7 +6,7 @@ using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class SalesDocumentLinksWindow : Wpf.Ui.Controls.FluentWindow
+public partial class SalesDocumentLinksWindow : Window
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
     private readonly SalesWorkspace _salesWorkspace;

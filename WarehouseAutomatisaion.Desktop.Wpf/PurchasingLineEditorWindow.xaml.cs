@@ -1,11 +1,11 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class PurchasingLineEditorWindow : Wpf.Ui.Controls.FluentWindow
+public partial class PurchasingLineEditorWindow : Window
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
     private readonly CatalogChoice[] _catalogChoices;

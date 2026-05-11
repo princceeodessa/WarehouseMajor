@@ -1,11 +1,11 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Windows;
 using WarehouseAutomatisaion.Desktop.Data;
 using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class ProductPriceUpdateWindow : Wpf.Ui.Controls.FluentWindow
+public partial class ProductPriceUpdateWindow : Window
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
     private const string SetPriceMode = "Установить цену";

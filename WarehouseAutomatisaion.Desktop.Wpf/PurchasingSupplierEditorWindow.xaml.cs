@@ -1,9 +1,9 @@
-﻿using System.Windows;
+using System.Windows;
 using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class PurchasingSupplierEditorWindow : Wpf.Ui.Controls.FluentWindow
+public partial class PurchasingSupplierEditorWindow : Window
 {
     private readonly OperationalPurchasingWorkspace _workspace;
     private readonly OperationalPurchasingSupplierRecord _draft;
