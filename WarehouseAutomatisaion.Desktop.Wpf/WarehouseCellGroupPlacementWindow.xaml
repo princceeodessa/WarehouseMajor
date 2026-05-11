@@ -8,6 +8,10 @@
         MinHeight="560"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource ApplicationBackgroundBrush}">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32" GlassFrameThickness="-1" ResizeBorderThickness="6" UseAeroCaptionButtons="True" />
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
         <Style x:Key="CardStyle" TargetType="Border" BasedOn="{StaticResource DialogCardStyle}" />
         <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogPrimaryButtonStyle}" />

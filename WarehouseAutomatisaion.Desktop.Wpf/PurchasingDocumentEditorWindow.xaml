@@ -7,6 +7,10 @@
         Width="1100"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource ApplicationBackgroundBrush}">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32" GlassFrameThickness="-1" ResizeBorderThickness="6" UseAeroCaptionButtons="True" />
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
         <SolidColorBrush x:Key="PageBrush" Color="{DynamicResource ApplicationBackgroundColor}" />
         <SolidColorBrush x:Key="CardBrush" Color="{DynamicResource CardBackgroundFillColorDefault}" />
@@ -111,16 +115,21 @@
                     <Button Content="Удалить позицию" Style="{StaticResource GhostButtonStyle}" Click="HandleRemoveLineClick" />
                 </StackPanel>
 
-                <DataGrid x:Name="LinesGrid" Grid.Row="2" Style="{StaticResource GridStyle}" SelectionChanged="HandleLinesSelectionChanged">
+                <DataGrid x:Name="LinesGrid"
+                          Grid.Row="2"
+                          Style="{StaticResource GridStyle}"
+                          HorizontalAlignment="Stretch"
+                          ColumnWidth="*"
+                          SelectionChanged="HandleLinesSelectionChanged">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Код" Binding="{Binding ItemCode}" Width="120" IsReadOnly="True" />
-                        <DataGridTextColumn Header="Номенклатура" Binding="{Binding ItemName}" Width="*" IsReadOnly="True" />
-                        <DataGridTextColumn Header="Ед." Binding="{Binding Unit}" Width="70" IsReadOnly="True" />
-                        <DataGridTextColumn Header="Кол-во" Binding="{Binding Quantity, StringFormat=N2}" Width="90" IsReadOnly="True" />
-                        <DataGridTextColumn Header="Цена" Binding="{Binding Price, StringFormat=N2}" Width="100" IsReadOnly="True" />
-                        <DataGridTextColumn Header="Сумма" Binding="{Binding Amount, StringFormat=N2}" Width="110" IsReadOnly="True" />
-                        <DataGridTextColumn x:Name="TargetLocationColumn" Header="Ячейка" Binding="{Binding TargetLocation}" Width="130" IsReadOnly="True" />
-                        <DataGridTextColumn Header="План" Binding="{Binding PlannedDate, StringFormat=dd.MM.yyyy}" Width="110" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Код" Binding="{Binding ItemCode}" Width="120" MinWidth="100" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Номенклатура" Binding="{Binding ItemName}" Width="*" MinWidth="200" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Ед." Binding="{Binding Unit}" Width="80" MinWidth="70" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Кол-во" Binding="{Binding Quantity, StringFormat=N2}" Width="100" MinWidth="90" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Цена" Binding="{Binding Price, StringFormat=N2}" Width="110" MinWidth="100" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Сумма" Binding="{Binding Amount, StringFormat=N2}" Width="120" MinWidth="110" IsReadOnly="True" />
+                        <DataGridTextColumn x:Name="TargetLocationColumn" Header="Ячейка" Binding="{Binding TargetLocation}" Width="140" MinWidth="120" IsReadOnly="True" />
+                        <DataGridTextColumn Header="План" Binding="{Binding PlannedDate, StringFormat=dd.MM.yyyy}" Width="120" MinWidth="100" IsReadOnly="True" />
                     </DataGrid.Columns>
                 </DataGrid>
 
