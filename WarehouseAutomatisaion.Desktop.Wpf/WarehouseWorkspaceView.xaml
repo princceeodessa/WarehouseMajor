@@ -1181,8 +1181,8 @@
 
                             <Grid Grid.ColumnSpan="3" Margin="22,22,22,14">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="360" />
                                     <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Text="Справочник ячеек" FontSize="22" FontWeight="SemiBold" Foreground="#1B2440" />

@@ -193,6 +193,12 @@ function Update-PublishedAppSettings {
 
 Update-PublishedAppSettings
 
+$publishedLocalSettingsPath = Join-Path $outputPath "appsettings.local.json"
+if (Test-Path -LiteralPath $publishedLocalSettingsPath) {
+    Remove-Item -LiteralPath $publishedLocalSettingsPath -Force
+    Write-Host "Published appsettings.local.json was removed after merging overrides"
+}
+
 if (Test-Path $readmePath) {
     Copy-Item -Path $readmePath -Destination (Join-Path $outputPath 'README_DEPLOY.md') -Force
 }

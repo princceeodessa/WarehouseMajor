@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 using WarehouseAutomatisaion.Desktop.Data;
@@ -177,13 +178,136 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        if (window.ResizeMode == ResizeMode.NoResize)
+        EnsureWorkspaceWindowFitsScreen(window);
+        EnsureWorkspaceWindowContentScrollable(window);
+
+        if (window.ResizeMode == ResizeMode.NoResize || window.ResizeMode == ResizeMode.CanMinimize)
         {
-            window.ResizeMode = ResizeMode.CanMinimize;
+            window.ResizeMode = ResizeMode.CanResizeWithGrip;
         }
 
+        window.StateChanged -= HandleWorkspaceWindowStateChanged;
+        window.StateChanged += HandleWorkspaceWindowStateChanged;
         window.ShowInTaskbar = true;
+        window.Dispatcher.BeginInvoke(() => MoveWorkspaceWindowIntoWorkArea(window), DispatcherPriority.ApplicationIdle);
         window.Dispatcher.BeginInvoke(EnableVisibleApplicationWindows, DispatcherPriority.ApplicationIdle);
+    }
+
+    private static void EnsureWorkspaceWindowFitsScreen(Window window)
+    {
+        var workArea = SystemParameters.WorkArea;
+        var maxWidth = Math.Max(640d, workArea.Width - 32d);
+        var maxHeight = Math.Max(420d, workArea.Height - 32d);
+
+        window.MaxWidth = LimitMaximum(window.MaxWidth, maxWidth);
+        window.MaxHeight = LimitMaximum(window.MaxHeight, maxHeight);
+
+        if (window.MinWidth > maxWidth)
+        {
+            window.MinWidth = maxWidth;
+        }
+
+        if (window.MinHeight > maxHeight)
+        {
+            window.MinHeight = maxHeight;
+        }
+
+        if (!double.IsNaN(window.Width) && window.Width > maxWidth)
+        {
+            window.Width = maxWidth;
+        }
+
+        if (!double.IsNaN(window.Height) && window.Height > maxHeight)
+        {
+            window.Height = maxHeight;
+        }
+
+        if (window.ActualWidth > maxWidth)
+        {
+            window.Width = maxWidth;
+        }
+
+        if (window.ActualHeight > maxHeight)
+        {
+            window.Height = maxHeight;
+        }
+    }
+
+    private static double LimitMaximum(double currentMaximum, double screenMaximum)
+    {
+        return double.IsNaN(currentMaximum) || double.IsInfinity(currentMaximum)
+            ? screenMaximum
+            : Math.Min(currentMaximum, screenMaximum);
+    }
+
+    private static void MoveWorkspaceWindowIntoWorkArea(Window window)
+    {
+        if (!window.IsVisible || double.IsNaN(window.Left) || double.IsNaN(window.Top))
+        {
+            return;
+        }
+
+        var workArea = SystemParameters.WorkArea;
+        var width = window.ActualWidth > 0 ? window.ActualWidth : window.Width;
+        var height = window.ActualHeight > 0 ? window.ActualHeight : window.Height;
+
+        if (!double.IsNaN(width) && window.Left + width > workArea.Right)
+        {
+            window.Left = Math.Max(workArea.Left, workArea.Right - width);
+        }
+
+        if (!double.IsNaN(height) && window.Top + height > workArea.Bottom)
+        {
+            window.Top = Math.Max(workArea.Top, workArea.Bottom - height);
+        }
+
+        if (window.Left < workArea.Left)
+        {
+            window.Left = workArea.Left;
+        }
+
+        if (window.Top < workArea.Top)
+        {
+            window.Top = workArea.Top;
+        }
+    }
+
+    private static void EnsureWorkspaceWindowContentScrollable(Window window)
+    {
+        if (window.Content is not UIElement content || content is ScrollViewer)
+        {
+            return;
+        }
+
+        window.Content = null;
+        window.Content = new ScrollViewer
+        {
+            Content = content,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            CanContentScroll = false,
+            PanningMode = PanningMode.Both,
+            Focusable = false
+        };
+    }
+
+    private static void HandleWorkspaceWindowStateChanged(object? sender, EventArgs e)
+    {
+        if (sender is not Window window || !IsWorkspaceChildWindow(window) || window.WindowState != WindowState.Minimized)
+        {
+            return;
+        }
+
+        window.Dispatcher.BeginInvoke(
+            () =>
+            {
+                EnableVisibleApplicationWindows();
+                if (Current.MainWindow is Window mainWindow && mainWindow.IsVisible)
+                {
+                    mainWindow.Activate();
+                }
+            },
+            DispatcherPriority.Send);
     }
 
     private static void HandleWorkspaceWindowPreviewKeyDown(object sender, KeyEventArgs e)
