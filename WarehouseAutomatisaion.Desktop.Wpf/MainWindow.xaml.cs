@@ -1329,7 +1329,30 @@ public partial class MainWindow : Window
             ApplySelection(sectionKey);
             ReleaseInactiveSectionContent(sectionKey);
             PruneInactiveSectionTabs(sectionKey);
+            PlaySectionFadeIn(selectedTab);
         }
+    }
+
+    private static void PlaySectionFadeIn(TabItem selectedTab)
+    {
+        // Subtle Fluent section transition: fade the newly-selected tab's content
+        // in over 180 ms. Skipped if the tab has no content loaded yet.
+        if (selectedTab.Content is not System.Windows.UIElement element)
+        {
+            return;
+        }
+
+        var fade = new System.Windows.Media.Animation.DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = new System.Windows.Duration(TimeSpan.FromMilliseconds(180)),
+            EasingFunction = new System.Windows.Media.Animation.CubicEase
+            {
+                EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut
+            }
+        };
+        element.BeginAnimation(System.Windows.UIElement.OpacityProperty, fade);
     }
 
     private void HandleCloseTabClick(object sender, RoutedEventArgs e)
