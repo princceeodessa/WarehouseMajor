@@ -11,7 +11,7 @@
         <SolidColorBrush x:Key="CardBrush" Color="{DynamicResource CardBackgroundFillColorDefault}" />
         <SolidColorBrush x:Key="LineBrush" Color="{DynamicResource CardStrokeColorDefault}" />
         <SolidColorBrush x:Key="PrimaryBrush" Color="{DynamicResource AccentFillColorDefault}" />
-        <SolidColorBrush x:Key="PrimarySoftBrush" Color="#EEF2FF" />
+        <SolidColorBrush x:Key="PrimarySoftBrush" Color="{DynamicResource AccentFillColorTertiary}" />
         <SolidColorBrush x:Key="TextBrush" Color="{DynamicResource TextFillColorPrimary}" />
         <SolidColorBrush x:Key="MutedBrush" Color="{DynamicResource TextFillColorSecondary}" />
         <SolidColorBrush x:Key="SubtleBrush" Color="#98A3BC" />
@@ -52,8 +52,8 @@
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#FFE9EC" />
-                    <Setter Property="BorderBrush" Value="#DF6F7D" />
+                    <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                     <Setter Property="Foreground" Value="#B52838" />
                 </Trigger>
             </Style.Triggers>
@@ -275,10 +275,10 @@
                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE946;" FontSize="16" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
                         <StackPanel>
                             <TextBlock Text="Редактирование временно недоступно" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentFillColorSecondaryBrush}" />
-                            <TextBlock x:Name="LockBannerText" Text="Недостаточно прав или документ заблокирован." FontSize="12.5" Foreground="#6B7DAE" Margin="0,4,0,0" />
+                            <TextBlock x:Name="LockBannerText" Text="Недостаточно прав или документ заблокирован." FontSize="12.5" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
                         </StackPanel>
                     </StackPanel>
-                    <Button Grid.Column="1" Width="28" Height="28" Background="Transparent" BorderBrush="Transparent" Foreground="#5A6FA8" FontFamily="Segoe Fluent Icons" Content="&#xE711;" AutomationProperties.Name="Закрыть уведомление" Click="HandleDismissLockBannerClick" />
+                    <Button Grid.Column="1" Width="28" Height="28" Background="Transparent" BorderBrush="Transparent" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontFamily="Segoe Fluent Icons" Content="&#xE711;" AutomationProperties.Name="Закрыть уведомление" Click="HandleDismissLockBannerClick" />
                 </Grid>
             </Border>
 
@@ -560,7 +560,7 @@
                                 <TextBlock x:Name="PagerSummaryText" DockPanel.Dock="Left" Style="{StaticResource TableFooterTextStyle}" />
                                 <StackPanel DockPanel.Dock="Right" Style="{StaticResource TablePagerPanelStyle}">
                                     <Button x:Name="PagerPrevButton" Style="{StaticResource TablePagerButtonStyle}" Tag="prev" Click="HandlePageNavigationClick">‹</Button>
-                                    <TextBlock x:Name="PagerIndexText" Style="{StaticResource TableFooterTextStyle}" FontWeight="SemiBold" Foreground="#405070" Margin="0,0,10,0" />
+                                    <TextBlock x:Name="PagerIndexText" Style="{StaticResource TableFooterTextStyle}" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,10,0" />
                                     <Button x:Name="PagerNextButton" Style="{StaticResource TablePagerButtonStyle}" Tag="next" Click="HandlePageNavigationClick">›</Button>
                                     <ComboBox x:Name="PageSizeCombo" Style="{StaticResource TablePageSizeComboBoxStyle}" Width="92" SelectionChanged="HandlePageSizeChanged">
                                         <ComboBoxItem Content="10 / стр." />
@@ -586,7 +586,7 @@
                                     <TextBlock Text="&#xE8A5;" FontFamily="Segoe Fluent Icons" FontSize="54" Foreground="#B5C0DC" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <TextBlock Text="Выберите документ из списка" Margin="0,18,0,0" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" HorizontalAlignment="Center" />
-                                <TextBlock Text="Здесь будет отображаться информация о выбранном заказе, счете, приемке, оплате или поставщике." TextWrapping="Wrap" TextAlignment="Center" Margin="0,10,0,0" FontSize="13" Foreground="#8B97B2" />
+                                <TextBlock Text="Здесь будет отображаться информация о выбранном заказе, счете, приемке, оплате или поставщике." TextWrapping="Wrap" TextAlignment="Center" Margin="0,10,0,0" FontSize="13" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                             </StackPanel>
                         </Grid>
 
@@ -755,7 +755,7 @@
                                 </DataGrid>
 
                                 <TextBlock Text="Примечание" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,14,0,0" />
-                                <TextBlock x:Name="DetailsCommentText" Margin="0,8,0,0" FontSize="12.5" Foreground="#6D7A98" TextWrapping="Wrap" />
+                                <TextBlock x:Name="DetailsCommentText" Margin="0,8,0,0" FontSize="12.5" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
 
                                 <Grid Margin="0,16,0,14">
                                     <Grid.ColumnDefinitions>

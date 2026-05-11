@@ -60,7 +60,7 @@
                     <TextBox x:Name="WarehouseTextBox"
                              Style="{StaticResource InputStyle}"
                              IsReadOnly="True"
-                             Background="#F4F7FC"
+                             Background="{DynamicResource ControlFillColorDisabledBrush}"
                              BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" />
                 </StackPanel>
             </Grid>

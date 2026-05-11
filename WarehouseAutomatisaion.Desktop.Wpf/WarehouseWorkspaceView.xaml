@@ -12,7 +12,7 @@
         <SolidColorBrush x:Key="CardBrush" Color="{DynamicResource CardBackgroundFillColorDefault}" />
         <SolidColorBrush x:Key="CardBorderBrush" Color="#E8EDF7" />
         <SolidColorBrush x:Key="PrimaryBrush" Color="{DynamicResource AccentFillColorDefault}" />
-        <SolidColorBrush x:Key="PrimarySoftBrush" Color="#EEF2FF" />
+        <SolidColorBrush x:Key="PrimarySoftBrush" Color="{DynamicResource AccentFillColorTertiary}" />
         <SolidColorBrush x:Key="TextBrush" Color="#1B2440" />
         <SolidColorBrush x:Key="SubtleBrush" Color="#6E7B98" />
         <SolidColorBrush x:Key="MutedBrush" Color="#98A3BC" />
@@ -136,7 +136,7 @@
                     <Setter Property="Background" Value="{DynamicResource SubtleFillColorTransparentBrush}" />
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#F4F7FF" />
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -621,7 +621,7 @@
                                         <DataGridTemplateColumn Width="42">
                                             <DataGridTemplateColumn.HeaderTemplate>
                                                 <DataTemplate>
-                                                    <Border Width="16" Height="16" CornerRadius="4" BorderBrush="#DCE3F1" BorderThickness="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" HorizontalAlignment="Center" />
+                                                    <Border Width="16" Height="16" CornerRadius="4" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" HorizontalAlignment="Center" />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.HeaderTemplate>
                                             <DataGridTemplateColumn.CellTemplate>
@@ -665,7 +665,7 @@
                                                 <DataTemplate>
                                                     <StackPanel VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding FreeDisplay}" FontSize="14" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                                        <Border Margin="0,6,0,0" Width="92" Height="6" Background="#EDF1FB" CornerRadius="3" HorizontalAlignment="Left">
+                                                        <Border Margin="0,6,0,0" Width="92" Height="6" Background="{DynamicResource SubtleFillColorTertiaryBrush}" CornerRadius="3" HorizontalAlignment="Left">
                                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                                                 <Border Width="{Binding FreeBarWidth}" Height="6" Background="{DynamicResource SystemFillColorSuccessBrush}" CornerRadius="3" />
                                                                 <Border Width="{Binding ReservedBarWidth}" Height="6" Background="{DynamicResource SystemFillColorCautionBrush}" CornerRadius="3" Margin="2,0,0,0" />

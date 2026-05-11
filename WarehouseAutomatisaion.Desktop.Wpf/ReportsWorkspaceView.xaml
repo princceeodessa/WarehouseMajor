@@ -314,7 +314,7 @@
                                 <StackPanel Orientation="Horizontal" Margin="18,1,0,0">
                                     <Rectangle Width="14" Height="2" Fill="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
                                     <TextBlock Text="Текущий период" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,0,14,0" />
-                                    <Rectangle Width="14" Height="2" Fill="#CBD4E8" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <Rectangle Width="14" Height="2" Fill="{DynamicResource ControlStrokeColorDefaultBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
                                     <TextBlock Text="Прошлый период" FontSize="12" Foreground="{StaticResource MutedBrush}" />
                                 </StackPanel>
                             </StackPanel>

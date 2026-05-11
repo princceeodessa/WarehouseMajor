@@ -336,7 +336,7 @@
 
                     <Border x:Name="DatabaseStatusBadge"
                             Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-                            BorderBrush="#FFD9A3"
+                            BorderBrush="{DynamicResource SystemFillColorCautionBackgroundBrush}"
                             BorderThickness="1"
                             CornerRadius="14"
                             Padding="14"

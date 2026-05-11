@@ -59,7 +59,7 @@
                 </Grid.RowDefinitions>
 
                 <Border Background="{DynamicResource SubtleFillColorTertiaryBrush}"
-                        BorderBrush="#E3E8FF"
+                        BorderBrush="{DynamicResource AccentControlBorderBrush}"
                         BorderThickness="0,0,0,1"
                         Padding="18,14">
                     <Grid>

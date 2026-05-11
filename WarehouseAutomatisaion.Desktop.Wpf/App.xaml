@@ -20,6 +20,103 @@
 
             <!-- ===== Fluent typography ===== -->
             <FontFamily x:Key="FluentFontFamily">Segoe UI Variable, Segoe UI</FontFamily>
+            <FontFamily x:Key="FluentIconFontFamily">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+            <!-- ===== Fluent type ramp (Display, TitleLarge, Title, Subtitle, BodyStrong, Body, Caption) =====
+                 Mirrors the WinUI 3 type ramp. Use via Style="{StaticResource TitleTextStyle}". -->
+            <Style x:Key="DisplayTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
+                <Setter Property="FontSize" Value="40" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="LineHeight" Value="52" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
+
+            <Style x:Key="TitleLargeTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
+                <Setter Property="FontSize" Value="28" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="LineHeight" Value="36" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
+
+            <Style x:Key="TitleTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="LineHeight" Value="28" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
+
+            <Style x:Key="SubtitleTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="LineHeight" Value="22" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
+
+            <Style x:Key="BodyStrongTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="LineHeight" Value="20" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
+
+            <Style x:Key="BodyTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="Normal" />
+                <Setter Property="LineHeight" Value="20" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+
+            <Style x:Key="BodySecondaryTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource BodyTextStyle}">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <Style x:Key="CaptionTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="Normal" />
+                <Setter Property="LineHeight" Value="16" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <Style x:Key="CaptionStrongTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource CaptionTextStyle}">
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
+
+            <!-- ===== Spacing scale (Fluent 4/8 grid) =====
+                 Use as Padding/Margin via {StaticResource Spacing16} etc. -->
+            <Thickness x:Key="Spacing4">4</Thickness>
+            <Thickness x:Key="Spacing8">8</Thickness>
+            <Thickness x:Key="Spacing12">12</Thickness>
+            <Thickness x:Key="Spacing16">16</Thickness>
+            <Thickness x:Key="Spacing20">20</Thickness>
+            <Thickness x:Key="Spacing24">24</Thickness>
+            <Thickness x:Key="Spacing28">28</Thickness>
+            <Thickness x:Key="Spacing32">32</Thickness>
+            <Thickness x:Key="Spacing48">48</Thickness>
+
+            <!-- Vertical-only spacing (for StackPanel children) -->
+            <Thickness x:Key="StackGap8">0,0,0,8</Thickness>
+            <Thickness x:Key="StackGap12">0,0,0,12</Thickness>
+            <Thickness x:Key="StackGap16">0,0,0,16</Thickness>
+            <Thickness x:Key="StackGap20">0,0,0,20</Thickness>
+            <Thickness x:Key="StackGap24">0,0,0,24</Thickness>
 
             <!-- ===== Legacy palette mapped onto Fluent tokens =====
                  Views keep the old keys; this layer redirects them to Fluent. -->
@@ -627,6 +724,208 @@
 
             <Style TargetType="{x:Type TextBlock}">
                 <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
+            </Style>
+
+            <!-- ===== Page container & section header ===== -->
+            <!-- Consistent outer page padding across all workspace views. -->
+            <Style x:Key="PageContainerStyle" TargetType="{x:Type Grid}">
+                <Setter Property="Margin" Value="28,20,28,28" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+            </Style>
+
+            <!-- Section header: title + optional action area, with consistent bottom margin. -->
+            <Style x:Key="SectionHeaderTitleStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource TitleTextStyle}">
+                <Setter Property="Margin" Value="0,0,0,14" />
+            </Style>
+
+            <Style x:Key="SectionHeaderSubtitleStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource BodySecondaryTextStyle}">
+                <Setter Property="Margin" Value="0,2,0,12" />
+            </Style>
+
+            <!-- ===== Form group: label + input + help text =====
+                 Compose via StackPanel:
+                   <StackPanel Style="{StaticResource FormGroupStyle}">
+                       <TextBlock Style="{StaticResource FormLabelStyle}" Text="Имя" />
+                       <TextBox Style="{StaticResource FormInputStyle}" />
+                       <TextBlock Style="{StaticResource FormHintStyle}" Text="Обязательное поле" />
+                   </StackPanel>
+            -->
+            <Style x:Key="FormGroupStyle" TargetType="{x:Type StackPanel}">
+                <Setter Property="Margin" Value="0,0,0,16" />
+            </Style>
+
+            <Style x:Key="FormLabelStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource CaptionStrongTextStyle}">
+                <Setter Property="Margin" Value="0,0,0,6" />
+            </Style>
+
+            <Style x:Key="FormInputStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource DialogTextBoxStyle}">
+                <Setter Property="Height" Value="40" />
+            </Style>
+
+            <Style x:Key="FormHintStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource CaptionTextStyle}">
+                <Setter Property="Margin" Value="0,6,0,0" />
+            </Style>
+
+            <!-- ===== InfoBar styles (4 severities) =====
+                 Use as <Border Style="{StaticResource InfoBarInfoStyle}">
+                 with an inner StackPanel Orientation="Horizontal" containing icon + text. -->
+            <Style x:Key="InfoBarBaseStyle" TargetType="{x:Type Border}">
+                <Setter Property="Padding" Value="14,12" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="BorderThickness" Value="0,0,0,2" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+            </Style>
+
+            <Style x:Key="InfoBarInfoStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource InfoBarBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource SystemFillColorAttentionBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorAttentionBrush}" />
+            </Style>
+
+            <Style x:Key="InfoBarSuccessStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource InfoBarBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+            </Style>
+
+            <Style x:Key="InfoBarWarningStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource InfoBarBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
+            </Style>
+
+            <Style x:Key="InfoBarErrorStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource InfoBarBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            </Style>
+
+            <Style x:Key="InfoBarIconStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontFamily" Value="{StaticResource FluentIconFontFamily}" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="0,0,10,0" />
+            </Style>
+
+            <Style x:Key="InfoBarTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource BodyTextStyle}">
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!-- ===== Tag / Chip / Badge styles =====
+                 Use as <Border Style="{StaticResource TagDefaultStyle}">
+                            <TextBlock Style="{StaticResource TagTextStyle}" Text="Активен" />
+                        </Border> -->
+            <Style x:Key="TagBaseStyle" TargetType="{x:Type Border}">
+                <Setter Property="Padding" Value="10,4" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+            </Style>
+
+            <Style x:Key="TagDefaultStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource TagBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+            </Style>
+
+            <Style x:Key="TagAccentStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource TagBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource AccentFillColorTertiaryBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentControlBorderBrush}" />
+            </Style>
+
+            <Style x:Key="TagSuccessStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource TagBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+            </Style>
+
+            <Style x:Key="TagWarningStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource TagBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
+            </Style>
+
+            <Style x:Key="TagErrorStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource TagBaseStyle}">
+                <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            </Style>
+
+            <Style x:Key="TagTextStyle" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!-- ===== Interactive / hover cards =====
+                 Apply via Style="{StaticResource HoverElevationCardStyle}".
+                 Card lifts on mouseover via scale + brighter stroke. -->
+            <Style x:Key="HoverElevationCardStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource MetricCardStyle}">
+                <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+                <Setter Property="RenderTransform">
+                    <Setter.Value>
+                        <ScaleTransform ScaleX="1" ScaleY="1" />
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorSecondaryBrush}" />
+                        <Trigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleX)" To="1.015" Duration="0:0:0.15" />
+                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleY)" To="1.015" Duration="0:0:0.15" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </Trigger.EnterActions>
+                        <Trigger.ExitActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleX)" To="1" Duration="0:0:0.15" />
+                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.15" />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </Trigger.ExitActions>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- ===== DataGrid row hover + selection styling =====
+                 Pulled out as an explicit RowStyle resource that views can apply via
+                 RowStyle="{StaticResource FluentDataGridRowStyle}". -->
+            <Style x:Key="FluentDataGridRowStyle" TargetType="{x:Type DataGridRow}">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="MinHeight" Value="44" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+                <Style.Triggers>
+                    <Trigger Property="AlternationIndex" Value="1">
+                        <Setter Property="Background" Value="{DynamicResource SubtleFillColorTransparentBrush}" />
+                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource AccentFillColorTertiaryBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <Style x:Key="FluentDataGridCellStyle" TargetType="{x:Type DataGridCell}">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="14,0" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type DataGridCell}">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
         </ResourceDictionary>
     </Application.Resources>

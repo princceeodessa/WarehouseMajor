@@ -531,7 +531,7 @@
                                                 <TextBlock Text="{Binding State}"
                                                            FontSize="13"
                                                            FontWeight="SemiBold"
-                                                           Foreground="#0B8F87" />
+                                                           Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
                                                 <StackPanel Grid.Column="1">
                                                     <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                                     <TextBlock Text="{Binding Detail}" Margin="0,3,0,0" FontSize="12.5" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
