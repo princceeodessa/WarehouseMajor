@@ -7,7 +7,8 @@ public static class DesktopClientStartupService
         var config = DesktopRemoteDatabaseSettings.Snapshot();
         if (!config.Enabled)
         {
-            return DesktopClientStartupResult.LocalMode(Environment.UserName);
+            return DesktopClientStartupResult.Failure(
+                "Подключение к серверной БД обязательно. Настройте RemoteDatabase в appsettings.local.json.");
         }
 
         if (string.IsNullOrWhiteSpace(config.Host)
@@ -15,7 +16,7 @@ public static class DesktopClientStartupService
             || string.IsNullOrWhiteSpace(config.User))
         {
             return DesktopClientStartupResult.Failure(
-                "Включен режим серверной БД, но настройки подключения заполнены не полностью. Проверьте Host, Database и User в appsettings.local.json.");
+                "Настройки подключения заполнены не полностью. Проверьте Host, Database и User в appsettings.local.json.");
         }
 
         try
@@ -32,13 +33,8 @@ public static class DesktopClientStartupService
         }
         catch (Exception exception)
         {
-            return DesktopClientStartupResult.OfflineFallback(
-                Environment.UserName,
-                config.Host,
-                config.Port,
-                config.Database,
-                config.User,
-                exception.Message);
+            return DesktopClientStartupResult.Failure(
+                $"Не удалось подключиться к серверной БД ({config.Host}:{config.Port}/{config.Database}): {exception.Message}");
         }
     }
 
@@ -47,7 +43,8 @@ public static class DesktopClientStartupService
         var config = DesktopRemoteDatabaseSettings.Snapshot();
         if (!config.Enabled)
         {
-            return DesktopClientStartupResult.LocalMode(userName);
+            return DesktopClientStartupResult.Failure(
+                "Подключение к серверной БД обязательно. Настройте RemoteDatabase в appsettings.local.json.");
         }
 
         try
@@ -62,13 +59,8 @@ public static class DesktopClientStartupService
         }
         catch (Exception exception)
         {
-            return DesktopClientStartupResult.OfflineFallback(
-                userName,
-                config.Host,
-                config.Port,
-                config.Database,
-                config.User,
-                exception.Message);
+            return DesktopClientStartupResult.Failure(
+                $"Ошибка подключения к серверной БД: {exception.Message}");
         }
     }
 }

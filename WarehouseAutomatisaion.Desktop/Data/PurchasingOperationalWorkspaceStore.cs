@@ -178,6 +178,10 @@ public sealed class PurchasingOperationalWorkspaceStore
             return;
         }
 
+        if (_serverModeEnabled)
+        {
+            throw CreateRemoteSaveException("закупок");
+        }
 
         WriteSnapshot(snapshot);
     }

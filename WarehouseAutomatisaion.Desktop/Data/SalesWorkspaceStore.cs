@@ -242,13 +242,13 @@ public sealed class SalesWorkspaceStore
             return;
         }
 
+        if (_serverModeEnabled)
+        {
+            throw new InvalidOperationException("Не удалось сохранить данные продаж в серверную БД. Проверьте подключение к серверу.");
+        }
 
         WriteSnapshot(snapshot);
         _lastSavedSnapshotHash = snapshotHash;
-        if (_serverModeEnabled)
-        {
-            _hasPendingLocalSync = true;
-        }
     }
 
     public void SaveSnapshot(SalesWorkspaceSnapshot snapshot, string currentOperator)
@@ -266,13 +266,13 @@ public sealed class SalesWorkspaceStore
             return;
         }
 
+        if (_serverModeEnabled)
+        {
+            throw new InvalidOperationException("Не удалось сохранить данные продаж в серверную БД. Проверьте подключение к серверу.");
+        }
 
         WriteSnapshot(snapshot);
         _lastSavedSnapshotHash = snapshotHash;
-        if (_serverModeEnabled)
-        {
-            _hasPendingLocalSync = true;
-        }
     }
 
     public bool TrySyncPendingLocalSnapshot(string? currentOperator)

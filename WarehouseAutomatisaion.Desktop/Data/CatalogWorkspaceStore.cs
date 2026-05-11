@@ -219,13 +219,13 @@ public sealed class CatalogWorkspaceStore
             return;
         }
 
+        if (_serverModeEnabled)
+        {
+            throw CreateRemoteSaveException("каталога");
+        }
 
         WriteSnapshot(snapshot);
         _lastSavedSnapshotHash = snapshotHash;
-        if (_serverModeEnabled)
-        {
-            _hasPendingLocalSync = true;
-        }
     }
 
     public CatalogWorkspace? TrySyncPendingLocalSnapshot(string currentOperator, SalesWorkspace salesWorkspace)

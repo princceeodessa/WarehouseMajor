@@ -156,6 +156,10 @@ public sealed class WarehouseOperationalWorkspaceStore
             return;
         }
 
+        if (_serverModeEnabled)
+        {
+            throw CreateRemoteSaveException("склада");
+        }
 
         var tempPath = $"{StoragePath}.tmp";
         using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
