@@ -146,15 +146,10 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel>
-                    <TextBlock x:Name="TitleText"
-                               FontSize="34"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <TextBlock x:Name="TitleText" Style="{StaticResource TitleLargeTextStyle}" />
                     <TextBlock x:Name="SubtitleText"
-                               Margin="0,8,0,0"
-                               FontSize="15"
-                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               TextWrapping="Wrap" />
+                               Margin="0,6,0,0"
+                               Style="{StaticResource BodySecondaryTextStyle}" />
                 </StackPanel>
 
                 <StackPanel x:Name="HeaderActionsPanel" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Right">

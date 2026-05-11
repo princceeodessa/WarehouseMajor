@@ -603,18 +603,12 @@
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
 
-            <Style x:Key="TopHeaderTitleStyle" TargetType="{x:Type TextBlock}">
-                <Setter Property="FontSize" Value="28" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-            </Style>
+            <!-- Workspace header title: TitleLarge (28pt) per Fluent v2 page title pattern.
+                 Reserve DisplayTextStyle (40pt) for genuine hero/welcome screens only. -->
+            <Style x:Key="TopHeaderTitleStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource TitleLargeTextStyle}" />
 
-            <Style x:Key="TopHeaderSubtitleStyle" TargetType="{x:Type TextBlock}">
+            <Style x:Key="TopHeaderSubtitleStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource BodySecondaryTextStyle}">
                 <Setter Property="Margin" Value="0,6,0,0" />
-                <Setter Property="FontSize" Value="14" />
-                <Setter Property="FontFamily" Value="{StaticResource FluentFontFamily}" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             </Style>
 
