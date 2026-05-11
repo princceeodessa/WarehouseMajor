@@ -4,141 +4,145 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         Title="Вход в MajorWarehause"
         Width="460"
-        Height="500"
+        Height="540"
         MinWidth="420"
-        MinHeight="460"
+        MinHeight="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="{DynamicResource ApplicationBackgroundBrush}">
-    <Grid Margin="18">
-        <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="16"
-                Padding="22">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="0" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+    <Grid Margin="36,28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="0" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+        <!-- Header: brand mark + update button -->
+        <Grid Grid.Row="0">
+            <Border Width="48"
+                    Height="48"
+                    CornerRadius="12"
+                    Background="{DynamicResource AccentFillColorDefaultBrush}"
+                    HorizontalAlignment="Left">
+                <TextBlock Text="MW"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+            </Border>
 
-                    <Border Width="38"
-                            Height="38"
-                            CornerRadius="12"
-                            Background="{DynamicResource AccentFillColorDefaultBrush}"
-                            HorizontalAlignment="Left">
-                        <TextBlock Text="MW"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-                    </Border>
+            <Button x:Name="LoginUpdateButton"
+                    Content="Обновить"
+                    Width="96"
+                    Height="32"
+                    Padding="10,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Style="{StaticResource DialogSecondaryButtonStyle}"
+                    FontSize="12"
+                    ToolTip="Проверить обновление до входа"
+                    AutomationProperties.Name="Проверить обновление"
+                    Click="HandleUpdateClick" />
+        </Grid>
 
-                    <Button x:Name="LoginUpdateButton"
-                            Grid.Row="0"
-                            Content="Обновить"
-                            Width="96"
-                            Height="32"
-                            Padding="10,0"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Top"
-                            Style="{StaticResource DialogSecondaryButtonStyle}"
-                            FontSize="12"
-                            ToolTip="Проверить обновление до входа"
-                            AutomationProperties.Name="Проверить обновление"
-                            Click="HandleUpdateClick" />
+        <!-- Welcome title (Fluent Display style) -->
+        <TextBlock Grid.Row="1"
+                   Text="Добро пожаловать"
+                   Margin="0,32,0,0"
+                   FontSize="32"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+        <TextBlock Grid.Row="2"
+                   Text="Войдите в MajorWarehause"
+                   Margin="0,4,0,0"
+                   FontSize="14"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   TextWrapping="Wrap" />
 
-                    <TextBlock Grid.Row="1"
-                               Text="Вход в систему"
-                               Margin="0,16,0,0"
-                               FontSize="24"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                    <TextBlock Grid.Row="2"
-                               Text="Введите логин и пароль пользователя."
-                               Margin="0,4,0,0"
-                               FontSize="13"
-                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               TextWrapping="Wrap" />
-                </Grid>
+        <!-- Username -->
+        <StackPanel Grid.Row="3" Margin="0,28,0,0">
+            <TextBlock Text="Логин" Style="{StaticResource DialogFieldLabelStyle}" />
+            <ComboBox x:Name="UserNameComboBox"
+                      Style="{StaticResource DialogComboBoxStyle}"
+                      Height="40"
+                      FontSize="14"
+                      IsEditable="True"
+                      IsTextSearchEnabled="True"
+                      StaysOpenOnEdit="True"
+                      MaxDropDownHeight="260"
+                      AutomationProperties.AutomationId="UserNameTextBox"
+                      AutomationProperties.Name="Логин"
+                      KeyDown="HandleInputKeyDown" />
+        </StackPanel>
 
-                <StackPanel Grid.Row="1" Margin="0,18,0,0">
-                    <TextBlock Text="Логин" Style="{StaticResource DialogFieldLabelStyle}" />
-                    <ComboBox x:Name="UserNameComboBox"
-                              Style="{StaticResource DialogComboBoxStyle}"
-                              Height="40"
-                              FontSize="14"
-                              IsEditable="True"
-                              IsTextSearchEnabled="True"
-                              StaysOpenOnEdit="True"
-                              MaxDropDownHeight="260"
-                              AutomationProperties.AutomationId="UserNameTextBox"
-                              AutomationProperties.Name="Логин"
-                              KeyDown="HandleInputKeyDown" />
-                </StackPanel>
+        <!-- Password -->
+        <StackPanel Grid.Row="4" Margin="0,12,0,0">
+            <TextBlock Text="Пароль" Style="{StaticResource DialogFieldLabelStyle}" />
+            <PasswordBox x:Name="PasswordBox"
+                         Height="40"
+                         FontSize="14"
+                         Padding="12,0"
+                         VerticalContentAlignment="Center"
+                         Background="{DynamicResource ControlFillColorDefaultBrush}"
+                         BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                         BorderThickness="1"
+                         AutomationProperties.Name="Пароль"
+                         KeyDown="HandleInputKeyDown" />
+        </StackPanel>
 
-                <StackPanel Grid.Row="2" Margin="0,12,0,0">
-                    <TextBlock Text="Пароль" Style="{StaticResource DialogFieldLabelStyle}" />
-                    <PasswordBox x:Name="PasswordBox"
-                                 Height="40"
-                                 FontSize="14"
-                                 Padding="12,0"
-                                 VerticalContentAlignment="Center"
-                                 Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                 BorderThickness="1"
-                                 AutomationProperties.Name="Пароль"
-                                 KeyDown="HandleInputKeyDown" />
-                </StackPanel>
-
-                <Border Grid.Row="3"
-                        x:Name="ErrorBorder"
-                        Margin="0,12,0,0"
-                        Padding="12,8"
-                        Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
-                        BorderBrush="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
-                        BorderThickness="1"
-                        CornerRadius="10"
-                        Visibility="Collapsed">
-                    <TextBlock x:Name="ErrorText"
-                               FontSize="12.5"
-                               Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                               TextWrapping="Wrap" />
-                </Border>
-
-                <Grid Grid.Row="5" Margin="0,16,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="LoginButton"
-                            Content="Войти"
-                            Style="{StaticResource DialogPrimaryButtonStyle}"
-                            Height="42"
-                            IsDefault="True"
-                            Click="HandleLoginClick" />
-                    <Button x:Name="CancelButton"
-                            Grid.Column="2"
-                            Content="Отмена"
-                            Style="{StaticResource DialogSecondaryButtonStyle}"
-                            Height="42"
-                            IsCancel="True"
-                            Click="HandleCancelClick" />
-                </Grid>
-            </Grid>
+        <!-- Error InfoBar-style message -->
+        <Border Grid.Row="6"
+                x:Name="ErrorBorder"
+                Margin="0,16,0,0"
+                Padding="12,10"
+                VerticalAlignment="Top"
+                Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
+                BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                BorderThickness="0,0,0,2"
+                CornerRadius="8"
+                Visibility="Collapsed">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock FontFamily="Segoe Fluent Icons"
+                           Text="&#xEA39;"
+                           FontSize="14"
+                           VerticalAlignment="Top"
+                           Margin="0,2,8,0"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                <TextBlock x:Name="ErrorText"
+                           FontSize="13"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
         </Border>
+
+        <!-- Action buttons -->
+        <Grid Grid.Row="7" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="LoginButton"
+                    Content="Войти"
+                    Style="{StaticResource DialogPrimaryButtonStyle}"
+                    Height="44"
+                    FontSize="14"
+                    IsDefault="True"
+                    Click="HandleLoginClick" />
+            <Button x:Name="CancelButton"
+                    Grid.Column="2"
+                    Content="Отмена"
+                    Style="{StaticResource DialogSecondaryButtonStyle}"
+                    Height="44"
+                    FontSize="14"
+                    IsCancel="True"
+                    Click="HandleCancelClick" />
+        </Grid>
     </Grid>
 </Window>

@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using WarehouseAutomatisaion.Desktop.Data;
+using Wpf.Ui.Appearance;
+using WindowBackdropType = global::Wpf.Ui.Controls.WindowBackdropType;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
@@ -530,6 +532,52 @@ public partial class SystemSettingsWorkspaceView : UserControl
     private static SolidColorBrush BrushFromHex(string hex)
     {
         return (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
+    }
+
+    private void HandleThemeRadioChecked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not RadioButton radio || radio.Tag is not string tag)
+        {
+            return;
+        }
+
+        try
+        {
+            // Map tag → ApplicationTheme. "System" picks Light or Dark based on the
+            // current Windows app theme via the registry, so the toggle mirrors the
+            // user's system preference at the moment of the click.
+            var theme = tag switch
+            {
+                "Dark" => ApplicationTheme.Dark,
+                "System" => ResolveSystemAppTheme(),
+                _ => ApplicationTheme.Light,
+            };
+
+            ApplicationThemeManager.Apply(theme, WindowBackdropType.Mica, updateAccent: true);
+        }
+        catch (Exception exception)
+        {
+            App.WriteClientErrorLog(exception, "SystemSettingsWorkspaceView.HandleThemeRadioChecked");
+        }
+    }
+
+    private static ApplicationTheme ResolveSystemAppTheme()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            if (key?.GetValue("AppsUseLightTheme") is int appsLight && appsLight == 0)
+            {
+                return ApplicationTheme.Dark;
+            }
+        }
+        catch
+        {
+            // Fall through to Light.
+        }
+
+        return ApplicationTheme.Light;
     }
 }
 

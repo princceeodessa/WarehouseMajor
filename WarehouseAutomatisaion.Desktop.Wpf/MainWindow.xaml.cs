@@ -22,13 +22,25 @@ public partial class MainWindow : Window
     private const int MaxOpenSectionTabs = 5;
     private const int MaxOpenDynamicEditorTabs = 6;
 
-    private static readonly WpfBrush ActiveNavBackground = BrushFromHex("#EEF2FF");
-    private static readonly WpfBrush ActiveNavBorder = BrushFromHex("#C9D3F7");
-    private static readonly WpfBrush ActiveNavForeground = BrushFromHex("#2F45D3");
+    // Active/default nav brushes are resolved from Fluent theme tokens at runtime so
+    // the sidebar reacts to the Light/Dark theme switch in System Settings.
+    private static WpfBrush ActiveNavBackground => ResolveThemeBrush("AccentFillColorTertiaryBrush", "#EEF2FF");
+    private static WpfBrush ActiveNavBorder => ResolveThemeBrush("AccentControlBorderBrush", "#C9D3F7");
+    private static WpfBrush ActiveNavForeground => ResolveThemeBrush("AccentTextFillColorPrimaryBrush", "#2F45D3");
 
-    private static readonly WpfBrush DefaultNavBackground = WpfBrushes.Transparent;
-    private static readonly WpfBrush DefaultNavBorder = BrushFromHex("#E3E8F2");
-    private static readonly WpfBrush DefaultNavForeground = BrushFromHex("#1B2740");
+    private static WpfBrush DefaultNavBackground => WpfBrushes.Transparent;
+    private static WpfBrush DefaultNavBorder => WpfBrushes.Transparent;
+    private static WpfBrush DefaultNavForeground => ResolveThemeBrush("TextFillColorPrimaryBrush", "#1B2740");
+
+    private static WpfBrush ResolveThemeBrush(string resourceKey, string fallbackHex)
+    {
+        if (System.Windows.Application.Current is { } app
+            && app.TryFindResource(resourceKey) is WpfBrush themed)
+        {
+            return themed;
+        }
+        return BrushFromHex(fallbackHex);
+    }
     private static readonly HashSet<string> LazyUnloadSectionKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "sales",
@@ -1295,6 +1307,8 @@ public partial class MainWindow : Window
             button.BorderBrush = active ? ActiveNavBorder : DefaultNavBorder;
             button.Foreground = active ? ActiveNavForeground : DefaultNavForeground;
             button.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
+            // Toggle Fluent accent pill indicator on the left of the active button.
+            NavButton.SetIsActive(button, active);
         }
     }
 

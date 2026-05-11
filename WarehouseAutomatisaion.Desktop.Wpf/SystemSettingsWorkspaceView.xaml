@@ -178,7 +178,8 @@
                     <TextBlock Text="Общие" Style="{StaticResource SettingsTabHeaderTextStyle}" />
                 </TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <Grid Margin="0,18,0,0">
+                    <StackPanel Margin="0,18,0,0">
+                    <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
@@ -219,6 +220,69 @@
                             </StackPanel>
                         </Border>
                     </Grid>
+
+                    <!-- Appearance card with theme toggle -->
+                    <Border Margin="0,14,0,0" Padding="18" Style="{StaticResource PageCardStyle}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="3*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Внешний вид" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <TextBlock Text="Тема оформления Fluent. Меняется мгновенно — выбранный режим применяется ко всем окнам приложения."
+                                           Margin="0,8,0,0"
+                                           Style="{StaticResource SettingsHintTextStyle}" />
+                                <TextBlock Text="Системный акцент-цвет берётся из настроек Windows (Параметры → Персонализация → Цвета)."
+                                           Margin="0,8,0,0"
+                                           Style="{StaticResource SettingsHintTextStyle}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <RadioButton x:Name="ThemeLightRadio"
+                                             GroupName="AppTheme"
+                                             Margin="0,0,16,0"
+                                             Padding="8,0,0,0"
+                                             VerticalContentAlignment="Center"
+                                             FontSize="13"
+                                             Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                             Checked="HandleThemeRadioChecked"
+                                             Tag="Light">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE706;" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <TextBlock Text="Светлая" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="ThemeDarkRadio"
+                                             GroupName="AppTheme"
+                                             Margin="0,0,16,0"
+                                             Padding="8,0,0,0"
+                                             VerticalContentAlignment="Center"
+                                             FontSize="13"
+                                             Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                             Checked="HandleThemeRadioChecked"
+                                             Tag="Dark">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE708;" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <TextBlock Text="Тёмная" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="ThemeSystemRadio"
+                                             GroupName="AppTheme"
+                                             Padding="8,0,0,0"
+                                             VerticalContentAlignment="Center"
+                                             FontSize="13"
+                                             Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                             Checked="HandleThemeRadioChecked"
+                                             Tag="System">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE770;" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <TextBlock Text="Системная" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    </StackPanel>
                 </ScrollViewer>
             </TabItem>
 

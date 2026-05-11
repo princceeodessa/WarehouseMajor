@@ -541,6 +541,16 @@
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="CornerRadius" Value="8" />
                 <Setter Property="SnapsToDevicePixels" Value="True" />
+                <!-- Fluent depth-2 elevation. Subtle so it works on Mica + opaque chrome. -->
+                <Setter Property="Effect">
+                    <Setter.Value>
+                        <DropShadowEffect Color="Black"
+                                          BlurRadius="8"
+                                          ShadowDepth="1"
+                                          Direction="270"
+                                          Opacity="0.06" />
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Key="MetricIconBoxStyle" TargetType="{x:Type Border}">
