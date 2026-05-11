@@ -84,7 +84,7 @@
                       VerticalGridLinesBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                       BorderThickness="0"
                       Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                      RowHeight="46"
+                      RowHeight="44"
                       ColumnHeaderHeight="40"
                       SelectionMode="Single"
                       SelectionUnit="FullRow"

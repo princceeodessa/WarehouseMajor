@@ -27,7 +27,7 @@
         <StackPanel Margin="0,0,0,18">
             <TextBlock x:Name="HeaderTitleText"
                        Text="Подготовка отгрузки"
-                       FontSize="25"
+                       FontSize="28"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             <TextBlock x:Name="HeaderSubtitleText"

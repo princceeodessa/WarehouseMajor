@@ -62,7 +62,7 @@
 
             <StackPanel>
                 <TextBlock x:Name="HeaderTitleText"
-                           FontSize="27"
+                           FontSize="28"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                 <TextBlock x:Name="HeaderSubtitleText"

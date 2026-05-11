@@ -23,7 +23,7 @@
 
         <StackPanel Margin="0,0,0,18">
             <TextBlock x:Name="HeaderTitleText"
-                       FontSize="25"
+                       FontSize="28"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             <TextBlock Text="Адрес ячейки используется в приемке, перемещениях, остатках и подборе отгрузки. QR пока только подготовлен."
