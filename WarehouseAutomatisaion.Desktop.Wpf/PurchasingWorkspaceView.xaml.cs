@@ -77,7 +77,7 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         _workspace = _store.LoadOrCreate(GetCurrentOperator(), salesWorkspace);
 
         InitializeComponent();
-        WpfTextNormalizer.NormalizeTree(this);
+        Dispatcher.BeginInvoke(new System.Action(() => WpfTextNormalizer.NormalizeTree(this)), System.Windows.Threading.DispatcherPriority.ContextIdle);
 
         PurchasingGrid.ItemsSource = _rows;
         DetailLinesGrid.ItemsSource = _detailLines;

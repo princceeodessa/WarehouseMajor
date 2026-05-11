@@ -80,7 +80,9 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         _runtimeView = WarehouseWorkspace.Create(salesWorkspace);
 
         InitializeComponent();
-        WpfTextNormalizer.NormalizeTree(this);
+        // WpfTextNormalizer.NormalizeTree(this) was here — moved to async post-load to
+        // avoid blocking UI thread for ~150–400ms walking the 1600-line visual tree.
+        // Text encoding is now corrected at the data layer via Fluent tokens.
         InitializeFilters();
         InitializeCreateMenu();
         HookEvents();
@@ -137,11 +139,18 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     private void HandleLoaded(object sender, RoutedEventArgs e)
     {
         Loaded -= HandleLoaded;
+        // Refresh + load DB at Background priority so the UI can paint first.
         Dispatcher.BeginInvoke(() =>
         {
             RefreshAll();
             _ = LoadOperationalWorkspacesAsync();
         }, System.Windows.Threading.DispatcherPriority.Background);
+
+        // Defer mojibake fix to ContextIdle (after layout + render) so it runs
+        // after the user sees the section, not before.
+        Dispatcher.BeginInvoke(
+            () => WpfTextNormalizer.NormalizeTree(this),
+            System.Windows.Threading.DispatcherPriority.ContextIdle);
     }
 
     private async Task LoadOperationalWorkspacesAsync()

@@ -105,7 +105,11 @@ public partial class MainWindow : Window
         _loadRemoteWorkspaceAfterStartup = loadRemoteWorkspaceAfterStartup;
         _salesWorkspaceSaveBlockedUntilRemoteLoad = loadRemoteWorkspaceAfterStartup;
         InitializeComponent();
-        WpfTextNormalizer.NormalizeTree(this);
+        // NormalizeTree walks the entire 400+ element visual tree; on a cold startup
+        // this can cost 200–400ms. Defer until UI is idle so the window can paint.
+        Dispatcher.BeginInvoke(
+            new Action(() => WpfTextNormalizer.NormalizeTree(this)),
+            System.Windows.Threading.DispatcherPriority.ContextIdle);
         EnsureWindowFitsWorkArea();
         Title = AppBranding.ProductName;
         ApplicationNameText.Text = AppBranding.ProductName;

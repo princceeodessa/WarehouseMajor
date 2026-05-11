@@ -82,7 +82,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         _searchDebounceTimer.Tick += HandleSearchDebounceTick;
 
         InitializeComponent();
-        WpfTextNormalizer.NormalizeTree(this);
+        Dispatcher.BeginInvoke(new System.Action(() => WpfTextNormalizer.NormalizeTree(this)), System.Windows.Threading.DispatcherPriority.ContextIdle);
         DataContext = this;
 
         InitializeActionsMenu();
