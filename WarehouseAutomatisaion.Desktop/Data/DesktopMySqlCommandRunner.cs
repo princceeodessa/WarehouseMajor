@@ -70,9 +70,10 @@ internal static class DesktopMySqlCommandRunner
             Database = useDatabase ? options.DatabaseName : string.Empty,
             CharacterSet = "utf8mb4",
             ConnectionTimeout = (uint)Math.Max(1, connectTimeoutSeconds),
-            DefaultCommandTimeout = (uint)Math.Max(1, commandTimeoutSeconds),
             SslMode = MySqlSslMode.Preferred,
-            AllowUserVariables = true
+            AllowUserVariables = true,
+            MinimumPoolSize = 1,
+            MaximumPoolSize = 5
         };
 
         return new MySqlConnection(builder.ConnectionString);

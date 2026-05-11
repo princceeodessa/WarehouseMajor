@@ -13,7 +13,7 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 
 public partial class App : System.Windows.Application
 {
-    private static readonly TimeSpan MainWorkspaceLoadTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan MainWorkspaceLoadTimeout = TimeSpan.FromSeconds(4);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool EnableWindow(IntPtr hWnd, bool bEnable);
