@@ -9,6 +9,8 @@ using System.Windows.Interop;
 using System.Windows.Threading;
 using WarehouseAutomatisaion.Desktop.Data;
 using Wpf.Ui.Appearance;
+using WindowBackdropType = global::Wpf.Ui.Controls.WindowBackdropType;
+using WindowBackdrop = global::Wpf.Ui.Controls.WindowBackdrop;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
@@ -191,8 +193,7 @@ public partial class App : System.Windows.Application
         {
             // Apply Mica backdrop to every Window once it is loaded. WindowBackdrop
             // gracefully no-ops on Windows 10 and falls back to a solid background.
-            // global:: prefix avoids namespace collision with our '.Wpf' suffix.
-            global::Wpf.Ui.Controls.WindowBackdrop.ApplyBackdrop(window, WindowBackdropType.Mica);
+            WindowBackdrop.ApplyBackdrop(window, WindowBackdropType.Mica);
         }
         catch (Exception exception)
         {
