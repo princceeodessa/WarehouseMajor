@@ -1,9 +1,11 @@
 ﻿using System.IO;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Threading;
 using WarehouseAutomatisaion.Desktop.Data;
 
@@ -12,6 +14,9 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 public partial class App : System.Windows.Application
 {
     private static readonly TimeSpan MainWorkspaceLoadTimeout = TimeSpan.FromSeconds(10);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool EnableWindow(IntPtr hWnd, bool bEnable);
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -188,8 +193,13 @@ public partial class App : System.Windows.Application
 
         window.StateChanged -= HandleWorkspaceWindowStateChanged;
         window.StateChanged += HandleWorkspaceWindowStateChanged;
+        window.Activated -= HandleWorkspaceWindowActivated;
+        window.Activated += HandleWorkspaceWindowActivated;
+        window.ContentRendered -= HandleWorkspaceWindowContentRendered;
+        window.ContentRendered += HandleWorkspaceWindowContentRendered;
         window.ShowInTaskbar = true;
         window.Dispatcher.BeginInvoke(() => MoveWorkspaceWindowIntoWorkArea(window), DispatcherPriority.ApplicationIdle);
+        window.Dispatcher.BeginInvoke(EnableVisibleApplicationWindows, DispatcherPriority.Send);
         window.Dispatcher.BeginInvoke(EnableVisibleApplicationWindows, DispatcherPriority.ApplicationIdle);
     }
 
@@ -293,7 +303,7 @@ public partial class App : System.Windows.Application
 
     private static void HandleWorkspaceWindowStateChanged(object? sender, EventArgs e)
     {
-        if (sender is not Window window || !IsWorkspaceChildWindow(window) || window.WindowState != WindowState.Minimized)
+        if (sender is not Window window || !IsWorkspaceChildWindow(window))
         {
             return;
         }
@@ -302,12 +312,30 @@ public partial class App : System.Windows.Application
             () =>
             {
                 EnableVisibleApplicationWindows();
-                if (Current.MainWindow is Window mainWindow && mainWindow.IsVisible)
+                if (window.WindowState == WindowState.Minimized
+                    && Current.MainWindow is Window mainWindow
+                    && mainWindow.IsVisible)
                 {
                     mainWindow.Activate();
                 }
             },
             DispatcherPriority.Send);
+    }
+
+    private static void HandleWorkspaceWindowActivated(object? sender, EventArgs e)
+    {
+        if (sender is Window window && IsWorkspaceChildWindow(window))
+        {
+            window.Dispatcher.BeginInvoke(EnableVisibleApplicationWindows, DispatcherPriority.Send);
+        }
+    }
+
+    private static void HandleWorkspaceWindowContentRendered(object? sender, EventArgs e)
+    {
+        if (sender is Window window && IsWorkspaceChildWindow(window))
+        {
+            window.Dispatcher.BeginInvoke(EnableVisibleApplicationWindows, DispatcherPriority.Send);
+        }
     }
 
     private static void HandleWorkspaceWindowPreviewKeyDown(object sender, KeyEventArgs e)
@@ -340,10 +368,32 @@ public partial class App : System.Windows.Application
     {
         foreach (Window window in Current.Windows)
         {
-            if (window.IsVisible && !window.IsEnabled)
+            if (!window.IsVisible)
+            {
+                continue;
+            }
+
+            if (!window.IsEnabled)
             {
                 window.IsEnabled = true;
             }
+
+            EnableWindowHandle(window);
+        }
+    }
+
+    private static void EnableWindowHandle(Window window)
+    {
+        try
+        {
+            var handle = new WindowInteropHelper(window).Handle;
+            if (handle != IntPtr.Zero)
+            {
+                EnableWindow(handle, true);
+            }
+        }
+        catch
+        {
         }
     }
 
