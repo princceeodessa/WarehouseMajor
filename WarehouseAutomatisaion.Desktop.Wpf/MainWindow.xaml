@@ -14,6 +14,75 @@
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource ApplicationBackgroundBrush}">
     <Window.Resources>
+        <Style x:Key="SidebarNavButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <!-- Active-state accent pill on the left, mirrors WinUI NavigationView. -->
+                            <Rectangle x:Name="ActivePill"
+                                       Width="3"
+                                       Height="20"
+                                       RadiusX="2"
+                                       RadiusY="2"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       Margin="2,0,0,0"
+                                       Fill="{DynamicResource AccentFillColorDefaultBrush}"
+                                       Opacity="0" />
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8"
+                                    Margin="6,0,0,0">
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  RecognizesAccessKey="True" />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="local:NavButton.IsActive" Value="True">
+                                <Setter TargetName="ActivePill" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ActivePill" Property="Opacity" Value="0.6" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                    <Setter Property="BorderBrush" Value="Transparent" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentFillColorTertiaryBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentControlBorderBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                    <Setter Property="Opacity" Value="0.62" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style TargetType="TabControl">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
@@ -44,240 +113,343 @@
         </Style>
     </Window.Resources>
 
-    <ui:NavigationView x:Name="RootNavigation"
-                       PaneDisplayMode="Left"
-                       OpenPaneLength="260"
-                       CompactPaneLength="56"
-                       IsBackButtonVisible="Collapsed"
-                       IsPaneToggleVisible="True"
-                       SelectionChanged="HandleNavigationSelectionChanged">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="SidebarColumn" Width="214" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <!-- Pane header: brand mark + product name -->
-        <ui:NavigationView.PaneHeader>
-            <StackPanel Orientation="Horizontal" Margin="14,10" VerticalAlignment="Center">
-                <Border Width="28"
-                        Height="28"
-                        CornerRadius="9"
-                        Background="{DynamicResource AccentFillColorDefaultBrush}">
-                    <Rectangle Width="12"
-                               Height="12"
-                               RadiusX="3"
-                               RadiusY="3"
-                               Fill="White"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
-                </Border>
-                <TextBlock x:Name="ApplicationNameText"
-                           Text="MajorWarehause"
-                           Margin="12,0,0,0"
-                           FontSize="18"
-                           FontWeight="SemiBold"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                           VerticalAlignment="Center" />
-            </StackPanel>
-        </ui:NavigationView.PaneHeader>
+        <Border x:Name="SidebarChrome"
+                Grid.Column="0"
+                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,0,1,0">
+            <Grid x:Name="SidebarRoot" Margin="16,18,16,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-        <!-- Main navigation -->
-        <ui:NavigationView.MenuItems>
-            <ui:NavigationViewItem x:Name="NavDashboardItem" Content="Главная" Tag="dashboard">
-                <ui:NavigationViewItem.Icon>
-                    <ui:FontIcon Glyph="&#xE80F;" FontFamily="Segoe Fluent Icons" />
-                </ui:NavigationViewItem.Icon>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="NavSalesItem" Content="Заказы" Tag="sales">
-                <ui:NavigationViewItem.Icon>
-                    <ui:FontIcon Glyph="&#xE14C;" FontFamily="Segoe Fluent Icons" />
-                </ui:NavigationViewItem.Icon>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="NavCustomersItem" Content="Клиенты" Tag="customers">
-                <ui:NavigationViewItem.Icon>
-                    <ui:FontIcon Glyph="&#xE716;" FontFamily="Segoe Fluent Icons" />
-                </ui:NavigationViewItem.Icon>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="NavShipmentsItem" Content="Отгрузки" Tag="shipments">
-                <ui:NavigationViewItem.Icon>
-                    <ui:FontIcon Glyph="&#xEC47;" FontFamily="Segoe Fluent Icons" />
-                </ui:NavigationViewItem.Icon>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="NavFinanceItem" Content="Возвраты и оплаты" Tag="finance">
-                <ui:NavigationViewItem.Icon>
-                    <ui:FontIcon Glyph="&#xE8FB;" FontFamily="Segoe Fluent Icons" />
-                </ui:NavigationViewItem.Icon>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="NavPurchasingItem" Content="Закупки" Tag="purchasing">
-                <ui:NavigationViewItem.Icon>
-                    <ui:FontIcon Glyph="&#xE719;" FontFamily="Segoe Fluent Icons" />
-                </ui:NavigationViewItem.Icon>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="NavWarehouseItem" Content="Склад" Tag="warehouse">
-                <ui:NavigationViewItem.Icon>
-                    <ui:FontIcon Glyph="&#xE7F8;" FontFamily="Segoe Fluent Icons" />
-                </ui:NavigationViewItem.Icon>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="NavCatalogItem" Content="Товары" Tag="catalog">
-                <ui:NavigationViewItem.Icon>
-                    <ui:FontIcon Glyph="&#xEECA;" FontFamily="Segoe Fluent Icons" />
-                </ui:NavigationViewItem.Icon>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="NavAuditItem" Content="Отчеты" Tag="audit">
-                <ui:NavigationViewItem.Icon>
-                    <ui:FontIcon Glyph="&#xE9D2;" FontFamily="Segoe Fluent Icons" />
-                </ui:NavigationViewItem.Icon>
-            </ui:NavigationViewItem>
-        </ui:NavigationView.MenuItems>
-
-        <!-- Footer menu: Settings (admin-only, visibility set in code-behind) -->
-        <ui:NavigationView.FooterMenuItems>
-            <ui:NavigationViewItem x:Name="NavSettingsItem" Content="Настройки" Tag="settings">
-                <ui:NavigationViewItem.Icon>
-                    <ui:FontIcon Glyph="&#xE713;" FontFamily="Segoe Fluent Icons" />
-                </ui:NavigationViewItem.Icon>
-            </ui:NavigationViewItem>
-        </ui:NavigationView.FooterMenuItems>
-
-        <!-- Pane footer: user profile, db status, update panel -->
-        <ui:NavigationView.PaneFooter>
-            <StackPanel x:Name="SidebarFooterPanel" Margin="12,0,12,12">
-                <Border x:Name="UserProfileCard"
-                        Background="{DynamicResource ApplicationBackgroundBrush}"
-                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        Padding="12"
-                        Margin="0,0,0,8"
-                        Cursor="Hand"
-                        MouseLeftButtonUp="HandleUserProfileCardClick"
-                        AutomationProperties.Name="Профиль пользователя">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="32" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Border Width="26"
-                                Height="26"
-                                CornerRadius="13"
-                                Background="{DynamicResource AccentFillColorTertiaryBrush}"
-                                VerticalAlignment="Top">
-                            <TextBlock x:Name="UserAvatarText"
-                                       Text="MW"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontSize="12"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource AccentFillColorDefaultBrush}" />
+                <StackPanel x:Name="SidebarHeaderPanel" Grid.Row="0" Margin="0,0,0,24">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="28"
+                                Height="28"
+                                CornerRadius="9"
+                                Background="{DynamicResource AccentFillColorDefaultBrush}">
+                            <Grid>
+                                <Rectangle Width="12"
+                                           Height="12"
+                                           RadiusX="3"
+                                           RadiusY="3"
+                                           Fill="White"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Grid>
                         </Border>
-                        <StackPanel x:Name="UserProfileTextPanel" Grid.Column="1" Margin="10,0,0,0">
-                            <TextBlock x:Name="UserDisplayNameText"
-                                       Text="MajorWarehause"
+                        <TextBlock x:Name="ApplicationNameText"
+                                   Text="MajorWarehause"
+                                   Margin="12,0,0,0"
+                                   FontSize="19"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Grid Grid.Row="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock x:Name="SidebarNavigationTitleText"
+                               Text="Разделы"
+                               Margin="0,0,0,12"
+                               FontSize="14"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Hidden"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <Button x:Name="NavDashboardButton"
+                                    Tag="dashboard"
+                                    AutomationProperties.Name="Главная"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE80F;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Главная" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavSalesButton"
+                                    Tag="sales"
+                                    AutomationProperties.Name="Заказы"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE14C;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Заказы" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavCustomersButton"
+                                    Tag="customers"
+                                    AutomationProperties.Name="Клиенты"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE716;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Клиенты" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavShipmentsButton"
+                                    Tag="shipments"
+                                    AutomationProperties.Name="Отгрузки"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEC47;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Отгрузки" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavFinanceButton"
+                                    Tag="finance"
+                                    AutomationProperties.Name="Возвраты и оплаты"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8FB;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Возвраты и оплаты" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavPurchasingButton"
+                                    Tag="purchasing"
+                                    AutomationProperties.Name="Закупки"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE719;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Закупки" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavWarehouseButton"
+                                    Tag="warehouse"
+                                    AutomationProperties.Name="Склад"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7F8;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Склад" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavCatalogButton"
+                                    Tag="catalog"
+                                    AutomationProperties.Name="Товары"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEECA;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Товары" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavAuditButton"
+                                    Tag="audit"
+                                    AutomationProperties.Name="Отчеты"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE9D2;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Отчеты" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="NavSettingsButton"
+                                    Tag="settings"
+                                    AutomationProperties.Name="Настройки"
+                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" FontSize="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="Настройки" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <StackPanel x:Name="SidebarFooterPanel" Grid.Row="2">
+                    <Border x:Name="UserProfileCard"
+                            Background="{DynamicResource ApplicationBackgroundBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            Padding="14"
+                            Margin="0,18,0,0"
+                            Cursor="Hand"
+                            MouseLeftButtonUp="HandleUserProfileCardClick"
+                            AutomationProperties.Name="Профиль пользователя">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="34" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="26" Height="26" CornerRadius="13" Background="{DynamicResource AccentFillColorTertiaryBrush}" VerticalAlignment="Top">
+                                <TextBlock x:Name="UserAvatarText"
+                                           Text="MW"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AccentFillColorDefaultBrush}" />
+                            </Border>
+                            <StackPanel x:Name="UserProfileTextPanel" Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock x:Name="UserDisplayNameText"
+                                           Text="MajorWarehause"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <TextBlock x:Name="UserRoleText"
+                                           Text="Администратор"
+                                           Margin="0,3,0,0"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <TextBlock x:Name="UserProfileChevronText"
+                                       Grid.Column="2"
+                                       FontFamily="Segoe Fluent Icons"
+                                       Text="&#xE70D;"
+                                       FontSize="10"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="DatabaseStatusBadge"
+                            Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                            BorderBrush="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            Padding="14"
+                            Margin="0,12,0,0"
+                            Visibility="Collapsed"
+                            AutomationProperties.Name="Источник данных">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="28" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="DatabaseStatusIconText"
+                                       FontFamily="Segoe Fluent Icons"
+                                       Text="&#xE783;"
+                                       FontSize="15"
+                                       Foreground="#B76600"
+                                       VerticalAlignment="Top" />
+                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                <TextBlock x:Name="DatabaseStatusTitleText"
+                                           Text="Локальные данные"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <TextBlock x:Name="DatabaseStatusText"
+                                           Margin="0,4,0,0"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="UpdatePanelCard"
+                            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            Padding="14"
+                            Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Обновление"
                                        FontSize="12"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock x:Name="UserRoleText"
-                                       Text="Администратор"
-                                       Margin="0,3,0,0"
+                            <TextBlock x:Name="ApplicationVersionText"
+                                       Margin="0,6,0,0"
                                        FontSize="11"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <TextBlock x:Name="UserProfileChevronText"
-                                   Grid.Column="2"
-                                   FontFamily="Segoe Fluent Icons"
-                                   Text="&#xE70D;"
-                                   FontSize="10"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                   VerticalAlignment="Center" />
-                    </Grid>
-                </Border>
-
-                <Border x:Name="DatabaseStatusBadge"
-                        Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-                        BorderBrush="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        Padding="12"
-                        Margin="0,0,0,8"
-                        Visibility="Collapsed"
-                        AutomationProperties.Name="Источник данных">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="24" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="DatabaseStatusIconText"
-                                   FontFamily="Segoe Fluent Icons"
-                                   Text="&#xE783;"
-                                   FontSize="14"
-                                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                                   VerticalAlignment="Top" />
-                        <StackPanel Grid.Column="1" Margin="6,0,0,0">
-                            <TextBlock x:Name="DatabaseStatusTitleText"
-                                       Text="Локальные данные"
-                                       FontSize="12"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock x:Name="DatabaseStatusText"
-                                       Margin="0,3,0,0"
+                            <TextBlock x:Name="ApplicationUpdateStatusText"
+                                       Margin="0,4,0,0"
                                        FontSize="11"
                                        TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <Button x:Name="UpdateApplicationButton"
+                                    Margin="0,12,0,0"
+                                    Height="36"
+                                    Padding="12,0"
+                                    BorderThickness="0"
+                                    Background="{DynamicResource TextFillColorPrimaryBrush}"
+                                    Foreground="White"
+                                    FontSize="12"
+                                    FontWeight="SemiBold"
+                                    Cursor="Hand"
+                                    Click="HandleUpdateApplicationClick"
+                                    Content="Проверить обновления" />
                         </StackPanel>
-                    </Grid>
-                </Border>
+                    </Border>
 
-                <Border x:Name="UpdatePanelCard"
-                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        Padding="12">
-                    <StackPanel>
-                        <TextBlock Text="Обновление"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                        <TextBlock x:Name="ApplicationVersionText"
-                                   Margin="0,4,0,0"
-                                   FontSize="11"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                        <TextBlock x:Name="ApplicationUpdateStatusText"
-                                   Margin="0,3,0,0"
-                                   FontSize="11"
-                                   TextWrapping="Wrap"
-                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                        <Button x:Name="UpdateApplicationButton"
-                                Margin="0,10,0,0"
-                                Height="32"
-                                Padding="10,0"
-                                BorderThickness="0"
-                                Background="{DynamicResource AccentFillColorDefaultBrush}"
-                                Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
-                                FontSize="12"
-                                FontWeight="SemiBold"
-                                Cursor="Hand"
-                                Click="HandleUpdateApplicationClick"
-                                Content="Проверить обновления" />
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-        </ui:NavigationView.PaneFooter>
+                    <Button x:Name="SidebarCollapseButton"
+                            Margin="0,14,0,0"
+                            Height="36"
+                            Padding="10,0"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            Foreground="#6D7892"
+                            HorizontalContentAlignment="Left"
+                            Cursor="Hand"
+                            AutomationProperties.Name="Свернуть меню"
+                            Click="HandleSidebarCollapseClick">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="SidebarCollapseIconText"
+                                       FontFamily="Segoe Fluent Icons"
+                                       Text="&#xE76B;"
+                                       FontSize="12"
+                                       VerticalAlignment="Center" />
+                            <TextBlock x:Name="SidebarCollapseText"
+                                       Text="Свернуть меню"
+                                       Margin="10,0,0,0"
+                                       FontSize="12"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-        <!-- Content area: tabs (lazy-loaded sections) -->
-        <Grid Margin="18,14,18,18">
+        <Grid Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="0" />
             </Grid.RowDefinitions>
 
-            <TabControl x:Name="WorkspaceTabs"
-                        Grid.Row="0"
-                        SelectionChanged="HandleWorkspaceTabsSelectionChanged"
-                        Background="Transparent"
-                        BorderBrush="Transparent" />
+            <Grid Grid.Row="0" Margin="18,14,18,18">
+                <TabControl x:Name="WorkspaceTabs"
+                            SelectionChanged="HandleWorkspaceTabsSelectionChanged"
+                            Background="Transparent"
+                            BorderBrush="Transparent" />
+            </Grid>
 
             <Grid Grid.Row="1" Visibility="Collapsed">
                 <TextBlock x:Name="CurrentSectionTitleText" />
                 <TextBlock x:Name="CurrentSectionSubtitleText" />
             </Grid>
         </Grid>
-    </ui:NavigationView>
+    </Grid>
 </Window>

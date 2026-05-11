@@ -327,7 +327,7 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Width="150" MinHeight="126" Margin="0,0,14,14" Style="{StaticResource MetricCardStyle}">
+                                    <Border Width="150" MinHeight="126" Margin="0,0,14,14" Style="{StaticResource HoverElevationCardStyle}">
                                         <StackPanel>
                                             <TextBlock Text="{Binding Title}" Style="{StaticResource MetricCaptionStyle}" />
                                             <TextBlock Text="{Binding Value}" Margin="0,16,0,0" Style="{StaticResource MetricValueStyle}" />

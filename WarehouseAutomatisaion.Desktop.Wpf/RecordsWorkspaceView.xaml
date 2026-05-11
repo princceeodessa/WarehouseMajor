@@ -213,7 +213,7 @@
                         <Border Width="176"
                                 MinHeight="118"
                                 Margin="0,0,14,14"
-                                Style="{StaticResource MetricCardStyle}">
+                                Style="{StaticResource HoverElevationCardStyle}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
                                     <Border Style="{StaticResource MetricIconBoxStyle}"

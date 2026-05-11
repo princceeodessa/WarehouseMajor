@@ -14,12 +14,33 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 
 public partial class MainWindow : Window
 {
+    private const double SidebarExpandedWidth = 214d;
+    private const double SidebarCollapsedWidth = 74d;
     private const string AdminRoleCode = "admin";
     private const string ManagerRoleCode = "manager";
     private const int SalesWorkspaceAutosaveDelayMilliseconds = 5000;
     private const int MaxOpenSectionTabs = 5;
     private const int MaxOpenDynamicEditorTabs = 6;
 
+    // Active/default nav brushes are resolved from Fluent theme tokens at runtime so
+    // the sidebar reacts to the Light/Dark theme switch in System Settings.
+    private static WpfBrush ActiveNavBackground => ResolveThemeBrush("AccentFillColorTertiaryBrush", "#EEF2FF");
+    private static WpfBrush ActiveNavBorder => ResolveThemeBrush("AccentControlBorderBrush", "#C9D3F7");
+    private static WpfBrush ActiveNavForeground => ResolveThemeBrush("AccentTextFillColorPrimaryBrush", "#2F45D3");
+
+    private static WpfBrush DefaultNavBackground => WpfBrushes.Transparent;
+    private static WpfBrush DefaultNavBorder => WpfBrushes.Transparent;
+    private static WpfBrush DefaultNavForeground => ResolveThemeBrush("TextFillColorPrimaryBrush", "#1B2740");
+
+    private static WpfBrush ResolveThemeBrush(string resourceKey, string fallbackHex)
+    {
+        if (System.Windows.Application.Current is { } app
+            && app.TryFindResource(resourceKey) is WpfBrush themed)
+        {
+            return themed;
+        }
+        return BrushFromHex(fallbackHex);
+    }
     private static readonly HashSet<string> LazyUnloadSectionKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "sales",
@@ -34,11 +55,9 @@ public partial class MainWindow : Window
 
     private readonly Dictionary<string, SectionDefinition> _sections = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, TabItem> _tabsByKey = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, Wpf.Ui.Controls.NavigationViewItem> _navItemsByKey = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, WpfButton> _navButtonsByKey = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DynamicTabDefinition> _dynamicTabsByKey = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, long> _tabAccessOrder = new(StringComparer.OrdinalIgnoreCase);
-
-    private bool _suppressNavigationSelection;
 
     private readonly DemoWorkspace _demoWorkspace;
     private readonly DesktopClientStartupResult _startupStatus;
@@ -58,6 +77,7 @@ public partial class MainWindow : Window
     private bool _salesWorkspaceSaveInProgress;
     private bool _salesWorkspaceSaveQueued;
     private bool _salesWorkspaceSaveWarningShown;
+    private bool _isSidebarCollapsed;
     private long _nextTabAccessStamp;
     private string _currentRoleCode = ManagerRoleCode;
 
@@ -447,13 +467,67 @@ public partial class MainWindow : Window
         UserProfileCard.ContextMenu.IsOpen = true;
     }
 
-    // NavigationView handles pane collapse natively via the built-in PaneToggleButton
-    // (IsPaneToggleVisible="True" in XAML). Custom sidebar collapse logic removed in v1.0.43.
+    private void HandleSidebarCollapseClick(object sender, RoutedEventArgs e)
+    {
+        _isSidebarCollapsed = !_isSidebarCollapsed;
+        ApplySidebarState();
+    }
+
+    private void ApplySidebarState()
+    {
+        SidebarColumn.Width = new GridLength(_isSidebarCollapsed ? SidebarCollapsedWidth : SidebarExpandedWidth);
+        SidebarRoot.Margin = _isSidebarCollapsed ? new Thickness(12, 18, 12, 16) : new Thickness(16, 18, 16, 16);
+        SidebarCollapseButton.HorizontalContentAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        SidebarCollapseIconText.Text = _isSidebarCollapsed ? "\uE76C" : "\uE76B";
+        SidebarCollapseText.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        System.Windows.Automation.AutomationProperties.SetName(
+            SidebarCollapseButton,
+            _isSidebarCollapsed ? "Развернуть меню" : "Свернуть меню");
+
+        var textVisibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        ApplicationNameText.Visibility = textVisibility;
+        SidebarNavigationTitleText.Visibility = textVisibility;
+        UserProfileTextPanel.Visibility = textVisibility;
+        UserProfileChevronText.Visibility = textVisibility;
+        UpdatePanelCard.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        UserProfileCard.Padding = _isSidebarCollapsed ? new Thickness(8) : new Thickness(14);
+        UserProfileCard.Width = _isSidebarCollapsed ? 44 : double.NaN;
+        UserProfileCard.HorizontalAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+
+        foreach (var button in _navButtonsByKey.Values)
+        {
+            ApplyNavButtonSidebarState(button);
+        }
+    }
+
+    private void ApplyNavButtonSidebarState(WpfButton button)
+    {
+        button.Padding = _isSidebarCollapsed ? new Thickness(0) : new Thickness(14, 0, 0, 0);
+        button.HorizontalContentAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+
+        if (button.Content is not StackPanel panel)
+        {
+            return;
+        }
+
+        panel.HorizontalAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        foreach (var textBlock in panel.Children.OfType<TextBlock>())
+        {
+            if (IsIconFont(textBlock.FontFamily.Source))
+            {
+                textBlock.Margin = new Thickness(0);
+                continue;
+            }
+
+            textBlock.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+            textBlock.Margin = _isSidebarCollapsed ? new Thickness(0) : new Thickness(12, 0, 0, 0);
+        }
+    }
 
     private void ApplyAuthorization()
     {
         var isAdmin = string.Equals(_currentRoleCode, AdminRoleCode, StringComparison.OrdinalIgnoreCase);
-        NavSettingsItem.Visibility = isAdmin ? Visibility.Visible : Visibility.Collapsed;
+        NavSettingsButton.Visibility = isAdmin ? Visibility.Visible : Visibility.Collapsed;
 
         if (!isAdmin
             && WorkspaceTabs.SelectedItem is TabItem { Tag: string selectedKey }
@@ -686,16 +760,16 @@ public partial class MainWindow : Window
 
     private void RegisterSidebarButtons()
     {
-        _navItemsByKey["dashboard"] = NavDashboardItem;
-        _navItemsByKey["sales"] = NavSalesItem;
-        _navItemsByKey["customers"] = NavCustomersItem;
-        _navItemsByKey["shipments"] = NavShipmentsItem;
-        _navItemsByKey["finance"] = NavFinanceItem;
-        _navItemsByKey["purchasing"] = NavPurchasingItem;
-        _navItemsByKey["warehouse"] = NavWarehouseItem;
-        _navItemsByKey["catalog"] = NavCatalogItem;
-        _navItemsByKey["audit"] = NavAuditItem;
-        _navItemsByKey["settings"] = NavSettingsItem;
+        _navButtonsByKey["dashboard"] = NavDashboardButton;
+        _navButtonsByKey["sales"] = NavSalesButton;
+        _navButtonsByKey["customers"] = NavCustomersButton;
+        _navButtonsByKey["shipments"] = NavShipmentsButton;
+        _navButtonsByKey["finance"] = NavFinanceButton;
+        _navButtonsByKey["purchasing"] = NavPurchasingButton;
+        _navButtonsByKey["warehouse"] = NavWarehouseButton;
+        _navButtonsByKey["catalog"] = NavCatalogButton;
+        _navButtonsByKey["audit"] = NavAuditButton;
+        _navButtonsByKey["settings"] = NavSettingsButton;
     }
 
     private void RegisterSections()
@@ -1225,33 +1299,22 @@ public partial class MainWindow : Window
             CurrentSectionSubtitleText.Text = dynamicTab.Subtitle;
         }
 
-        // Sync the NavigationView selection with the active section without
-        // re-triggering the SelectionChanged handler (would re-open the section).
-        if (_navItemsByKey.TryGetValue(sectionKey, out var navItem) && !ReferenceEquals(RootNavigation.SelectedItem, navItem))
+        foreach (var pair in _navButtonsByKey)
         {
-            _suppressNavigationSelection = true;
-            try
-            {
-                RootNavigation.SelectedItem = navItem;
-            }
-            finally
-            {
-                _suppressNavigationSelection = false;
-            }
+            var active = pair.Key.Equals(sectionKey, StringComparison.OrdinalIgnoreCase);
+            var button = pair.Value;
+            button.Background = active ? ActiveNavBackground : DefaultNavBackground;
+            button.BorderBrush = active ? ActiveNavBorder : DefaultNavBorder;
+            button.Foreground = active ? ActiveNavForeground : DefaultNavForeground;
+            button.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
+            // Toggle Fluent accent pill indicator on the left of the active button.
+            NavButton.SetIsActive(button, active);
         }
     }
 
-    private void HandleNavigationSelectionChanged(object sender, RoutedEventArgs e)
+    private void HandleNavButtonClick(object sender, RoutedEventArgs e)
     {
-        if (_suppressNavigationSelection)
-        {
-            return;
-        }
-
-        if (sender is Wpf.Ui.Controls.NavigationView nav
-            && nav.SelectedItem is Wpf.Ui.Controls.NavigationViewItem item
-            && item.Tag is string sectionKey
-            && !string.IsNullOrWhiteSpace(sectionKey))
+        if (sender is WpfButton button && button.Tag is string sectionKey)
         {
             OpenSection(sectionKey);
         }

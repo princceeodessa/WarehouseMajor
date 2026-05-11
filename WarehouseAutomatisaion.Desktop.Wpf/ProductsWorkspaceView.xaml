@@ -294,7 +294,7 @@
             </Grid>
 
             <UniformGrid x:Name="MetricCardsGrid" Grid.Row="1" Columns="4" Margin="0,0,0,24">
-                <Border Style="{StaticResource MetricCardStyle}" Margin="0,0,12,0">
+                <Border Style="{StaticResource HoverElevationCardStyle}" Margin="0,0,12,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="52" />
@@ -311,7 +311,7 @@
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource MetricCardStyle}" Margin="0,0,12,0">
+                <Border Style="{StaticResource HoverElevationCardStyle}" Margin="0,0,12,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="52" />
@@ -328,7 +328,7 @@
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource MetricCardStyle}" Margin="0,0,12,0">
+                <Border Style="{StaticResource HoverElevationCardStyle}" Margin="0,0,12,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="52" />
@@ -345,7 +345,7 @@
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource MetricCardStyle}">
+                <Border Style="{StaticResource HoverElevationCardStyle}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="52" />

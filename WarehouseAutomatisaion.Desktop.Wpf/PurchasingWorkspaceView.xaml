@@ -294,7 +294,7 @@
 
                 <StackPanel x:Name="WorkspaceLeftPanel" Grid.Row="0" Grid.Column="0" Margin="0,0,24,0">
                                         <UniformGrid x:Name="MetricsGrid" Columns="5" Margin="-6,0,-6,18">
-                        <Border Style="{StaticResource MetricCardStyle}" Margin="6,0,6,0">
+                        <Border Style="{StaticResource HoverElevationCardStyle}" Margin="6,0,6,0">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -304,7 +304,7 @@
                                 <TextBlock x:Name="ActiveSuppliersMetricText" Grid.Row="1" VerticalAlignment="Bottom" Foreground="{DynamicResource SystemFillColorSuccessBrush}" Style="{StaticResource MetricValueStyle}" />
                             </Grid>
                         </Border>
-                        <Border Style="{StaticResource MetricCardStyle}" Margin="6,0,6,0">
+                        <Border Style="{StaticResource HoverElevationCardStyle}" Margin="6,0,6,0">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -314,7 +314,7 @@
                                 <TextBlock x:Name="OpenOrdersMetricText" Grid.Row="1" VerticalAlignment="Bottom" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Style="{StaticResource MetricValueStyle}" />
                             </Grid>
                         </Border>
-                        <Border Style="{StaticResource MetricCardStyle}" Margin="6,0,6,0">
+                        <Border Style="{StaticResource HoverElevationCardStyle}" Margin="6,0,6,0">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -324,7 +324,7 @@
                                 <TextBlock x:Name="PendingInvoiceMetricText" Grid.Row="1" VerticalAlignment="Bottom" Foreground="{DynamicResource SystemFillColorCautionBrush}" Style="{StaticResource MetricValueStyle}" />
                             </Grid>
                         </Border>
-                        <Border Style="{StaticResource MetricCardStyle}" Margin="6,0,6,0">
+                        <Border Style="{StaticResource HoverElevationCardStyle}" Margin="6,0,6,0">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -334,7 +334,7 @@
                                 <TextBlock x:Name="PendingReceiptMetricText" Grid.Row="1" VerticalAlignment="Bottom" Foreground="{DynamicResource SystemFillColorCautionBrush}" Style="{StaticResource MetricValueStyle}" />
                             </Grid>
                         </Border>
-                        <Border Style="{StaticResource MetricCardStyle}" Margin="6,0,6,0">
+                        <Border Style="{StaticResource HoverElevationCardStyle}" Margin="6,0,6,0">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />

@@ -341,7 +341,7 @@
             <WrapPanel x:Name="MetricsPanel" Grid.Row="1" Margin="0,0,0,22">
                 <Border Width="252"
                         Margin="0,0,14,14"
-                        Style="{StaticResource MetricCardStyle}"
+                        Style="{StaticResource HoverElevationCardStyle}"
                         Cursor="Hand"
                         Tag="critical"
                         MouseLeftButtonUp="HandleMetricCardClick">
@@ -367,7 +367,7 @@
 
                 <Border Width="252"
                         Margin="0,0,14,14"
-                        Style="{StaticResource MetricCardStyle}"
+                        Style="{StaticResource HoverElevationCardStyle}"
                         Cursor="Hand"
                         Tag="transfers"
                         MouseLeftButtonUp="HandleMetricCardClick">
@@ -394,7 +394,7 @@
 
                 <Border Width="252"
                         Margin="0,0,14,14"
-                        Style="{StaticResource MetricCardStyle}"
+                        Style="{StaticResource HoverElevationCardStyle}"
                         Cursor="Hand"
                         Tag="reservations"
                         MouseLeftButtonUp="HandleMetricCardClick">
@@ -420,7 +420,7 @@
 
                 <Border Width="300"
                         Margin="0,0,0,14"
-                        Style="{StaticResource MetricCardStyle}"
+                        Style="{StaticResource HoverElevationCardStyle}"
                         Cursor="Hand"
                         Tag="inventory"
                         MouseLeftButtonUp="HandleMetricCardClick">
@@ -973,28 +973,28 @@
                     </Grid.RowDefinitions>
 
                     <WrapPanel Grid.Row="0" Margin="0,0,0,18">
-                        <Border Width="260" Margin="0,0,14,14" Style="{StaticResource MetricCardStyle}">
+                        <Border Width="260" Margin="0,0,14,14" Style="{StaticResource HoverElevationCardStyle}">
                             <StackPanel>
                                 <TextBlock x:Name="CellTodayMetricText" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Style="{StaticResource MetricValueStyle}" />
                                 <TextBlock Text="К отгрузке сегодня" Style="{StaticResource MetricLabelStyle}" />
                                 <TextBlock Text="Активные отгрузки на дату" Style="{StaticResource MetricHintStyle}" />
                             </StackPanel>
                         </Border>
-                        <Border Width="260" Margin="0,0,14,14" Style="{StaticResource MetricCardStyle}">
+                        <Border Width="260" Margin="0,0,14,14" Style="{StaticResource HoverElevationCardStyle}">
                             <StackPanel>
                                 <TextBlock x:Name="CellReadyMetricText" Foreground="{DynamicResource SystemFillColorSuccessBrush}" Style="{StaticResource MetricValueStyle}" />
                                 <TextBlock Text="Готово к сборке" Style="{StaticResource MetricLabelStyle}" />
                                 <TextBlock Text="Товара хватает и ячейки есть" Style="{StaticResource MetricHintStyle}" />
                             </StackPanel>
                         </Border>
-                        <Border Width="260" Margin="0,0,14,14" Style="{StaticResource MetricCardStyle}">
+                        <Border Width="260" Margin="0,0,14,14" Style="{StaticResource HoverElevationCardStyle}">
                             <StackPanel>
                                 <TextBlock x:Name="CellShortMetricText" Foreground="{DynamicResource SystemFillColorCriticalBrush}" Style="{StaticResource MetricValueStyle}" />
                                 <TextBlock Text="Не хватает товара" Style="{StaticResource MetricLabelStyle}" />
                                 <TextBlock Text="Нужна закупка или перемещение" Style="{StaticResource MetricHintStyle}" />
                             </StackPanel>
                         </Border>
-                        <Border Width="260" Margin="0,0,0,14" Style="{StaticResource MetricCardStyle}">
+                        <Border Width="260" Margin="0,0,0,14" Style="{StaticResource HoverElevationCardStyle}">
                             <StackPanel>
                                 <TextBlock x:Name="CellMissingMetricText" Foreground="{DynamicResource SystemFillColorCautionBrush}" Style="{StaticResource MetricValueStyle}" />
                                 <TextBlock Text="Без точной ячейки" Style="{StaticResource MetricLabelStyle}" />
