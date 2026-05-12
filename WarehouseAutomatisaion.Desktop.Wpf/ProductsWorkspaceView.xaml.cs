@@ -74,7 +74,10 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         _warehouseStore = WarehouseOperationalWorkspaceStore.CreateDefault();
         _purchasingStore = PurchasingOperationalWorkspaceStore.CreateDefault();
         _catalogWorkspace = CatalogWorkspace.CreateEmpty(GetCurrentOperator(), salesWorkspace.Currencies, salesWorkspace.Warehouses);
-        _warehouseWorkspace = WarehouseWorkspace.Create(salesWorkspace);
+        // v1.0.52: empty placeholder; the heavy WarehouseWorkspace.Create (iterating
+        // 9893 items × thousands of sales documents) is moved to async HandleLoaded
+        // path to keep the tab switch instant.
+        _warehouseWorkspace = new WarehouseWorkspace();
         _searchDebounceTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(180)
@@ -147,10 +150,26 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         Loaded -= HandleLoaded;
         Dispatcher.BeginInvoke(() =>
         {
-            RefreshAll();
             UpdateResponsiveLayout();
+            _ = LoadWarehouseSnapshotAsync();
             _ = LoadCatalogWorkspaceAsync();
         }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private async Task LoadWarehouseSnapshotAsync()
+    {
+        // v1.0.52: WarehouseWorkspace.Create iterates 9893 items × sales docs.
+        // Run on background; once ready, refresh on UI thread.
+        try
+        {
+            var workspace = await Task.Run(() => WarehouseWorkspace.Create(_salesWorkspace));
+            _warehouseWorkspace = workspace;
+            RefreshAll();
+        }
+        catch (Exception exception)
+        {
+            App.WriteClientErrorLog(exception, "ProductsWorkspaceView.LoadWarehouseSnapshotAsync");
+        }
     }
 
     private async Task LoadCatalogWorkspaceAsync()

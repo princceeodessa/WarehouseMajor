@@ -96,6 +96,15 @@ public sealed class OperationalWarehouseWorkspace
         return workspace;
     }
 
+    // Public placeholder for fast UI thread initialisation — heavy materialisation
+    // happens later on a background Task.Run. v1.0.52 perf fix.
+    public static OperationalWarehouseWorkspace CreateBlank(
+        string currentOperator,
+        SalesWorkspace salesWorkspace)
+    {
+        return CreateEmpty(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
+    }
+
     internal static OperationalWarehouseWorkspace CreateEmpty(
         string currentOperator,
         IReadOnlyList<SalesCatalogItemOption>? catalogItems = null,

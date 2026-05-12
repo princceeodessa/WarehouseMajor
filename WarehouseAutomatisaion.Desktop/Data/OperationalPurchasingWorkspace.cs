@@ -109,6 +109,14 @@ public sealed class OperationalPurchasingWorkspace
         return workspace;
     }
 
+    // Public placeholder for fast UI thread init; heavy work deferred to background.
+    public static OperationalPurchasingWorkspace CreateBlank(
+        string currentOperator,
+        SalesWorkspace salesWorkspace)
+    {
+        return CreateEmpty(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
+    }
+
     internal static OperationalPurchasingWorkspace CreateEmpty(
         string currentOperator,
         IReadOnlyList<SalesCatalogItemOption>? catalogItems = null,

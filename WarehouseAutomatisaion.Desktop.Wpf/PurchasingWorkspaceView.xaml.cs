@@ -74,7 +74,11 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
     {
         _salesWorkspace = salesWorkspace;
         _store = PurchasingOperationalWorkspaceStore.CreateDefault();
-        _workspace = _store.LoadOrCreate(GetCurrentOperator(), salesWorkspace);
+        // v1.0.52: previously the constructor synchronously called
+        // _store.LoadOrCreate which queries MySQL — blocked UI ~1-3s on tab open.
+        // Now start with an empty workspace; real data is loaded in HandleLoaded
+        // via Task.Run.
+        _workspace = OperationalPurchasingWorkspace.CreateBlank(GetCurrentOperator(), salesWorkspace);
 
         InitializeComponent();
         Dispatcher.BeginInvoke(new System.Action(() => WpfTextNormalizer.NormalizeTree(this)), System.Windows.Threading.DispatcherPriority.ContextIdle);
@@ -183,9 +187,26 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         Loaded -= HandleLoaded;
         Dispatcher.BeginInvoke(() =>
         {
-            RefreshAll();
             UpdateResponsiveLayout();
+            _ = LoadWorkspaceAsync();
         }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private async Task LoadWorkspaceAsync()
+    {
+        // v1.0.52: pull the real purchasing workspace from MySQL on a background
+        // thread so opening the Закупки tab is instant.
+        try
+        {
+            var op = GetCurrentOperator();
+            var ws = await Task.Run(() => _store.LoadOrCreate(op, _salesWorkspace));
+            _workspace = ws;
+            RefreshAll();
+        }
+        catch (Exception exception)
+        {
+            App.WriteClientErrorLog(exception, "PurchasingWorkspaceView.LoadWorkspaceAsync");
+        }
     }
 
     private void HandleSizeChanged(object sender, SizeChangedEventArgs e)

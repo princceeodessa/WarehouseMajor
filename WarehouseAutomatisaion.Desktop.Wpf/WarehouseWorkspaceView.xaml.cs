@@ -73,11 +73,17 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     public WarehouseWorkspaceView(SalesWorkspace salesWorkspace)
     {
         _salesWorkspace = salesWorkspace;
+
+        // v1.0.52: only the lightweight store constructors run on UI thread.
+        // The heavy workspace materialisations (WarehouseWorkspace.Create iterates
+        // 9893 nomenclature × 3790 sales orders × stock_balances) were freezing the
+        // tab switch for tens of seconds. They now run in RefreshAllAsync on a
+        // background Task.Run and populate empty defaults below afterwards.
         _store = WarehouseOperationalWorkspaceStore.CreateDefault();
-        _workspace = OperationalWarehouseWorkspace.Create(GetCurrentOperator(), salesWorkspace);
+        _workspace = OperationalWarehouseWorkspace.CreateBlank(GetCurrentOperator(), salesWorkspace);
         _purchasingStore = PurchasingOperationalWorkspaceStore.CreateDefault();
-        _purchasingWorkspace = OperationalPurchasingWorkspace.Create(GetCurrentOperator(), salesWorkspace);
-        _runtimeView = WarehouseWorkspace.Create(salesWorkspace);
+        _purchasingWorkspace = OperationalPurchasingWorkspace.CreateBlank(GetCurrentOperator(), salesWorkspace);
+        _runtimeView = new WarehouseWorkspace();
 
         InitializeComponent();
         // WpfTextNormalizer.NormalizeTree(this) was here — moved to async post-load to
@@ -255,21 +261,34 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         try
         {
             var salesSnapshot = _salesWorkspace;
-            var workspace = _workspace;
-            var purchasing = _purchasingWorkspace;
+            var currentOperator = GetCurrentOperator();
+            var workspaceSeed = _workspace;
+            var purchasingSeed = _purchasingWorkspace;
 
-            var (runtimeView, cellStorage) = await Task.Run(() =>
+            // v1.0.52: build the FULL operational workspaces + runtime view + cell-
+            // storage snapshot on background threads. UI thread is only touched once
+            // results are ready. Previously this work ran in the constructor +
+            // synchronous RefreshAll path and froze the app for ~40s on first open.
+            var (workspace, purchasing, runtimeView, cellStorage) = await Task.Run(() =>
             {
+                var ws = OperationalWarehouseWorkspace.Create(currentOperator, salesSnapshot);
+                var pw = OperationalPurchasingWorkspace.Create(currentOperator, salesSnapshot);
                 var rt = WarehouseWorkspace.Create(salesSnapshot);
                 var cs = WarehouseCellStorageOperations.Build(
                     salesSnapshot,
                     rt,
-                    workspace,
-                    purchasing,
+                    ws,
+                    pw,
                     DateTime.Today);
-                return (rt, cs);
+                return (ws, pw, rt, cs);
             });
 
+            // Switch over to the materialised workspaces. Detach old handler before
+            // re-attaching so we don't get duplicate notifications.
+            _workspace.Changed -= HandleWorkspaceChanged;
+            _workspace = workspace;
+            _workspace.Changed += HandleWorkspaceChanged;
+            _purchasingWorkspace = purchasing;
             _runtimeView = runtimeView;
             _cellStorageSnapshot = cellStorage;
         }
