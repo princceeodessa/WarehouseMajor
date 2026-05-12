@@ -84,19 +84,25 @@
                       KeyDown="HandleInputKeyDown" />
         </StackPanel>
 
-        <!-- Password -->
+        <!-- Password — wrap PasswordBox in a Border so we get a guaranteed visible
+             rounded box regardless of any implicit Fluent style which renders the
+             control with only a hairline bottom border. -->
         <StackPanel Grid.Row="4" Margin="0,12,0,0">
             <TextBlock Text="Пароль" Style="{StaticResource DialogFieldLabelStyle}" />
-            <PasswordBox x:Name="PasswordBox"
-                         Height="40"
-                         FontSize="14"
-                         Padding="12,0"
-                         VerticalContentAlignment="Center"
-                         Background="{DynamicResource ControlFillColorDefaultBrush}"
-                         BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                         BorderThickness="1"
-                         AutomationProperties.Name="Пароль"
-                         KeyDown="HandleInputKeyDown" />
+            <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12,0"
+                    Height="40">
+                <PasswordBox x:Name="PasswordBox"
+                             FontSize="14"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             VerticalContentAlignment="Center"
+                             AutomationProperties.Name="Пароль"
+                             KeyDown="HandleInputKeyDown" />
+            </Border>
         </StackPanel>
 
         <!-- Error InfoBar-style message -->

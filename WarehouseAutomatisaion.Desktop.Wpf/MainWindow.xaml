@@ -12,6 +12,7 @@
         MinWidth="1240"
         MinHeight="760"
         WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
         Background="{DynamicResource ApplicationBackgroundBrush}">
     <WindowChrome.WindowChrome>
         <!-- GlassFrameThickness="-1" pulls Mica all the way to the window edges,

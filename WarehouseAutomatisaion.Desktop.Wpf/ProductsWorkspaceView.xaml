@@ -450,6 +450,8 @@
                                       ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
                                       RowStyle="{StaticResource GridRowStyle}"
                                       CellStyle="{StaticResource GridCellStyle}"
+                                      HorizontalAlignment="Stretch"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                       MouseDoubleClick="HandleProductsGridDoubleClick">
                                 <DataGrid.Columns>
                                     <DataGridTemplateColumn Width="42" IsReadOnly="False">
@@ -465,8 +467,8 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Артикул / код" Binding="{Binding Code}" Width="92" IsReadOnly="True" />
-                                    <DataGridTemplateColumn Header="Товар" Width="1.7*" IsReadOnly="True">
+                                    <DataGridTextColumn Header="Артикул / код" Binding="{Binding Code}" Width="130" MinWidth="120" IsReadOnly="True" />
+                                    <DataGridTemplateColumn Header="Товар" Width="1.7*" MinWidth="220" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel>
@@ -476,10 +478,10 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Категория" Binding="{Binding Category}" Width="100" IsReadOnly="True" />
-                                    <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="112" IsReadOnly="True" />
-                                    <DataGridTextColumn Header="Ячейки" Binding="{Binding CellSummary}" Width="150" IsReadOnly="True" />
-                                    <DataGridTemplateColumn Header="Остаток" Width="125" IsReadOnly="True">
+                                    <DataGridTextColumn Header="Категория" Binding="{Binding Category}" Width="140" MinWidth="120" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="140" MinWidth="130" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="Ячейки" Binding="{Binding CellSummary}" Width="160" MinWidth="140" IsReadOnly="True" />
+                                    <DataGridTemplateColumn Header="Остаток" Width="140" MinWidth="125" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel>
@@ -494,11 +496,11 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Резерв" Binding="{Binding ReservedDisplay}" Width="70" IsReadOnly="True" />
-                                    <DataGridTextColumn Header="В пути" Binding="{Binding InTransitDisplay}" Width="68" IsReadOnly="True" />
-                                    <DataGridTextColumn Header="Мин. остаток" Binding="{Binding MinimumStockDisplay}" Width="84" IsReadOnly="True" />
-                                    <DataGridTextColumn Header="Цена" Binding="{Binding PriceDisplay}" Width="86" IsReadOnly="True" />
-                                    <DataGridTemplateColumn Header="Статус" Width="92" IsReadOnly="True">
+                                    <DataGridTextColumn Header="Резерв" Binding="{Binding ReservedDisplay}" Width="90" MinWidth="80" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="В пути" Binding="{Binding InTransitDisplay}" Width="90" MinWidth="80" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="Мин. остаток" Binding="{Binding MinimumStockDisplay}" Width="130" MinWidth="120" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="Цена" Binding="{Binding PriceDisplay}" Width="100" MinWidth="90" IsReadOnly="True" />
+                                    <DataGridTemplateColumn Header="Статус" Width="110" MinWidth="100" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Border Background="{Binding StatusBackground}" CornerRadius="7" Padding="8,4" HorizontalAlignment="Left">
@@ -507,8 +509,8 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Штрихкод" Binding="{Binding Barcode}" Width="118" IsReadOnly="True" />
-                                    <DataGridTemplateColumn Header="Действия" Width="66" IsReadOnly="True">
+                                    <DataGridTextColumn Header="Штрихкод" Binding="{Binding Barcode}" Width="140" MinWidth="120" IsReadOnly="True" />
+                                    <DataGridTemplateColumn Header="Действия" Width="80" MinWidth="70" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Button Content="&#xE712;" AutomationProperties.Name="Действия товара" Tag="{Binding}" Style="{StaticResource TableRowActionButtonStyle}" Click="HandleRowActionsClick" />
