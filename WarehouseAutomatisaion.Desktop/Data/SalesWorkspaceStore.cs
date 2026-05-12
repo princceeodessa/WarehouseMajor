@@ -92,20 +92,22 @@ public sealed class SalesWorkspaceStore
         TryGetBackplane()?.TryEnsureUserProfile(currentOperator);
         SalesWorkspaceImportMerger.Merge(workspace);
 
-        var canUseFastServerRows = _serverModeEnabled && !shouldAttachImportSnapshot;
-        var salesRowsRecord = canUseFastServerRows
-            ? TryGetBackplane()?.TryLoadSalesWorkspaceSnapshotRecord()
-            : null;
-        if (salesRowsRecord is not null)
-        {
-            workspace.AttachOperationalSnapshot(null);
-            _remoteMetadata = salesRowsRecord.Metadata;
-            _lastSavedSnapshotHash = salesRowsRecord.Metadata.PayloadHash;
-            _hasPendingLocalSync = ShouldPromoteLocalSnapshot(salesRowsRecord.Metadata);
-            TryWriteServerCache(salesRowsRecord.Snapshot, salesRowsRecord.Metadata.PayloadHash);
-            ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot: null, importRoots: importRoots, cloneRecords: false);
-            return RepairAndReturn(workspace, currentOperator);
-        }
+        // v1.0.55: operational MySQL is the source of truth. The previous logic
+        // had a "fast-server-rows" fast-path that ALWAYS preferred the snapshot
+        // record from app_sales_documents / app_module_states.sales even when
+        // operational tables had freshly-imported 1C data. After autosave wrote
+        // an (empty or stale) snapshot row, every subsequent open dropped back
+        // to the snapshot path and never read operational again — masking the
+        // 2073 customers / 3790 orders / 3453 shipments imported from 1C.
+        //
+        // New rule:
+        //   1) Always try the operational snapshot first.
+        //   2) If operational has data, use it as the authoritative workspace;
+        //      pull only metadata (last-saved hash) from the snapshot record to
+        //      keep change detection working, but never let the snapshot
+        //      OVERWRITE the operational data.
+        //   3) If operational is unavailable (offline, error) AND a snapshot
+        //      record exists, fall back to the snapshot (legacy offline path).
 
         DesktopOperationalSnapshot? operationalSnapshot = null;
         if (includeOperationalSnapshot)
@@ -121,14 +123,33 @@ public sealed class SalesWorkspaceStore
             workspace.AttachOperationalSnapshot(null);
         }
 
-        salesRowsRecord = TryGetBackplane()?.TryLoadSalesWorkspaceSnapshotRecord();
-        if (salesRowsRecord is not null)
+        var canUseFastServerRows = _serverModeEnabled && !shouldAttachImportSnapshot;
+        var salesRowsRecord = canUseFastServerRows
+            ? TryGetBackplane()?.TryLoadSalesWorkspaceSnapshotRecord()
+            : null;
+
+        if (salesRowsRecord is not null && operationalSnapshot?.HasSalesData == true)
         {
+            // Operational data wins. Keep the snapshot metadata for change
+            // detection / TryWriteServerCache, but skip ApplySnapshotToWorkspace
+            // so we don't clobber the operational workspace.
             _remoteMetadata = salesRowsRecord.Metadata;
             _lastSavedSnapshotHash = salesRowsRecord.Metadata.PayloadHash;
             _hasPendingLocalSync = ShouldPromoteLocalSnapshot(salesRowsRecord.Metadata);
             TryWriteServerCache(salesRowsRecord.Snapshot, salesRowsRecord.Metadata.PayloadHash);
-            ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot, importRoots, cloneRecords: false);
+            return RepairAndReturn(workspace, currentOperator);
+        }
+
+        if (salesRowsRecord is not null)
+        {
+            // Offline / no-operational-data fallback: rebuild workspace from the
+            // last saved snapshot.
+            workspace.AttachOperationalSnapshot(null);
+            _remoteMetadata = salesRowsRecord.Metadata;
+            _lastSavedSnapshotHash = salesRowsRecord.Metadata.PayloadHash;
+            _hasPendingLocalSync = ShouldPromoteLocalSnapshot(salesRowsRecord.Metadata);
+            TryWriteServerCache(salesRowsRecord.Snapshot, salesRowsRecord.Metadata.PayloadHash);
+            ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot: null, importRoots: importRoots, cloneRecords: false);
             return RepairAndReturn(workspace, currentOperator);
         }
 
