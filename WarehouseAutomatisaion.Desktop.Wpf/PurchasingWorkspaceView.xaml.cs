@@ -49,7 +49,7 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private readonly SalesWorkspace _salesWorkspace;
     private readonly PurchasingOperationalWorkspaceStore _store;
-    private readonly OperationalPurchasingWorkspace _workspace;
+    private OperationalPurchasingWorkspace _workspace;
     private readonly ObservableCollection<PurchasingGridRow> _rows = new();
     private readonly ObservableCollection<PurchasingDetailLineRow> _detailLines = new();
     private readonly HashSet<string> _checkedKeys = new(StringComparer.OrdinalIgnoreCase);
