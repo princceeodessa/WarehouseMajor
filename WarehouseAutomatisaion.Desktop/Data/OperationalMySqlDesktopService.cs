@@ -9,7 +9,10 @@ namespace WarehouseAutomatisaion.Desktop.Data;
 
 public sealed class OperationalMySqlDesktopService
 {
-    private const int MysqlConnectTimeoutSeconds = 2;
+    // v1.0.54: bumped 2s -> 15s; see DesktopMySqlBackplaneService for the
+    // same reasoning. Cloud TCP handshake to 147.45.108.97 routinely takes
+    // 1.5–3s and the old ceiling produced spurious connect timeouts.
+    private const int MysqlConnectTimeoutSeconds = 15;
     private const int ConnectionBackoffSeconds = 45;
 
     private static readonly object DefaultServiceSync = new();

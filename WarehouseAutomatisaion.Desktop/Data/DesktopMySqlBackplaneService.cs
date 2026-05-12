@@ -9,9 +9,14 @@ namespace WarehouseAutomatisaion.Desktop.Data;
 public sealed partial class DesktopMySqlBackplaneService
 {
     private const string ErrorLogName = "desktop-mysql-backplane-error.log";
-    private const int MysqlConnectTimeoutSeconds = 2;
-    private const int MysqlDefaultCommandTimeoutSeconds = 15;
-    private const int MysqlSnapshotCommandTimeoutSeconds = 60;
+    // v1.0.54: bumped 2s -> 15s. The cloud MySQL @ 147.45.108.97 takes
+    // ~2s to TCP-handshake from a normal home network — the previous 2s
+    // ceiling produced spurious "Connect Timeout expired" errors on app
+    // launch and blocked the whole startup. 15s is the typical safe
+    // setting for ADO.NET cloud connections.
+    private const int MysqlConnectTimeoutSeconds = 15;
+    private const int MysqlDefaultCommandTimeoutSeconds = 30;
+    private const int MysqlSnapshotCommandTimeoutSeconds = 90;
     private const int ConnectionBackoffSeconds = 45;
 
     private static readonly object DefaultInstanceSync = new();
