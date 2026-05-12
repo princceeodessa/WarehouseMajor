@@ -41,6 +41,11 @@ public partial class MainWindow : Window
         }
         return BrushFromHex(fallbackHex);
     }
+    // Lazy-unload these on tab switch ONLY for sections that are cheap to recreate.
+    // Warehouse + Catalog removed in v1.0.49 — their views have 1600+/2000+ line XAML,
+    // dozens of bindings, and hit MySQL multiple times. Disposing and re-creating them
+    // on every tab change caused noticeable lag (and near-crashes per user report).
+    // Sales/Customers/Shipments/Finance/Purchasing are smaller — still lazy-unload.
     private static readonly HashSet<string> LazyUnloadSectionKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "sales",
@@ -48,8 +53,6 @@ public partial class MainWindow : Window
         "shipments",
         "finance",
         "purchasing",
-        "warehouse",
-        "catalog",
         "audit"
     };
 
@@ -1333,30 +1336,10 @@ public partial class MainWindow : Window
             ApplySelection(sectionKey);
             ReleaseInactiveSectionContent(sectionKey);
             PruneInactiveSectionTabs(sectionKey);
-            PlaySectionFadeIn(selectedTab);
+            // Section fade-in animation (added in v1.0.45) removed in v1.0.49:
+            // on heavy views (1600+ XAML) the off-screen composition needed for
+            // the opacity transition compounds the layout cost and feels laggy.
         }
-    }
-
-    private static void PlaySectionFadeIn(TabItem selectedTab)
-    {
-        // Subtle Fluent section transition: fade the newly-selected tab's content
-        // in over 180 ms. Skipped if the tab has no content loaded yet.
-        if (selectedTab.Content is not System.Windows.UIElement element)
-        {
-            return;
-        }
-
-        var fade = new System.Windows.Media.Animation.DoubleAnimation
-        {
-            From = 0,
-            To = 1,
-            Duration = new System.Windows.Duration(TimeSpan.FromMilliseconds(180)),
-            EasingFunction = new System.Windows.Media.Animation.CubicEase
-            {
-                EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut
-            }
-        };
-        element.BeginAnimation(System.Windows.UIElement.OpacityProperty, fade);
     }
 
     private void HandleCloseTabClick(object sender, RoutedEventArgs e)
