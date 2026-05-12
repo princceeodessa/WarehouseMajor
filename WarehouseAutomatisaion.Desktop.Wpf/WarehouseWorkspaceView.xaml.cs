@@ -241,13 +241,43 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     private void RefreshAll()
     {
         _workspace.RefreshReferenceData(_salesWorkspace);
-        _runtimeView = WarehouseWorkspace.Create(_salesWorkspace);
-        _cellStorageSnapshot = WarehouseCellStorageOperations.Build(
-            _salesWorkspace,
-            _runtimeView,
-            _workspace,
-            _purchasingWorkspace,
-            DateTime.Today);
+
+        // Heavy snapshot builds (iterate 9893 items × thousands of sales docs) were
+        // freezing the UI for 40+ seconds on first open. v1.0.51: build runtime view
+        // and cell-storage snapshot on a background thread, then continue the UI
+        // refresh after they land. UI thread stays responsive (just no data shown
+        // for ~1-2s instead of full app freeze).
+        _ = RefreshAllAsync();
+    }
+
+    private async Task RefreshAllAsync()
+    {
+        try
+        {
+            var salesSnapshot = _salesWorkspace;
+            var workspace = _workspace;
+            var purchasing = _purchasingWorkspace;
+
+            var (runtimeView, cellStorage) = await Task.Run(() =>
+            {
+                var rt = WarehouseWorkspace.Create(salesSnapshot);
+                var cs = WarehouseCellStorageOperations.Build(
+                    salesSnapshot,
+                    rt,
+                    workspace,
+                    purchasing,
+                    DateTime.Today);
+                return (rt, cs);
+            });
+
+            _runtimeView = runtimeView;
+            _cellStorageSnapshot = cellStorage;
+        }
+        catch (Exception exception)
+        {
+            App.WriteClientErrorLog(exception, "WarehouseWorkspaceView.RefreshAllAsync");
+            return;
+        }
 
         RefreshMeta();
         RefreshMetrics();
