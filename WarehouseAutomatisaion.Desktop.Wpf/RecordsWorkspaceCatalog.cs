@@ -266,7 +266,7 @@ internal static class RecordsWorkspaceCatalog
                         Cell(item.ReturnDate.ToString("dd.MM.yyyy", RuCulture)),
                         Cell(FormatMoney(item.TotalAmount, item.CurrencyCode), semiBold: true),
                         StatusCell(Clean(item.Status)),
-                        Cell(string.IsNullOrWhiteSpace(Clean(item.Reason)) ? Clean(item.Comment) : Clean(item.Reason)),
+                        Cell(string.IsNullOrWhiteSpace(Clean(item.Comment)) ? Clean(item.Reason) : Clean(item.Comment)),
                         ActionCell()
                     ],
                     RowActions: BuildReturnActions(salesWorkspace, item)))
@@ -327,7 +327,7 @@ internal static class RecordsWorkspaceCatalog
                 Amount = returnRecord.TotalAmount,
                 Currency = Clean(returnRecord.CurrencyCode),
                 Status = Clean(returnRecord.Status),
-                Comment = string.IsNullOrWhiteSpace(Clean(returnRecord.Reason)) ? Clean(returnRecord.Comment) : Clean(returnRecord.Reason)
+                Comment = string.IsNullOrWhiteSpace(Clean(returnRecord.Comment)) ? Clean(returnRecord.Reason) : Clean(returnRecord.Comment)
             })
             .Concat(salesWorkspace.CashReceipts.Select(receipt => new
             {
@@ -757,7 +757,7 @@ internal static class RecordsWorkspaceCatalog
             new RecordsGridActionDefinition("Снять резерв", () => ShowWorkflowResult("Заказы", salesWorkspace.ReleaseOrderReserve(order.Id))),
             new RecordsGridActionDefinition("Сформировать счет", () => CreateInvoiceFromOrder(salesWorkspace, order)),
             new RecordsGridActionDefinition("Подготовить отгрузку", () => CreateShipmentFromOrder(salesWorkspace, order)),
-            new RecordsGridActionDefinition("Создать черновик возврата", () => CreateReturnFromOrder(salesWorkspace, order)),
+            new RecordsGridActionDefinition("Создать возврат", () => CreateReturnFromOrder(salesWorkspace, order)),
             new RecordsGridActionDefinition("Провести расходку и закрыть", () => ShowWorkflowResult("Заказы", salesWorkspace.ConductExpenseAndCloseOrder(order.Id))),
             new RecordsGridActionDefinition("Поступление в кассу", () => ShowWorkflowResult("Заказы", salesWorkspace.RecordCashReceiptForOrder(order.Id))),
             new RecordsGridActionDefinition("Дублировать", () => DuplicateOrder(salesWorkspace, order))
@@ -805,7 +805,7 @@ internal static class RecordsWorkspaceCatalog
             new RecordsGridActionDefinition("Выгрузить PDF", () => ExportShipment(shipment, SalesDocumentExportFormat.Pdf)),
             new RecordsGridActionDefinition("Выгрузить Excel", () => ExportShipment(shipment, SalesDocumentExportFormat.Excel)),
             new RecordsGridActionDefinition("К сборке", () => ShowWorkflowResult("Отгрузки", salesWorkspace.PrepareShipment(shipment.Id))),
-            new RecordsGridActionDefinition("Создать черновик возврата", () => CreateReturnFromShipment(salesWorkspace, shipment)),
+            new RecordsGridActionDefinition("Создать возврат", () => CreateReturnFromShipment(salesWorkspace, shipment)),
             new RecordsGridActionDefinition("Провести отгрузку", () => ShowWorkflowResult("Отгрузки", salesWorkspace.ShipShipment(shipment.Id)))
         ];
     }
@@ -814,6 +814,7 @@ internal static class RecordsWorkspaceCatalog
     {
         return
         [
+            new RecordsGridActionDefinition("Открыть возврат", () => EditReturn(salesWorkspace, returnDocument)),
             new RecordsGridActionDefinition("Связанные документы", () => ShowSalesDocumentLinks(salesWorkspace, returnDocument)),
             new RecordsGridActionDefinition("Открыть заказ-основание", () => OpenOrderFromLink(salesWorkspace, returnDocument.SalesOrderId, returnDocument.SalesOrderNumber, "Возвраты")),
             new RecordsGridActionDefinition("Печать возврата", () => PrintReturn(returnDocument)),
@@ -876,7 +877,7 @@ internal static class RecordsWorkspaceCatalog
         }
     }
 
-    private static void PrintOrderCustomer(SalesOrderRecord order)
+    internal static void PrintOrderCustomer(SalesOrderRecord order)
     {
         PrintDocumentComposer.Print(
             ResolveOwnerWindow(),
@@ -884,7 +885,7 @@ internal static class RecordsWorkspaceCatalog
             (pageWidth, pageHeight) => SalesOrderPrintDocumentComposer.Build(order, pageWidth, pageHeight));
     }
 
-    private static void PrintOrderPicking(SalesWorkspace salesWorkspace, SalesOrderRecord order)
+    internal static void PrintOrderPicking(SalesWorkspace salesWorkspace, SalesOrderRecord order)
     {
         var definition = BuildOrderPickingPrintDefinition(salesWorkspace, order);
         PrintDocumentComposer.Print(
@@ -922,7 +923,7 @@ internal static class RecordsWorkspaceCatalog
                 new PrintableField("Покупатель", Clean(order.CustomerName)),
                 new PrintableField("Склад", Clean(order.Warehouse)),
                 new PrintableField("Дата печати", DateTime.Now.ToString("dd.MM.yyyy HH:mm", RuCulture)),
-                new PrintableField("Менеджер", Clean(order.Manager)),
+                new PrintableField("Менеджер", SalesManagerDisplayResolver.Resolve(order.Manager)),
                 new PrintableField("Статус", Clean(order.Status)),
                 new PrintableField("Позиций", pickLines.Count.ToString("N0", RuCulture)),
                 new PrintableField("Готовность", readiness)
@@ -953,7 +954,7 @@ internal static class RecordsWorkspaceCatalog
                     string.Empty,
                     FormatQuantity(line.AvailableQuantity),
                     line.ShortageQuantity > 0m ? FormatQuantity(line.ShortageQuantity) : "—",
-                    Clean(line.Unit),
+                    SalesDocumentDisplayFormatter.NormalizeUnit(line.Unit, line.ItemName),
                     Clean(line.PickStatus)
                 ]))
                 .ToArray(),
@@ -1026,7 +1027,7 @@ internal static class RecordsWorkspaceCatalog
             format);
     }
 
-    private static void PrintInvoice(SalesInvoiceRecord invoice)
+    internal static void PrintInvoice(SalesInvoiceRecord invoice)
     {
         var definition = BuildInvoicePrintDefinition(invoice);
         PrintDocumentComposer.Print(
@@ -1035,7 +1036,7 @@ internal static class RecordsWorkspaceCatalog
             (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definition, pageWidth, pageHeight));
     }
 
-    private static void PrintShipment(SalesShipmentRecord shipment)
+    internal static void PrintShipment(SalesShipmentRecord shipment)
     {
         var definition = BuildShipmentPrintDefinition(shipment);
         PrintDocumentComposer.Print(
@@ -1044,7 +1045,7 @@ internal static class RecordsWorkspaceCatalog
             (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definition, pageWidth, pageHeight));
     }
 
-    private static void PrintReturn(SalesReturnRecord returnDocument)
+    internal static void PrintReturn(SalesReturnRecord returnDocument)
     {
         var definition = BuildReturnPrintDefinition(returnDocument);
         PrintDocumentComposer.Print(
@@ -1053,7 +1054,7 @@ internal static class RecordsWorkspaceCatalog
             (pageWidth, pageHeight) => PrintDocumentComposer.BuildTableDocument(definition, pageWidth, pageHeight));
     }
 
-    private static void PrintCashReceipt(SalesCashReceiptRecord cashReceipt)
+    internal static void PrintCashReceipt(SalesCashReceiptRecord cashReceipt)
     {
         var definition = BuildCashReceiptPrintDefinition(cashReceipt);
         PrintDocumentComposer.Print(
@@ -1074,7 +1075,7 @@ internal static class RecordsWorkspaceCatalog
                 new PrintableField("Дата счета", invoice.InvoiceDate.ToString("dd.MM.yyyy", RuCulture)),
                 new PrintableField("Оплатить до", invoice.DueDate.ToString("dd.MM.yyyy", RuCulture)),
                 new PrintableField("Договор", Clean(invoice.ContractNumber)),
-                new PrintableField("Менеджер", Clean(invoice.Manager)),
+                new PrintableField("Менеджер", SalesManagerDisplayResolver.Resolve(invoice.Manager)),
                 new PrintableField("Статус", Clean(invoice.Status)),
                 new PrintableField("Валюта", Clean(invoice.CurrencyCode))
             ],
@@ -1098,7 +1099,7 @@ internal static class RecordsWorkspaceCatalog
                 new PrintableField("Перевозчик", Clean(shipment.Carrier)),
                 new PrintableField("Статус", Clean(shipment.Status)),
                 new PrintableField("Договор", Clean(shipment.ContractNumber)),
-                new PrintableField("Менеджер", Clean(shipment.Manager))
+                new PrintableField("Менеджер", SalesManagerDisplayResolver.Resolve(shipment.Manager))
             ],
             Columns: BuildSalesPrintColumns(),
             Rows: BuildSalesLinePrintRows(shipment.Lines, shipment.CurrencyCode),
@@ -1120,7 +1121,7 @@ internal static class RecordsWorkspaceCatalog
                 new PrintableField("Причина", Clean(returnDocument.Reason)),
                 new PrintableField("Статус", Clean(returnDocument.Status)),
                 new PrintableField("Договор", Clean(returnDocument.ContractNumber)),
-                new PrintableField("Менеджер", Clean(returnDocument.Manager))
+                new PrintableField("Менеджер", SalesManagerDisplayResolver.Resolve(returnDocument.Manager))
             ],
             Columns: BuildSalesPrintColumns(),
             Rows: BuildSalesLinePrintRows(returnDocument.Lines, returnDocument.CurrencyCode),
@@ -1141,7 +1142,7 @@ internal static class RecordsWorkspaceCatalog
                 new PrintableField("Касса", Clean(cashReceipt.CashBox)),
                 new PrintableField("Договор", Clean(cashReceipt.ContractNumber)),
                 new PrintableField("Статус", Clean(cashReceipt.Status)),
-                new PrintableField("Менеджер", Clean(cashReceipt.Manager)),
+                new PrintableField("Менеджер", SalesManagerDisplayResolver.Resolve(cashReceipt.Manager)),
                 new PrintableField("Валюта", Clean(cashReceipt.CurrencyCode))
             ],
             Columns:
@@ -1212,7 +1213,7 @@ internal static class RecordsWorkspaceCatalog
                 Clean(line.ItemCode),
                 Clean(line.ItemName),
                 FormatQuantity(line.Quantity),
-                Clean(line.Unit),
+                SalesDocumentDisplayFormatter.NormalizeUnit(line.Unit, line.ItemName),
                 FormatMoney(line.Price, currencyCode),
                 FormatMoney(line.Amount, currencyCode)
             ]))
@@ -1258,6 +1259,22 @@ internal static class RecordsWorkspaceCatalog
         {
             salesWorkspace.UpdateShipment(dialog.ResultShipment);
             ShowMessage("Отгрузки", $"Обновлена отгрузка {dialog.ResultShipment.Number}.");
+        }
+    }
+
+    private static void EditReturn(SalesWorkspace salesWorkspace, SalesReturnRecord returnDocument)
+    {
+        var dialog = new SalesReturnEditorWindow(salesWorkspace, returnDocument);
+        var owner = ResolveOwnerWindow();
+        if (owner is not null)
+        {
+            dialog.Owner = owner;
+        }
+
+        if (dialog.ShowDialog() == true && dialog.ResultReturn is not null)
+        {
+            salesWorkspace.UpdateReturn(dialog.ResultReturn);
+            ShowMessage("Возвраты", $"Обновлен возврат {dialog.ResultReturn.Number}.");
         }
     }
 
@@ -1342,13 +1359,25 @@ internal static class RecordsWorkspaceCatalog
 
     private static void CreateInvoiceFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
     {
+        var existingInvoice = salesWorkspace.Invoices
+            .Where(item =>
+                item.SalesOrderId == order.Id
+                || Clean(item.SalesOrderNumber).Equals(Clean(order.Number), StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(item => item.InvoiceDate)
+            .FirstOrDefault();
+        if (existingInvoice is not null)
+        {
+            EditInvoice(salesWorkspace, existingInvoice);
+            return;
+        }
+
         var invoice = salesWorkspace.CreateInvoiceDraftFromOrder(order.Id);
         if (!TryRunSalesEditorSave(() => salesWorkspace.AddInvoice(invoice)))
         {
             return;
         }
 
-        ShowMessage("Счета", $"Создан счет {invoice.Number} по заказу {order.Number}.");
+        ShowMessage("Счета", $"Создан счет {invoice.Number} по заказу {order.Number}. Он привязан к заказу и доступен в связанных документах и разделе \"Счета\".");
     }
 
     private static void CreateShipmentFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
@@ -1378,17 +1407,39 @@ internal static class RecordsWorkspaceCatalog
     private static void CreateReturnFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
     {
         var returnDocument = salesWorkspace.CreateReturnDraftFromOrder(order.Id);
-        salesWorkspace.AddReturn(returnDocument);
-        ShowMessage("Возвраты", $"Создан черновик возврата {returnDocument.Number} по заказу {order.Number}. Складские остатки не изменены.");
-        ShowSalesDocumentLinks(salesWorkspace, order);
+        var dialog = new SalesReturnEditorWindow(salesWorkspace, returnDocument);
+        var owner = ResolveOwnerWindow();
+        if (owner is not null)
+        {
+            dialog.Owner = owner;
+        }
+
+        if (dialog.ShowDialog() != true || dialog.ResultReturn is null)
+        {
+            return;
+        }
+
+        salesWorkspace.AddReturn(dialog.ResultReturn);
+        ShowMessage("Возвраты", $"Создан возврат {dialog.ResultReturn.Number} по заказу {order.Number}.");
     }
 
     private static void CreateReturnFromShipment(SalesWorkspace salesWorkspace, SalesShipmentRecord shipment)
     {
         var returnDocument = salesWorkspace.CreateReturnDraftFromShipment(shipment.Id);
-        salesWorkspace.AddReturn(returnDocument);
-        ShowMessage("Возвраты", $"Создан черновик возврата {returnDocument.Number} по отгрузке {shipment.Number}. Складские остатки не изменены.");
-        ShowSalesDocumentLinks(salesWorkspace, shipment);
+        var dialog = new SalesReturnEditorWindow(salesWorkspace, returnDocument);
+        var owner = ResolveOwnerWindow();
+        if (owner is not null)
+        {
+            dialog.Owner = owner;
+        }
+
+        if (dialog.ShowDialog() != true || dialog.ResultReturn is null)
+        {
+            return;
+        }
+
+        salesWorkspace.AddReturn(dialog.ResultReturn);
+        ShowMessage("Возвраты", $"Создан возврат {dialog.ResultReturn.Number} по отгрузке {shipment.Number}.");
     }
 
     private static void ShowWorkflowResult(string title, SalesWorkflowActionResult result)

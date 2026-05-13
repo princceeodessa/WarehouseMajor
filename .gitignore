@@ -1,6 +1,8 @@
 .vs/
 .appdata/
 .dotnet-home/
+.tools/
+tmp/
 
 **/bin/
 **/obj/

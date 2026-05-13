@@ -390,6 +390,7 @@
                     <ComboBox x:Name="CategoryFilterCombo" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                     <ComboBox x:Name="WarehouseFilterCombo" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                     <ComboBox x:Name="SupplierFilterCombo" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
+                    <ComboBox x:Name="PriceTypeFilterCombo" Style="{StaticResource FilterComboStyle}" MinWidth="150" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                     <ComboBox x:Name="StatusFilterCombo" Style="{StaticResource FilterComboStyle}" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
                     <CheckBox x:Name="OnlyProblemsCheckBox" Content="Только проблемные" Style="{StaticResource ProblemsOnlyStyle}" Margin="2,0,18,10" Checked="HandleFilterChanged" Unchecked="HandleFilterChanged" />
                     <CheckBox x:Name="OnlyWithoutCellsCheckBox" Content="Без ячеек" Style="{StaticResource ProblemsOnlyStyle}" Margin="2,0,18,10" Checked="HandleFilterChanged" Unchecked="HandleFilterChanged" />

@@ -271,7 +271,7 @@ Set-Content -LiteralPath $sedPath -Value $sed -Encoding ASCII
 & $iexpress /N /Q $sedPath
 $iexpressExitCode = $LASTEXITCODE
 
-$deadline = (Get-Date).AddMinutes(5)
+$deadline = (Get-Date).AddMinutes(15)
 $lastSetupSize = -1
 $stableChecks = 0
 while ((Get-Date) -lt $deadline) {

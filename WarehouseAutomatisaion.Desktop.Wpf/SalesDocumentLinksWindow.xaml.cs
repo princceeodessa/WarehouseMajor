@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
 using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
 using WarehouseAutomatisaion.Desktop.Data;
 using WarehouseAutomatisaion.Desktop.Text;
 
@@ -9,7 +11,17 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 public partial class SalesDocumentLinksWindow : Window
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
+    private static readonly Brush PaidIndicatorBrush = new SolidColorBrush(Color.FromRgb(31, 164, 95));
+    private static readonly Brush PartialIndicatorBrush = new SolidColorBrush(Color.FromRgb(242, 154, 23));
+    private static readonly Brush EmptyIndicatorBrush = new SolidColorBrush(Color.FromRgb(205, 46, 46));
+    private static readonly Brush NeutralIndicatorBrush = new SolidColorBrush(Color.FromRgb(110, 124, 150));
+
     private readonly SalesWorkspace _salesWorkspace;
+    private Guid _salesOrderId;
+    private string _salesOrderNumber = string.Empty;
+    private Guid _customerId;
+    private string _sourceCaption = string.Empty;
+    private DocumentLinkGridRow? _sourceFallback;
     private IReadOnlyList<DocumentLinkGridRow> _documentRows = Array.Empty<DocumentLinkGridRow>();
 
     public SalesDocumentLinksWindow(SalesWorkspace salesWorkspace, SalesOrderRecord order)
@@ -76,11 +88,21 @@ public partial class SalesDocumentLinksWindow : Window
         DocumentLinkGridRow? sourceFallback)
     {
         _salesWorkspace = salesWorkspace;
+        _salesOrderId = salesOrderId;
+        _salesOrderNumber = salesOrderNumber;
+        _customerId = customerId;
+        _sourceCaption = sourceCaption;
+        _sourceFallback = sourceFallback;
 
         InitializeComponent();
         WpfTextNormalizer.NormalizeTree(this);
 
-        LoadDocumentChain(salesOrderId, salesOrderNumber, customerId, sourceCaption, sourceFallback);
+        ReloadDocumentChain();
+    }
+
+    private void ReloadDocumentChain()
+    {
+        LoadDocumentChain(_salesOrderId, _salesOrderNumber, _customerId, _sourceCaption, _sourceFallback);
     }
 
     private void LoadDocumentChain(
@@ -126,6 +148,8 @@ public partial class SalesDocumentLinksWindow : Window
             rows.Add(sourceFallback);
         }
 
+        ApplyDocumentIndicators(rows, salesOrderId, normalizedOrderNumber);
+
         _documentRows = rows
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.DateValue)
@@ -138,6 +162,30 @@ public partial class SalesDocumentLinksWindow : Window
         EmptyLogText.Visibility = operationRows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         UpdateSummary(order, _documentRows, sourceCaption, normalizedOrderNumber, customerId);
+    }
+
+    private void ApplyDocumentIndicators(IEnumerable<DocumentLinkGridRow> rows, Guid salesOrderId, string salesOrderNumber)
+    {
+        var paidAmount = _salesWorkspace.CashReceipts
+            .Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, salesOrderId, salesOrderNumber))
+            .Where(item => IsActiveCashReceiptStatus(item.Status))
+            .Sum(item => item.Amount);
+
+        foreach (var row in rows)
+        {
+            var indicator = row.Category switch
+            {
+                "order" or "invoice" => BuildPaymentIndicator(row.Amount, paidAmount, row.Status),
+                "shipment" => BuildShipmentIndicator(row.Status),
+                "cash" => BuildCashReceiptIndicator(row.Status),
+                "return" => BuildReturnIndicator(row.Status),
+                _ => new DocumentIndicator(NeutralIndicatorBrush, Visibility.Collapsed, string.Empty)
+            };
+
+            row.IndicatorBrush = indicator.Brush;
+            row.IndicatorFillVisibility = indicator.FillVisibility;
+            row.IndicatorText = indicator.Text;
+        }
     }
 
     private SalesOrderRecord? FindOrder(Guid orderId, string orderNumber)
@@ -257,6 +305,85 @@ public partial class SalesDocumentLinksWindow : Window
         MessageBox.Show(this, "Список связанных документов скопирован.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
+    private void HandleOpenClick(object sender, RoutedEventArgs e)
+    {
+        OpenSelectedDocument(showSelectionWarning: true);
+    }
+
+    private void HandleDocumentsGridDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        OpenSelectedDocument(showSelectionWarning: false);
+    }
+
+    private void OpenSelectedDocument(bool showSelectionWarning)
+    {
+        if (DocumentsGrid.SelectedItem is not DocumentLinkGridRow row)
+        {
+            if (showSelectionWarning)
+            {
+                MessageBox.Show(this, "Выберите документ для открытия.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+
+            return;
+        }
+
+        switch (row.Category)
+        {
+            case "order":
+                if (_salesWorkspace.Orders.FirstOrDefault(item => item.Id == row.Id) is { } order)
+                {
+                    var dialog = new SalesDocumentEditorWindow(_salesWorkspace, order);
+                    ShowChildDialog(dialog, () => dialog.ResultOrder is not null, () => _salesWorkspace.UpdateOrder(dialog.ResultOrder!));
+                }
+                break;
+            case "invoice":
+                if (_salesWorkspace.Invoices.FirstOrDefault(item => item.Id == row.Id) is { } invoice)
+                {
+                    var dialog = new SalesDocumentEditorWindow(_salesWorkspace, invoice);
+                    ShowChildDialog(dialog, () => dialog.ResultInvoice is not null, () => _salesWorkspace.UpdateInvoice(dialog.ResultInvoice!));
+                }
+                break;
+            case "shipment":
+                if (_salesWorkspace.Shipments.FirstOrDefault(item => item.Id == row.Id) is { } shipment)
+                {
+                    var dialog = new SalesDocumentEditorWindow(_salesWorkspace, shipment);
+                    ShowChildDialog(dialog, () => dialog.ResultShipment is not null, () => _salesWorkspace.UpdateShipment(dialog.ResultShipment!));
+                }
+                break;
+            case "return":
+                if (_salesWorkspace.Returns.FirstOrDefault(item => item.Id == row.Id) is { } returnDocument)
+                {
+                    var dialog = new SalesReturnEditorWindow(_salesWorkspace, returnDocument);
+                    ShowChildDialog(dialog, () => dialog.ResultReturn is not null, () => _salesWorkspace.UpdateReturn(dialog.ResultReturn!));
+                }
+                break;
+            case "cash":
+                MessageBox.Show(this, "Поступление в кассу пока доступно в этой цепочке документов.", Title, MessageBoxButton.OK, MessageBoxImage.Information);
+                break;
+        }
+
+        ReloadDocumentChain();
+    }
+
+    private void ShowChildDialog(Window dialog, Func<bool> hasResult, Action save)
+    {
+        dialog.Owner = this;
+        if (dialog.ShowDialog() != true || !hasResult())
+        {
+            return;
+        }
+
+        try
+        {
+            save();
+        }
+        catch (InvalidOperationException exception)
+        {
+            MessageBox.Show(this, exception.Message, Title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void HandleCloseClick(object sender, RoutedEventArgs e)
     {
         Close();
@@ -341,7 +468,7 @@ public partial class SalesDocumentLinksWindow : Window
             AmountText = FormatMoney(returnDocument.TotalAmount, returnDocument.CurrencyCode),
             Status = Clean(returnDocument.Status),
             Relation = "Возврат по заказу",
-            Comment = Clean(returnDocument.Reason),
+            Comment = string.IsNullOrWhiteSpace(Clean(returnDocument.Comment)) ? Clean(returnDocument.Reason) : Clean(returnDocument.Comment),
             SortOrder = 40
         };
     }
@@ -371,6 +498,84 @@ public partial class SalesDocumentLinksWindow : Window
     {
         return orderId != Guid.Empty && documentOrderId == orderId
             || !string.IsNullOrWhiteSpace(orderNumber) && SameText(documentOrderNumber, orderNumber);
+    }
+
+    private static bool IsActiveCashReceiptStatus(string status)
+    {
+        return !Clean(status).Equals("Отменено", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static DocumentIndicator BuildPaymentIndicator(decimal totalAmount, decimal paidAmount, string status)
+    {
+        var cleanStatus = Clean(status);
+        if (totalAmount > 0m && paidAmount >= totalAmount)
+        {
+            return new DocumentIndicator(PaidIndicatorBrush, Visibility.Visible, "Оплачено полностью");
+        }
+
+        if (paidAmount > 0m || cleanStatus.Contains("част", StringComparison.OrdinalIgnoreCase))
+        {
+            return new DocumentIndicator(PartialIndicatorBrush, Visibility.Visible, $"Оплачено частично: {paidAmount:N2} ₽");
+        }
+
+        if (IsPaidStatus(cleanStatus))
+        {
+            return new DocumentIndicator(PaidIndicatorBrush, Visibility.Visible, "Оплачено по статусу документа");
+        }
+
+        return new DocumentIndicator(EmptyIndicatorBrush, Visibility.Collapsed, "Оплаты нет");
+    }
+
+    private static bool IsPaidStatus(string status)
+    {
+        var cleanStatus = Clean(status);
+        return cleanStatus.Equals("Оплачен", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Equals("Оплачено", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("полностью оплачен", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static DocumentIndicator BuildShipmentIndicator(string status)
+    {
+        var cleanStatus = Clean(status);
+        if (cleanStatus.Contains("отгруж", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("достав", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("выполн", StringComparison.OrdinalIgnoreCase))
+        {
+            return new DocumentIndicator(PaidIndicatorBrush, Visibility.Visible, "Отгружено полностью");
+        }
+
+        if (cleanStatus.Contains("част", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("сбор", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("пути", StringComparison.OrdinalIgnoreCase))
+        {
+            return new DocumentIndicator(PartialIndicatorBrush, Visibility.Visible, "Отгрузка в работе");
+        }
+
+        if (cleanStatus.Contains("отмен", StringComparison.OrdinalIgnoreCase))
+        {
+            return new DocumentIndicator(NeutralIndicatorBrush, Visibility.Collapsed, "Отгрузка отменена");
+        }
+
+        return new DocumentIndicator(NeutralIndicatorBrush, Visibility.Collapsed, "Отгрузка не проведена");
+    }
+
+    private static DocumentIndicator BuildCashReceiptIndicator(string status)
+    {
+        return IsActiveCashReceiptStatus(status)
+            ? new DocumentIndicator(PaidIndicatorBrush, Visibility.Visible, "Оплата учтена")
+            : new DocumentIndicator(NeutralIndicatorBrush, Visibility.Collapsed, "Оплата отменена");
+    }
+
+    private static DocumentIndicator BuildReturnIndicator(string status)
+    {
+        var cleanStatus = Clean(status);
+        if (cleanStatus.Contains("пров", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("выполн", StringComparison.OrdinalIgnoreCase))
+        {
+            return new DocumentIndicator(PaidIndicatorBrush, Visibility.Visible, "Возврат проведен");
+        }
+
+        return new DocumentIndicator(PartialIndicatorBrush, Visibility.Visible, "Возврат в работе");
     }
 
     private static bool SameText(string? left, string? right)
@@ -436,7 +641,15 @@ public partial class SalesDocumentLinksWindow : Window
         public string Comment { get; init; } = string.Empty;
 
         public int SortOrder { get; init; }
+
+        public Brush IndicatorBrush { get; set; } = NeutralIndicatorBrush;
+
+        public Visibility IndicatorFillVisibility { get; set; } = Visibility.Collapsed;
+
+        public string IndicatorText { get; set; } = string.Empty;
     }
+
+    private sealed record DocumentIndicator(Brush Brush, Visibility FillVisibility, string Text);
 
     public sealed class OperationLogGridRow
     {

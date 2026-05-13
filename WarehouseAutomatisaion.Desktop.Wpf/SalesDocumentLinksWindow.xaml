@@ -71,12 +71,18 @@
                            TextWrapping="Wrap" />
             </StackPanel>
 
-            <Button Grid.Column="1"
-                    Content="Копировать список"
-                    Style="{StaticResource DialogSecondaryButtonStyle}"
-                    Margin="18,2,0,0"
-                    VerticalAlignment="Top"
-                    Click="HandleCopyClick" />
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        Margin="18,2,0,0"
+                        VerticalAlignment="Top">
+                <Button Content="Открыть"
+                        Style="{StaticResource DialogSecondaryButtonStyle}"
+                        Margin="0,0,10,0"
+                        Click="HandleOpenClick" />
+                <Button Content="Копировать список"
+                        Style="{StaticResource DialogSecondaryButtonStyle}"
+                        Click="HandleCopyClick" />
+            </StackPanel>
         </Grid>
 
         <Grid Grid.Row="1" Margin="0,20,0,18">
@@ -127,8 +133,27 @@
                 Style="{StaticResource DialogCardStyle}"
                 Padding="0">
             <DataGrid x:Name="DocumentsGrid"
-                      AlternatingRowBackground="#F8FAFF">
+                      AlternatingRowBackground="#F8FAFF"
+                      MouseDoubleClick="HandleDocumentsGridDoubleClick">
                 <DataGrid.Columns>
+                    <DataGridTemplateColumn Width="34">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Grid Width="18"
+                                      Height="18"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      ToolTip="{Binding IndicatorText}">
+                                    <Ellipse Stroke="{Binding IndicatorBrush}"
+                                             StrokeThickness="2"
+                                             Fill="Transparent" />
+                                    <Ellipse Margin="4"
+                                             Fill="{Binding IndicatorBrush}"
+                                             Visibility="{Binding IndicatorFillVisibility}" />
+                                </Grid>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Документ" Binding="{Binding Kind}" Width="150" />
                     <DataGridTextColumn Header="Номер" Binding="{Binding Number}" Width="145" />
                     <DataGridTextColumn Header="Дата" Binding="{Binding DateText}" Width="110" />

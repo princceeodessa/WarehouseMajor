@@ -495,7 +495,7 @@ public sealed class SalesWorkspace
             Id = Guid.NewGuid(),
             Code = GetNextCustomerCode(),
             CurrencyCode = Currencies.First(),
-            Manager = Managers.First(),
+            Manager = GetDefaultManager(),
             Status = CustomerStatuses.First()
         };
     }
@@ -518,9 +518,20 @@ public sealed class SalesWorkspace
             CurrencyCode = customer?.CurrencyCode ?? Currencies.First(),
             Warehouse = Warehouses.First(),
             Status = OrderStatuses.First(),
-            Manager = customer?.Manager ?? Managers.First(),
+            Manager = GetDefaultManager(),
             Lines = new BindingList<SalesOrderLineRecord>()
         };
+    }
+
+    private string GetDefaultManager()
+    {
+        if (!string.IsNullOrWhiteSpace(CurrentOperator))
+        {
+            return CurrentOperator.Trim();
+        }
+
+        return Managers.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item))?.Trim()
+            ?? Environment.UserName;
     }
 
     public SalesInvoiceRecord CreateInvoiceDraftFromOrder(Guid orderId)
@@ -619,8 +630,8 @@ public sealed class SalesWorkspace
             Warehouse = order.Warehouse,
             Status = "Черновик",
             Manager = order.Manager,
-            Reason = "Черновик возврата по заказу",
-            Comment = $"Основание: заказ {order.Number}",
+            Reason = string.Empty,
+            Comment = string.Empty,
             ManualDiscountPercent = order.ManualDiscountPercent,
             ManualDiscountAmount = order.ManualDiscountAmount,
             Lines = CloneLines(order.Lines)
@@ -646,8 +657,8 @@ public sealed class SalesWorkspace
             Warehouse = shipment.Warehouse,
             Status = "Черновик",
             Manager = shipment.Manager,
-            Reason = "Черновик возврата по отгрузке",
-            Comment = $"Основание: отгрузка {shipment.Number}",
+            Reason = string.Empty,
+            Comment = string.Empty,
             ManualDiscountPercent = shipment.ManualDiscountPercent,
             ManualDiscountAmount = shipment.ManualDiscountAmount,
             Lines = CloneLines(shipment.Lines)

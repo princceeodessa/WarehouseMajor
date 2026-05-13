@@ -77,7 +77,7 @@
                     <ComboBox x:Name="CustomerComboBox"
                               Style="{StaticResource InputStyle}"
                               IsEditable="True"
-                              IsTextSearchEnabled="True"
+                              IsTextSearchEnabled="False"
                               StaysOpenOnEdit="True"
                               SelectionChanged="HandleCustomerSelectionChanged"
                               LostFocus="HandleCustomerLookupLostFocus" />
@@ -148,8 +148,27 @@
                           Height="112"
                           AutoGenerateColumns="False"
                           ScrollViewer.VerticalScrollBarVisibility="Hidden"
-                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          MouseDoubleClick="HandleRelatedDocumentsGridDoubleClick">
                     <DataGrid.Columns>
+                        <DataGridTemplateColumn Width="34">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid Width="18"
+                                          Height="18"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          ToolTip="{Binding IndicatorText}">
+                                        <Ellipse Stroke="{Binding IndicatorBrush}"
+                                                 StrokeThickness="2"
+                                                 Fill="Transparent" />
+                                        <Ellipse Margin="4"
+                                                 Fill="{Binding IndicatorBrush}"
+                                                 Visibility="{Binding IndicatorFillVisibility}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Документ" Binding="{Binding Document}" Width="1.5*" />
                         <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="0.75*" />
                         <DataGridTextColumn Header="Сумма" Binding="{Binding AmountDisplay}" Width="0.9*" />
@@ -157,12 +176,18 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <TextBlock x:Name="RelatedDocumentsSummaryText"
-                           Grid.Column="2"
-                           Margin="18,0,0,0"
-                           FontSize="12.5"
-                           Foreground="#6E7B98"
-                           TextWrapping="Wrap" />
+                <StackPanel Grid.Column="2" Margin="18,0,0,0">
+                    <TextBlock x:Name="RelatedDocumentsSummaryText"
+                               FontSize="12.5"
+                               Foreground="#6E7B98"
+                               TextWrapping="Wrap" />
+                    <Button Content="Открыть"
+                            Width="116"
+                            Margin="0,10,0,0"
+                            HorizontalAlignment="Left"
+                            Style="{StaticResource GhostButtonStyle}"
+                            Click="HandleOpenRelatedDocumentClick" />
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -190,12 +215,23 @@
                           AutoGenerateColumns="False"
                           IsReadOnly="False"
                           CanUserAddRows="False"
+                          MinRowHeight="44"
                           CellEditEnding="HandleLinesGridCellEditEnding"
                           CurrentCellChanged="HandleLinesGridCurrentCellChanged"
                           MouseDoubleClick="HandleLinesGridDoubleClick">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Код" Binding="{Binding ItemCode}" Width="1*" />
-                        <DataGridTextColumn Header="Товар" Binding="{Binding ItemName}" Width="2.8*" />
+                        <DataGridTemplateColumn Header="Товар" Width="3.2*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding ItemName}"
+                                               TextWrapping="Wrap"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding ItemName}"
+                                               Padding="0,2" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Ед." Binding="{Binding Unit}" Width="0.6*" />
                         <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityDisplay}" Width="0.9*" />
                         <DataGridTextColumn Header="Цена" Binding="{Binding PriceDisplay}" Width="1*" />
@@ -205,24 +241,27 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="4" Margin="0,18,0,0">
+        <Grid Grid.Row="4" Margin="0,18,0,28">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="430" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0">
+            <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,12">
                 <TextBlock x:Name="TotalText" FontSize="14" FontWeight="SemiBold" Foreground="#17213A" />
                 <TextBlock x:Name="ValidationText" Margin="0,5,0,0" Foreground="#D92D20" />
             </StackPanel>
 
-            <Grid Grid.Column="1" Margin="18,0,18,0" VerticalAlignment="Top">
+            <Grid Grid.Row="1" Grid.Column="0" HorizontalAlignment="Left" MaxWidth="500">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="130" />
-                    <ColumnDefinition Width="112" />
-                    <ColumnDefinition Width="74" />
-                    <ColumnDefinition Width="112" />
+                    <ColumnDefinition Width="138" />
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition Width="126" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -262,7 +301,13 @@
                          IsReadOnly="True" />
             </Grid>
 
-            <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="18,0,0,0">
+                <Button x:Name="PrintButton"
+                        Content="Печать"
+                        Width="120"
+                        Style="{StaticResource GhostButtonStyle}"
+                        Margin="0,0,10,0"
+                        Click="HandlePrintButtonClick" />
                 <Button Content="Отмена"
                         Width="120"
                         Style="{StaticResource GhostButtonStyle}"

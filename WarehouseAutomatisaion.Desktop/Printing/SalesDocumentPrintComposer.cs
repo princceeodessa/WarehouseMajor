@@ -11,7 +11,7 @@ public static class SalesDocumentPrintComposer
 
     public static string BuildOrderTitle(SalesOrderRecord order)
     {
-        return $"Заказ покупателя № {Display(order.Number)} от {FormatLongDate(order.OrderDate)}";
+        return TextMojibakeFixer.NormalizeText($"Заказ покупателя № {Display(order.Number)} от {FormatLongDate(order.OrderDate)}");
     }
 
     public static string DisplayOrderText(string? value)
@@ -36,7 +36,7 @@ public static class SalesDocumentPrintComposer
 
     public static string BuildOrderHtml(SalesOrderRecord order)
     {
-        var title = $"Заказ покупателя № {Display(order.Number)} от {FormatLongDate(order.OrderDate)}";
+        var title = BuildOrderTitle(order);
         var lines = order.Lines.ToArray();
         var builder = new StringBuilder();
 
@@ -99,7 +99,7 @@ public static class SalesDocumentPrintComposer
                 builder.AppendLine("<td class=\"item\">" + Encode(Display(line.ItemName)) + "</td>");
                 builder.AppendLine("<td>" + Encode(Display(line.ItemCode)) + "</td>");
                 builder.AppendLine("<td class=\"num\">" + Encode(FormatQuantity(line.Quantity)) + "</td>");
-                builder.AppendLine("<td>" + Encode(Display(line.Unit)) + "</td>");
+                builder.AppendLine("<td>" + Encode(SalesDocumentDisplayFormatter.NormalizeUnit(line.Unit, line.ItemName)) + "</td>");
                 builder.AppendLine("<td class=\"num\">" + Encode(FormatMoney(line.Price)) + "</td>");
                 builder.AppendLine("<td class=\"num\">" + Encode(FormatMoney(line.Amount)) + "</td>");
                 builder.AppendLine("</tr>");
@@ -149,7 +149,7 @@ public static class SalesDocumentPrintComposer
             invoice.Lines.Select(line => new PrintLine(
                 line.ItemCode,
                 line.ItemName,
-                line.Unit,
+                SalesDocumentDisplayFormatter.NormalizeUnit(line.Unit, line.ItemName),
                 line.Quantity,
                 line.Price,
                 line.Amount)),
@@ -177,7 +177,7 @@ public static class SalesDocumentPrintComposer
             shipment.Lines.Select(line => new PrintLine(
                 line.ItemCode,
                 line.ItemName,
-                line.Unit,
+                SalesDocumentDisplayFormatter.NormalizeUnit(line.Unit, line.ItemName),
                 line.Quantity,
                 line.Price,
                 line.Amount)),
@@ -285,7 +285,7 @@ public static class SalesDocumentPrintComposer
                 builder.AppendLine("<tr>");
                 builder.AppendLine("<td>" + Encode(line.Code) + "</td>");
                 builder.AppendLine("<td>" + Encode(line.Name) + "</td>");
-                builder.AppendLine("<td>" + Encode(line.Unit) + "</td>");
+                builder.AppendLine("<td>" + Encode(SalesDocumentDisplayFormatter.NormalizeUnit(line.Unit, line.Name)) + "</td>");
                 builder.AppendLine("<td class=\"num\">" + Encode(line.Quantity.ToString("N2", RuCulture)) + "</td>");
                 builder.AppendLine("<td class=\"num\">" + Encode(line.Price.ToString("N2", RuCulture)) + "</td>");
                 builder.AppendLine("<td class=\"num\">" + Encode(line.Amount.ToString("N2", RuCulture)) + "</td>");

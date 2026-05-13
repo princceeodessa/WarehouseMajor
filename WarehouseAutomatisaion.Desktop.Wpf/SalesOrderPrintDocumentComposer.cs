@@ -4,6 +4,7 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using WarehouseAutomatisaion.Desktop.Data;
 using WarehouseAutomatisaion.Desktop.Printing;
+using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
@@ -45,7 +46,7 @@ internal static class SalesOrderPrintDocumentComposer
 
     private static void AddTitle(FlowDocument document, string title)
     {
-        document.Blocks.Add(new Paragraph(new Run(title))
+        document.Blocks.Add(new Paragraph(new Run(Display(title)))
         {
             FontSize = 21,
             FontWeight = FontWeights.Bold,
@@ -59,7 +60,7 @@ internal static class SalesOrderPrintDocumentComposer
 
     private static void AddPlainLine(FlowDocument document, string text)
     {
-        document.Blocks.Add(new Paragraph(new Run(text))
+        document.Blocks.Add(new Paragraph(new Run(Display(text)))
         {
             FontSize = 12,
             Margin = new Thickness(4, 0, 0, 12)
@@ -73,9 +74,9 @@ internal static class SalesOrderPrintDocumentComposer
             FontSize = 14,
             Margin = new Thickness(4, 0, 0, 7)
         };
-        paragraph.Inlines.Add(new Run(label));
+        paragraph.Inlines.Add(new Run(Display(label)));
         paragraph.Inlines.Add(new Run("  "));
-        paragraph.Inlines.Add(new Run(value) { FontWeight = FontWeights.Bold });
+        paragraph.Inlines.Add(new Run(Display(value)) { FontWeight = FontWeights.Bold });
         document.Blocks.Add(paragraph);
     }
 
@@ -130,7 +131,7 @@ internal static class SalesOrderPrintDocumentComposer
             row.Cells.Add(BodyCell(SalesDocumentPrintComposer.DisplayOrderText(line.ItemName), TextAlignment.Left));
             row.Cells.Add(BodyCell(SalesDocumentPrintComposer.DisplayOrderText(line.ItemCode), TextAlignment.Left));
             row.Cells.Add(BodyCell(SalesDocumentPrintComposer.FormatOrderQuantity(line.Quantity), TextAlignment.Right));
-            row.Cells.Add(BodyCell(SalesDocumentPrintComposer.DisplayOrderText(line.Unit), TextAlignment.Left));
+            row.Cells.Add(BodyCell(SalesDocumentDisplayFormatter.NormalizeUnit(line.Unit, line.ItemName), TextAlignment.Left));
             row.Cells.Add(BodyCell(SalesDocumentPrintComposer.FormatOrderMoney(line.Price), TextAlignment.Right));
             row.Cells.Add(BodyCell(SalesDocumentPrintComposer.FormatOrderMoney(line.Amount), TextAlignment.Right));
         }
@@ -156,7 +157,7 @@ internal static class SalesOrderPrintDocumentComposer
             Padding = new Thickness(3, 12, 16, 0),
             BorderThickness = new Thickness(0)
         };
-        left.Blocks.Add(new Paragraph(new Run($"Всего наименований {lineCount:N0}, на сумму {SalesDocumentPrintComposer.FormatOrderMoney(order.TotalAmount)} руб."))
+        left.Blocks.Add(new Paragraph(new Run(Display($"Всего наименований {lineCount:N0}, на сумму {SalesDocumentPrintComposer.FormatOrderMoney(order.TotalAmount)} руб.")))
         {
             Margin = new Thickness(0, 0, 0, 2),
             FontSize = 12
@@ -196,7 +197,7 @@ internal static class SalesOrderPrintDocumentComposer
 
         var group = new TableRowGroup();
         table.RowGroups.Add(group);
-        group.Rows.Add(SignatureRow("Исполнитель", SalesDocumentPrintComposer.DisplayOrderText(order.Manager)));
+        group.Rows.Add(SignatureRow("Исполнитель", SalesManagerDisplayResolver.Resolve(order.Manager)));
         group.Rows.Add(SignatureRow("Заказчик", string.Empty));
         return table;
     }
@@ -204,7 +205,7 @@ internal static class SalesOrderPrintDocumentComposer
     private static TableRow SignatureRow(string title, string name)
     {
         var row = new TableRow();
-        row.Cells.Add(new TableCell(new Paragraph(new Run(title))
+        row.Cells.Add(new TableCell(new Paragraph(new Run(Display(title)))
         {
             FontSize = 14,
             FontWeight = FontWeights.Bold,
@@ -228,9 +229,9 @@ internal static class SalesOrderPrintDocumentComposer
             FontWeight = FontWeights.Bold,
             TextAlignment = TextAlignment.Right
         };
-        paragraph.Inlines.Add(new Run(label));
+        paragraph.Inlines.Add(new Run(Display(label)));
         paragraph.Inlines.Add(new Run("  "));
-        paragraph.Inlines.Add(new Run(value));
+        paragraph.Inlines.Add(new Run(Display(value)));
         return paragraph;
     }
 
@@ -252,7 +253,7 @@ internal static class SalesOrderPrintDocumentComposer
         int columnSpan = 1,
         double lineHeight = 12)
     {
-        return new TableCell(new Paragraph(new Run(text))
+        return new TableCell(new Paragraph(new Run(Display(text)))
         {
             Margin = new Thickness(0),
             FontSize = fontSize,
@@ -275,7 +276,7 @@ internal static class SalesOrderPrintDocumentComposer
             Padding = new Thickness(10, 8, 10, 0),
             BorderThickness = new Thickness(0)
         };
-        cell.Blocks.Add(new Paragraph(new Run(value))
+        cell.Blocks.Add(new Paragraph(new Run(Display(value)))
         {
             Margin = new Thickness(0, 0, 0, 0),
             Padding = new Thickness(0, 0, 0, 2),
@@ -285,7 +286,7 @@ internal static class SalesOrderPrintDocumentComposer
             TextAlignment = TextAlignment.Center,
             LineHeight = 20
         });
-        cell.Blocks.Add(new Paragraph(new Run(caption))
+        cell.Blocks.Add(new Paragraph(new Run(Display(caption)))
         {
             Margin = new Thickness(0),
             FontSize = 7,
@@ -297,5 +298,10 @@ internal static class SalesOrderPrintDocumentComposer
     private static bool IsUsable(double value)
     {
         return !double.IsNaN(value) && !double.IsInfinity(value) && value > 0;
+    }
+
+    private static string Display(string? value)
+    {
+        return TextMojibakeFixer.NormalizeText(value);
     }
 }

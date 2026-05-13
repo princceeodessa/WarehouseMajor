@@ -484,7 +484,26 @@ public sealed class SalesWorkspaceStore
         changed |= RemoveEmptyOrphanOrders(workspace);
         changed |= RepairCustomerLinks(workspace);
         changed |= EnsureRelatedOrders(workspace);
+        changed |= NormalizeSalesLineUnits(workspace);
         changed |= EnrichCatalogItemsFromDocuments(workspace);
+        return changed;
+    }
+
+    private static bool NormalizeSalesLineUnits(SalesWorkspace workspace)
+    {
+        var changed = false;
+        foreach (var line in EnumerateSalesLines(workspace))
+        {
+            var normalized = SalesDocumentDisplayFormatter.NormalizeUnit(line.Unit, line.ItemName);
+            if (string.Equals(line.Unit, normalized, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            line.Unit = normalized;
+            changed = true;
+        }
+
         return changed;
     }
 
@@ -692,7 +711,7 @@ public sealed class SalesWorkspaceStore
             items.Add(new SalesCatalogItemOption(
                 line.ItemCode,
                 string.IsNullOrWhiteSpace(line.ItemName) ? line.ItemCode : line.ItemName,
-                string.IsNullOrWhiteSpace(line.Unit) ? "шт" : line.Unit,
+                SalesDocumentDisplayFormatter.NormalizeUnit(line.Unit, line.ItemName),
                 line.Price > 0m ? line.Price : 0.01m));
             codes.Add(line.ItemCode);
             changed = true;

@@ -29,6 +29,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     private const string AllCategoriesFilter = "Все категории";
     private const string AllWarehousesFilter = "Все склады";
     private const string AllSuppliersFilter = "Все поставщики";
+    private const string AllPriceTypesFilter = "Все виды цен";
     private const string AllStatusesFilter = "Все статусы";
 
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
@@ -342,15 +343,72 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                     .First(),
                 StringComparer.OrdinalIgnoreCase);
 
+        var priceTypesByItem = BuildPriceTypesByItemKey();
+
         return BuildVisibleCatalogItems()
             .OrderBy(item => Ui(item.Name), StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(item => Ui(item.Code), StringComparer.OrdinalIgnoreCase)
             .Select(item =>
             {
                 stockByCode.TryGetValue(Ui(item.Code), out var stock);
-                return ProductRowViewModel.Create(item, stock, ResolveProductCellBalances(item));
+                return ProductRowViewModel.Create(item, stock, ResolveProductCellBalances(item), ResolvePriceTypes(item, priceTypesByItem));
             })
             .ToArray();
+    }
+
+    private Dictionary<string, SortedSet<string>> BuildPriceTypesByItemKey()
+    {
+        var result = new Dictionary<string, SortedSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var document in _catalogWorkspace.PriceRegistrations)
+        {
+            var priceType = Ui(document.PriceTypeName);
+            if (string.IsNullOrWhiteSpace(priceType))
+            {
+                continue;
+            }
+
+            foreach (var line in document.Lines)
+            {
+                AddPriceType(BuildCatalogItemKey(line.ItemCode, line.ItemName), priceType);
+            }
+        }
+
+        var defaultPriceType = Ui(_catalogWorkspace.GetDefaultPriceTypeName());
+        if (!string.IsNullOrWhiteSpace(defaultPriceType))
+        {
+            foreach (var item in _catalogWorkspace.Items.Where(item => item.DefaultPrice > 0m))
+            {
+                AddPriceType(BuildCatalogItemKey(item.Code, item.Name), defaultPriceType);
+            }
+        }
+
+        return result;
+
+        void AddPriceType(string key, string priceType)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return;
+            }
+
+            if (!result.TryGetValue(key, out var values))
+            {
+                values = new SortedSet<string>(StringComparer.CurrentCultureIgnoreCase);
+                result[key] = values;
+            }
+
+            values.Add(priceType);
+        }
+    }
+
+    private static IReadOnlyList<string> ResolvePriceTypes(
+        CatalogItemRecord item,
+        IReadOnlyDictionary<string, SortedSet<string>> priceTypesByItem)
+    {
+        return priceTypesByItem.TryGetValue(BuildCatalogItemKey(item.Code, item.Name), out var values)
+            ? values.ToArray()
+            : Array.Empty<string>();
     }
 
     private IReadOnlyList<WarehouseCellBalanceRecord> ResolveProductCellBalances(CatalogItemRecord item)
@@ -485,11 +543,15 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         CategoryFilterCombo.ItemsSource = BuildOptions(AllCategoriesFilter, _allProducts.Select(item => item.Category));
         WarehouseFilterCombo.ItemsSource = BuildOptions(AllWarehousesFilter, _allProducts.Select(item => item.Warehouse));
         SupplierFilterCombo.ItemsSource = BuildOptions(AllSuppliersFilter, _allProducts.Select(item => item.Supplier));
+        PriceTypeFilterCombo.ItemsSource = BuildOptions(
+            AllPriceTypesFilter,
+            _catalogWorkspace.PriceTypes.Select(item => item.Name).Concat(_allProducts.SelectMany(item => item.PriceTypes)));
         StatusFilterCombo.ItemsSource = BuildOptions(AllStatusesFilter, _allProducts.Select(item => item.Status));
 
         CategoryFilterCombo.SelectedIndex = 0;
         WarehouseFilterCombo.SelectedIndex = 0;
         SupplierFilterCombo.SelectedIndex = 0;
+        PriceTypeFilterCombo.SelectedIndex = 0;
         StatusFilterCombo.SelectedIndex = 0;
 
         _suppressFilterEvents = false;
@@ -513,6 +575,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         var category = Ui(CategoryFilterCombo.SelectedItem as string);
         var warehouse = Ui(WarehouseFilterCombo.SelectedItem as string);
         var supplier = Ui(SupplierFilterCombo.SelectedItem as string);
+        var priceType = Ui(PriceTypeFilterCombo.SelectedItem as string);
         var status = Ui(StatusFilterCombo.SelectedItem as string);
         var onlyProblems = OnlyProblemsCheckBox.IsChecked == true;
         var onlyWithoutCells = OnlyWithoutCellsCheckBox.IsChecked == true;
@@ -522,6 +585,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             .Where(item => category == AllCategoriesFilter || item.Category.Equals(category, StringComparison.OrdinalIgnoreCase))
             .Where(item => warehouse == AllWarehousesFilter || item.Warehouse.Equals(warehouse, StringComparison.OrdinalIgnoreCase))
             .Where(item => supplier == AllSuppliersFilter || item.Supplier.Equals(supplier, StringComparison.OrdinalIgnoreCase))
+            .Where(item => string.IsNullOrWhiteSpace(priceType) || priceType == AllPriceTypesFilter || item.HasPriceType(priceType))
             .Where(item => status == AllStatusesFilter || item.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
             .Where(item => !onlyProblems || item.HasProblem)
             .Where(item => !onlyWithoutCells || item.MissingCellPlacement)
@@ -998,6 +1062,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         CategoryFilterCombo.SelectedIndex = 0;
         WarehouseFilterCombo.SelectedIndex = 0;
         SupplierFilterCombo.SelectedIndex = 0;
+        PriceTypeFilterCombo.SelectedIndex = 0;
         StatusFilterCombo.SelectedIndex = 0;
         OnlyProblemsCheckBox.IsChecked = false;
         OnlyWithoutCellsCheckBox.IsChecked = false;
@@ -2419,6 +2484,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             double transitBarWidth,
             IReadOnlyList<ProductCellPlacementViewModel> cellPlacements,
             string cellSummary,
+            IReadOnlyList<string> priceTypes,
             string searchText)
         {
             Record = record;
@@ -2444,6 +2510,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             TransitBarWidth = transitBarWidth;
             CellPlacements = cellPlacements;
             CellSummary = cellSummary;
+            PriceTypes = priceTypes;
             SearchText = searchText;
         }
 
@@ -2499,6 +2566,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
         public string CellSummary { get; }
 
+        public IReadOnlyList<string> PriceTypes { get; }
+
         public string SearchText { get; }
 
         public bool IsSelected
@@ -2530,6 +2599,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
         public string PriceDisplay => Price <= 0m ? "0 ₽" : $"{Price:N0} ₽";
 
+        public string PriceTypeSummary => PriceTypes.Count == 0 ? "-" : string.Join(", ", PriceTypes);
+
         public bool MissingPrice => Price <= 0m;
 
         public bool MissingBarcode => string.IsNullOrWhiteSpace(Barcode) || Barcode == "-";
@@ -2542,10 +2613,16 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
         public bool HasProblem => MissingPrice || MissingBarcode || MissingSupplier || LowStock || MissingCellPlacement;
 
+        public bool HasPriceType(string priceType)
+        {
+            return PriceTypes.Any(item => item.Equals(priceType, StringComparison.CurrentCultureIgnoreCase));
+        }
+
         public static ProductRowViewModel Create(
             CatalogItemRecord item,
             WarehouseStockBalanceRecord? stock,
-            IReadOnlyList<WarehouseCellBalanceRecord> cellBalances)
+            IReadOnlyList<WarehouseCellBalanceRecord> cellBalances,
+            IReadOnlyList<string> priceTypes)
         {
             var code = Fallback(Ui(item.Code), "ITEM");
             var name = Fallback(Ui(item.Name), "Без названия");
@@ -2575,7 +2652,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                 warehouse,
                 status,
                 barcode,
-                cellSummary);
+                cellSummary,
+                string.Join(" ", priceTypes));
 
             return new ProductRowViewModel(
                 item,
@@ -2601,6 +2679,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                 Scale(inTransit),
                 cellPlacements,
                 cellSummary,
+                priceTypes,
                 searchText);
 
             double Scale(decimal value)

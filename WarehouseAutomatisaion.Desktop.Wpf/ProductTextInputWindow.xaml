@@ -32,7 +32,7 @@
                   Grid.Row="2"
                   Style="{StaticResource DialogComboBoxStyle}"
                   IsEditable="True"
-                  IsTextSearchEnabled="True"
+                  IsTextSearchEnabled="False"
                   StaysOpenOnEdit="True"
                   MinWidth="560"
                   MaxDropDownHeight="360"

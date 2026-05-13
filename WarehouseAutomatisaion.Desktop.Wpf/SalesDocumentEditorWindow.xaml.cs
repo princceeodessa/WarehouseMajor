@@ -3,6 +3,9 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
 using WarehouseAutomatisaion.Desktop.Data;
 using WarehouseAutomatisaion.Desktop.Text;
 
@@ -18,6 +21,10 @@ public enum SalesDocumentEditorMode
 public partial class SalesDocumentEditorWindow : Window
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
+    private static readonly Brush PaidIndicatorBrush = new SolidColorBrush(Color.FromRgb(31, 164, 95));
+    private static readonly Brush PartialIndicatorBrush = new SolidColorBrush(Color.FromRgb(242, 154, 23));
+    private static readonly Brush EmptyIndicatorBrush = new SolidColorBrush(Color.FromRgb(205, 46, 46));
+    private static readonly Brush NeutralIndicatorBrush = new SolidColorBrush(Color.FromRgb(110, 124, 150));
 
     private readonly SalesWorkspace _workspace;
     private readonly SalesDocumentEditorMode _mode;
@@ -116,7 +123,12 @@ public partial class SalesDocumentEditorWindow : Window
         CustomerComboBox.ItemsSource = _customerOptions.Keys.ToArray();
         OrderComboBox.ItemsSource = _orderOptions.Keys.ToArray();
         WarehouseComboBox.ItemsSource = _workspace.Warehouses.Select(Ui).ToArray();
-        ManagerComboBox.ItemsSource = _workspace.Managers.Select(Ui).ToArray();
+        ManagerComboBox.ItemsSource = _workspace.Managers
+            .Select(SalesManagerDisplayResolver.Resolve)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
         CurrencyComboBox.ItemsSource = _workspace.Currencies.Select(Ui).ToArray();
     }
 
@@ -254,7 +266,7 @@ public partial class SalesDocumentEditorWindow : Window
         SelectComboValue(CustomerComboBox, BuildCustomerOption(order));
         SelectComboValue(StatusComboBox, Ui(order.Status));
         SelectComboValue(WarehouseComboBox, Ui(order.Warehouse));
-        SelectComboValue(ManagerComboBox, Ui(order.Manager));
+        SelectComboValue(ManagerComboBox, SalesManagerDisplayResolver.Resolve(order.Manager));
         SelectComboValue(CurrencyComboBox, Ui(order.CurrencyCode));
         CommentTextBox.Text = Ui(order.Comment);
         LoadDiscount(order.ManualDiscountPercent, order.ManualDiscountAmount);
@@ -268,7 +280,7 @@ public partial class SalesDocumentEditorWindow : Window
         SecondaryDatePicker.SelectedDate = invoice.DueDate == default ? DateTime.Today.AddDays(3) : invoice.DueDate;
         SelectComboValue(CustomerComboBox, BuildCustomerOption(invoice));
         SelectComboValue(StatusComboBox, Ui(invoice.Status));
-        SelectComboValue(ManagerComboBox, Ui(invoice.Manager));
+        SelectComboValue(ManagerComboBox, SalesManagerDisplayResolver.Resolve(invoice.Manager));
         SelectComboValue(CurrencyComboBox, Ui(invoice.CurrencyCode));
         CommentTextBox.Text = Ui(invoice.Comment);
         LoadDiscount(invoice.ManualDiscountPercent, invoice.ManualDiscountAmount);
@@ -282,7 +294,7 @@ public partial class SalesDocumentEditorWindow : Window
         SelectComboValue(CustomerComboBox, BuildCustomerOption(shipment));
         SelectComboValue(StatusComboBox, Ui(shipment.Status));
         SelectComboValue(WarehouseComboBox, Ui(shipment.Warehouse));
-        SelectComboValue(ManagerComboBox, Ui(shipment.Manager));
+        SelectComboValue(ManagerComboBox, SalesManagerDisplayResolver.Resolve(shipment.Manager));
         CarrierTextBox.Text = Ui(shipment.Carrier);
         CommentTextBox.Text = Ui(shipment.Comment);
         LoadDiscount(shipment.ManualDiscountPercent, shipment.ManualDiscountAmount);
@@ -318,7 +330,6 @@ public partial class SalesDocumentEditorWindow : Window
         }
 
         SelectComboValue(CustomerComboBox, BuildCustomerOption(customer));
-        SelectComboValue(ManagerComboBox, Ui(customer.Manager));
         SelectComboValue(CurrencyComboBox, Ui(customer.CurrencyCode));
     }
 
@@ -369,7 +380,8 @@ public partial class SalesDocumentEditorWindow : Window
         }
 
         var item = ResolveCatalogItem(catalog, selected);
-        var quantity = PromptDecimal("Количество", "Введите количество.", "1");
+        var unit = NormalizeUnit(item?.Unit, item?.Name);
+        var quantity = PromptDecimal("Количество", $"Введите количество ({unit}).", "1");
         if (quantity <= 0m)
         {
             return;
@@ -384,7 +396,7 @@ public partial class SalesDocumentEditorWindow : Window
         _lines.Add(new SalesLineEditorRow(
             item?.Code ?? selected.Trim(),
             item?.Name ?? selected.Trim(),
-            string.IsNullOrWhiteSpace(item?.Unit) ? "шт" : item.Unit,
+            unit,
             quantity,
             price));
         RefreshTotal();
@@ -400,7 +412,10 @@ public partial class SalesDocumentEditorWindow : Window
                 return;
             }
 
-            var quantity = PromptDecimal("Изменить позицию", "Введите новое количество.", row.Quantity.ToString("N2", RuCulture));
+            var quantity = PromptDecimal(
+                "Изменить позицию",
+                $"Введите новое количество ({NormalizeUnit(row.Unit, row.ItemName)}).",
+                row.Quantity.ToString("N2", RuCulture));
             if (quantity <= 0m)
             {
                 return;
@@ -608,6 +623,231 @@ public partial class SalesDocumentEditorWindow : Window
         }
     }
 
+    private void HandlePrintButtonClick(object sender, RoutedEventArgs e)
+    {
+        ValidationText.Text = string.Empty;
+
+        var menu = BuildPrintMenu();
+        if (menu.Items.Count == 0)
+        {
+            ValidationText.Text = "Нет доступных печатных форм для текущего документа.";
+            return;
+        }
+
+        PrintButton.ContextMenu = menu;
+        menu.PlacementTarget = PrintButton;
+        menu.Placement = PlacementMode.Top;
+        menu.IsOpen = true;
+    }
+
+    private ContextMenu BuildPrintMenu()
+    {
+        var menu = new ContextMenu();
+        var order = BuildCurrentOrderSnapshot() ?? ResolveRelatedOrder();
+        if (order is not null)
+        {
+            AddPrintMenuItem(menu, "Заказ покупателя", () => RecordsWorkspaceCatalog.PrintOrderCustomer(order));
+            AddPrintMenuItem(menu, "Лист сборки", () => RecordsWorkspaceCatalog.PrintOrderPicking(_workspace, order));
+        }
+
+        var currentInvoice = BuildCurrentInvoiceSnapshot();
+        if (currentInvoice is not null)
+        {
+            AddSeparator(menu);
+            AddPrintMenuItem(menu, $"Счет на оплату {currentInvoice.Number}", () => RecordsWorkspaceCatalog.PrintInvoice(currentInvoice));
+        }
+
+        var currentShipment = BuildCurrentShipmentSnapshot();
+        if (currentShipment is not null)
+        {
+            AddSeparator(menu);
+            AddPrintMenuItem(menu, $"Расходная накладная {currentShipment.Number}", () => RecordsWorkspaceCatalog.PrintShipment(currentShipment));
+        }
+
+        if (order is null)
+        {
+            return menu;
+        }
+
+        AddRelatedPrintItems(menu, order, currentInvoice?.Id, currentShipment?.Id);
+        return menu;
+    }
+
+    private void AddRelatedPrintItems(ContextMenu menu, SalesOrderRecord order, Guid? currentInvoiceId, Guid? currentShipmentId)
+    {
+        var hasRelatedItems = false;
+
+        foreach (var invoice in _workspace.Invoices
+                     .Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order) && item.Id != currentInvoiceId)
+                     .OrderByDescending(item => item.InvoiceDate))
+        {
+            if (!hasRelatedItems)
+            {
+                AddSeparator(menu);
+                hasRelatedItems = true;
+            }
+
+            var snapshot = invoice.Clone();
+            AddPrintMenuItem(menu, $"Счет на оплату {snapshot.Number}", () => RecordsWorkspaceCatalog.PrintInvoice(snapshot));
+        }
+
+        foreach (var shipment in _workspace.Shipments
+                     .Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order) && item.Id != currentShipmentId)
+                     .OrderByDescending(item => item.ShipmentDate))
+        {
+            if (!hasRelatedItems)
+            {
+                AddSeparator(menu);
+                hasRelatedItems = true;
+            }
+
+            var snapshot = shipment.Clone();
+            AddPrintMenuItem(menu, $"Расходная накладная {snapshot.Number}", () => RecordsWorkspaceCatalog.PrintShipment(snapshot));
+        }
+
+        foreach (var returnDocument in _workspace.Returns
+                     .Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order))
+                     .OrderByDescending(item => item.ReturnDate))
+        {
+            if (!hasRelatedItems)
+            {
+                AddSeparator(menu);
+                hasRelatedItems = true;
+            }
+
+            var snapshot = returnDocument.Clone();
+            AddPrintMenuItem(menu, $"Возврат {snapshot.Number}", () => RecordsWorkspaceCatalog.PrintReturn(snapshot));
+        }
+
+        foreach (var cashReceipt in _workspace.CashReceipts
+                     .Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order))
+                     .OrderByDescending(item => item.ReceiptDate))
+        {
+            if (!hasRelatedItems)
+            {
+                AddSeparator(menu);
+                hasRelatedItems = true;
+            }
+
+            var snapshot = cashReceipt.Clone();
+            AddPrintMenuItem(menu, $"ПКО {snapshot.Number}", () => RecordsWorkspaceCatalog.PrintCashReceipt(snapshot));
+        }
+    }
+
+    private static void AddSeparator(ContextMenu menu)
+    {
+        if (menu.Items.Count > 0 && menu.Items[^1] is not Separator)
+        {
+            menu.Items.Add(new Separator());
+        }
+    }
+
+    private static void AddPrintMenuItem(ContextMenu menu, string header, Action action)
+    {
+        var item = new MenuItem { Header = header };
+        item.Click += (_, _) => action();
+        menu.Items.Add(item);
+    }
+
+    private SalesOrderRecord? BuildCurrentOrderSnapshot()
+    {
+        if (_mode != SalesDocumentEditorMode.Order)
+        {
+            return null;
+        }
+
+        var customer = GetSelectedCustomer();
+        var order = _orderDraft?.Clone()
+                    ?? (customer is null ? null : _workspace.CreateOrderDraft(customer.Id));
+        if (order is null)
+        {
+            return null;
+        }
+
+        order.Number = NumberTextBox.Text.Trim();
+        order.OrderDate = DocumentDatePicker.SelectedDate?.Date ?? DateTime.Today;
+        if (customer is not null)
+        {
+            ApplyCustomer(order, customer);
+        }
+
+        order.Warehouse = WarehouseComboBox.Text.Trim();
+        order.Status = StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim();
+        order.Manager = ManagerComboBox.Text.Trim();
+        order.CurrencyCode = CurrencyComboBox.SelectedItem?.ToString() ?? CurrencyComboBox.Text.Trim();
+        order.Comment = CommentTextBox.Text.Trim();
+        order.ManualDiscountPercent = _discountPercentMode ? _manualDiscountPercent : 0m;
+        order.ManualDiscountAmount = _discountPercentMode ? 0m : _manualDiscountAmount;
+        order.Lines = ToSalesLines();
+        return order;
+    }
+
+    private SalesInvoiceRecord? BuildCurrentInvoiceSnapshot()
+    {
+        if (_mode != SalesDocumentEditorMode.Invoice)
+        {
+            return null;
+        }
+
+        var order = GetSelectedOrder();
+        var invoice = _invoiceDraft?.Clone()
+                      ?? (order is null ? null : _workspace.CreateInvoiceDraftFromOrder(order.Id));
+        if (invoice is null)
+        {
+            return null;
+        }
+
+        if (order is not null)
+        {
+            ApplyBaseOrder(invoice, order);
+        }
+
+        invoice.Number = NumberTextBox.Text.Trim();
+        invoice.InvoiceDate = DocumentDatePicker.SelectedDate?.Date ?? DateTime.Today;
+        invoice.DueDate = SecondaryDatePicker.SelectedDate?.Date ?? DateTime.Today.AddDays(3);
+        invoice.Status = StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim();
+        invoice.Manager = ManagerComboBox.Text.Trim();
+        invoice.CurrencyCode = CurrencyComboBox.SelectedItem?.ToString() ?? CurrencyComboBox.Text.Trim();
+        invoice.Comment = CommentTextBox.Text.Trim();
+        invoice.ManualDiscountPercent = _discountPercentMode ? _manualDiscountPercent : 0m;
+        invoice.ManualDiscountAmount = _discountPercentMode ? 0m : _manualDiscountAmount;
+        invoice.Lines = ToSalesLines();
+        return invoice;
+    }
+
+    private SalesShipmentRecord? BuildCurrentShipmentSnapshot()
+    {
+        if (_mode != SalesDocumentEditorMode.Shipment)
+        {
+            return null;
+        }
+
+        var order = GetSelectedOrder();
+        var shipment = _shipmentDraft?.Clone()
+                       ?? (order is null ? null : _workspace.CreateShipmentDraftFromOrder(order.Id));
+        if (shipment is null)
+        {
+            return null;
+        }
+
+        if (order is not null)
+        {
+            ApplyBaseOrder(shipment, order);
+        }
+
+        shipment.Number = NumberTextBox.Text.Trim();
+        shipment.ShipmentDate = DocumentDatePicker.SelectedDate?.Date ?? DateTime.Today;
+        shipment.Warehouse = WarehouseComboBox.Text.Trim();
+        shipment.Status = StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim();
+        shipment.Carrier = CarrierTextBox.Text.Trim();
+        shipment.Manager = ManagerComboBox.Text.Trim();
+        shipment.Comment = CommentTextBox.Text.Trim();
+        shipment.ManualDiscountPercent = _discountPercentMode ? _manualDiscountPercent : 0m;
+        shipment.ManualDiscountAmount = _discountPercentMode ? 0m : _manualDiscountAmount;
+        shipment.Lines = ToSalesLines();
+        return shipment;
+    }
+
     private void SaveOrder()
     {
         var customer = GetSelectedCustomer();
@@ -769,8 +1009,13 @@ public partial class SalesDocumentEditorWindow : Window
     private SalesCustomerRecord? GetSelectedCustomer()
     {
         var selected = CustomerComboBox.SelectedItem?.ToString();
-        var text = string.IsNullOrWhiteSpace(CustomerComboBox.Text) ? selected : CustomerComboBox.Text;
-        return ResolveCustomer(text);
+        var selectedCustomer = ResolveCustomer(selected);
+        if (selectedCustomer is not null)
+        {
+            return selectedCustomer;
+        }
+
+        return ResolveCustomer(CustomerComboBox.Text);
     }
 
     private bool ValidateLines()
@@ -909,16 +1154,32 @@ public partial class SalesDocumentEditorWindow : Window
             return exact;
         }
 
+        var tokens = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var matches = catalog
-            .Where(item =>
-                BuildCatalogOption(item).Contains(query, StringComparison.CurrentCultureIgnoreCase)
-                || Ui(item.Code).Contains(query, StringComparison.CurrentCultureIgnoreCase)
-                || Ui(item.Name).Contains(query, StringComparison.CurrentCultureIgnoreCase))
+            .Where(item => MatchesCatalogQuery(item, tokens))
             .OrderBy(item => Ui(item.Name), StringComparer.CurrentCultureIgnoreCase)
             .Take(2)
             .ToArray();
 
         return matches.Length == 1 ? matches[0] : null;
+    }
+
+    private static bool MatchesCatalogQuery(SalesCatalogItemOption item, IReadOnlyCollection<string> tokens)
+    {
+        if (tokens.Count == 0)
+        {
+            return false;
+        }
+
+        var option = BuildCatalogOption(item);
+        var code = Ui(item.Code);
+        var name = Ui(item.Name);
+        var unit = NormalizeUnit(item.Unit, item.Name);
+        return tokens.All(token =>
+            option.Contains(token, StringComparison.CurrentCultureIgnoreCase)
+            || code.Contains(token, StringComparison.CurrentCultureIgnoreCase)
+            || name.Contains(token, StringComparison.CurrentCultureIgnoreCase)
+            || unit.Contains(token, StringComparison.CurrentCultureIgnoreCase));
     }
 
     private void ReplaceLines(IEnumerable<SalesOrderLineRecord> lines)
@@ -929,7 +1190,7 @@ public partial class SalesDocumentEditorWindow : Window
             _lines.Add(new SalesLineEditorRow(
                 Ui(line.ItemCode),
                 Ui(line.ItemName),
-                string.IsNullOrWhiteSpace(line.Unit) ? "шт" : Ui(line.Unit),
+                NormalizeUnit(line.Unit, line.ItemName),
                 line.Quantity,
                 line.Price));
         }
@@ -949,7 +1210,7 @@ public partial class SalesDocumentEditorWindow : Window
             Id = Guid.NewGuid(),
             ItemCode = line.ItemCode,
             ItemName = line.ItemName,
-            Unit = line.Unit,
+            Unit = NormalizeUnit(line.Unit, line.ItemName),
             Quantity = line.Quantity,
             Price = line.Price
         }).ToList());
@@ -961,6 +1222,27 @@ public partial class SalesDocumentEditorWindow : Window
         order.CustomerCode = customer.Code;
         order.CustomerName = customer.Name;
         order.ContractNumber = customer.ContractNumber;
+    }
+
+    private static void ApplyBaseOrder(SalesInvoiceRecord invoice, SalesOrderRecord order)
+    {
+        invoice.SalesOrderId = order.Id;
+        invoice.SalesOrderNumber = order.Number;
+        invoice.CustomerId = order.CustomerId;
+        invoice.CustomerCode = order.CustomerCode;
+        invoice.CustomerName = order.CustomerName;
+        invoice.ContractNumber = order.ContractNumber;
+    }
+
+    private static void ApplyBaseOrder(SalesShipmentRecord shipment, SalesOrderRecord order)
+    {
+        shipment.SalesOrderId = order.Id;
+        shipment.SalesOrderNumber = order.Number;
+        shipment.CustomerId = order.CustomerId;
+        shipment.CustomerCode = order.CustomerCode;
+        shipment.CustomerName = order.CustomerName;
+        shipment.ContractNumber = order.ContractNumber;
+        shipment.CurrencyCode = order.CurrencyCode;
     }
 
     private string? PromptValue(string title, string prompt, string? initialValue = null, IEnumerable<string>? options = null)
@@ -1070,52 +1352,181 @@ public partial class SalesDocumentEditorWindow : Window
             return;
         }
 
+        var activeCashReceipts = _workspace.CashReceipts
+            .Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order))
+            .Where(item => IsActiveCashReceiptStatus(item.Status))
+            .ToArray();
+        var paidAmount = activeCashReceipts.Sum(item => item.Amount);
+        var orderIndicator = BuildPaymentIndicator(order.TotalAmount, paidAmount, order.Status);
         _relatedDocuments.Add(new SalesRelatedDocumentRow(
             $"Заказ {order.Number}",
             order.OrderDate.ToString("dd.MM.yyyy", RuCulture),
             FormatMoney(order.TotalAmount, order.CurrencyCode),
-            Ui(order.Status)));
+            Ui(order.Status),
+            "order",
+            order.Id,
+            orderIndicator.Brush,
+            orderIndicator.FillVisibility,
+            orderIndicator.Text));
 
         foreach (var invoice in _workspace.Invoices.Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order)).OrderByDescending(item => item.InvoiceDate))
         {
+            var indicator = BuildPaymentIndicator(invoice.TotalAmount, paidAmount, invoice.Status);
             _relatedDocuments.Add(new SalesRelatedDocumentRow(
                 $"Счет {invoice.Number}",
                 invoice.InvoiceDate.ToString("dd.MM.yyyy", RuCulture),
                 FormatMoney(invoice.TotalAmount, invoice.CurrencyCode),
-                Ui(invoice.Status)));
+                Ui(invoice.Status),
+                "invoice",
+                invoice.Id,
+                indicator.Brush,
+                indicator.FillVisibility,
+                indicator.Text));
         }
 
         foreach (var shipment in _workspace.Shipments.Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order)).OrderByDescending(item => item.ShipmentDate))
         {
+            var indicator = BuildShipmentIndicator(shipment.Status);
             _relatedDocuments.Add(new SalesRelatedDocumentRow(
                 $"Расходная {shipment.Number}",
                 shipment.ShipmentDate.ToString("dd.MM.yyyy", RuCulture),
                 FormatMoney(shipment.TotalAmount, shipment.CurrencyCode),
-                Ui(shipment.Status)));
+                Ui(shipment.Status),
+                "shipment",
+                shipment.Id,
+                indicator.Brush,
+                indicator.FillVisibility,
+                indicator.Text));
         }
 
         foreach (var cashReceipt in _workspace.CashReceipts.Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order)).OrderByDescending(item => item.ReceiptDate))
         {
+            var indicator = BuildCashReceiptIndicator(cashReceipt.Status);
             _relatedDocuments.Add(new SalesRelatedDocumentRow(
                 $"Поступление в кассу {cashReceipt.Number}",
                 cashReceipt.ReceiptDate.ToString("dd.MM.yyyy", RuCulture),
                 FormatMoney(cashReceipt.Amount, cashReceipt.CurrencyCode),
-                Ui(cashReceipt.Status)));
+                Ui(cashReceipt.Status),
+                "cash",
+                cashReceipt.Id,
+                indicator.Brush,
+                indicator.FillVisibility,
+                indicator.Text));
         }
 
         foreach (var returnDocument in _workspace.Returns.Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order)).OrderByDescending(item => item.ReturnDate))
         {
+            var indicator = BuildReturnIndicator(returnDocument.Status);
             _relatedDocuments.Add(new SalesRelatedDocumentRow(
                 $"Возврат {returnDocument.Number}",
                 returnDocument.ReturnDate.ToString("dd.MM.yyyy", RuCulture),
                 FormatMoney(returnDocument.TotalAmount, returnDocument.CurrencyCode),
-                Ui(returnDocument.Status)));
+                Ui(returnDocument.Status),
+                "return",
+                returnDocument.Id,
+                indicator.Brush,
+                indicator.FillVisibility,
+                indicator.Text));
         }
 
-        var paidAmount = _workspace.CashReceipts
-            .Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order))
-            .Sum(item => item.Amount);
         RelatedDocumentsSummaryText.Text = $"Документов: {_relatedDocuments.Count:N0}. Оплачено через кассу: {FormatMoney(paidAmount, order.CurrencyCode)}.";
+    }
+
+    private void HandleOpenRelatedDocumentClick(object sender, RoutedEventArgs e)
+    {
+        OpenSelectedRelatedDocument(showSelectionWarning: true);
+    }
+
+    private void HandleRelatedDocumentsGridDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        OpenSelectedRelatedDocument(showSelectionWarning: false);
+    }
+
+    private void OpenSelectedRelatedDocument(bool showSelectionWarning)
+    {
+        if (RelatedDocumentsGrid.SelectedItem is not SalesRelatedDocumentRow row)
+        {
+            if (showSelectionWarning)
+            {
+                ValidationText.Text = "Выберите связанный документ.";
+            }
+
+            return;
+        }
+
+        if (row.Category == "order" && _mode == SalesDocumentEditorMode.Order && _orderDraft?.Id == row.Id)
+        {
+            return;
+        }
+
+        switch (row.Category)
+        {
+            case "order":
+                if (_workspace.Orders.FirstOrDefault(item => item.Id == row.Id) is { } order)
+                {
+                    var dialog = new SalesDocumentEditorWindow(_workspace, order);
+                    ShowChildDialog(dialog, () => dialog.ResultOrder is not null, () => _workspace.UpdateOrder(dialog.ResultOrder!));
+                }
+                break;
+            case "invoice":
+                if (_workspace.Invoices.FirstOrDefault(item => item.Id == row.Id) is { } invoice)
+                {
+                    var dialog = new SalesDocumentEditorWindow(_workspace, invoice);
+                    ShowChildDialog(dialog, () => dialog.ResultInvoice is not null, () => _workspace.UpdateInvoice(dialog.ResultInvoice!));
+                }
+                break;
+            case "shipment":
+                if (_workspace.Shipments.FirstOrDefault(item => item.Id == row.Id) is { } shipment)
+                {
+                    var dialog = new SalesDocumentEditorWindow(_workspace, shipment);
+                    ShowChildDialog(dialog, () => dialog.ResultShipment is not null, () => _workspace.UpdateShipment(dialog.ResultShipment!));
+                }
+                break;
+            case "return":
+                if (_workspace.Returns.FirstOrDefault(item => item.Id == row.Id) is { } returnDocument)
+                {
+                    var dialog = new SalesReturnEditorWindow(_workspace, returnDocument);
+                    ShowChildDialog(dialog, () => dialog.ResultReturn is not null, () => _workspace.UpdateReturn(dialog.ResultReturn!));
+                }
+                break;
+            case "cash":
+                if (_workspace.CashReceipts.FirstOrDefault(item => item.Id == row.Id) is { } cashReceipt)
+                {
+                    var dialog = new SalesDocumentLinksWindow(_workspace, cashReceipt);
+                    var owner = ResolvePromptOwner();
+                    if (owner is not null)
+                    {
+                        dialog.Owner = owner;
+                    }
+
+                    dialog.ShowDialog();
+                }
+                break;
+        }
+
+        RenderRelatedDocuments();
+    }
+
+    private void ShowChildDialog(Window dialog, Func<bool> hasResult, Action save)
+    {
+        var owner = ResolvePromptOwner();
+        if (owner is not null && !ReferenceEquals(owner, dialog))
+        {
+            dialog.Owner = owner;
+        }
+
+        if (dialog.ShowDialog() == true && hasResult())
+        {
+            try
+            {
+                save();
+            }
+            catch (InvalidOperationException exception)
+            {
+                ValidationText.Text = exception.Message;
+            }
+        }
     }
 
     private SalesOrderRecord? ResolveRelatedOrder()
@@ -1134,6 +1545,87 @@ public partial class SalesDocumentEditorWindow : Window
     {
         return orderId == order.Id
             || Ui(orderNumber).Equals(Ui(order.Number), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsActiveCashReceiptStatus(string status)
+    {
+        return !Ui(status).Equals("Отменено", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static SalesDocumentIndicator BuildPaymentIndicator(decimal totalAmount, decimal paidAmount, string status)
+    {
+        var cleanStatus = Ui(status);
+        if (totalAmount > 0m && paidAmount >= totalAmount)
+        {
+            return new SalesDocumentIndicator(PaidIndicatorBrush, Visibility.Visible, "Оплачено полностью");
+        }
+
+        if (paidAmount > 0m || cleanStatus.Contains("част", StringComparison.OrdinalIgnoreCase))
+        {
+            return new SalesDocumentIndicator(
+                PartialIndicatorBrush,
+                Visibility.Visible,
+                $"Оплачено частично: {paidAmount:N2} ₽");
+        }
+
+        if (IsPaidStatus(cleanStatus))
+        {
+            return new SalesDocumentIndicator(PaidIndicatorBrush, Visibility.Visible, "Оплачено по статусу документа");
+        }
+
+        return new SalesDocumentIndicator(EmptyIndicatorBrush, Visibility.Collapsed, "Оплаты нет");
+    }
+
+    private static bool IsPaidStatus(string status)
+    {
+        var cleanStatus = Ui(status);
+        return cleanStatus.Equals("Оплачен", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Equals("Оплачено", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("полностью оплачен", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static SalesDocumentIndicator BuildShipmentIndicator(string status)
+    {
+        var cleanStatus = Ui(status);
+        if (cleanStatus.Contains("отгруж", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("достав", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("выполн", StringComparison.OrdinalIgnoreCase))
+        {
+            return new SalesDocumentIndicator(PaidIndicatorBrush, Visibility.Visible, "Отгружено полностью");
+        }
+
+        if (cleanStatus.Contains("част", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("сбор", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("пути", StringComparison.OrdinalIgnoreCase))
+        {
+            return new SalesDocumentIndicator(PartialIndicatorBrush, Visibility.Visible, "Отгрузка в работе");
+        }
+
+        if (cleanStatus.Contains("отмен", StringComparison.OrdinalIgnoreCase))
+        {
+            return new SalesDocumentIndicator(NeutralIndicatorBrush, Visibility.Collapsed, "Отгрузка отменена");
+        }
+
+        return new SalesDocumentIndicator(NeutralIndicatorBrush, Visibility.Collapsed, "Отгрузка не проведена");
+    }
+
+    private static SalesDocumentIndicator BuildCashReceiptIndicator(string status)
+    {
+        return IsActiveCashReceiptStatus(status)
+            ? new SalesDocumentIndicator(PaidIndicatorBrush, Visibility.Visible, "Оплата учтена")
+            : new SalesDocumentIndicator(NeutralIndicatorBrush, Visibility.Collapsed, "Оплата отменена");
+    }
+
+    private static SalesDocumentIndicator BuildReturnIndicator(string status)
+    {
+        var cleanStatus = Ui(status);
+        if (cleanStatus.Contains("пров", StringComparison.OrdinalIgnoreCase)
+            || cleanStatus.Contains("выполн", StringComparison.OrdinalIgnoreCase))
+        {
+            return new SalesDocumentIndicator(PaidIndicatorBrush, Visibility.Visible, "Возврат проведен");
+        }
+
+        return new SalesDocumentIndicator(PartialIndicatorBrush, Visibility.Visible, "Возврат в работе");
     }
 
     private static string FormatMoney(decimal amount, string currencyCode)
@@ -1171,7 +1663,12 @@ public partial class SalesDocumentEditorWindow : Window
 
     private static string BuildCatalogOption(SalesCatalogItemOption item)
     {
-        return $"{Ui(item.Code)} - {Ui(item.Name)}";
+        return $"{Ui(item.Code)} - {Ui(item.Name)} | ед.: {NormalizeUnit(item.Unit, item.Name)}";
+    }
+
+    private static string NormalizeUnit(string? unit, string? itemName = null)
+    {
+        return SalesDocumentDisplayFormatter.NormalizeUnit(unit, itemName);
     }
 
     private static void SelectComboValue(ComboBox comboBox, string value)
@@ -1240,5 +1737,12 @@ public partial class SalesDocumentEditorWindow : Window
         string Document,
         string Date,
         string AmountDisplay,
-        string Status);
+        string Status,
+        string Category,
+        Guid Id,
+        Brush IndicatorBrush,
+        Visibility IndicatorFillVisibility,
+        string IndicatorText);
+
+    private sealed record SalesDocumentIndicator(Brush Brush, Visibility FillVisibility, string Text);
 }
