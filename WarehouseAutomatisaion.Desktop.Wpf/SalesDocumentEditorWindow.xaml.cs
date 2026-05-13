@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using WarehouseAutomatisaion.Desktop.Data;
@@ -33,8 +34,10 @@ public partial class SalesDocumentEditorWindow : Window
     private readonly Dictionary<string, SalesCustomerRecord> _customerOptions = new(StringComparer.CurrentCultureIgnoreCase);
     private readonly Dictionary<string, SalesOrderRecord> _orderOptions = new(StringComparer.CurrentCultureIgnoreCase);
     private readonly bool _editingExistingDocument;
+    private string[] _customerOptionTexts = [];
     private bool _loading;
     private bool _hostedInWorkspace;
+    private bool _updatingCustomerLookup;
     private bool _updatingDiscountFields;
     private bool _discountPercentMode;
     private decimal _manualDiscountPercent;
@@ -80,6 +83,8 @@ public partial class SalesDocumentEditorWindow : Window
         InitializeComponent();
         WpfTextNormalizer.NormalizeTree(this);
 
+        ConfigureLineGridBindings();
+        CustomerComboBox.AddHandler(TextBoxBase.TextChangedEvent, new TextChangedEventHandler(HandleCustomerLookupTextChanged));
         LinesGrid.ItemsSource = _lines;
         RelatedDocumentsGrid.ItemsSource = _relatedDocuments;
         LoadOptionSources();
@@ -108,6 +113,23 @@ public partial class SalesDocumentEditorWindow : Window
 
     private static string Ui(string? value) => TextMojibakeFixer.NormalizeText(value);
 
+    private void ConfigureLineGridBindings()
+    {
+        SetTextColumnBinding(0, nameof(SalesLineEditorRow.ItemCode));
+        SetTextColumnBinding(2, nameof(SalesLineEditorRow.Unit));
+        SetTextColumnBinding(3, nameof(SalesLineEditorRow.QuantityDisplay));
+        SetTextColumnBinding(4, nameof(SalesLineEditorRow.PriceDisplay));
+        SetTextColumnBinding(5, nameof(SalesLineEditorRow.AmountDisplay));
+    }
+
+    private void SetTextColumnBinding(int columnIndex, string path)
+    {
+        if (LinesGrid.Columns.ElementAtOrDefault(columnIndex) is DataGridTextColumn column)
+        {
+            column.Binding = new Binding(path) { Mode = BindingMode.OneWay };
+        }
+    }
+
     private void LoadOptionSources()
     {
         foreach (var customer in _workspace.Customers.OrderBy(item => Ui(item.Name), StringComparer.CurrentCultureIgnoreCase))
@@ -120,7 +142,8 @@ public partial class SalesDocumentEditorWindow : Window
             _orderOptions[BuildOrderOption(order)] = order;
         }
 
-        CustomerComboBox.ItemsSource = _customerOptions.Keys.ToArray();
+        _customerOptionTexts = _customerOptions.Keys.ToArray();
+        CustomerComboBox.ItemsSource = _customerOptionTexts;
         OrderComboBox.ItemsSource = _orderOptions.Keys.ToArray();
         WarehouseComboBox.ItemsSource = _workspace.Warehouses.Select(Ui).ToArray();
         ManagerComboBox.ItemsSource = _workspace.Managers
@@ -185,6 +208,7 @@ public partial class SalesDocumentEditorWindow : Window
                 break;
         }
 
+        CreateReturnButton.Visibility = _mode == SalesDocumentEditorMode.Order ? Visibility.Visible : Visibility.Collapsed;
         _loading = false;
     }
 
@@ -303,7 +327,7 @@ public partial class SalesDocumentEditorWindow : Window
 
     private void HandleCustomerSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_loading || _mode != SalesDocumentEditorMode.Order)
+        if (_loading || _updatingCustomerLookup || _mode != SalesDocumentEditorMode.Order)
         {
             return;
         }
@@ -318,19 +342,100 @@ public partial class SalesDocumentEditorWindow : Window
             return;
         }
 
-        ApplySelectedCustomerDefaults();
+        if (!ApplySelectedCustomerDefaults())
+        {
+            ResetCustomerLookupOptions();
+        }
     }
 
-    private void ApplySelectedCustomerDefaults()
+    private bool ApplySelectedCustomerDefaults()
     {
         var customer = GetSelectedCustomer();
         if (customer is null)
         {
+            return false;
+        }
+
+        ResetCustomerLookupOptions();
+        SelectComboValue(CustomerComboBox, BuildCustomerOption(customer));
+        SelectComboValue(CurrencyComboBox, Ui(customer.CurrencyCode));
+        return true;
+    }
+
+    private void HandleCustomerLookupTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading
+            || _updatingCustomerLookup
+            || _mode != SalesDocumentEditorMode.Order
+            || !CustomerComboBox.IsKeyboardFocusWithin)
+        {
             return;
         }
 
-        SelectComboValue(CustomerComboBox, BuildCustomerOption(customer));
-        SelectComboValue(CurrencyComboBox, Ui(customer.CurrencyCode));
+        var query = Ui(CustomerComboBox.Text).Trim();
+        if (CustomerComboBox.SelectedItem is string selected
+            && Ui(selected).Equals(query, StringComparison.CurrentCultureIgnoreCase))
+        {
+            return;
+        }
+
+        var matches = BuildCustomerLookupMatches(query);
+
+        _updatingCustomerLookup = true;
+        try
+        {
+            CustomerComboBox.ItemsSource = matches;
+            CustomerComboBox.SelectedItem = null;
+            CustomerComboBox.Text = query;
+            CustomerComboBox.IsDropDownOpen = query.Length > 0 && matches.Length > 0;
+
+            if (CustomerComboBox.Template.FindName("PART_EditableTextBox", CustomerComboBox) is TextBox textBox)
+            {
+                textBox.Text = query;
+                textBox.CaretIndex = textBox.Text.Length;
+            }
+        }
+        finally
+        {
+            _updatingCustomerLookup = false;
+        }
+    }
+
+    private string[] BuildCustomerLookupMatches(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return _customerOptionTexts;
+        }
+
+        var tokens = query
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(token => !string.IsNullOrWhiteSpace(token))
+            .ToArray();
+        if (tokens.Length == 0)
+        {
+            return _customerOptionTexts;
+        }
+
+        return _customerOptionTexts
+            .Where(option => tokens.All(token => option.Contains(token, StringComparison.CurrentCultureIgnoreCase)))
+            .OrderBy(option => option.StartsWith(query, StringComparison.CurrentCultureIgnoreCase) ? 0 : 1)
+            .ThenBy(option => option, StringComparer.CurrentCultureIgnoreCase)
+            .Take(80)
+            .ToArray();
+    }
+
+    private void ResetCustomerLookupOptions()
+    {
+        _updatingCustomerLookup = true;
+        try
+        {
+            CustomerComboBox.ItemsSource = _customerOptionTexts;
+        }
+        finally
+        {
+            _updatingCustomerLookup = false;
+        }
     }
 
     private void HandleOrderSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -581,6 +686,68 @@ public partial class SalesDocumentEditorWindow : Window
         }
 
         ValidationText.Text = "Выберите позицию для удаления.";
+    }
+
+    private void HandleCreateReturnClick(object sender, RoutedEventArgs e)
+    {
+        if (_mode != SalesDocumentEditorMode.Order)
+        {
+            return;
+        }
+
+        var order = _orderDraft is null
+            ? null
+            : _workspace.Orders.FirstOrDefault(item => item.Id == _orderDraft.Id);
+        if (order is null)
+        {
+            ValidationText.Text = "Сначала сохраните заказ, после этого можно создать возврат.";
+            return;
+        }
+
+        var selectedRows = LinesGrid.SelectedItems
+            .OfType<SalesLineEditorRow>()
+            .Distinct()
+            .ToArray();
+        if (selectedRows.Length == 0)
+        {
+            ValidationText.Text = "Выделите позиции, которые нужно вернуть.";
+            return;
+        }
+
+        var returnDocument = _workspace.CreateReturnDraftFromOrder(order.Id);
+        returnDocument.Lines = ToSalesLines(selectedRows);
+        if (selectedRows.Length != _lines.Count)
+        {
+            returnDocument.ManualDiscountAmount = 0m;
+            returnDocument.ManualDiscountPercent = 0m;
+        }
+
+        var dialog = new SalesReturnEditorWindow(_workspace, returnDocument);
+        var owner = ResolvePromptOwner();
+        if (owner is not null && !ReferenceEquals(owner, dialog))
+        {
+            dialog.Owner = owner;
+        }
+
+        if (dialog.ShowDialog() != true || dialog.ResultReturn is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _workspace.AddReturn(dialog.ResultReturn);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ValidationText.Text = exception.Message;
+            return;
+        }
+
+        RenderRelatedDocuments();
+        RelatedDocumentsGrid.SelectedItem = _relatedDocuments.FirstOrDefault(item =>
+            item.Category == "return" && item.Id == dialog.ResultReturn.Id);
+        ValidationText.Text = string.Empty;
     }
 
     private void HandleSaveClick(object sender, RoutedEventArgs e)
@@ -994,6 +1161,8 @@ public partial class SalesDocumentEditorWindow : Window
             if (success)
             {
                 HostedSaved?.Invoke(this, EventArgs.Empty);
+                RefreshTotal();
+                RenderRelatedDocuments();
             }
             else
             {
@@ -1205,7 +1374,12 @@ public partial class SalesDocumentEditorWindow : Window
 
     private System.ComponentModel.BindingList<SalesOrderLineRecord> ToSalesLines()
     {
-        return new System.ComponentModel.BindingList<SalesOrderLineRecord>(_lines.Select(line => new SalesOrderLineRecord
+        return ToSalesLines(_lines);
+    }
+
+    private static System.ComponentModel.BindingList<SalesOrderLineRecord> ToSalesLines(IEnumerable<SalesLineEditorRow> lines)
+    {
+        return new System.ComponentModel.BindingList<SalesOrderLineRecord>(lines.Select(line => new SalesOrderLineRecord
         {
             Id = Guid.NewGuid(),
             ItemCode = line.ItemCode,

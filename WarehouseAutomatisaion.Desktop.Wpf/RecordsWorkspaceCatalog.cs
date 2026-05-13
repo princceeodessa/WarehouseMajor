@@ -1654,6 +1654,11 @@ internal static class RecordsWorkspaceCatalog
                         return;
                     }
 
+                    if (!isNew)
+                    {
+                        return;
+                    }
+
                     ShowMessage("Заказы", $"Обновлен заказ {editor.ResultOrder.Number}.");
                 }
 
