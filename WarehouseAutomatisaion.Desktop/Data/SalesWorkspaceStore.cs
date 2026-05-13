@@ -482,10 +482,34 @@ public sealed class SalesWorkspaceStore
     {
         var changed = false;
         changed |= RemoveEmptyOrphanOrders(workspace);
+        changed |= NormalizeOrderStatuses(workspace);
         changed |= RepairCustomerLinks(workspace);
         changed |= EnsureRelatedOrders(workspace);
         changed |= NormalizeSalesLineUnits(workspace);
         changed |= EnrichCatalogItemsFromDocuments(workspace);
+        return changed;
+    }
+
+    private static bool NormalizeOrderStatuses(SalesWorkspace workspace)
+    {
+        var changed = false;
+        foreach (var order in workspace.Orders)
+        {
+            var status = workspace.NormalizeOrderStatus(order.Status);
+            if (!string.Equals(order.Status, status, StringComparison.Ordinal))
+            {
+                order.Status = status;
+                changed = true;
+            }
+
+            var organization = workspace.NormalizeOrganization(order.Organization);
+            if (!string.Equals(order.Organization, organization, StringComparison.Ordinal))
+            {
+                order.Organization = organization;
+                changed = true;
+            }
+        }
+
         return changed;
     }
 
@@ -637,7 +661,7 @@ public sealed class SalesWorkspaceStore
 
         if (string.IsNullOrWhiteSpace(order.Status))
         {
-            order.Status = "Подтвержден";
+            order.Status = "Выставлен счет";
         }
 
         if (string.IsNullOrWhiteSpace(order.Comment))
@@ -669,7 +693,7 @@ public sealed class SalesWorkspaceStore
 
         if (string.IsNullOrWhiteSpace(order.Status))
         {
-            order.Status = "Готов к отгрузке";
+            order.Status = "На выполнении";
         }
 
         if (string.IsNullOrWhiteSpace(order.Comment))
@@ -768,7 +792,8 @@ public sealed class SalesWorkspaceStore
             ContractNumber = invoice.ContractNumber,
             CurrencyCode = string.IsNullOrWhiteSpace(invoice.CurrencyCode) ? "RUB" : invoice.CurrencyCode,
             Warehouse = workspace.Warehouses.FirstOrDefault() ?? string.Empty,
-            Status = "Подтвержден",
+            Organization = workspace.NormalizeOrganization(null),
+            Status = "Выставлен счет",
             Manager = invoice.Manager,
             Comment = $"Создано автоматически по счету {invoice.Number}, потому что исходный заказ отсутствовал в данных.",
             Lines = CloneLines(invoice.Lines, id)
@@ -795,7 +820,8 @@ public sealed class SalesWorkspaceStore
             ContractNumber = shipment.ContractNumber,
             CurrencyCode = string.IsNullOrWhiteSpace(shipment.CurrencyCode) ? "RUB" : shipment.CurrencyCode,
             Warehouse = string.IsNullOrWhiteSpace(shipment.Warehouse) ? workspace.Warehouses.FirstOrDefault() ?? string.Empty : shipment.Warehouse,
-            Status = "Готов к отгрузке",
+            Organization = workspace.NormalizeOrganization(null),
+            Status = "На выполнении",
             Manager = shipment.Manager,
             Comment = $"Создано автоматически по отгрузке {shipment.Number}, потому что исходный заказ отсутствовал в данных.",
             Lines = CloneLines(shipment.Lines, id)

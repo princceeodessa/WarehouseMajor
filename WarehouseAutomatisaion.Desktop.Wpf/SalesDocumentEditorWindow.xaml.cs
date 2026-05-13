@@ -146,6 +146,7 @@ public partial class SalesDocumentEditorWindow : Window
         CustomerComboBox.ItemsSource = _customerOptionTexts;
         OrderComboBox.ItemsSource = _orderOptions.Keys.ToArray();
         WarehouseComboBox.ItemsSource = _workspace.Warehouses.Select(Ui).ToArray();
+        OrganizationComboBox.ItemsSource = _workspace.Organizations.Select(Ui).ToArray();
         ManagerComboBox.ItemsSource = _workspace.Managers
             .Select(SalesManagerDisplayResolver.Resolve)
             .Where(item => !string.IsNullOrWhiteSpace(item))
@@ -171,6 +172,7 @@ public partial class SalesDocumentEditorWindow : Window
                 OrderPanel.Visibility = Visibility.Collapsed;
                 CustomerPanel.Visibility = Visibility.Visible;
                 SecondaryDatePanel.Visibility = Visibility.Collapsed;
+                OrganizationPanel.Visibility = Visibility.Visible;
                 WarehousePanel.Visibility = Visibility.Visible;
                 CurrencyPanel.Visibility = Visibility.Visible;
                 CarrierPanel.Visibility = Visibility.Collapsed;
@@ -187,6 +189,7 @@ public partial class SalesDocumentEditorWindow : Window
                 CustomerComboBox.IsEnabled = false;
                 OrderPanel.Visibility = Visibility.Visible;
                 SecondaryDatePanel.Visibility = Visibility.Visible;
+                OrganizationPanel.Visibility = Visibility.Collapsed;
                 WarehousePanel.Visibility = Visibility.Collapsed;
                 CurrencyPanel.Visibility = Visibility.Visible;
                 CarrierPanel.Visibility = Visibility.Collapsed;
@@ -202,6 +205,7 @@ public partial class SalesDocumentEditorWindow : Window
                 CustomerComboBox.IsEnabled = false;
                 OrderPanel.Visibility = Visibility.Visible;
                 SecondaryDatePanel.Visibility = Visibility.Collapsed;
+                OrganizationPanel.Visibility = Visibility.Collapsed;
                 WarehousePanel.Visibility = Visibility.Visible;
                 CurrencyPanel.Visibility = Visibility.Collapsed;
                 CarrierPanel.Visibility = Visibility.Visible;
@@ -288,8 +292,9 @@ public partial class SalesDocumentEditorWindow : Window
         NumberTextBox.Text = Ui(order.Number);
         DocumentDatePicker.SelectedDate = order.OrderDate == default ? DateTime.Today : order.OrderDate;
         SelectComboValue(CustomerComboBox, BuildCustomerOption(order));
-        SelectComboValue(StatusComboBox, Ui(order.Status));
+        SelectComboValue(StatusComboBox, _workspace.NormalizeOrderStatus(order.Status));
         SelectComboValue(WarehouseComboBox, Ui(order.Warehouse));
+        SelectComboValue(OrganizationComboBox, _workspace.NormalizeOrganization(order.Organization));
         SelectComboValue(ManagerComboBox, SalesManagerDisplayResolver.Resolve(order.Manager));
         SelectComboValue(CurrencyComboBox, Ui(order.CurrencyCode));
         CommentTextBox.Text = Ui(order.Comment);
@@ -939,7 +944,8 @@ public partial class SalesDocumentEditorWindow : Window
         }
 
         order.Warehouse = WarehouseComboBox.Text.Trim();
-        order.Status = StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim();
+        order.Organization = OrganizationComboBox.Text.Trim();
+        order.Status = _workspace.NormalizeOrderStatus(StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim());
         order.Manager = ManagerComboBox.Text.Trim();
         order.CurrencyCode = CurrencyComboBox.SelectedItem?.ToString() ?? CurrencyComboBox.Text.Trim();
         order.Comment = CommentTextBox.Text.Trim();
@@ -1042,12 +1048,19 @@ public partial class SalesDocumentEditorWindow : Window
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(OrganizationComboBox.Text))
+        {
+            ValidationText.Text = "Укажите организацию.";
+            return;
+        }
+
         var order = _orderDraft ?? _workspace.CreateOrderDraft(customer.Id);
         order.Number = NumberTextBox.Text.Trim();
         order.OrderDate = DocumentDatePicker.SelectedDate!.Value.Date;
         ApplyCustomer(order, customer);
         order.Warehouse = WarehouseComboBox.Text.Trim();
-        order.Status = StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim();
+        order.Organization = OrganizationComboBox.Text.Trim();
+        order.Status = _workspace.NormalizeOrderStatus(StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim());
         order.Manager = ManagerComboBox.Text.Trim();
         order.CurrencyCode = CurrencyComboBox.SelectedItem?.ToString() ?? CurrencyComboBox.Text.Trim();
         order.Comment = CommentTextBox.Text.Trim();

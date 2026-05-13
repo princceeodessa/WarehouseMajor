@@ -2096,15 +2096,15 @@ public sealed class OperationalMySqlDesktopService
 
         if (reservedQuantity > 0m && orderedQuantity > 0m && reservedQuantity >= orderedQuantity)
         {
-            return "В резерве";
+            return "В работе";
         }
 
         if (postingState >= 2)
         {
-            return "Подтвержден";
+            return "В работе";
         }
 
-        return "План";
+        return "Не обработан";
     }
 
     private static string MapSalesShipmentStatus(int postingState)

@@ -117,6 +117,7 @@ internal static class SalesDocumentExportService
                 new ExportField("Код клиента", Clean(order.CustomerCode)),
                 new ExportField("Дата заказа", order.OrderDate.ToString("dd.MM.yyyy", RuCulture)),
                 new ExportField("Склад", Clean(order.Warehouse)),
+                new ExportField("Организация", Clean(order.Organization)),
                 new ExportField("Договор", Clean(order.ContractNumber)),
                 new ExportField("Менеджер", SalesManagerDisplayResolver.Resolve(order.Manager)),
                 new ExportField("Статус", Clean(order.Status)),

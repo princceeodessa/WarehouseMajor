@@ -14,7 +14,7 @@ internal static class RecordsWorkspaceCatalog
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
     private const char CustomerGroupSeparator = '\u001F';
 
-    private static readonly string[] OrderFilters = ["Все заказы", "Новые", "Подтвержденные", "В производстве", "Выполненные"];
+    private static readonly string[] OrderFilters = ["Все заказы", "Не обработан", "В работе", "На выполнении", "Выставлен счет", "Завершен"];
     private static readonly string[] CustomerFilters = ["Все клиенты", "Активные", "Новые", "Неактивные"];
     private static readonly string[] InvoiceFilters = ["Все счета", "Оплачено", "Частично оплачено", "Просрочено", "Не оплачено"];
     private static readonly string[] ShipmentFilters = ["Все отгрузки", "Запланировано", "В пути", "Доставлено", "Отменено"];
@@ -35,10 +35,11 @@ internal static class RecordsWorkspaceCatalog
             MetricsFactory: () =>
             [
                 Metric("Всего заказов", salesWorkspace.Orders.Count, "Актуально", "#6C63FF", "#F0EDFF", "#1BC47D", "\uE14C"),
-                Metric("Новые", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Новые"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8A5"),
-                Metric("Подтвержденные", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Подтвержденные"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE73E"),
-                Metric("В производстве", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "В производстве"), "Актуально", "#7B68EE", "#F1EEFF", "#FF6B6B", "\uE7C1"),
-                Metric("Выполненные", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Выполненные"), "Актуально", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uEC47")
+                Metric("Не обработан", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Не обработан"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE8A5"),
+                Metric("В работе", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "В работе"), "Актуально", "#59C36A", "#EBF9EF", "#1BC47D", "\uE73E"),
+                Metric("Выставлен счет", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Выставлен счет"), "Актуально", "#F29A17", "#FFF4E3", "#F29A17", "\uE8C7"),
+                Metric("На выполнении", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "На выполнении"), "Актуально", "#7B68EE", "#F1EEFF", "#FF6B6B", "\uE7C1"),
+                Metric("Завершен", salesWorkspace.Orders.Count(item => NormalizeOrderFilter(item.Status) == "Завершен"), "Актуально", "#4F8CFF", "#EEF4FF", "#1BC47D", "\uEC47")
             ],
             RowsFactory: () => salesWorkspace.Orders
                 .OrderByDescending(item => item.OrderDate)
@@ -1869,6 +1870,11 @@ internal static class RecordsWorkspaceCatalog
         var normalized = Clean(status);
         var palette = normalized switch
         {
+            "Не обработан" => ("#4F5BFF", "#EEF2FF"),
+            "В работе" => ("#1DAA63", "#EAF9F0"),
+            "Выставлен счет" => ("#F29A17", "#FFF4E3"),
+            "На выполнении" => ("#7B68EE", "#F1EEFF"),
+            "Завершен" => ("#4F8CFF", "#EEF4FF"),
             "Новый" or "Новые" => ("#4F5BFF", "#EEF2FF"),
             "Подтвержден" or "Подтвержденные" or "Активен" or "Активные" or "Оплачено" or "Доставлено" or "В наличии" or "Норма" or "Проведено" => ("#1DAA63", "#EAF9F0"),
             "Черновик" or "Выставлен" or "Частично оплачено" or "Под контролем" or "Запланировано" or "Низкий остаток" => ("#F29A17", "#FFF4E3"),
@@ -1884,24 +1890,19 @@ internal static class RecordsWorkspaceCatalog
     {
         return Clean(status) switch
         {
-            "План" or "Черновик" => "Новые",
-            "Подтвержден" or "В резерве" => "Подтвержденные",
-            "Готов к отгрузке" or "К сборке" => "В производстве",
-            "Отгружена" or "Отгружен" or "Выполнен" or "Закрыт" => "Выполненные",
-            _ => "Новые"
+            "План" or "Черновик" or "Новый" or "Новые" => "Не обработан",
+            "Подтвержден" or "Подтвержденные" or "В резерве" => "В работе",
+            "Готов к отгрузке" or "К сборке" or "В производстве" => "На выполнении",
+            "Счет выставлен" or "Выставлен" or "Ожидает оплату" or "Оплачен" or "Частично оплачен" => "Выставлен счет",
+            "Отгружена" or "Отгружен" or "Выполнен" or "Выполненные" or "Закрыт" => "Завершен",
+            "Не обработан" or "В работе" or "На выполнении" or "Выставлен счет" or "Завершен" => Clean(status),
+            _ => "Не обработан"
         };
     }
 
     private static string NormalizeOrderStatusLabel(string status)
     {
-        return NormalizeOrderFilter(status) switch
-        {
-            "Новые" => "Новый",
-            "Подтвержденные" => "Подтвержден",
-            "В производстве" => "В производстве",
-            "Выполненные" => "Выполнен",
-            _ => Clean(status)
-        };
+        return NormalizeOrderFilter(status);
     }
 
     private static string NormalizeCustomerFilter(string status)

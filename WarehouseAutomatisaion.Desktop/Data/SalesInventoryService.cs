@@ -162,7 +162,8 @@ public sealed class SalesInventoryService
                 continue;
             }
 
-            if (!order.Status.Equals("В резерве", StringComparison.OrdinalIgnoreCase))
+            if (!order.Status.Equals("В работе", StringComparison.OrdinalIgnoreCase)
+                && !order.Status.Equals("В резерве", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

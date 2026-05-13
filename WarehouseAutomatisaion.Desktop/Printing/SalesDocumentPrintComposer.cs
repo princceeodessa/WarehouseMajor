@@ -78,7 +78,7 @@ public static class SalesDocumentPrintComposer
         builder.AppendLine("<main class=\"doc\">");
         builder.AppendLine("<h1 class=\"title\">" + Encode(title) + "</h1>");
         builder.AppendLine("<div class=\"transfer\">Карта для перевода:</div>");
-        builder.AppendLine("<div class=\"party\"><div>Исполнитель:</div><div class=\"value\">ИП</div></div>");
+        builder.AppendLine("<div class=\"party\"><div>Исполнитель:</div><div class=\"value\">" + Encode(Display(order.Organization)) + "</div></div>");
         builder.AppendLine("<div class=\"party\"><div>Заказчик:</div><div class=\"value\">" + Encode(Display(order.CustomerName)) + "</div></div>");
         builder.AppendLine("<table>");
         builder.AppendLine("<thead><tr><th style=\"width:5%\">№</th><th style=\"width:8%\">Дата</th><th style=\"width:38%\">Товары (работы, услуги)</th><th style=\"width:10%\">Код</th><th style=\"width:8%\">Кол-во</th><th style=\"width:6%\">Ед.</th><th style=\"width:12%\">Цена</th><th style=\"width:13%\">Сумма</th></tr></thead>");

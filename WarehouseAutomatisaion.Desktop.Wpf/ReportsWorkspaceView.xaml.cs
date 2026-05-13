@@ -584,14 +584,14 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
         var currentAmount = filteredOrders.Sum(item => item.TotalAmount);
         var previousOrders = previous.Orders.Where(order => MatchesStatusFilter(NormalizeOrderStatus(order.Status))).ToArray();
         var previousAmount = previousOrders.Sum(item => item.TotalAmount);
-        var currentConfirmed = filteredOrders.Count(item => NormalizeOrderStatus(item.Status) == "Подтвержден");
-        var previousConfirmed = previousOrders.Count(item => NormalizeOrderStatus(item.Status) == "Подтвержден");
-        var currentReserved = filteredOrders.Count(item => NormalizeOrderStatus(item.Status) == "В резерве");
-        var previousReserved = previousOrders.Count(item => NormalizeOrderStatus(item.Status) == "В резерве");
-        var currentReady = filteredOrders.Count(item => NormalizeOrderStatus(item.Status) == "Готов к отгрузке");
-        var previousReady = previousOrders.Count(item => NormalizeOrderStatus(item.Status) == "Готов к отгрузке");
-        var currentNew = filteredOrders.Count(item => NormalizeOrderStatus(item.Status) == "Новый");
-        var previousNew = previousOrders.Count(item => NormalizeOrderStatus(item.Status) == "Новый");
+        var currentConfirmed = filteredOrders.Count(item => NormalizeOrderStatus(item.Status) == "В работе");
+        var previousConfirmed = previousOrders.Count(item => NormalizeOrderStatus(item.Status) == "В работе");
+        var currentReserved = filteredOrders.Count(item => NormalizeOrderStatus(item.Status) == "Выставлен счет");
+        var previousReserved = previousOrders.Count(item => NormalizeOrderStatus(item.Status) == "Выставлен счет");
+        var currentReady = filteredOrders.Count(item => NormalizeOrderStatus(item.Status) == "На выполнении");
+        var previousReady = previousOrders.Count(item => NormalizeOrderStatus(item.Status) == "На выполнении");
+        var currentNew = filteredOrders.Count(item => NormalizeOrderStatus(item.Status) == "Не обработан");
+        var previousNew = previousOrders.Count(item => NormalizeOrderStatus(item.Status) == "Не обработан");
         var currentAverage = filteredOrders.Length > 0 ? filteredOrders.Average(item => item.TotalAmount) : 0m;
         var previousAverage = previousOrders.Length > 0 ? previousOrders.Average(item => item.TotalAmount) : 0m;
 
@@ -600,8 +600,8 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
             BuildComparison("Сумма заказов", FormatMoney(currentAmount), currentAmount, previousAmount),
             BuildComparison("Кол-во заказов", filteredOrders.Length.ToString(CultureInfo.InvariantCulture), filteredOrders.Length, previousOrders.Length),
             BuildComparison("Средний заказ", FormatMoney(currentAverage), currentAverage, previousAverage),
-            BuildComparison("Подтверждено", currentConfirmed.ToString(CultureInfo.InvariantCulture), currentConfirmed, previousConfirmed),
-            BuildComparison("Готово к отгрузке", currentReady.ToString(CultureInfo.InvariantCulture), currentReady, previousReady)
+            BuildComparison("В работе", currentConfirmed.ToString(CultureInfo.InvariantCulture), currentConfirmed, previousConfirmed),
+            BuildComparison("На выполнении", currentReady.ToString(CultureInfo.InvariantCulture), currentReady, previousReady)
         };
 
         return new ReportDashboardState
@@ -625,19 +625,19 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
             [
                 BuildMetric("Сумма заказов", FormatMoney(currentAmount), currentAmount, previousAmount, "#27AE60", "#EBFBF1", "\uE8A5"),
                 BuildMetric("Заказы", filteredOrders.Length.ToString(CultureInfo.InvariantCulture), filteredOrders.Length, previousOrders.Length, "#4F5BFF", "#EEF2FF", "\uEA14"),
-                BuildMetric("Подтверждено", currentConfirmed.ToString(CultureInfo.InvariantCulture), currentConfirmed, previousConfirmed, "#34B56A", "#EBFBF1", "\uE73E"),
-                BuildMetric("В резерве", currentReserved.ToString(CultureInfo.InvariantCulture), currentReserved, previousReserved, "#FF9B28", "#FFF4E8", "\uE7C7"),
-                BuildMetric("Готово к отгрузке", currentReady.ToString(CultureInfo.InvariantCulture), currentReady, previousReady, "#7B68EE", "#F2EEFF", "\uE7BF"),
-                BuildMetric("Новые", currentNew.ToString(CultureInfo.InvariantCulture), currentNew, previousNew, "#F45A5A", "#FFF1F1", "\uE710")
+                BuildMetric("В работе", currentConfirmed.ToString(CultureInfo.InvariantCulture), currentConfirmed, previousConfirmed, "#34B56A", "#EBFBF1", "\uE73E"),
+                BuildMetric("Выставлен счет", currentReserved.ToString(CultureInfo.InvariantCulture), currentReserved, previousReserved, "#FF9B28", "#FFF4E8", "\uE7C7"),
+                BuildMetric("На выполнении", currentReady.ToString(CultureInfo.InvariantCulture), currentReady, previousReady, "#7B68EE", "#F2EEFF", "\uE7BF"),
+                BuildMetric("Не обработан", currentNew.ToString(CultureInfo.InvariantCulture), currentNew, previousNew, "#F45A5A", "#FFF1F1", "\uE710")
             ],
             ComparisonItems = comparison,
             SummaryDeltas = comparison.Select(item => new ReportSummaryDeltaViewModel(item.Label, item.DeltaText, item.DeltaBrush)).ToArray(),
             Signals =
             [
                 BuildSignal("Без счета", CountOrdersWithoutInvoice(filteredOrders, current.Invoices), "#F45A5A", "#FFF1F1"),
-                BuildSignal("В резерве", currentReserved, "#FF9B28", "#FFF4E8"),
-                BuildSignal("Готовы к отгрузке", currentReady, "#4F5BFF", "#EEF2FF"),
-                BuildSignal("Новые заказы", currentNew, "#7B68EE", "#F2EEFF")
+                BuildSignal("Выставлен счет", currentReserved, "#FF9B28", "#FFF4E8"),
+                BuildSignal("На выполнении", currentReady, "#4F5BFF", "#EEF2FF"),
+                BuildSignal("Не обработаны", currentNew, "#7B68EE", "#F2EEFF")
             ],
             TrendPoints = BuildTrendSeries(
                 filteredOrders.Select(item => (item.OrderDate, item.TotalAmount)),
@@ -1425,7 +1425,7 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
                 SelectOptionByValue(StatusFilterComboBox, "Просрочен");
                 break;
             case "orders":
-                SelectOptionByValue(StatusFilterComboBox, "Новый");
+                SelectOptionByValue(StatusFilterComboBox, "Не обработан");
                 break;
             case "invoices":
                 SelectOptionByValue(StatusFilterComboBox, "Просрочен");
@@ -1578,12 +1578,12 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
         var currentValue = SelectedOptionValue(StatusFilterComboBox);
         var options = _activeTab switch
         {
-            "orders" => BuildOptions("Все статусы", "Новый", "Подтвержден", "В резерве", "Готов к отгрузке", "Отменен"),
+            "orders" => BuildOptions("Все статусы", "Не обработан", "В работе", "На выполнении", "Выставлен счет", "Завершен", "Отменен"),
             "invoices" => BuildOptions("Все статусы", "Черновик", "Выставлен", "Ожидает оплату", "Частично оплачен", "Оплачен", "Просрочен"),
             "shipments" => BuildOptions("Все статусы", "Черновик", "К сборке", "Готова к отгрузке", "Отгружена", "Задержка"),
             "customers" => BuildOptions("Все статусы", "Активен", "На проверке", "Пауза"),
             "catalog" => BuildOptions("Все статусы", "В продажах", "Без движения"),
-            _ => BuildOptions("Все статусы", "Новый", "Подтвержден", "Счет выставлен", "В сборке", "Отгружен", "Отменен")
+            _ => BuildOptions("Все статусы", "Не обработан", "В работе", "На выполнении", "Выставлен счет", "Завершен", "Отменен")
         };
 
         StatusFilterComboBox.ItemsSource = options;
@@ -1866,7 +1866,7 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
     private static IReadOnlyList<ReportInfoItemViewModel> BuildReadyOrderItems(IEnumerable<SalesOrderRecord> orders)
     {
         return orders
-            .Where(item => NormalizeOrderStatus(item.Status) == "Готов к отгрузке")
+            .Where(item => NormalizeOrderStatus(item.Status) == "На выполнении")
             .OrderByDescending(item => item.TotalAmount)
             .Take(5)
             .Select(item => new ReportInfoItemViewModel(Ui(item.Number), Ui(item.CustomerName), FormatMoney(item.TotalAmount), BrushFromHex("#4F5BFF")))
@@ -1949,31 +1949,29 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
 
         if (shipment is not null)
         {
-            return NormalizeShipmentStatus(shipment) == "Отгружена" ? "Отгружен" : "В сборке";
+            return NormalizeShipmentStatus(shipment) == "Отгружена" ? "Завершен" : "На выполнении";
         }
 
         if (invoice is not null)
         {
-            return "Счет выставлен";
+            return "Выставлен счет";
         }
 
-        return NormalizeOrderStatus(order.Status) switch
-        {
-            "Подтвержден" or "В резерве" or "Готов к отгрузке" => "Подтвержден",
-            _ => "Новый"
-        };
+        return NormalizeOrderStatus(order.Status);
     }
 
     private static string NormalizeOrderStatus(string status)
     {
         return Ui(status) switch
         {
-            "План" or "Черновик" => "Новый",
-            "Подтвержден" => "Подтвержден",
-            "В резерве" => "В резерве",
-            "Готов к отгрузке" => "Готов к отгрузке",
+            "План" or "Черновик" or "Новый" => "Не обработан",
+            "Подтвержден" or "В резерве" => "В работе",
+            "Готов к отгрузке" or "К сборке" or "В производстве" => "На выполнении",
+            "Счет выставлен" or "Выставлен" or "Ожидает оплату" or "Оплачен" or "Частично оплачен" => "Выставлен счет",
+            "Отгружена" or "Отгружен" or "Выполнен" or "Закрыт" => "Завершен",
+            var value when value is "Не обработан" or "В работе" or "На выполнении" or "Выставлен счет" or "Завершен" => value,
             var value when value.Contains("Отмен", StringComparison.OrdinalIgnoreCase) => "Отменен",
-            _ => "Новый"
+            _ => "Не обработан"
         };
     }
 
@@ -2066,13 +2064,13 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
     {
         return Ui(status) switch
         {
-            "Подтвержден" or "Отгружен" or "Отгружена" or "Оплачен" or "Активен" or "В продажах" =>
+            "В работе" or "Завершен" or "Подтвержден" or "Отгружен" or "Отгружена" or "Оплачен" or "Активен" or "В продажах" =>
                 (BrushFromHex("#ECFBF1"), BrushFromHex("#34B56A")),
-            "Счет выставлен" or "Выставлен" or "Ожидает оплату" or "В резерве" or "Готов к отгрузке" or "К сборке" or "На проверке" =>
+            "Выставлен счет" or "Счет выставлен" or "Выставлен" or "Ожидает оплату" or "В резерве" or "Готов к отгрузке" or "К сборке" or "На проверке" =>
                 (BrushFromHex("#FFF4E8"), BrushFromHex("#FF8A26")),
-            "Частично оплачен" =>
+            "На выполнении" or "Частично оплачен" =>
                 (BrushFromHex("#F2EEFF"), BrushFromHex("#7B68EE")),
-            "Просрочен" or "Отменен" or "Пауза" or "Без движения" or "Задержка" =>
+            "Не обработан" or "Просрочен" or "Отменен" or "Пауза" or "Без движения" or "Задержка" =>
                 (BrushFromHex("#FFF1F1"), BrushFromHex("#E1565A")),
             _ => (BrushFromHex("#F3F5FA"), BrushFromHex("#7E8AA6"))
         };

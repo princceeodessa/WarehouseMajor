@@ -574,6 +574,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 contract_number,
                 currency_code,
                 warehouse_name,
+                organization_name,
                 status_text,
                 carrier_name,
                 manager_name,
@@ -606,6 +607,7 @@ public sealed partial class DesktopMySqlBackplaneService
                         ContractNumber = ReadString(reader, "contract_number"),
                         CurrencyCode = ReadString(reader, "currency_code"),
                         Warehouse = ReadString(reader, "warehouse_name"),
+                        Organization = ReadString(reader, "organization_name"),
                         Status = ReadString(reader, "status_text"),
                         Manager = ReadString(reader, "manager_name"),
                         Comment = ReadString(reader, "comment_text"),
@@ -1013,6 +1015,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 order.ContractNumber,
                 order.CurrencyCode,
                 order.Warehouse,
+                order.Organization,
                 order.Status,
                 string.Empty,
                 order.Manager,
@@ -1040,6 +1043,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 invoice.CustomerName,
                 invoice.ContractNumber,
                 invoice.CurrencyCode,
+                string.Empty,
                 string.Empty,
                 invoice.Status,
                 string.Empty,
@@ -1069,6 +1073,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 shipment.ContractNumber,
                 shipment.CurrencyCode,
                 shipment.Warehouse,
+                string.Empty,
                 shipment.Status,
                 shipment.Carrier,
                 shipment.Manager,
@@ -1097,6 +1102,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 returnDocument.ContractNumber,
                 returnDocument.CurrencyCode,
                 returnDocument.Warehouse,
+                string.Empty,
                 returnDocument.Status,
                 string.Empty,
                 returnDocument.Manager,
@@ -1261,6 +1267,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 contract_number,
                 currency_code,
                 warehouse_name,
+                organization_name,
                 status_text,
                 carrier_name,
                 manager_name,
@@ -1283,6 +1290,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 @contract_number,
                 @currency_code,
                 @warehouse_name,
+                @organization_name,
                 @status_text,
                 @carrier_name,
                 @manager_name,
@@ -1304,6 +1312,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 contract_number = VALUES(contract_number),
                 currency_code = VALUES(currency_code),
                 warehouse_name = VALUES(warehouse_name),
+                organization_name = VALUES(organization_name),
                 status_text = VALUES(status_text),
                 carrier_name = VALUES(carrier_name),
                 manager_name = VALUES(manager_name),
@@ -1327,6 +1336,7 @@ public sealed partial class DesktopMySqlBackplaneService
                      "@contract_number",
                      "@currency_code",
                      "@warehouse_name",
+                     "@organization_name",
                      "@status_text",
                      "@carrier_name",
                      "@manager_name",
@@ -1418,6 +1428,7 @@ public sealed partial class DesktopMySqlBackplaneService
         string contractNumber,
         string currencyCode,
         string warehouseName,
+        string organizationName,
         string status,
         string carrier,
         string manager,
@@ -1441,6 +1452,7 @@ public sealed partial class DesktopMySqlBackplaneService
         SetParameter(documentCommand, "@contract_number", contractNumber);
         SetParameter(documentCommand, "@currency_code", currencyCode);
         SetParameter(documentCommand, "@warehouse_name", warehouseName);
+        SetParameter(documentCommand, "@organization_name", organizationName);
         SetParameter(documentCommand, "@status_text", status);
         SetParameter(documentCommand, "@carrier_name", carrier);
         SetParameter(documentCommand, "@manager_name", manager);
@@ -1868,6 +1880,7 @@ public sealed partial class DesktopMySqlBackplaneService
             contract_number TEXT NULL,
             currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
             warehouse_name VARCHAR(256) NULL,
+            organization_name VARCHAR(256) NULL,
             status_text VARCHAR(128) NULL,
             carrier_name VARCHAR(256) NULL,
             manager_name VARCHAR(256) NULL,

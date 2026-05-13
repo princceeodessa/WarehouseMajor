@@ -163,7 +163,7 @@ public partial class DashboardWorkspaceView : UserControl
 
     private IReadOnlyList<DashboardUrgentTaskViewModel> BuildUrgentTasks()
     {
-        var overdueOrders = _salesWorkspace.Orders.Count(item => item.OrderDate.Date < DateTime.Today.AddDays(-2) && !NormalizeOrderStatus(item.Status).Equals("Выполнен", StringComparison.OrdinalIgnoreCase));
+        var overdueOrders = _salesWorkspace.Orders.Count(item => item.OrderDate.Date < DateTime.Today.AddDays(-2) && !NormalizeOrderStatus(item.Status).Equals("Завершен", StringComparison.OrdinalIgnoreCase));
         var expenseInvoices = _salesWorkspace.Shipments.Count(item => item.ShipmentDate.Date >= DateTime.Today.AddDays(-7));
         var delayedShipments = _salesWorkspace.Shipments.Count(item => item.ShipmentDate.Date < DateTime.Today && !NormalizeShipmentStatus(item.Status).Equals("Доставлено", StringComparison.OrdinalIgnoreCase));
         var lowStockItems = CountLowStockItems();
@@ -263,9 +263,10 @@ public partial class DashboardWorkspaceView : UserControl
     {
         var groups = new[]
         {
-            new { Label = "Новый", Color = "#6C63FF", Count = _salesWorkspace.Orders.Count(item => NormalizeOrderStatus(item.Status) == "Новый") },
-            new { Label = "Подтвержден", Color = "#59C36A", Count = _salesWorkspace.Orders.Count(item => NormalizeOrderStatus(item.Status) == "Подтвержден") },
-            new { Label = "В сборке", Color = "#FFB648", Count = _salesWorkspace.Orders.Count(item => NormalizeOrderStatus(item.Status) == "В производстве") },
+            new { Label = "Не обработан", Color = "#6C63FF", Count = _salesWorkspace.Orders.Count(item => NormalizeOrderStatus(item.Status) == "Не обработан") },
+            new { Label = "В работе", Color = "#59C36A", Count = _salesWorkspace.Orders.Count(item => NormalizeOrderStatus(item.Status) == "В работе") },
+            new { Label = "На выполнении", Color = "#FFB648", Count = _salesWorkspace.Orders.Count(item => NormalizeOrderStatus(item.Status) == "На выполнении") },
+            new { Label = "Выставлен счет", Color = "#F29A17", Count = _salesWorkspace.Orders.Count(item => NormalizeOrderStatus(item.Status) == "Выставлен счет") },
             new { Label = "Отгружен", Color = "#4F8CFF", Count = _salesWorkspace.Shipments.Count(item => NormalizeShipmentStatus(item.Status) == "Доставлено") },
             new { Label = "Частично отгружен", Color = "#7B68EE", Count = Math.Max(0, _salesWorkspace.Shipments.Count - _salesWorkspace.Shipments.Count(item => NormalizeShipmentStatus(item.Status) == "Доставлено") ) },
             new { Label = "Отменен", Color = "#FF6B6B", Count = _salesWorkspace.Orders.Count(item => Clean(item.Status).Contains("Отмен", StringComparison.OrdinalIgnoreCase)) }
@@ -610,11 +611,13 @@ public partial class DashboardWorkspaceView : UserControl
     {
         return Clean(status) switch
         {
-            "План" or "Черновик" => "Новый",
-            "Подтвержден" or "В резерве" => "Подтвержден",
-            "Готов к отгрузке" or "К сборке" => "В производстве",
-            "Отгружена" or "Выполнен" => "Выполнен",
-            _ => "Новый"
+            "План" or "Черновик" or "Новый" => "Не обработан",
+            "Подтвержден" or "В резерве" => "В работе",
+            "Готов к отгрузке" or "К сборке" or "В производстве" => "На выполнении",
+            "Счет выставлен" or "Выставлен" or "Ожидает оплату" or "Оплачен" or "Частично оплачен" => "Выставлен счет",
+            "Отгружена" or "Выполнен" or "Закрыт" => "Завершен",
+            "Не обработан" or "В работе" or "На выполнении" or "Выставлен счет" or "Завершен" => Clean(status),
+            _ => "Не обработан"
         };
     }
 

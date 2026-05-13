@@ -579,22 +579,22 @@ public static class SalesWorkspaceImportMerger
         var status = FirstNonEmpty(record.Status, SafeDisplay(record.FindField("СостояниеЗаказа")));
         if (ContainsText(status, "резерв"))
         {
-            return "В резерве";
+            return "В работе";
         }
 
         if (ContainsText(status, "отгруз")
             || ContainsText(status, "готов"))
         {
-            return "Готов к отгрузке";
+            return "На выполнении";
         }
 
         if (ContainsText(status, "подтверж")
             || IsTrue(record, "Проведен"))
         {
-            return "Подтвержден";
+            return "В работе";
         }
 
-        return string.IsNullOrWhiteSpace(existingValue) ? "План" : existingValue;
+        return string.IsNullOrWhiteSpace(existingValue) ? "Не обработан" : existingValue;
     }
 
     private static string MapInvoiceStatus(OneCRecordSnapshot record, DateTime dueDate, string? existingValue)

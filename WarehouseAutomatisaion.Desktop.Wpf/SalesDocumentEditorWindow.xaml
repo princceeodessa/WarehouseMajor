@@ -72,6 +72,11 @@
                     <DatePicker x:Name="SecondaryDatePicker" Style="{StaticResource InputStyle}" />
                 </StackPanel>
 
+                <StackPanel x:Name="OrganizationPanel" Grid.Row="0" Grid.Column="4" Margin="0,0,0,14">
+                    <TextBlock Text="Организация" Style="{StaticResource FieldLabelStyle}" />
+                    <ComboBox x:Name="OrganizationComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
+                </StackPanel>
+
                 <StackPanel x:Name="CustomerPanel" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,14">
                     <TextBlock Text="Клиент" Style="{StaticResource FieldLabelStyle}" />
                     <ComboBox x:Name="CustomerComboBox"
@@ -195,7 +200,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <Grid Margin="0,0,0,14">
@@ -222,6 +227,8 @@
                           IsReadOnly="False"
                           CanUserAddRows="False"
                           SelectionMode="Extended"
+                          MinHeight="118"
+                          MaxHeight="260"
                           MinRowHeight="44"
                           CellEditEnding="HandleLinesGridCellEditEnding"
                           CurrentCellChanged="HandleLinesGridCurrentCellChanged"

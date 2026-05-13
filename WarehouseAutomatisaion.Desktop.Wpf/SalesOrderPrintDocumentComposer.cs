@@ -35,7 +35,7 @@ internal static class SalesOrderPrintDocumentComposer
 
         AddTitle(document, SalesDocumentPrintComposer.BuildOrderTitle(order));
         AddPlainLine(document, "Карта для перевода:");
-        AddPartyLine(document, "Исполнитель:", "ИП");
+        AddPartyLine(document, "Исполнитель:", SalesDocumentPrintComposer.DisplayOrderText(order.Organization));
         AddPartyLine(document, "Заказчик:", SalesDocumentPrintComposer.DisplayOrderText(order.CustomerName));
         document.Blocks.Add(BuildLinesTable(lines, contentWidth));
         document.Blocks.Add(BuildSummaryTable(order, lines.Length, contentWidth));

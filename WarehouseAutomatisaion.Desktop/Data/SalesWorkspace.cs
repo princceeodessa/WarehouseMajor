@@ -19,7 +19,8 @@ public sealed class SalesWorkspace
         IReadOnlyList<string> shipmentStatuses,
         IReadOnlyList<string> managers,
         IReadOnlyList<string> currencies,
-        IReadOnlyList<string> warehouses)
+        IReadOnlyList<string> warehouses,
+        IReadOnlyList<string> organizations)
     {
         Customers = customers;
         Orders = orders;
@@ -35,6 +36,7 @@ public sealed class SalesWorkspace
         Managers = managers;
         Currencies = currencies;
         Warehouses = warehouses;
+        Organizations = organizations;
     }
 
     public BindingList<SalesCustomerRecord> Customers { get; }
@@ -64,6 +66,8 @@ public sealed class SalesWorkspace
     public IReadOnlyList<string> Currencies { get; internal set; }
 
     public IReadOnlyList<string> Warehouses { get; internal set; }
+
+    public IReadOnlyList<string> Organizations { get; internal set; }
 
     public OneCImportSnapshot? OneCImport { get; private set; }
 
@@ -103,6 +107,7 @@ public sealed class SalesWorkspace
         Managers = source.Managers.ToArray();
         Currencies = source.Currencies.ToArray();
         Warehouses = source.Warehouses.ToArray();
+        Organizations = source.Organizations.ToArray();
         OneCImport = source.OneCImport;
         OperationalSnapshot = source.OperationalSnapshot;
         CurrentOperator = source.CurrentOperator;
@@ -130,11 +135,11 @@ public sealed class SalesWorkspace
 
         var orderStatuses = new[]
         {
-            "План",
-            "Подтвержден",
-            "В резерве",
-            "Готов к отгрузке",
-            "Закрыт"
+            "Не обработан",
+            "В работе",
+            "На выполнении",
+            "Выставлен счет",
+            "Завершен"
         };
 
         var invoiceStatuses = new[]
@@ -164,6 +169,13 @@ public sealed class SalesWorkspace
             "Главный склад",
             "Шоурум",
             "Монтажный склад"
+        };
+
+        var organizations = new[]
+        {
+            "ИП",
+            "ИП Закирова Ирина Викторовна",
+            "ИП с НДС"
         };
 
         var catalogItems = new[]
@@ -322,7 +334,8 @@ public sealed class SalesWorkspace
                 ContractNumber = customerByCode["C-001"].ContractNumber,
                 CurrencyCode = customerByCode["C-001"].CurrencyCode,
                 Warehouse = "Главный склад",
-                Status = "В резерве",
+                Organization = "ИП",
+                Status = "В работе",
                 Manager = "Ирина Киселева",
                 Comment = "Собрать в одну отгрузку к концу недели.",
                 Lines = CloneLines(
@@ -342,7 +355,8 @@ public sealed class SalesWorkspace
                 ContractNumber = customerByCode["C-002"].ContractNumber,
                 CurrencyCode = customerByCode["C-002"].CurrencyCode,
                 Warehouse = "Шоурум",
-                Status = "Подтвержден",
+                Organization = "ИП",
+                Status = "Выставлен счет",
                 Manager = "Антон Мельников",
                 Comment = "Нужна отгрузка первой части завтра утром.",
                 Lines = CloneLines(
@@ -362,7 +376,8 @@ public sealed class SalesWorkspace
                 ContractNumber = customerByCode["C-003"].ContractNumber,
                 CurrencyCode = customerByCode["C-003"].CurrencyCode,
                 Warehouse = "Монтажный склад",
-                Status = "План",
+                Organization = "ИП",
+                Status = "Не обработан",
                 Manager = "Ирина Киселева",
                 Comment = "Подготовить резерв после подтверждения аванса.",
                 Lines = CloneLines(
@@ -482,7 +497,8 @@ public sealed class SalesWorkspace
             shipmentStatuses,
             managers,
             currencies,
-            warehouses)
+            warehouses,
+            organizations)
         {
             CurrentOperator = currentOperator
         };
@@ -517,6 +533,7 @@ public sealed class SalesWorkspace
             ContractNumber = customer?.ContractNumber ?? string.Empty,
             CurrencyCode = customer?.CurrencyCode ?? Currencies.First(),
             Warehouse = Warehouses.First(),
+            Organization = Organizations.FirstOrDefault() ?? "ИП",
             Status = OrderStatuses.First(),
             Manager = GetDefaultManager(),
             Lines = new BindingList<SalesOrderLineRecord>()
@@ -690,6 +707,9 @@ public sealed class SalesWorkspace
             copy.Status = OrderStatuses.First();
         }
 
+        copy.Status = NormalizeOrderStatus(copy.Status);
+        copy.Organization = NormalizeOrganization(copy.Organization);
+
         ValidateOrderForPersist(copy);
         Orders.Add(copy);
         RefreshOrderLifecycle(copy.Id);
@@ -700,6 +720,8 @@ public sealed class SalesWorkspace
     public void UpdateOrder(SalesOrderRecord order)
     {
         var existing = Orders.First(item => item.Id == order.Id);
+        order.Status = NormalizeOrderStatus(order.Status);
+        order.Organization = NormalizeOrganization(order.Organization);
         ValidateOrderForPersist(order);
         existing.CopyFrom(order);
         SyncDerivedDocumentsFromOrder(existing);
@@ -920,16 +942,20 @@ public sealed class SalesWorkspace
             return CreateWorkflowResult(false, "Заказ не найден.", "Не удалось подтвердить заказ.");
         }
 
-        if (order.Status.Equals("Подтвержден", StringComparison.OrdinalIgnoreCase)
+        if (order.Status.Equals("В работе", StringComparison.OrdinalIgnoreCase)
+            || order.Status.Equals("На выполнении", StringComparison.OrdinalIgnoreCase)
+            || order.Status.Equals("Выставлен счет", StringComparison.OrdinalIgnoreCase)
+            || order.Status.Equals("Отгружен", StringComparison.OrdinalIgnoreCase)
+            || order.Status.Equals("Завершен", StringComparison.OrdinalIgnoreCase)
+            || order.Status.Equals("Подтвержден", StringComparison.OrdinalIgnoreCase)
             || order.Status.Equals("В резерве", StringComparison.OrdinalIgnoreCase)
             || order.Status.Equals("Готов к отгрузке", StringComparison.OrdinalIgnoreCase)
-            || order.Status.Equals("Отгружен", StringComparison.OrdinalIgnoreCase)
             || order.Status.Equals("Закрыт", StringComparison.OrdinalIgnoreCase))
         {
             return CreateWorkflowResult(true, $"Заказ {order.Number} уже подтвержден в рабочем контуре.", "Повторное подтверждение не требуется.");
         }
 
-        order.Status = "Подтвержден";
+        order.Status = "В работе";
         WriteOperationLog("Заказ", order.Id, order.Number, "Подтверждение заказа", "Успех", $"Заказ {order.Number} подтвержден.");
         OnChanged();
         return CreateWorkflowResult(true, $"Заказ {order.Number} подтвержден.", "Теперь по нему можно резервировать товар и выставлять счет.");
@@ -951,7 +977,7 @@ public sealed class SalesWorkspace
             return CreateWorkflowResult(false, $"Не удалось зарезервировать заказ {order.Number}.", check.HintText);
         }
 
-        order.Status = "В резерве";
+        order.Status = "В работе";
         WriteOperationLog("Заказ", order.Id, order.Number, "Резервирование", "Успех", $"Заказ {order.Number} поставлен в резерв.");
         OnChanged();
         return CreateWorkflowResult(true, $"Заказ {order.Number} поставлен в резерв.", check.HintText);
@@ -965,12 +991,13 @@ public sealed class SalesWorkspace
             return CreateWorkflowResult(false, "Заказ не найден.", "Не удалось снять резерв.");
         }
 
-        if (!order.Status.Equals("В резерве", StringComparison.OrdinalIgnoreCase))
+        if (!order.Status.Equals("В работе", StringComparison.OrdinalIgnoreCase)
+            && !order.Status.Equals("В резерве", StringComparison.OrdinalIgnoreCase))
         {
             return CreateWorkflowResult(true, $"Заказ {order.Number} не находится в резерве.", "Снимать резерв не требуется.");
         }
 
-        order.Status = "Подтвержден";
+        order.Status = "В работе";
         WriteOperationLog("Заказ", order.Id, order.Number, "Снятие резерва", "Успех", $"Резерв по заказу {order.Number} снят.");
         OnChanged();
         return CreateWorkflowResult(true, $"Резерв по заказу {order.Number} снят.", "Заказ возвращен в подтвержденное состояние.");
@@ -1010,14 +1037,14 @@ public sealed class SalesWorkspace
         }
 
         shipment.Status = "Отгружена";
-        order.Status = "Закрыт";
+        order.Status = "Завершен";
         WriteOperationLog("Отгрузка", shipment.Id, shipment.Number, "Проведение расходной", "Успех", $"Расходная {shipment.Number} проведена.");
         WriteOperationLog("Заказ", order.Id, order.Number, "Завершение заказа", "Успех", $"Заказ {order.Number} закрыт после проведения расходной.");
         OnChanged();
 
         var detail = createdShipment
-            ? $"Создана и проведена расходная накладная {shipment.Number}. Заказ переведен в статус 'Закрыт'."
-            : $"Проведена расходная накладная {shipment.Number}. Заказ переведен в статус 'Закрыт'.";
+            ? $"Создана и проведена расходная накладная {shipment.Number}. Заказ переведен в статус 'Завершен'."
+            : $"Проведена расходная накладная {shipment.Number}. Заказ переведен в статус 'Завершен'.";
         return CreateWorkflowResult(true, $"Расходная по заказу {order.Number} проведена.", detail);
     }
 
@@ -1053,11 +1080,12 @@ public sealed class SalesWorkspace
             && item.Status.Equals("Отгружена", StringComparison.OrdinalIgnoreCase));
         if (hasShippedExpense && receivedAmount + remainingAmount >= order.TotalAmount)
         {
-            order.Status = "Закрыт";
+            order.Status = "Завершен";
         }
-        else if (order.Status.Equals("План", StringComparison.OrdinalIgnoreCase))
+        else if (order.Status.Equals("Не обработан", StringComparison.OrdinalIgnoreCase)
+                 || order.Status.Equals("План", StringComparison.OrdinalIgnoreCase))
         {
-            order.Status = "Подтвержден";
+            order.Status = "В работе";
         }
 
         WriteOperationLog("Поступление в кассу", receipt.Id, receipt.Number, "Поступление оплаты", "Успех", $"Оплата {receipt.Amount:N2} {receipt.CurrencyCode} по заказу {order.Number}.");
@@ -1283,12 +1311,12 @@ public sealed class SalesWorkspace
     private void PromoteOrderFromInvoice(SalesInvoiceRecord invoice)
     {
         var order = Orders.FirstOrDefault(item => item.Id == invoice.SalesOrderId);
-        if (order is null || order.Status != "План")
+        if (order is null)
         {
             return;
         }
 
-        order.Status = "Подтвержден";
+        order.Status = "Выставлен счет";
     }
 
     private void PromoteOrderFromShipment(SalesShipmentRecord shipment)
@@ -1304,7 +1332,7 @@ public sealed class SalesWorkspace
             return;
         }
 
-        order.Status = "Готов к отгрузке";
+        order.Status = "На выполнении";
     }
 
     private void RefreshOrderLifecycle(Guid orderId)
@@ -1315,7 +1343,9 @@ public sealed class SalesWorkspace
             return;
         }
 
-        if (order.Status.Equals("Закрыт", StringComparison.OrdinalIgnoreCase))
+        order.Status = NormalizeOrderStatus(order.Status);
+
+        if (order.Status.Equals("Завершен", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -1325,7 +1355,7 @@ public sealed class SalesWorkspace
 
         if (relatedShipments.Any(item => item.Status.Equals("Отгружена", StringComparison.OrdinalIgnoreCase)))
         {
-            order.Status = "Готов к отгрузке";
+            order.Status = "Завершен";
             return;
         }
 
@@ -1333,11 +1363,12 @@ public sealed class SalesWorkspace
                 item.Status.Equals("К сборке", StringComparison.OrdinalIgnoreCase)
                 || item.Status.Equals("Готова к отгрузке", StringComparison.OrdinalIgnoreCase)))
         {
-            order.Status = "Готов к отгрузке";
+            order.Status = "На выполнении";
             return;
         }
 
-        if (order.Status.Equals("В резерве", StringComparison.OrdinalIgnoreCase))
+        if (order.Status.Equals("На выполнении", StringComparison.OrdinalIgnoreCase)
+            || order.Status.Equals("В работе", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -1347,13 +1378,14 @@ public sealed class SalesWorkspace
                 || item.Status.Equals("Ожидает оплату", StringComparison.OrdinalIgnoreCase)
                 || item.Status.Equals("Оплачен", StringComparison.OrdinalIgnoreCase)))
         {
-            order.Status = "Подтвержден";
+            order.Status = "Выставлен счет";
             return;
         }
 
-        if (order.Status.Equals("Готов к отгрузке", StringComparison.OrdinalIgnoreCase))
+        if (order.Status.Equals("Выставлен счет", StringComparison.OrdinalIgnoreCase)
+            && !relatedInvoices.Any())
         {
-            order.Status = "Подтвержден";
+            order.Status = "В работе";
         }
     }
 
@@ -1413,6 +1445,11 @@ public sealed class SalesWorkspace
         if (string.IsNullOrWhiteSpace(order.Warehouse))
         {
             throw new InvalidOperationException("Нельзя сохранить заказ: не указан склад.");
+        }
+
+        if (string.IsNullOrWhiteSpace(order.Organization))
+        {
+            throw new InvalidOperationException("Нельзя сохранить заказ: не указана организация.");
         }
 
         ValidateSalesLines(order.Lines, "заказ");
@@ -1543,7 +1580,7 @@ public sealed class SalesWorkspace
             .DefaultIfEmpty(0)
             .Max() + 1;
 
-        return $"SO-{DateTime.Today:yyMMdd}-{next:000}";
+        return next.ToString();
     }
 
     private string GetNextInvoiceNumber()
@@ -1584,6 +1621,36 @@ public sealed class SalesWorkspace
             .Max() + 1;
 
         return $"CASH-{DateTime.Today:yyMMdd}-{next:000}";
+    }
+
+    public string NormalizeOrderStatus(string? status)
+    {
+        var value = (status ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return OrderStatuses.FirstOrDefault() ?? "Не обработан";
+        }
+
+        return value switch
+        {
+            "План" or "Черновик" or "Новый" or "Новые" => "Не обработан",
+            "Подтвержден" or "Подтвержденные" or "В резерве" => "В работе",
+            "Готов к отгрузке" or "К сборке" or "В производстве" => "На выполнении",
+            "Счет выставлен" or "Выставлен" or "Ожидает оплату" or "Оплачен" or "Частично оплачен" => "Выставлен счет",
+            "Отгружена" or "Отгружен" or "Выполнен" or "Выполненные" or "Закрыт" => "Завершен",
+            _ => value
+        };
+    }
+
+    public string NormalizeOrganization(string? organization)
+    {
+        var value = (organization ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        return Organizations.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item)) ?? "ИП";
     }
 
     private static BindingList<SalesOrderLineRecord> CloneLines(IEnumerable<SalesOrderLineRecord> lines)
@@ -1848,6 +1915,8 @@ public sealed class SalesOrderRecord
 
     public string Warehouse { get; set; } = string.Empty;
 
+    public string Organization { get; set; } = "ИП";
+
     public string Status { get; set; } = string.Empty;
 
     public string Manager { get; set; } = string.Empty;
@@ -1881,6 +1950,7 @@ public sealed class SalesOrderRecord
             ContractNumber = ContractNumber,
             CurrencyCode = CurrencyCode,
             Warehouse = Warehouse,
+            Organization = Organization,
             Status = Status,
             Manager = Manager,
             Comment = Comment,
@@ -1900,6 +1970,7 @@ public sealed class SalesOrderRecord
         ContractNumber = source.ContractNumber;
         CurrencyCode = source.CurrencyCode;
         Warehouse = source.Warehouse;
+        Organization = source.Organization;
         Status = source.Status;
         Manager = source.Manager;
         Comment = source.Comment;
@@ -2130,6 +2201,8 @@ public sealed class SalesReturnRecord
 
     public string Warehouse { get; set; } = string.Empty;
 
+    public string Organization { get; set; } = "ИП";
+
     public string Status { get; set; } = string.Empty;
 
     public string Manager { get; set; } = string.Empty;
@@ -2167,6 +2240,7 @@ public sealed class SalesReturnRecord
             ContractNumber = ContractNumber,
             CurrencyCode = CurrencyCode,
             Warehouse = Warehouse,
+            Organization = Organization,
             Status = Status,
             Manager = Manager,
             Reason = Reason,
@@ -2189,6 +2263,7 @@ public sealed class SalesReturnRecord
         ContractNumber = source.ContractNumber;
         CurrencyCode = source.CurrencyCode;
         Warehouse = source.Warehouse;
+        Organization = source.Organization;
         Status = source.Status;
         Manager = source.Manager;
         Reason = source.Reason;

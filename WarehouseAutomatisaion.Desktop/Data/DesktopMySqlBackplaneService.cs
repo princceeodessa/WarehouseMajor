@@ -1524,6 +1524,18 @@ public sealed partial class DesktopMySqlBackplaneService
         EXECUTE warehouse_stmt;
         DEALLOCATE PREPARE warehouse_stmt;
 
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name
+                AND TABLE_NAME = 'app_sales_documents'
+                AND COLUMN_NAME = 'organization_name'
+        );
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_sales_documents ADD COLUMN organization_name VARCHAR(256) NULL AFTER warehouse_name', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl;
+        EXECUTE warehouse_stmt;
+        DEALLOCATE PREPARE warehouse_stmt;
+
         SET @warehouse_column_resize = (
             SELECT COUNT(*) > 0
             FROM INFORMATION_SCHEMA.COLUMNS
