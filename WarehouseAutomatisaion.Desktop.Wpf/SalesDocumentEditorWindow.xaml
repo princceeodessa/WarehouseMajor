@@ -32,15 +32,99 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Margin="0,0,0,18">
+        <StackPanel Margin="0,0,0,16">
             <TextBlock x:Name="HeaderTitleText"
-                       FontSize="27"
+                       FontSize="22"
                        FontWeight="SemiBold"
                        Foreground="#17213A" />
             <TextBlock x:Name="HeaderSubtitleText"
-                       Margin="0,6,0,0"
-                       FontSize="13.5"
+                       Margin="0,4,0,0"
+                       FontSize="12.5"
                        Foreground="#6E7B98" />
+
+            <!-- 1С-стиль toolbar -->
+            <WrapPanel Margin="0,12,0,0" Orientation="Horizontal">
+                <Button Content="Провести и закрыть"
+                        Background="#FFD43B"
+                        BorderThickness="0"
+                        Foreground="#17213A"
+                        FontWeight="SemiBold"
+                        Padding="14,7"
+                        Height="32"
+                        Cursor="Hand"
+                        Margin="0,0,8,6"
+                        ToolTip="Провести и закрыть — сохранить и закрыть вкладку (Ctrl+Enter)"
+                        Click="HandleSaveClick" />
+                <Button Content="Записать"
+                        Background="Transparent"
+                        BorderBrush="#D7DEEC"
+                        BorderThickness="1"
+                        Foreground="#17213A"
+                        Padding="12,6"
+                        Height="32"
+                        Cursor="Hand"
+                        Margin="0,0,6,6"
+                        ToolTip="Записать — сохранить документ"
+                        Click="HandleRecordClick" />
+                <Button Content="Провести"
+                        Background="Transparent"
+                        BorderBrush="#D7DEEC"
+                        BorderThickness="1"
+                        Foreground="#17213A"
+                        Padding="12,6"
+                        Height="32"
+                        Cursor="Hand"
+                        Margin="0,0,12,6"
+                        ToolTip="Провести — сохранить и применить движения"
+                        Click="HandlePostClick" />
+
+                <Button x:Name="CreateBasedOnButton"
+                        Background="Transparent"
+                        BorderBrush="#D7DEEC"
+                        BorderThickness="1"
+                        Foreground="#17213A"
+                        Padding="12,6"
+                        Height="32"
+                        Cursor="Hand"
+                        Margin="0,0,6,6"
+                        ToolTip="Создать новый документ на основании текущего заказа"
+                        Click="HandleCreateBasedOnClick">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Создать на основании" VerticalAlignment="Center" />
+                        <TextBlock Text=" ▾" FontSize="10" VerticalAlignment="Center" Margin="4,0,0,0" Foreground="#7A86A5" />
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="PrintButton"
+                        Background="Transparent"
+                        BorderBrush="#D7DEEC"
+                        BorderThickness="1"
+                        Foreground="#17213A"
+                        Padding="10,6"
+                        Height="32"
+                        Cursor="Hand"
+                        Margin="0,0,6,6"
+                        ToolTip="Печать"
+                        Click="HandlePrintButtonClick">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" VerticalAlignment="Center" />
+                        <TextBlock Text=" ▾" FontSize="10" VerticalAlignment="Center" Margin="4,0,0,0" Foreground="#7A86A5" />
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="SetPurchaseMinButton"
+                        Content="Установить закуп"
+                        Background="Transparent"
+                        BorderBrush="#D7DEEC"
+                        BorderThickness="1"
+                        Foreground="#17213A"
+                        Padding="12,6"
+                        Height="32"
+                        Cursor="Hand"
+                        Margin="0,0,6,6"
+                        ToolTip="Установить минимальное количество для закупки"
+                        Click="HandleSetPurchaseMinClick" />
+            </WrapPanel>
         </StackPanel>
 
         <Border Grid.Row="1"
@@ -77,7 +161,21 @@
 
                 <StackPanel x:Name="OrganizationPanel" Grid.Row="0" Grid.Column="4" Margin="0,0,0,14">
                     <TextBlock Text="Организация" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="OrganizationComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
+                    <ComboBox x:Name="OrganizationComboBox" Style="{StaticResource InputStyle}" IsEditable="True" SelectionChanged="HandleOrganizationSelectionChanged" />
+                    <Button x:Name="OrganizationRequisitesLink"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            Margin="0,6,0,0"
+                            HorizontalAlignment="Left"
+                            Cursor="Hand"
+                            Click="HandleOrganizationRequisitesClick">
+                        <TextBlock x:Name="OrganizationRequisitesText"
+                                   Text="Банковский счёт, подписи и другие реквизиты"
+                                   FontSize="11.5"
+                                   Foreground="#4F5BFF"
+                                   TextDecorations="Underline" />
+                    </Button>
                 </StackPanel>
 
                 <StackPanel x:Name="CustomerPanel" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,14">
@@ -323,21 +421,12 @@
             </Grid>
 
             <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="18,0,0,0">
-                <Button x:Name="PrintButton"
-                        Content="Печать"
-                        Width="120"
-                        Style="{StaticResource GhostButtonStyle}"
-                        Margin="0,0,10,0"
-                        Click="HandlePrintButtonClick" />
+                <!-- Кнопки сохранения и печати перенесены в верхний toolbar (в стиле 1С УНФ).
+                     Здесь оставлена только «Отмена» — закрыть без сохранения. -->
                 <Button Content="Отмена"
                         Width="120"
                         Style="{StaticResource GhostButtonStyle}"
-                        Margin="0,0,10,0"
                         Click="HandleCancelClick" />
-                <Button Content="Сохранить документ"
-                        Width="180"
-                        Style="{StaticResource PrimaryButtonStyle}"
-                        Click="HandleSaveClick" />
             </StackPanel>
         </Grid>
     </Grid>

@@ -1445,7 +1445,7 @@ internal static class RecordsWorkspaceCatalog
         ShowMessage("Заказы", $"Создан дубликат {copy.Number}.");
     }
 
-    private static void CreateInvoiceFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
+    internal static void CreateInvoiceFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
     {
         var existingInvoice = salesWorkspace.Invoices
             .Where(item =>
@@ -1468,7 +1468,7 @@ internal static class RecordsWorkspaceCatalog
         ShowMessage("Счета", $"Создан счет {invoice.Number} по заказу {order.Number}. Он привязан к заказу и доступен в связанных документах и разделе \"Счета\".");
     }
 
-    private static void CreateShipmentFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
+    internal static void CreateShipmentFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
     {
         var shipment = salesWorkspace.CreateShipmentDraftFromOrder(order.Id);
         if (!TryRunSalesEditorSave(() => salesWorkspace.AddShipment(shipment)))
@@ -1492,7 +1492,7 @@ internal static class RecordsWorkspaceCatalog
         CreateShipmentFromOrder(salesWorkspace, order);
     }
 
-    private static void CreateReturnFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
+    internal static void CreateReturnFromOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
     {
         var returnDocument = salesWorkspace.CreateReturnDraftFromOrder(order.Id);
         var dialog = new SalesReturnEditorWindow(salesWorkspace, returnDocument);

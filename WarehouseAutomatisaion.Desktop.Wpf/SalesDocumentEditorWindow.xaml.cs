@@ -1188,6 +1188,185 @@ public partial class SalesDocumentEditorWindow : Window
         CompleteEditing(success: false);
     }
 
+    // «Записать» — алиас для сохранения (без особого поведения, как в УНФ это просто Save).
+    private void HandleRecordClick(object sender, RoutedEventArgs e)
+    {
+        HandleSaveClick(sender, e);
+    }
+
+    // «Провести» — алиас для сохранения. В УНФ «Провести» отличается тем, что
+    // применяет движения по регистрам (склад, касса, цены). В нашем случае
+    // сохранение и так пишет в SalesWorkspace — поэтому совпадает с «Записать».
+    private void HandlePostClick(object sender, RoutedEventArgs e)
+    {
+        HandleSaveClick(sender, e);
+    }
+
+    // «Создать на основании» — меню действий по образцу 1С УНФ.
+    // Активны: Счёт на оплату, Поступление в кассу, Расходная накладная, Возврат от покупателя.
+    // Остальные показаны как «в разработке».
+    private void HandleCreateBasedOnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button button)
+        {
+            return;
+        }
+
+        var menu = new System.Windows.Controls.ContextMenu();
+
+        AddCreateBasedOnItem(menu, "Счёт на оплату", true, () => CreateInvoiceFromCurrentOrder());
+        AddCreateBasedOnItem(menu, "Ввести фактический платёж", false);
+        AddCreateBasedOnItem(menu, "Поступление в кассу", true, () => CreateCashReceiptFromCurrentOrder());
+        AddCreateBasedOnItem(menu, "Поступление на счёт", false);
+        AddCreateBasedOnItem(menu, "Оплата картой", false);
+        AddCreateBasedOnItem(menu, "Чек ККМ", false);
+        AddCreateBasedOnItem(menu, "Расходная накладная", true, () => CreateShipmentFromCurrentOrder());
+        AddCreateBasedOnItem(menu, "Акт выполненных работ", false);
+        AddCreateBasedOnItem(menu, "Возврат от покупателя", true, () => CreateReturnFromCurrentOrder());
+        AddCreateBasedOnItem(menu, "Заказ поставщику", false);
+        AddCreateBasedOnItem(menu, "Заказ поставщику (по калькуляции)", false);
+        AddCreateBasedOnItem(menu, "Производство", false);
+        AddCreateBasedOnItem(menu, "Заказ на производство", false);
+        AddCreateBasedOnItem(menu, "Перемещение запасов", false);
+
+        menu.PlacementTarget = button;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
+    }
+
+    private void AddCreateBasedOnItem(System.Windows.Controls.ContextMenu menu, string title, bool isEnabled, Action? action = null)
+    {
+        var item = new System.Windows.Controls.MenuItem
+        {
+            Header = title,
+            IsEnabled = isEnabled,
+            Padding = new Thickness(12, 6, 18, 6)
+        };
+        if (action is not null)
+        {
+            item.Click += (_, _) =>
+            {
+                try { action(); }
+                catch (Exception exception)
+                {
+                    ValidationText.Text = $"Не удалось: {exception.Message}";
+                }
+            };
+        }
+        else
+        {
+            item.ToolTip = "В разработке";
+        }
+        menu.Items.Add(item);
+    }
+
+    private void CreateInvoiceFromCurrentOrder()
+    {
+        var order = BuildCurrentOrderSnapshot() ?? ResolveRelatedOrder();
+        if (order is null)
+        {
+            ValidationText.Text = "Сначала сохраните заказ — счёт создаётся на основании.";
+            return;
+        }
+        RecordsWorkspaceCatalog.CreateInvoiceFromOrder(_workspace, order);
+        RenderRelatedDocuments();
+    }
+
+    private void CreateShipmentFromCurrentOrder()
+    {
+        var order = BuildCurrentOrderSnapshot() ?? ResolveRelatedOrder();
+        if (order is null)
+        {
+            ValidationText.Text = "Сначала сохраните заказ — расходная создаётся на основании.";
+            return;
+        }
+        RecordsWorkspaceCatalog.CreateShipmentFromOrder(_workspace, order);
+        RenderRelatedDocuments();
+    }
+
+    private void CreateReturnFromCurrentOrder()
+    {
+        var order = BuildCurrentOrderSnapshot() ?? ResolveRelatedOrder();
+        if (order is null)
+        {
+            ValidationText.Text = "Сначала сохраните заказ — возврат создаётся на основании.";
+            return;
+        }
+        RecordsWorkspaceCatalog.CreateReturnFromOrder(_workspace, order);
+        RenderRelatedDocuments();
+    }
+
+    private void CreateCashReceiptFromCurrentOrder()
+    {
+        var order = BuildCurrentOrderSnapshot() ?? ResolveRelatedOrder();
+        if (order is null)
+        {
+            ValidationText.Text = "Сначала сохраните заказ — поступление в кассу создаётся на основании.";
+            return;
+        }
+        var result = _workspace.RecordCashReceiptForOrder(order.Id);
+        ValidationText.Text = result.Succeeded
+            ? $"Создано поступление в кассу: {result.Detail}"
+            : $"Не удалось: {result.Message}";
+        ValidationText.Foreground = result.Succeeded ? Brushes.SeaGreen : Brushes.IndianRed;
+        RenderRelatedDocuments();
+    }
+
+    private void HandleSetPurchaseMinClick(object sender, RoutedEventArgs e)
+    {
+        if (_lines.Count == 0)
+        {
+            ValidationText.Text = "Добавьте хотя бы одну позицию.";
+            return;
+        }
+        var total = _lines.Sum(item => item.Quantity);
+        MessageBox.Show(
+            this,
+            $"Минимальное количество для закупки по этому заказу: {total:N2}.\nПозиций: {_lines.Count}.",
+            "Установить закуп",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    // Реквизиты — popup с банковскими данными ИП по выбранной организации.
+    private void HandleOrganizationRequisitesClick(object sender, RoutedEventArgs e)
+    {
+        var orgName = OrganizationComboBox.Text?.Trim() ?? string.Empty;
+        var details = OrganizationBankRegistry.ResolveOrDefault(orgName);
+        var lines = new List<string>
+        {
+            $"Получатель: {details.LegalName}",
+            $"ИНН: {(string.IsNullOrWhiteSpace(details.Inn) ? "—" : details.Inn)}",
+            $"КПП: {(string.IsNullOrWhiteSpace(details.Kpp) ? "—" : details.Kpp)}",
+            $"Адрес: {(string.IsNullOrWhiteSpace(details.LegalAddress) ? "—" : details.LegalAddress)}",
+            string.Empty,
+            $"Банк: {(string.IsNullOrWhiteSpace(details.BankName) ? "—" : details.BankName)}",
+            $"БИК: {(string.IsNullOrWhiteSpace(details.Bik) ? "—" : details.Bik)}",
+            $"К/с: {(string.IsNullOrWhiteSpace(details.CorrespondentAccount) ? "—" : details.CorrespondentAccount)}",
+            $"Р/с: {(string.IsNullOrWhiteSpace(details.PaymentAccount) ? "—" : details.PaymentAccount)}"
+        };
+        MessageBox.Show(
+            this,
+            string.Join(Environment.NewLine, lines),
+            "Реквизиты организации",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void HandleOrganizationSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        var orgName = OrganizationComboBox.Text?.Trim() ?? OrganizationComboBox.SelectedItem?.ToString()?.Trim() ?? string.Empty;
+        var details = OrganizationBankRegistry.Resolve(orgName);
+        OrganizationRequisitesText.Text = details is null
+            ? "Банковский счёт, подписи и другие реквизиты"
+            : $"{details.BankName} · БИК {details.Bik} · Р/с {details.PaymentAccount}";
+    }
+
     private void CompleteEditing(bool success)
     {
         if (_hostedInWorkspace)
