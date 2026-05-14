@@ -302,33 +302,11 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private void UpdateResponsiveLayout()
     {
-        var width = ActualWidth;
-        var compactMetrics = width < 1260;
-        var stackDetails = width < 1340;
-
-        MetricCardsGrid.Columns = compactMetrics ? 2 : 4;
-        DetailActionsGrid.Columns = stackDetails ? 2 : 1;
-
-        if (stackDetails)
-        {
-            ProductsContentGrid.ColumnDefinitions[1].Width = new GridLength(0);
-            ProductsContentGrid.ColumnDefinitions[2].Width = new GridLength(0);
-            Grid.SetColumn(ProductDetailsCard, 0);
-            Grid.SetRow(ProductDetailsCard, 1);
-            Grid.SetColumnSpan(ProductDetailsCard, 3);
-            ProductsTableCard.Margin = new Thickness(0);
-            ProductDetailsCard.Margin = new Thickness(0, 16, 0, 0);
-        }
-        else
-        {
-            ProductsContentGrid.ColumnDefinitions[1].Width = new GridLength(18);
-            ProductsContentGrid.ColumnDefinitions[2].Width = new GridLength(330);
-            Grid.SetColumn(ProductDetailsCard, 2);
-            Grid.SetRow(ProductDetailsCard, 0);
-            Grid.SetColumnSpan(ProductDetailsCard, 1);
-            ProductsTableCard.Margin = new Thickness(0);
-            ProductDetailsCard.Margin = new Thickness(0);
-        }
+        // 1С-стиль: правая панель деталей скрыта, грид всегда на всю ширину.
+        ProductsContentGrid.ColumnDefinitions[1].Width = new GridLength(0);
+        ProductsContentGrid.ColumnDefinitions[2].Width = new GridLength(0);
+        ProductsTableCard.Margin = new Thickness(0);
+        DetailActionsGrid.Columns = 2;
     }
 
     private IReadOnlyList<ProductRowViewModel> BuildProducts()
@@ -557,7 +535,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
         // 1С-стиль фильтр-блок: разделяемые данные для StockWarehouseCombo / OneCPriceTypeCombo
         StockStateCombo.ItemsSource = new[] { "Все", "В наличии", "Нет в наличии" };
-        StockStateCombo.SelectedIndex = 1;
+        StockStateCombo.SelectedIndex = 0;
         StockWarehouseCombo.ItemsSource = BuildOptions(AllWarehousesFilter, _allProducts.Select(item => item.Warehouse));
         StockWarehouseCombo.SelectedIndex = 0;
         OneCPriceTypeCombo.ItemsSource = BuildOptions(

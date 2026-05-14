@@ -2,6 +2,7 @@
 .appdata/
 .dotnet-home/
 .tools/
+.claude/
 tmp/
 
 **/bin/
