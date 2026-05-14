@@ -19,6 +19,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
     private readonly ObservableCollection<WorkspaceMetricCardViewModel> _metrics = [];
     private readonly ObservableCollection<RecordsGroupNodeViewModel> _groupNodes = [];
     private readonly System.Windows.Threading.DispatcherTimer _searchDebounceTimer;
+    private readonly System.Windows.Threading.DispatcherTimer _workspaceChangeDebounceTimer;
     private IReadOnlyList<RecordsGridItem> _allRows = Array.Empty<RecordsGridItem>();
     private IReadOnlyList<RecordsGridItem> _filteredRows = Array.Empty<RecordsGridItem>();
     private string _selectedGroupPath = string.Empty;
@@ -33,6 +34,13 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
             Interval = TimeSpan.FromMilliseconds(180)
         };
         _searchDebounceTimer.Tick += HandleSearchDebounceTick;
+        // Coalesce rapid workspace events (bulk imports, multi-doc saves) into one refresh
+        // — otherwise каждое изменение перестраивает 3000+ строк grid и сильно лагает.
+        _workspaceChangeDebounceTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(220)
+        };
+        _workspaceChangeDebounceTimer.Tick += HandleWorkspaceChangeDebounceTick;
 
         InitializeComponent();
 
@@ -101,6 +109,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
     private void HandleUnloaded(object sender, RoutedEventArgs e)
     {
         _searchDebounceTimer.Stop();
+        _workspaceChangeDebounceTimer.Stop();
     }
 
     public void Dispose()
@@ -112,6 +121,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
 
         _disposed = true;
         _searchDebounceTimer.Stop();
+        _workspaceChangeDebounceTimer.Stop();
         RecordsGrid.MouseDoubleClick -= HandleRecordsGridMouseDoubleClick;
         RecordsGrid.MouseLeftButtonUp -= HandleRecordsGridMouseLeftButtonUp;
         RecordsGrid.KeyDown -= HandleRecordsGridKeyDown;
@@ -120,11 +130,40 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
 
     private void HandleWorkspaceChanged(object? sender, EventArgs e)
     {
+        // Coalesce: вместо моментального перестроения списка из 3000+ записей при
+        // каждом событии — рестартуем таймер и обновляем UI после паузы.
         Dispatcher.BeginInvoke(() =>
         {
-            RefreshView();
-            ScheduleAutomationNormalization();
+            _workspaceChangeDebounceTimer.Stop();
+            _workspaceChangeDebounceTimer.Start();
         });
+    }
+
+    private void HandleWorkspaceChangeDebounceTick(object? sender, EventArgs e)
+    {
+        _workspaceChangeDebounceTimer.Stop();
+        if (_disposed)
+        {
+            return;
+        }
+
+        var previousCount = _allRows.Count;
+        RefreshView();
+
+        // Если данные стали богаче (например, был создан новый заказ), а после
+        // применения фильтров список оказался пустым из-за активного фильтра дат,
+        // снимаем дату — чтобы новая запись точно стала видна, а пользователь не
+        // искал «Сбросить фильтры».
+        if (_allRows.Count > previousCount
+            && _filteredRows.Count == 0
+            && (StartDatePicker.SelectedDate.HasValue || EndDatePicker.SelectedDate.HasValue))
+        {
+            StartDatePicker.SelectedDate = null;
+            EndDatePicker.SelectedDate = null;
+            ApplyFilters(resetPage: true);
+        }
+
+        ScheduleAutomationNormalization();
     }
 
     private void HandleSizeChanged(object sender, SizeChangedEventArgs e)
