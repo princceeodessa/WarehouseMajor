@@ -98,7 +98,9 @@
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="4" Margin="0,0,0,14">
                     <TextBlock Text="Статус" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="StatusComboBox" Style="{StaticResource InputStyle}" />
+                    <ComboBox x:Name="StatusComboBox"
+                              Style="{StaticResource InputStyle}"
+                              SelectionChanged="HandleStatusSelectionChanged" />
                 </StackPanel>
 
                 <StackPanel x:Name="WarehousePanel" Grid.Row="2" Grid.Column="0" Margin="0,0,0,14">

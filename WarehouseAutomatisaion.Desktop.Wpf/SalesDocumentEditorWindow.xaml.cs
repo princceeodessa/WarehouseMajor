@@ -458,6 +458,17 @@ public partial class SalesDocumentEditorWindow : Window
         }
     }
 
+    private void HandleStatusSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        ApplySelectedStatusToDraft();
+        RenderRelatedDocuments();
+    }
+
     private void LoadFromBaseOrder(SalesOrderRecord order)
     {
         _loading = true;
@@ -1629,20 +1640,28 @@ public partial class SalesDocumentEditorWindow : Window
             .Where(item => IsActiveCashReceiptStatus(item.Status))
             .ToArray();
         var paidAmount = activeCashReceipts.Sum(item => item.Amount);
-        var orderIndicator = BuildPaymentIndicator(order.TotalAmount, paidAmount, order.Status);
-        _relatedDocuments.Add(new SalesRelatedDocumentRow(
-            $"Заказ {order.Number}",
-            order.OrderDate.ToString("dd.MM.yyyy", RuCulture),
-            FormatMoney(order.TotalAmount, order.CurrencyCode),
-            Ui(order.Status),
-            "order",
-            order.Id,
-            orderIndicator.Brush,
-            orderIndicator.FillVisibility,
-            orderIndicator.Text));
+        if (!IsCurrentDocumentRow("order", order.Id))
+        {
+            var orderIndicator = BuildPaymentIndicator(order.TotalAmount, paidAmount, order.Status);
+            _relatedDocuments.Add(new SalesRelatedDocumentRow(
+                $"Заказ {order.Number}",
+                order.OrderDate.ToString("dd.MM.yyyy", RuCulture),
+                FormatMoney(order.TotalAmount, order.CurrencyCode),
+                Ui(order.Status),
+                "order",
+                order.Id,
+                orderIndicator.Brush,
+                orderIndicator.FillVisibility,
+                orderIndicator.Text));
+        }
 
         foreach (var invoice in _workspace.Invoices.Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order)).OrderByDescending(item => item.InvoiceDate))
         {
+            if (IsCurrentDocumentRow("invoice", invoice.Id))
+            {
+                continue;
+            }
+
             var indicator = BuildPaymentIndicator(invoice.TotalAmount, paidAmount, invoice.Status);
             _relatedDocuments.Add(new SalesRelatedDocumentRow(
                 $"Счет {invoice.Number}",
@@ -1658,6 +1677,11 @@ public partial class SalesDocumentEditorWindow : Window
 
         foreach (var shipment in _workspace.Shipments.Where(item => IsRelatedToOrder(item.SalesOrderId, item.SalesOrderNumber, order)).OrderByDescending(item => item.ShipmentDate))
         {
+            if (IsCurrentDocumentRow("shipment", shipment.Id))
+            {
+                continue;
+            }
+
             var indicator = BuildShipmentIndicator(shipment.Status);
             _relatedDocuments.Add(new SalesRelatedDocumentRow(
                 $"Расходная {shipment.Number}",
@@ -1701,7 +1725,9 @@ public partial class SalesDocumentEditorWindow : Window
                 indicator.Text));
         }
 
-        RelatedDocumentsSummaryText.Text = $"Документов: {_relatedDocuments.Count:N0}. Оплачено через кассу: {FormatMoney(paidAmount, order.CurrencyCode)}.";
+        RelatedDocumentsSummaryText.Text = _relatedDocuments.Count == 0
+            ? $"Связанных документов пока нет. Оплачено через кассу: {FormatMoney(paidAmount, order.CurrencyCode)}."
+            : $"Документов: {_relatedDocuments.Count:N0}. Оплачено через кассу: {FormatMoney(paidAmount, order.CurrencyCode)}.";
     }
 
     private void HandleOpenRelatedDocumentClick(object sender, RoutedEventArgs e)
@@ -1718,6 +1744,12 @@ public partial class SalesDocumentEditorWindow : Window
     private void OpenSelectedRelatedDocument(bool showSelectionWarning)
     {
         var row = RelatedDocumentsGrid.SelectedItem as SalesRelatedDocumentRow;
+        if (row is null && showSelectionWarning && _relatedDocuments.Count == 0)
+        {
+            ValidationText.Text = "Связанных документов пока нет: счет, расходка или возврат появятся здесь после создания.";
+            return;
+        }
+
         if (row is null && showSelectionWarning && _relatedDocuments.Count == 1)
         {
             row = _relatedDocuments[0];
@@ -1803,6 +1835,39 @@ public partial class SalesDocumentEditorWindow : Window
                 ValidationText.Text = exception.Message;
             }
         }
+    }
+
+    private void ApplySelectedStatusToDraft()
+    {
+        var selectedStatus = StatusComboBox.SelectedItem?.ToString();
+        if (string.IsNullOrWhiteSpace(selectedStatus))
+        {
+            return;
+        }
+
+        switch (_mode)
+        {
+            case SalesDocumentEditorMode.Order when _orderDraft is not null:
+                _orderDraft.Status = _workspace.NormalizeOrderStatus(selectedStatus);
+                break;
+            case SalesDocumentEditorMode.Invoice when _invoiceDraft is not null:
+                _invoiceDraft.Status = selectedStatus;
+                break;
+            case SalesDocumentEditorMode.Shipment when _shipmentDraft is not null:
+                _shipmentDraft.Status = selectedStatus;
+                break;
+        }
+    }
+
+    private bool IsCurrentDocumentRow(string category, Guid id)
+    {
+        return category switch
+        {
+            "order" => _mode == SalesDocumentEditorMode.Order && _orderDraft?.Id == id,
+            "invoice" => _mode == SalesDocumentEditorMode.Invoice && _invoiceDraft?.Id == id,
+            "shipment" => _mode == SalesDocumentEditorMode.Shipment && _shipmentDraft?.Id == id,
+            _ => false
+        };
     }
 
     private SalesOrderRecord? ResolveRelatedOrder()
