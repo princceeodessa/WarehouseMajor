@@ -487,10 +487,8 @@ public partial class SalesDocumentEditorWindow : Window
             return;
         }
 
-        var dialog = new SalesCatalogPickerWindow(catalog)
-        {
-            Owner = this
-        };
+        var dialog = new SalesCatalogPickerWindow(catalog);
+        WpfDialogOwner.TrySetOwner(dialog, ResolvePromptOwner());
         if (dialog.ShowDialog() != true || dialog.ResultLine is null)
         {
             return;
@@ -722,11 +720,7 @@ public partial class SalesDocumentEditorWindow : Window
         }
 
         var dialog = new SalesReturnEditorWindow(_workspace, returnDocument);
-        var owner = ResolvePromptOwner();
-        if (owner is not null && !ReferenceEquals(owner, dialog))
-        {
-            dialog.Owner = owner;
-        }
+        WpfDialogOwner.TrySetOwner(dialog, ResolvePromptOwner());
 
         if (dialog.ShowDialog() != true || dialog.ResultReturn is null)
         {
@@ -1538,11 +1532,7 @@ public partial class SalesDocumentEditorWindow : Window
     private string? PromptValue(string title, string prompt, string? initialValue = null, IEnumerable<string>? options = null)
     {
         var dialog = new ProductTextInputWindow(title, prompt, initialValue, options);
-        var owner = ResolvePromptOwner();
-        if (owner is not null && !ReferenceEquals(owner, dialog))
-        {
-            dialog.Owner = owner;
-        }
+        WpfDialogOwner.TrySetOwner(dialog, ResolvePromptOwner());
 
         return dialog.ShowDialog() == true ? dialog.ResultText : null;
     }
@@ -1575,15 +1565,7 @@ public partial class SalesDocumentEditorWindow : Window
 
     private Window? ResolvePromptOwner()
     {
-        if (!_hostedInWorkspace)
-        {
-            return this;
-        }
-
-        return System.Windows.Application.Current?.MainWindow
-            ?? System.Windows.Application.Current?.Windows
-                .OfType<Window>()
-                .FirstOrDefault(window => window.IsActive);
+        return WpfDialogOwner.Resolve(_hostedInWorkspace ? System.Windows.Application.Current?.MainWindow : this);
     }
 
     private void RefreshTotal()
@@ -1796,11 +1778,7 @@ public partial class SalesDocumentEditorWindow : Window
                 if (_workspace.CashReceipts.FirstOrDefault(item => item.Id == row.Id) is { } cashReceipt)
                 {
                     var dialog = new SalesDocumentLinksWindow(_workspace, cashReceipt);
-                    var owner = ResolvePromptOwner();
-                    if (owner is not null)
-                    {
-                        dialog.Owner = owner;
-                    }
+                    WpfDialogOwner.TrySetOwner(dialog, ResolvePromptOwner());
 
                     dialog.ShowDialog();
                 }
@@ -1812,11 +1790,7 @@ public partial class SalesDocumentEditorWindow : Window
 
     private void ShowChildDialog(Window dialog, Func<bool> hasResult, Action save)
     {
-        var owner = ResolvePromptOwner();
-        if (owner is not null && !ReferenceEquals(owner, dialog))
-        {
-            dialog.Owner = owner;
-        }
+        WpfDialogOwner.TrySetOwner(dialog, ResolvePromptOwner());
 
         if (dialog.ShowDialog() == true && hasResult())
         {

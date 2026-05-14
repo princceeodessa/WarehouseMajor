@@ -286,10 +286,8 @@ public partial class SalesReturnEditorWindow : Window
 
     private decimal PromptDecimal(string title, string prompt, string initialValue)
     {
-        var dialog = new ProductTextInputWindow(title, prompt, initialValue, Array.Empty<string>())
-        {
-            Owner = this
-        };
+        var dialog = new ProductTextInputWindow(title, prompt, initialValue, Array.Empty<string>());
+        WpfDialogOwner.TrySetOwner(dialog, this);
 
         if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.ResultText))
         {

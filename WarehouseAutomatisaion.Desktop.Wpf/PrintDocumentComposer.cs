@@ -22,17 +22,14 @@ internal static class PrintDocumentComposer
         try
         {
             var preview = new PrintPreviewWindow(Clean(jobTitle), buildDocument);
-            if (owner is not null)
-            {
-                preview.Owner = owner;
-            }
+            WpfDialogOwner.TrySetOwner(preview, owner);
 
             return preview.ShowDialog() == true;
         }
         catch (Exception exception)
         {
             MessageBox.Show(
-                owner,
+                WpfDialogOwner.Resolve(owner),
                 $"Не удалось открыть предпросмотр печати.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
                 AppBranding.MessageBoxTitle,
                 MessageBoxButton.OK,

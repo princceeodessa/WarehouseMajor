@@ -1806,10 +1806,7 @@ internal static class RecordsWorkspaceCatalog
 
     private static Window? ResolveOwnerWindow()
     {
-        return System.Windows.Application.Current?.Windows
-            .OfType<Window>()
-            .FirstOrDefault(window => window.IsActive)
-            ?? System.Windows.Application.Current?.MainWindow;
+        return WpfDialogOwner.Resolve();
     }
 
     private static MainWindow? ResolveMainWindow()

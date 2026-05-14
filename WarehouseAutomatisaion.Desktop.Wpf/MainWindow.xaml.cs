@@ -932,6 +932,7 @@ public partial class MainWindow : Window
         }
 
         var content = contentFactory();
+        var tabContent = CreateScrollableEditorTabContent(content);
         WpfTextNormalizer.NormalizeTree(content);
         content.Loaded += (_, _) => WpfTextNormalizer.NormalizeTree(content);
 
@@ -939,7 +940,7 @@ public partial class MainWindow : Window
         {
             Tag = key,
             Header = CreateTabHeader(key, caption, closable: true),
-            Content = content
+            Content = tabContent
         };
         System.Windows.Automation.AutomationProperties.SetName(tab, caption);
 
@@ -952,6 +953,24 @@ public partial class MainWindow : Window
         ReleaseInactiveSectionContent(key);
         PruneInactiveSectionTabs(key);
         return true;
+    }
+
+    private static FrameworkElement CreateScrollableEditorTabContent(FrameworkElement content)
+    {
+        if (content is ScrollViewer)
+        {
+            return content;
+        }
+
+        return new ScrollViewer
+        {
+            Content = content,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            CanContentScroll = false,
+            PanningMode = PanningMode.VerticalFirst,
+            Focusable = false
+        };
     }
 
     internal void CloseWorkspaceTab(string key)

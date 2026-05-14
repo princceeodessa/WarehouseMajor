@@ -368,7 +368,7 @@ public partial class SalesDocumentLinksWindow : Window
 
     private void ShowChildDialog(Window dialog, Func<bool> hasResult, Action save)
     {
-        dialog.Owner = this;
+        WpfDialogOwner.TrySetOwner(dialog, this);
         if (dialog.ShowDialog() != true || !hasResult())
         {
             return;
