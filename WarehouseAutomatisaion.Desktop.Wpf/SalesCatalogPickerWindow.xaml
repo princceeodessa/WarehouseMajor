@@ -2,10 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Подбор номенклатуры"
-        Width="1080"
-        Height="680"
+        Width="1100"
+        Height="800"
         MinWidth="900"
-        MinHeight="560"
+        MinHeight="680"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         Background="#F7F9FD">
@@ -80,6 +80,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,14">
@@ -87,10 +89,11 @@
                        FontSize="25"
                        FontWeight="SemiBold"
                        Foreground="#17213A" />
-            <TextBlock Text="Наберите часть названия, кода или единицы измерения."
+            <TextBlock Text="Наберите часть названия, кода или единицы измерения. Добавляйте товары в корзину и переносите их в документ одной кнопкой."
                        Margin="0,5,0,0"
                        FontSize="13"
-                       Foreground="#6E7B98" />
+                       Foreground="#6E7B98"
+                       TextWrapping="Wrap" />
         </StackPanel>
 
         <Grid Grid.Row="1" Margin="0,0,0,12">
@@ -177,7 +180,94 @@
             </Grid>
         </Border>
 
-        <DockPanel Grid.Row="3" Margin="0,16,0,0">
+        <DockPanel Grid.Row="3" Margin="0,12,0,8" LastChildFill="False">
+            <TextBlock x:Name="CartTitleText"
+                       DockPanel.Dock="Left"
+                       Text="Корзина"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="#17213A"
+                       VerticalAlignment="Center" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="AddToCartButton"
+                        Content="+ В корзину"
+                        Style="{StaticResource DialogSecondaryButtonStyle}"
+                        Width="130"
+                        Margin="0,0,8,0"
+                        Click="HandleAddToCartClick" />
+                <Button x:Name="RemoveFromCartButton"
+                        Content="Убрать из корзины"
+                        Style="{StaticResource DialogSecondaryButtonStyle}"
+                        Width="160"
+                        Margin="0,0,8,0"
+                        IsEnabled="False"
+                        Click="HandleRemoveFromCartClick" />
+                <Button x:Name="ClearCartButton"
+                        Content="Очистить корзину"
+                        Style="{StaticResource DialogSecondaryButtonStyle}"
+                        Width="160"
+                        IsEnabled="False"
+                        Click="HandleClearCartClick" />
+            </StackPanel>
+        </DockPanel>
+
+        <Border Grid.Row="4"
+                Background="#FFFFFF"
+                BorderBrush="#E4EAF5"
+                BorderThickness="1"
+                CornerRadius="10"
+                Height="180">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <DataGrid x:Name="CartGrid"
+                          Grid.Row="0"
+                          Style="{StaticResource PickerGridStyle}"
+                          SelectionChanged="HandleCartSelectionChanged"
+                          MouseDoubleClick="HandleCartGridDoubleClick">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Код" Binding="{Binding ItemCode}" Width="140" />
+                        <DataGridTemplateColumn Header="Номенклатура" Width="*" MinWidth="320">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding ItemName}"
+                                               TextWrapping="Wrap"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding ItemName}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Ед." Binding="{Binding Unit}" Width="60" />
+                        <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityDisplay}" Width="90" />
+                        <DataGridTextColumn Header="Цена" Binding="{Binding PriceDisplay}" Width="110" />
+                        <DataGridTextColumn Header="Сумма" Binding="{Binding AmountDisplay}" Width="130" />
+                    </DataGrid.Columns>
+                </DataGrid>
+                <Border Grid.Row="1"
+                        Background="#FBFCFF"
+                        BorderBrush="#E4EAF5"
+                        BorderThickness="0,1,0,0">
+                    <DockPanel LastChildFill="False" Height="34">
+                        <TextBlock x:Name="CartEmptyHintText"
+                                   DockPanel.Dock="Left"
+                                   Margin="12,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="#6E7B98"
+                                   Text="Корзина пуста. Двойной клик по строке каталога или «+ В корзину» — добавит позицию." />
+                        <TextBlock x:Name="CartTotalText"
+                                   DockPanel.Dock="Right"
+                                   Margin="12,0,12,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="#17213A"
+                                   FontWeight="SemiBold" />
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <DockPanel Grid.Row="5" Margin="0,16,0,0">
             <TextBlock x:Name="ValidationText"
                        DockPanel.Dock="Left"
                        VerticalAlignment="Center"
@@ -188,9 +278,10 @@
                         Width="120"
                         Margin="0,0,10,0"
                         Click="HandleCancelClick" />
-                <Button Content="Перенести в документ"
+                <Button x:Name="SaveButton"
+                        Content="Перенести в документ"
                         Style="{StaticResource DialogPrimaryButtonStyle}"
-                        Width="180"
+                        Width="190"
                         Click="HandleSaveClick" />
             </StackPanel>
         </DockPanel>

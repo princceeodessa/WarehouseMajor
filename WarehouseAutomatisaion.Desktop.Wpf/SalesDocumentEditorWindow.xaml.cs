@@ -520,18 +520,20 @@ public partial class SalesDocumentEditorWindow : Window
 
         var dialog = new SalesCatalogPickerWindow(catalog);
         WpfDialogOwner.TrySetOwner(dialog, ResolvePromptOwner());
-        if (dialog.ShowDialog() != true || dialog.ResultLine is null)
+        if (dialog.ShowDialog() != true || dialog.ResultLines.Count == 0)
         {
             return;
         }
 
-        var line = dialog.ResultLine;
-        _lines.Add(new SalesLineEditorRow(
-            Ui(line.ItemCode),
-            Ui(line.ItemName),
-            NormalizeUnit(line.Unit, line.ItemName),
-            line.Quantity,
-            line.Price));
+        foreach (var line in dialog.ResultLines)
+        {
+            _lines.Add(new SalesLineEditorRow(
+                Ui(line.ItemCode),
+                Ui(line.ItemName),
+                NormalizeUnit(line.Unit, line.ItemName),
+                line.Quantity,
+                line.Price));
+        }
         RefreshTotal();
     }
 

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,6 +15,7 @@ public partial class SalesCatalogPickerWindow : Window
 
     private readonly IReadOnlyList<SalesCatalogItemOption> _catalogItems;
     private readonly ObservableCollection<CatalogPickerRow> _rows = [];
+    private readonly ObservableCollection<CartRow> _cart = [];
 
     public SalesCatalogPickerWindow(IReadOnlyList<SalesCatalogItemOption> catalogItems)
     {
@@ -27,11 +29,20 @@ public partial class SalesCatalogPickerWindow : Window
         WpfTextNormalizer.NormalizeTree(this);
 
         CatalogGrid.ItemsSource = _rows;
+        CartGrid.ItemsSource = _cart;
+        _cart.CollectionChanged += HandleCartCollectionChanged;
         Loaded += HandleLoaded;
         ApplyFilter();
+        RefreshCartSummary();
     }
 
-    public SalesOrderLineRecord? ResultLine { get; private set; }
+    /// <summary>
+    /// Возвращает первую строку из корзины (или текущий выбор, если корзина пуста)
+    /// — для обратной совместимости со старым кодом, который ждёт одну позицию.
+    /// </summary>
+    public SalesOrderLineRecord? ResultLine => ResultLines.FirstOrDefault();
+
+    public IReadOnlyList<SalesOrderLineRecord> ResultLines { get; private set; } = Array.Empty<SalesOrderLineRecord>();
 
     private static string Ui(string? value) => TextMojibakeFixer.NormalizeText(value);
 
@@ -98,7 +109,9 @@ public partial class SalesCatalogPickerWindow : Window
     private void HandleCatalogGridDoubleClick(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
-        HandleSaveClick(sender, e);
+        // Двойной клик теперь добавляет товар в корзину, а не закрывает окно —
+        // чтобы можно было набрать несколько позиций подряд.
+        AddCurrentSelectionToCart();
     }
 
     private void HandleCatalogGridKeyDown(object sender, KeyEventArgs e)
@@ -109,15 +122,126 @@ public partial class SalesCatalogPickerWindow : Window
         }
 
         e.Handled = true;
-        HandleSaveClick(sender, e);
+        AddCurrentSelectionToCart();
     }
 
-    private void HandleSaveClick(object sender, RoutedEventArgs e)
+    private void HandleAddToCartClick(object sender, RoutedEventArgs e)
+    {
+        AddCurrentSelectionToCart();
+    }
+
+    private void AddCurrentSelectionToCart()
     {
         ValidationText.Text = string.Empty;
         if (CatalogGrid.SelectedItem is not CatalogPickerRow row)
         {
             ValidationText.Text = "Выберите номенклатуру.";
+            return;
+        }
+
+        if (!TryParseDecimal(QuantityTextBox.Text, out var quantity) || quantity <= 0m)
+        {
+            ValidationText.Text = "Укажите количество больше нуля.";
+            QuantityTextBox.Focus();
+            QuantityTextBox.SelectAll();
+            return;
+        }
+
+        if (!TryParseDecimal(PriceTextBox.Text, out var price) || price < 0m)
+        {
+            ValidationText.Text = "Укажите корректную цену.";
+            PriceTextBox.Focus();
+            PriceTextBox.SelectAll();
+            return;
+        }
+
+        _cart.Add(new CartRow(row.Code, row.Name, row.Unit, quantity, price));
+
+        // Сбрасываем форму, чтобы пользователь сразу мог искать следующий товар.
+        SearchTextBox.Text = string.Empty;
+        QuantityTextBox.Text = "1";
+        PriceTextBox.Text = "0,00";
+        SearchTextBox.Focus();
+        SearchTextBox.SelectAll();
+    }
+
+    private void HandleCartSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        RemoveFromCartButton.IsEnabled = CartGrid.SelectedItem is CartRow;
+    }
+
+    private void HandleCartGridDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (CartGrid.SelectedItem is CartRow row)
+        {
+            _cart.Remove(row);
+        }
+    }
+
+    private void HandleRemoveFromCartClick(object sender, RoutedEventArgs e)
+    {
+        if (CartGrid.SelectedItem is CartRow row)
+        {
+            _cart.Remove(row);
+        }
+    }
+
+    private void HandleClearCartClick(object sender, RoutedEventArgs e)
+    {
+        _cart.Clear();
+    }
+
+    private void HandleCartCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RefreshCartSummary();
+    }
+
+    private void RefreshCartSummary()
+    {
+        var count = _cart.Count;
+        var total = _cart.Sum(item => item.Amount);
+        CartTitleText.Text = count == 0
+            ? "Корзина"
+            : $"Корзина · {count:N0} позиций";
+        CartEmptyHintText.Visibility = count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        CartTotalText.Text = count == 0
+            ? string.Empty
+            : $"Итого: {total:N2} ₽";
+        ClearCartButton.IsEnabled = count > 0;
+        RemoveFromCartButton.IsEnabled = count > 0 && CartGrid.SelectedItem is CartRow;
+        SaveButton.Content = count > 0
+            ? $"Перенести в документ ({count:N0})"
+            : "Перенести в документ";
+    }
+
+    private void HandleSaveClick(object sender, RoutedEventArgs e)
+    {
+        ValidationText.Text = string.Empty;
+
+        // Если в корзине есть позиции — забираем их все и закрываем окно.
+        if (_cart.Count > 0)
+        {
+            ResultLines = _cart
+                .Select(row => new SalesOrderLineRecord
+                {
+                    Id = Guid.NewGuid(),
+                    ItemCode = row.ItemCode,
+                    ItemName = row.ItemName,
+                    Unit = row.Unit,
+                    Quantity = row.Quantity,
+                    Price = row.Price
+                })
+                .ToArray();
+            DialogResult = true;
+            return;
+        }
+
+        // Корзина пуста — но в каталоге может быть выбран товар: добавим его «на лету»
+        // и сразу закроем диалог (старое одно-click поведение для скорости).
+        if (CatalogGrid.SelectedItem is not CatalogPickerRow row)
+        {
+            ValidationText.Text = "Корзина пуста. Выберите номенклатуру или нажмите «+ В корзину».";
             return;
         }
 
@@ -133,14 +257,17 @@ public partial class SalesCatalogPickerWindow : Window
             return;
         }
 
-        ResultLine = new SalesOrderLineRecord
+        ResultLines = new[]
         {
-            Id = Guid.NewGuid(),
-            ItemCode = row.Code,
-            ItemName = row.Name,
-            Unit = row.Unit,
-            Quantity = quantity,
-            Price = price
+            new SalesOrderLineRecord
+            {
+                Id = Guid.NewGuid(),
+                ItemCode = row.Code,
+                ItemName = row.Name,
+                Unit = row.Unit,
+                Quantity = quantity,
+                Price = price
+            }
         };
         DialogResult = true;
     }
@@ -149,7 +276,7 @@ public partial class SalesCatalogPickerWindow : Window
     {
         value = Ui(value)
             .Replace("₽", string.Empty, StringComparison.Ordinal)
-            .Replace('\u00A0', ' ')
+            .Replace(' ', ' ')
             .Replace(" ", string.Empty);
         return decimal.TryParse(value, NumberStyles.Number, RuCulture, out result)
                || decimal.TryParse(
@@ -176,5 +303,16 @@ public partial class SalesCatalogPickerWindow : Window
                 SalesDocumentDisplayFormatter.NormalizeUnit(item.Unit, item.Name),
                 item.DefaultPrice);
         }
+    }
+
+    private sealed record CartRow(string ItemCode, string ItemName, string Unit, decimal Quantity, decimal Price)
+    {
+        public decimal Amount => Math.Round(Quantity * Price, 2, MidpointRounding.AwayFromZero);
+
+        public string QuantityDisplay => Quantity.ToString("N2", RuCulture);
+
+        public string PriceDisplay => $"{Price:N2} ₽";
+
+        public string AmountDisplay => $"{Amount:N2} ₽";
     }
 }
