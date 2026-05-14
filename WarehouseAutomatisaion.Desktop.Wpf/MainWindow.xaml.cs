@@ -1569,6 +1569,100 @@ public partial class MainWindow : Window
 
     private sealed record HistoryEntryViewModel(string Key, string Caption, string Glyph);
 
+    // ===== Глобальный поиск =====
+
+    private void HandleGlobalSearchKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (sender is not TextBox box)
+        {
+            return;
+        }
+
+        GlobalSearchPlaceholder.Visibility = string.IsNullOrWhiteSpace(box.Text)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        GlobalSearchClearButton.Visibility = string.IsNullOrWhiteSpace(box.Text)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        if (e.Key == System.Windows.Input.Key.Escape)
+        {
+            box.Text = string.Empty;
+            GlobalSearchPlaceholder.Visibility = Visibility.Visible;
+            GlobalSearchClearButton.Visibility = Visibility.Collapsed;
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == System.Windows.Input.Key.Enter)
+        {
+            var query = box.Text?.Trim();
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                ExecuteGlobalSearch(query);
+            }
+            e.Handled = true;
+        }
+    }
+
+    private void HandleGlobalSearchClearClick(object sender, RoutedEventArgs e)
+    {
+        GlobalSearchBox.Text = string.Empty;
+        GlobalSearchPlaceholder.Visibility = Visibility.Visible;
+        GlobalSearchClearButton.Visibility = Visibility.Collapsed;
+        GlobalSearchBox.Focus();
+    }
+
+    private void ExecuteGlobalSearch(string query)
+    {
+        // Простое поведение: открываем раздел Заказы и переносим запрос в поле поиска.
+        // В будущем можно сделать настоящий полнотекстовый по всем разделам.
+        if (_sections.ContainsKey("sales"))
+        {
+            OpenSection("sales");
+        }
+
+        // Найти RecordsWorkspaceView в текущей вкладке и передать поисковую строку
+        if (WorkspaceTabs.SelectedItem is TabItem tab && tab.Content is FrameworkElement content)
+        {
+            var searchBox = FindDescendant<TextBox>(content, "HeaderSearchBox");
+            if (searchBox is not null)
+            {
+                searchBox.Text = query;
+                searchBox.Focus();
+                searchBox.CaretIndex = query.Length;
+            }
+        }
+    }
+
+    private static T? FindDescendant<T>(DependencyObject? root, string? name = null) where T : DependencyObject
+    {
+        if (root is null)
+        {
+            return null;
+        }
+
+        var count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is T match)
+            {
+                if (name is null || (child is FrameworkElement fe && string.Equals(fe.Name, name, StringComparison.Ordinal)))
+                {
+                    return match;
+                }
+            }
+            var deeper = FindDescendant<T>(child, name);
+            if (deeper is not null)
+            {
+                return deeper;
+            }
+        }
+
+        return null;
+    }
+
     private void HandleCloseTabClick(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
