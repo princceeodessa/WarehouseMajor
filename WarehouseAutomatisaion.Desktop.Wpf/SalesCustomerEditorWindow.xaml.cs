@@ -1,9 +1,11 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Microsoft.Win32;
 using WarehouseAutomatisaion.Desktop.Data;
 using WarehouseAutomatisaion.Desktop.Text;
@@ -49,6 +51,13 @@ public partial class SalesCustomerEditorWindow : Window
     private readonly ObservableCollection<SalesCustomerContactEditorRow> _contacts = [];
     private readonly ObservableCollection<CustomerDocumentRelationRow> _documents = [];
     private readonly ObservableCollection<SalesCustomerFileEditorRow> _files = [];
+    private readonly ObservableCollection<CustomerEventRow> _events = [];
+    private readonly ObservableCollection<PersonalDataRow> _personalData = [];
+    private SalesOrderRecord[] _customerOrders = Array.Empty<SalesOrderRecord>();
+    private SalesInvoiceRecord[] _customerInvoices = Array.Empty<SalesInvoiceRecord>();
+    private SalesShipmentRecord[] _customerShipments = Array.Empty<SalesShipmentRecord>();
+    private SalesReturnRecord[] _customerReturns = Array.Empty<SalesReturnRecord>();
+    private SalesCashReceiptRecord[] _customerCashReceipts = Array.Empty<SalesCashReceiptRecord>();
     private bool _hostedInWorkspace;
 
     public SalesCustomerEditorWindow(SalesWorkspace workspace, SalesCustomerRecord? customer = null)
@@ -71,12 +80,28 @@ public partial class SalesCustomerEditorWindow : Window
         ContactsGrid.ItemsSource = _contacts;
         DocumentsGrid.ItemsSource = _documents;
         FilesGrid.ItemsSource = _files;
+        EventsItems.ItemsSource = _events;
+        PersonalDataItems.ItemsSource = _personalData;
 
         LoadDraft();
         RenderCustomerSummary();
         RenderDocuments();
         RenderFiles();
+        RenderContractTab();
+        RenderBankAccountTab();
+        RenderEventsTimeline();
+        RenderReportsMetrics();
+        RenderPersonalDataChecklist();
         ApplyCounterpartyTypeLayout();
+
+        ContractTextBox.TextChanged += (_, _) => RenderContractTab();
+        BankAccountTextBox.TextChanged += (_, _) => RenderBankAccountTab();
+        _contacts.CollectionChanged += HandleContactsCollectionChanged;
+    }
+
+    private void HandleContactsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RenderPersonalDataChecklist();
     }
 
     public SalesCustomerRecord? ResultCustomer { get; private set; }
@@ -143,15 +168,17 @@ public partial class SalesCustomerEditorWindow : Window
 
     private void RenderCustomerSummary()
     {
-        var orders = _workspace.Orders.Where(item => item.CustomerId == _draft.Id).ToArray();
-        var invoices = _workspace.Invoices.Where(item => item.CustomerId == _draft.Id).ToArray();
-        var returns = _workspace.Returns.Where(item => item.CustomerId == _draft.Id).ToArray();
-        var cashReceipts = _workspace.CashReceipts.Where(item => item.CustomerId == _draft.Id).ToArray();
-        var salesTotal = orders.Sum(item => item.TotalAmount);
-        var debt = invoices
+        _customerOrders = _workspace.Orders.Where(item => item.CustomerId == _draft.Id).ToArray();
+        _customerInvoices = _workspace.Invoices.Where(item => item.CustomerId == _draft.Id).ToArray();
+        _customerShipments = _workspace.Shipments.Where(item => item.CustomerId == _draft.Id).ToArray();
+        _customerReturns = _workspace.Returns.Where(item => item.CustomerId == _draft.Id).ToArray();
+        _customerCashReceipts = _workspace.CashReceipts.Where(item => item.CustomerId == _draft.Id).ToArray();
+
+        var salesTotal = _customerOrders.Sum(item => item.TotalAmount);
+        var debt = _customerInvoices
             .Where(item => !Ui(item.Status).Equals("Оплачен", StringComparison.OrdinalIgnoreCase))
             .Sum(item => item.TotalAmount);
-        var lastSale = orders
+        var lastSale = _customerOrders
             .OrderByDescending(item => item.OrderDate)
             .Select(item => item.OrderDate.ToString("dd.MM.yyyy", RuCulture))
             .FirstOrDefault() ?? "нет";
@@ -159,8 +186,6 @@ public partial class SalesCustomerEditorWindow : Window
         CustomerDebtText.Text = FormatMoney(debt, _draft.CurrencyCode);
         CustomerSalesText.Text = FormatMoney(salesTotal, _draft.CurrencyCode);
         CustomerLastSaleText.Text = lastSale;
-        EventsSummaryText.Text = $"В журнале операций по клиенту: {_workspace.OperationLog.Count(item => item.EntityId == _draft.Id):N0}.";
-        ReportsSummaryText.Text = $"Заказы: {orders.Length:N0}, счета: {invoices.Length:N0}, отгрузки: {_workspace.Shipments.Count(item => item.CustomerId == _draft.Id):N0}, возвраты: {returns.Length:N0}, касса: {cashReceipts.Length:N0}.";
     }
 
     private void RenderDocuments()
@@ -215,6 +240,243 @@ public partial class SalesCustomerEditorWindow : Window
             : $"Файлов в карточке: {_files.Count:N0}.";
     }
 
+    private void RenderContractTab()
+    {
+        var contract = ContractTextBox.Text?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(contract))
+        {
+            ContractFilledPanel.Visibility = Visibility.Collapsed;
+            ContractEmptyPanel.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            ContractValueText.Text = Ui(contract);
+            ContractFilledPanel.Visibility = Visibility.Visible;
+            ContractEmptyPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void RenderBankAccountTab()
+    {
+        var account = BankAccountTextBox.Text?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(account))
+        {
+            BankAccountFilledPanel.Visibility = Visibility.Collapsed;
+            BankAccountEmptyPanel.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            BankAccountFormattedText.Text = FormatAccountNumber(account);
+            BankAccountFilledPanel.Visibility = Visibility.Visible;
+            BankAccountEmptyPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private static string FormatAccountNumber(string raw)
+    {
+        var digits = new string(raw.Where(char.IsLetterOrDigit).ToArray());
+        if (digits.Length == 0)
+        {
+            return raw;
+        }
+
+        var builder = new System.Text.StringBuilder(digits.Length + digits.Length / 4);
+        for (var index = 0; index < digits.Length; index++)
+        {
+            if (index > 0 && index % 4 == 0)
+            {
+                builder.Append(' ');
+            }
+
+            builder.Append(digits[index]);
+        }
+
+        return builder.ToString();
+    }
+
+    private void RenderEventsTimeline()
+    {
+        _events.Clear();
+
+        var allForCustomer = _workspace.OperationLog
+            .Where(item => item.EntityId == _draft.Id)
+            .ToArray();
+        var recent = allForCustomer
+            .OrderByDescending(item => item.LoggedAt)
+            .Take(20)
+            .ToArray();
+
+        foreach (var entry in recent)
+        {
+            var isSuccess = !Ui(entry.Result).Equals("Ошибка", StringComparison.OrdinalIgnoreCase);
+            var entityType = Ui(entry.EntityType);
+            var entityNumber = Ui(entry.EntityNumber);
+            var message = Ui(entry.Message);
+            var detailParts = new List<string>(3);
+            if (!string.IsNullOrWhiteSpace(entityType))
+            {
+                detailParts.Add(string.IsNullOrWhiteSpace(entityNumber) ? entityType : $"{entityType} {entityNumber}");
+            }
+            else if (!string.IsNullOrWhiteSpace(entityNumber))
+            {
+                detailParts.Add(entityNumber);
+            }
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                detailParts.Add(message);
+            }
+
+            var meta = entry.LoggedAt.ToString("dd.MM.yyyy HH:mm", RuCulture);
+            var actor = Ui(entry.Actor);
+            if (!string.IsNullOrWhiteSpace(actor))
+            {
+                meta = $"{meta} · {actor}";
+            }
+
+            _events.Add(new CustomerEventRow
+            {
+                Title = string.IsNullOrWhiteSpace(Ui(entry.Action)) ? "Операция" : Ui(entry.Action),
+                Detail = string.Join(" · ", detailParts),
+                Meta = meta,
+                Result = string.IsNullOrWhiteSpace(Ui(entry.Result)) ? (isSuccess ? "Успех" : "Ошибка") : Ui(entry.Result),
+                IsSuccess = isSuccess
+            });
+        }
+
+        var hasAny = allForCustomer.Length > 0;
+        EventsEmptyPanel.Visibility = hasAny ? Visibility.Collapsed : Visibility.Visible;
+        EventsScroll.Visibility = hasAny ? Visibility.Visible : Visibility.Collapsed;
+
+        EventsSummaryText.Text = hasAny
+            ? $"Всего записей: {allForCustomer.Length:N0}. Показаны последние {Math.Min(recent.Length, allForCustomer.Length):N0}."
+            : "Журнал по этому клиенту пока пуст.";
+    }
+
+    private void RenderReportsMetrics()
+    {
+        var currency = string.IsNullOrWhiteSpace(_draft.CurrencyCode) ? "RUB" : _draft.CurrencyCode;
+
+        ReportsOrdersCountText.Text = _customerOrders.Length.ToString("N0", RuCulture);
+        ReportsOrdersTotalText.Text = "Сумма: " + FormatMoney(_customerOrders.Sum(item => item.TotalAmount), currency);
+
+        ReportsInvoicesCountText.Text = _customerInvoices.Length.ToString("N0", RuCulture);
+        ReportsInvoicesTotalText.Text = "Сумма: " + FormatMoney(_customerInvoices.Sum(item => item.TotalAmount), currency);
+
+        ReportsShipmentsCountText.Text = _customerShipments.Length.ToString("N0", RuCulture);
+        ReportsShipmentsTotalText.Text = "Сумма: " + FormatMoney(_customerShipments.Sum(item => item.TotalAmount), currency);
+
+        ReportsReturnsCountText.Text = _customerReturns.Length.ToString("N0", RuCulture);
+        ReportsReturnsTotalText.Text = "Сумма: " + FormatMoney(_customerReturns.Sum(item => item.TotalAmount), currency);
+
+        ReportsCashCountText.Text = _customerCashReceipts.Length.ToString("N0", RuCulture);
+        ReportsCashTotalText.Text = "Сумма: " + FormatMoney(_customerCashReceipts.Sum(item => item.Amount), currency);
+
+        var totalDocs = _customerOrders.Length
+            + _customerInvoices.Length
+            + _customerShipments.Length
+            + _customerReturns.Length
+            + _customerCashReceipts.Length;
+
+        var activity = BuildLastActivity();
+        if (totalDocs == 0)
+        {
+            ReportsSummaryText.Text = "По этому клиенту пока нет заказов, счетов и других документов.";
+            ReportsLastActivityText.Text = string.Empty;
+            ReportsLastActivityText.Visibility = Visibility.Collapsed;
+            ReportsEmptyPanel.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            ReportsSummaryText.Text = $"Всего документов: {totalDocs:N0}. Суммы указаны в валюте {currency}.";
+            ReportsLastActivityText.Text = activity ?? string.Empty;
+            ReportsLastActivityText.Visibility = string.IsNullOrEmpty(activity) ? Visibility.Collapsed : Visibility.Visible;
+            ReportsEmptyPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private string? BuildLastActivity()
+    {
+        var candidates = new List<(DateTime Date, string Label, string Number)>();
+        var lastOrder = _customerOrders.OrderByDescending(item => item.OrderDate).FirstOrDefault();
+        if (lastOrder is not null)
+        {
+            candidates.Add((lastOrder.OrderDate, "Заказ", Ui(lastOrder.Number)));
+        }
+        var lastInvoice = _customerInvoices.OrderByDescending(item => item.InvoiceDate).FirstOrDefault();
+        if (lastInvoice is not null)
+        {
+            candidates.Add((lastInvoice.InvoiceDate, "Счёт", Ui(lastInvoice.Number)));
+        }
+        var lastShipment = _customerShipments.OrderByDescending(item => item.ShipmentDate).FirstOrDefault();
+        if (lastShipment is not null)
+        {
+            candidates.Add((lastShipment.ShipmentDate, "Отгрузка", Ui(lastShipment.Number)));
+        }
+        var lastReturn = _customerReturns.OrderByDescending(item => item.ReturnDate).FirstOrDefault();
+        if (lastReturn is not null)
+        {
+            candidates.Add((lastReturn.ReturnDate, "Возврат", Ui(lastReturn.Number)));
+        }
+        var lastCash = _customerCashReceipts.OrderByDescending(item => item.ReceiptDate).FirstOrDefault();
+        if (lastCash is not null)
+        {
+            candidates.Add((lastCash.ReceiptDate, "Касса", Ui(lastCash.Number)));
+        }
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var best = candidates.OrderByDescending(item => item.Date).First();
+        var number = string.IsNullOrWhiteSpace(best.Number) ? string.Empty : $" № {best.Number}";
+        return $"Последняя активность: {best.Date:dd.MM.yyyy} — {best.Label}{number}.";
+    }
+
+    private void RenderPersonalDataChecklist()
+    {
+        _personalData.Clear();
+
+        var type = Ui(CounterpartyTypeComboBox.SelectedItem?.ToString() ?? CounterpartyTypeComboBox.Text);
+        var isApplicable = !type.Equals("Юридическое лицо", StringComparison.OrdinalIgnoreCase)
+                            && !type.Equals("Государственный орган", StringComparison.OrdinalIgnoreCase);
+
+        if (!isApplicable)
+        {
+            PersonalDataAppliesPanel.Visibility = Visibility.Collapsed;
+            PersonalDataNotApplicablePanel.Visibility = Visibility.Visible;
+            return;
+        }
+
+        PersonalDataAppliesPanel.Visibility = Visibility.Visible;
+        PersonalDataNotApplicablePanel.Visibility = Visibility.Collapsed;
+
+        AddPersonalRow("Имя / ФИО", NameTextBox.Text);
+        AddPersonalRow("ИНН", InnTextBox.Text);
+        if (type.Equals("Индивидуальный предприниматель", StringComparison.OrdinalIgnoreCase))
+        {
+            AddPersonalRow("ОГРНИП", OgrnTextBox.Text);
+        }
+        AddPersonalRow("Телефон", PhoneTextBox.Text);
+        AddPersonalRow("E-mail", EmailTextBox.Text);
+        AddPersonalRow("Юр. адрес", LegalAddressTextBox.Text);
+        AddPersonalRow("Факт. адрес", ActualAddressTextBox.Text);
+        AddPersonalRow("Тип контрагента", string.IsNullOrWhiteSpace(type) ? string.Empty : type);
+        AddPersonalRow("Контактных лиц", _contacts.Count > 0 ? _contacts.Count.ToString("N0", RuCulture) : string.Empty);
+    }
+
+    private void AddPersonalRow(string label, string? value)
+    {
+        var trimmed = Ui(value?.Trim() ?? string.Empty);
+        var isFilled = !string.IsNullOrWhiteSpace(trimmed);
+        _personalData.Add(new PersonalDataRow
+        {
+            Label = label,
+            DisplayValue = isFilled ? trimmed : "—",
+            IsFilled = isFilled
+        });
+    }
+
     private void HandleCounterpartyTypeChanged(object sender, SelectionChangedEventArgs e)
     {
         ApplyCounterpartyTypeLayout();
@@ -242,6 +504,8 @@ public partial class SalesCustomerEditorWindow : Window
         OgrnLabelText.Text = type.Equals("Индивидуальный предприниматель", StringComparison.OrdinalIgnoreCase)
             ? "ОГРНИП"
             : "ОГРН";
+
+        RenderPersonalDataChecklist();
     }
 
     private void HandleRegionChanged(object sender, SelectionChangedEventArgs e)
@@ -617,4 +881,56 @@ public sealed class SalesCustomerFileEditorRow
             SizeBytes = SizeBytes
         };
     }
+}
+
+public sealed class CustomerEventRow
+{
+    private static readonly SolidColorBrush SuccessDotBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#1AA65F")!;
+    private static readonly SolidColorBrush ErrorDotBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#FF3045")!;
+    private static readonly SolidColorBrush SuccessPillBgBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#E8F8EF")!;
+    private static readonly SolidColorBrush ErrorPillBgBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#FFE8EA")!;
+    private static readonly SolidColorBrush SuccessPillFgBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#1AA65F")!;
+    private static readonly SolidColorBrush ErrorPillFgBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#FF3045")!;
+
+    public string Title { get; set; } = string.Empty;
+
+    public string Detail { get; set; } = string.Empty;
+
+    public string Meta { get; set; } = string.Empty;
+
+    public string Result { get; set; } = string.Empty;
+
+    public bool IsSuccess { get; set; } = true;
+
+    public Brush DotBrush => IsSuccess ? SuccessDotBrush : ErrorDotBrush;
+
+    public Brush PillBackground => IsSuccess ? SuccessPillBgBrush : ErrorPillBgBrush;
+
+    public Brush PillForeground => IsSuccess ? SuccessPillFgBrush : ErrorPillFgBrush;
+}
+
+public sealed class PersonalDataRow
+{
+    private static readonly SolidColorBrush FilledBgBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#E8F8EF")!;
+    private static readonly SolidColorBrush EmptyBgBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#F3F6FF")!;
+    private static readonly SolidColorBrush FilledFgBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#1AA65F")!;
+    private static readonly SolidColorBrush EmptyFgBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#A9B7F7")!;
+    private static readonly SolidColorBrush FilledValueBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#17213A")!;
+    private static readonly SolidColorBrush EmptyValueBrush = (SolidColorBrush)new BrushConverter().ConvertFromString("#A9B7F7")!;
+
+    public string Label { get; set; } = string.Empty;
+
+    public string DisplayValue { get; set; } = string.Empty;
+
+    public bool IsFilled { get; set; }
+
+    public string BulletGlyph => IsFilled ? "" : "";
+
+    public Brush BulletBackground => IsFilled ? FilledBgBrush : EmptyBgBrush;
+
+    public Brush BulletForeground => IsFilled ? FilledFgBrush : EmptyFgBrush;
+
+    public Brush ValueForeground => IsFilled ? FilledValueBrush : EmptyValueBrush;
+
+    public FontWeight ValueFontWeight => IsFilled ? FontWeights.SemiBold : FontWeights.Normal;
 }

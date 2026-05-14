@@ -203,7 +203,8 @@ public partial class SalesDocumentEditorWindow : Window
                 SecondaryDateLabelText.Text = "Срок оплаты";
                 LinesHintText.Text = "Позиции подтягиваются из заказа. При необходимости их можно уточнить.";
                 StatusComboBox.ItemsSource = _workspace.InvoiceStatuses.Select(Ui).ToArray();
-                CustomerPanel.Visibility = Visibility.Visible;
+                // Клиент скрыт — его имя уже отображается в OrderComboBox (Основание/заказ).
+                CustomerPanel.Visibility = Visibility.Collapsed;
                 CustomerComboBox.IsEnabled = false;
                 OrderPanel.Visibility = Visibility.Visible;
                 SecondaryDatePanel.Visibility = Visibility.Visible;
@@ -219,7 +220,8 @@ public partial class SalesDocumentEditorWindow : Window
                 DocumentDateLabelText.Text = "Дата отгрузки";
                 LinesHintText.Text = "Позиции подтягиваются из заказа. Проведение отгрузки выполняется отдельным действием.";
                 StatusComboBox.ItemsSource = _workspace.ShipmentStatuses.Select(Ui).ToArray();
-                CustomerPanel.Visibility = Visibility.Visible;
+                // Клиент скрыт — его имя уже отображается в OrderComboBox (Основание/заказ).
+                CustomerPanel.Visibility = Visibility.Collapsed;
                 CustomerComboBox.IsEnabled = false;
                 OrderPanel.Visibility = Visibility.Visible;
                 SecondaryDatePanel.Visibility = Visibility.Collapsed;
@@ -230,7 +232,8 @@ public partial class SalesDocumentEditorWindow : Window
                 break;
         }
 
-        CreateReturnButton.Visibility = _mode == SalesDocumentEditorMode.Order ? Visibility.Visible : Visibility.Collapsed;
+        // Кнопка «Возврат» убрана из редактора заказа — возвраты создаются из списка заказов через «...».
+        CreateReturnButton.Visibility = Visibility.Collapsed;
         _loading = false;
     }
 

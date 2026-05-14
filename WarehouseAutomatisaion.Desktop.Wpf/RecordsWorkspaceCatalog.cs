@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using WarehouseAutomatisaion.Desktop.Data;
+using WarehouseAutomatisaion.Desktop.Printing;
 using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
@@ -21,6 +22,45 @@ internal static class RecordsWorkspaceCatalog
     private static readonly string[] FinanceFilters = ["Все документы", "Возвраты", "Поступления в кассу"];
     private static readonly string[] PurchasingFilters = ["Все документы", "Заказы", "Счета", "Приемки"];
     private static readonly string[] ScenarioFilters = ["Все сценарии", "Критично", "Важно", "План", "Готово"];
+
+    private const string AllWarehousesOption = "Все склады";
+    private const string PrimaryUserWarehouse = "Ключевой посёлок";
+    private static readonly string[] PrimaryUserWarehouseAliases =
+    {
+        "Мария",
+        "Маша",
+        "Альматов",
+        "Альматова",
+        "Рома",
+        "Роман"
+    };
+
+    private static IReadOnlyList<string> BuildWarehouseFilterOptions(SalesWorkspace salesWorkspace)
+    {
+        var options = new List<string> { AllWarehousesOption };
+        options.AddRange(salesWorkspace.Warehouses.Where(item => !string.IsNullOrWhiteSpace(item)));
+        return options;
+    }
+
+    private static string ResolveDefaultWarehouse(SalesWorkspace salesWorkspace)
+    {
+        var operatorName = Clean(salesWorkspace.CurrentOperator);
+        if (string.IsNullOrWhiteSpace(operatorName))
+        {
+            return AllWarehousesOption;
+        }
+
+        var matches = PrimaryUserWarehouseAliases.Any(alias =>
+            operatorName.Contains(alias, StringComparison.OrdinalIgnoreCase));
+        if (!matches)
+        {
+            return AllWarehousesOption;
+        }
+
+        var hasWarehouse = salesWorkspace.Warehouses.Any(item =>
+            Clean(item).Equals(PrimaryUserWarehouse, StringComparison.OrdinalIgnoreCase));
+        return hasWarehouse ? PrimaryUserWarehouse : AllWarehousesOption;
+    }
 
     public static RecordsWorkspaceDefinition CreateSales(SalesWorkspace salesWorkspace)
     {
@@ -57,7 +97,8 @@ internal static class RecordsWorkspaceCatalog
                         Cell(item.OrderDate.AddDays(3).ToString("dd.MM.yyyy", RuCulture)),
                         ActionCell()
                     ],
-                    RowActions: BuildOrderActions(salesWorkspace, item)))
+                    RowActions: BuildOrderActions(salesWorkspace, item),
+                    SecondaryFilterValue: Clean(item.Warehouse)))
                 .ToArray(),
             Columns:
             [
@@ -70,7 +111,9 @@ internal static class RecordsWorkspaceCatalog
                 new RecordsGridColumnDefinition("Срок отгрузки", 5, WidthValue: 1.0)
             ],
             SubscribeToChanges: handler => salesWorkspace.Changed += handler,
-            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler);
+            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler,
+            SecondaryFilterOptions: BuildWarehouseFilterOptions(salesWorkspace),
+            SecondaryFilterDefault: ResolveDefaultWarehouse(salesWorkspace));
     }
 
     public static RecordsWorkspaceDefinition CreateCustomers(SalesWorkspace salesWorkspace)
@@ -218,7 +261,8 @@ internal static class RecordsWorkspaceCatalog
                         Cell(item.ShipmentDate.AddDays(2).ToString("dd.MM.yyyy", RuCulture)),
                         ActionCell()
                     ],
-                    RowActions: BuildShipmentActions(salesWorkspace, item)))
+                    RowActions: BuildShipmentActions(salesWorkspace, item),
+                    SecondaryFilterValue: Clean(item.Warehouse)))
                 .ToArray(),
             Columns:
             [
@@ -232,7 +276,9 @@ internal static class RecordsWorkspaceCatalog
                 new RecordsGridColumnDefinition("Дата доставки", 6, WidthValue: 0.95)
             ],
             SubscribeToChanges: handler => salesWorkspace.Changed += handler,
-            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler);
+            UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler,
+            SecondaryFilterOptions: BuildWarehouseFilterOptions(salesWorkspace),
+            SecondaryFilterDefault: ResolveDefaultWarehouse(salesWorkspace));
     }
 
     public static RecordsWorkspaceDefinition CreateReturnsAndPayments(SalesWorkspace salesWorkspace)
@@ -1083,7 +1129,45 @@ internal static class RecordsWorkspaceCatalog
             Columns: BuildSalesPrintColumns(),
             Rows: BuildSalesLinePrintRows(invoice.Lines, invoice.CurrencyCode),
             Totals: BuildSalesPrintTotals(invoice.SubtotalAmount, invoice.EffectiveDiscountAmount, invoice.TotalAmount, invoice.CurrencyCode),
-            Comment: invoice.Comment);
+            Comment: invoice.Comment,
+            BankBlock: BuildInvoiceBankBlock(invoice));
+    }
+
+    private static InvoiceBankBlock? BuildInvoiceBankBlock(SalesInvoiceRecord invoice)
+    {
+        var details = OrganizationBankRegistry.Resolve(invoice.Organization);
+        if (details is null || string.IsNullOrWhiteSpace(details.PaymentAccount))
+        {
+            return null;
+        }
+
+        byte[]? qrBytes = null;
+        try
+        {
+            using var generator = new QRCoder.QRCodeGenerator();
+            var payload = RussianPaymentQrBuilder.BuildPayload(
+                details,
+                invoice.TotalAmount,
+                $"Счет № {Clean(invoice.Number)} от {invoice.InvoiceDate:dd.MM.yyyy}");
+            using var data = generator.CreateQrCode(payload, QRCoder.QRCodeGenerator.ECCLevel.Q);
+            var qrCode = new QRCoder.PngByteQRCode(data);
+            qrBytes = qrCode.GetGraphic(10);
+        }
+        catch
+        {
+            // QR is non-critical for the invoice — printing continues without it.
+            qrBytes = null;
+        }
+
+        return new InvoiceBankBlock(
+            OrganizationName: details.LegalName,
+            Inn: details.Inn,
+            Kpp: details.Kpp,
+            BankName: details.BankName,
+            Bik: details.Bik,
+            CorrespondentAccount: details.CorrespondentAccount,
+            PaymentAccount: details.PaymentAccount,
+            QrPngBytes: qrBytes);
     }
 
     private static PrintableTableDocumentDefinition BuildShipmentPrintDefinition(SalesShipmentRecord shipment)
@@ -1658,12 +1742,7 @@ internal static class RecordsWorkspaceCatalog
                         return;
                     }
 
-                    if (!isNew)
-                    {
-                        return;
-                    }
-
-                    ShowMessage("Заказы", $"Обновлен заказ {editor.ResultOrder.Number}.");
+                    ShowMessage("Заказы", $"Сохранён заказ {editor.ResultOrder.Number}.");
                 }
 
                 mainWindow.CloseWorkspaceTab(key);

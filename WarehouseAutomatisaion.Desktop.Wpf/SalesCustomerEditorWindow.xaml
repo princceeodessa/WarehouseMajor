@@ -30,6 +30,114 @@
             <Setter Property="MinWidth" Value="180" />
             <Setter Property="Margin" Value="0,0,12,12" />
         </Style>
+
+        <SolidColorBrush x:Key="EventDotSuccessBrush" Color="#1AA65F" />
+        <SolidColorBrush x:Key="EventDotErrorBrush" Color="#FF3045" />
+
+        <Style x:Key="TabIconBoxStyle" TargetType="Border">
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Background" Value="#F3F6FF" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style x:Key="TabIconGlyphStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="Foreground" Value="#4F5BFF" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="HeroValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style x:Key="MonoAccountStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#17213A" />
+        </Style>
+
+        <Style x:Key="EventCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E7ECF7" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+        <Style x:Key="EventDotStyle" TargetType="Ellipse">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="Margin" Value="0,6,12,0" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style x:Key="EventTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="EventDetailStyle" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,3,0,0" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#6E7B98" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="EventMetaStyle" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,6,0,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="#7A86A5" />
+        </Style>
+        <Style x:Key="StatusPillBaseStyle" TargetType="Border">
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+        <Style x:Key="StatusPillTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="ChecklistBulletBoxStyle" TargetType="Border">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="CornerRadius" Value="11" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+        <Style x:Key="ChecklistBulletGlyphStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="ChecklistRowStyle" TargetType="Border">
+            <Setter Property="Padding" Value="0,8" />
+            <Setter Property="BorderBrush" Value="#EEF1F8" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+        </Style>
+        <Style x:Key="ChecklistLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="#6E7B98" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="ChecklistValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="ChecklistValueEmptyStyle" TargetType="TextBlock" BasedOn="{StaticResource ChecklistValueStyle}">
+            <Setter Property="Foreground" Value="#A9B7F7" />
+            <Setter Property="FontWeight" Value="Normal" />
+        </Style>
+
         <Style TargetType="DataGrid" BasedOn="{StaticResource DialogDataGridStyle}">
             <Setter Property="CanUserAddRows" Value="False" />
             <Setter Property="CanUserDeleteRows" Value="False" />
@@ -330,28 +438,125 @@
                     </TabItem>
 
                     <TabItem Header="Договоры">
-                        <StackPanel Margin="0,16,0,0">
-                            <TextBlock Text="Договоры" Style="{StaticResource SectionTitleStyle}" />
-                            <TextBlock Text="Основной договор хранится в карточке и используется в заказах, счетах и отгрузках." Margin="0,4,0,16" Style="{StaticResource SectionHintStyle}" />
-                            <TextBlock Text="Основной договор" Style="{StaticResource FieldLabelStyle}" />
-                            <TextBox Text="{Binding Text, ElementName=ContractTextBox}" Style="{StaticResource InputStyle}" IsReadOnly="True" />
-                        </StackPanel>
+                        <Grid Margin="0,16,0,0">
+                            <Border x:Name="ContractFilledPanel" Style="{StaticResource DialogCardStyle}" Padding="20" HorizontalAlignment="Left" MinWidth="480" MaxWidth="640" VerticalAlignment="Top">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource TabIconBoxStyle}" Margin="0,0,16,0">
+                                        <TextBlock Text="&#xE8A5;" Style="{StaticResource TabIconGlyphStyle}" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Основной договор" Style="{StaticResource SectionHintStyle}" />
+                                        <TextBlock x:Name="ContractValueText" Margin="0,4,0,10" Style="{StaticResource HeroValueStyle}" />
+                                        <TextBlock Text="Используется в заказах, счетах и отгрузках. Изменить — на вкладке «Основное» (поле «Договор»)." Style="{StaticResource SectionHintStyle}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <Border x:Name="ContractEmptyPanel" Style="{StaticResource TableEmptyOverlayStyle}" Visibility="Collapsed">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,40,0,40">
+                                    <Border Style="{StaticResource TableEmptyIconBoxStyle}">
+                                        <TextBlock Text="&#xE7BF;" Style="{StaticResource TableEmptyIconTextStyle}" />
+                                    </Border>
+                                    <TextBlock Text="Договор не указан" Style="{StaticResource TableEmptyTitleStyle}" />
+                                    <TextBlock Text="Заполните поле «Договор» на вкладке Основное — номер появится здесь." Style="{StaticResource TableEmptyHintStyle}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                     </TabItem>
 
                     <TabItem Header="Банковские счета">
                         <StackPanel Margin="0,16,0,0">
-                            <TextBlock Text="Банковские счета" Style="{StaticResource SectionTitleStyle}" />
-                            <TextBlock Text="Сейчас используется основной расчетный счет. Позже можно расширить до списка счетов." Margin="0,4,0,16" Style="{StaticResource SectionHintStyle}" />
-                            <TextBlock Text="Основной счет" Style="{StaticResource FieldLabelStyle}" />
-                            <TextBox x:Name="BankAccountTextBox" Style="{StaticResource InputStyle}" />
+                            <Border x:Name="BankAccountFilledPanel" Style="{StaticResource DialogCardStyle}" Padding="20" HorizontalAlignment="Left" MinWidth="480" MaxWidth="640" Margin="0,0,0,16">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Style="{StaticResource TabIconBoxStyle}" Margin="0,0,16,0">
+                                        <TextBlock Text="&#xE8C7;" Style="{StaticResource TabIconGlyphStyle}" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Расчётный счёт" Style="{StaticResource SectionHintStyle}" />
+                                        <TextBlock x:Name="BankAccountFormattedText" Margin="0,4,0,10" Style="{StaticResource MonoAccountStyle}" />
+                                        <TextBlock Text="Используется в платёжных документах. Редактирование — в поле ниже." Style="{StaticResource SectionHintStyle}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <Border x:Name="BankAccountEmptyPanel" Style="{StaticResource TableEmptyOverlayStyle}" Visibility="Collapsed" Margin="0,0,0,16">
+                                <StackPanel HorizontalAlignment="Center" Margin="0,30,0,30">
+                                    <Border Style="{StaticResource TableEmptyIconBoxStyle}">
+                                        <TextBlock Text="&#xE8C7;" Style="{StaticResource TableEmptyIconTextStyle}" />
+                                    </Border>
+                                    <TextBlock Text="Счёт не указан" Style="{StaticResource TableEmptyTitleStyle}" />
+                                    <TextBlock Text="Введите номер расчётного счёта в поле ниже — он появится отформатированным." Style="{StaticResource TableEmptyHintStyle}" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="Номер счёта" Style="{StaticResource FieldLabelStyle}" />
+                            <TextBox x:Name="BankAccountTextBox" Style="{StaticResource InputStyle}" MaxWidth="640" HorizontalAlignment="Left" />
                         </StackPanel>
                     </TabItem>
 
                     <TabItem Header="События">
-                        <StackPanel Margin="0,16,0,0">
-                            <TextBlock Text="События" Style="{StaticResource SectionTitleStyle}" />
-                            <TextBlock x:Name="EventsSummaryText" Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
-                        </StackPanel>
+                        <Grid Margin="0,16,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                                <TextBlock Text="Журнал событий" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock x:Name="EventsSummaryText" Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
+                            </StackPanel>
+
+                            <Grid Grid.Row="1">
+                                <ScrollViewer x:Name="EventsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl x:Name="EventsItems">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource EventCardStyle}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Ellipse Grid.Column="0" Style="{StaticResource EventDotStyle}" Fill="{Binding DotBrush}" />
+                                                        <StackPanel Grid.Column="1">
+                                                            <TextBlock Text="{Binding Title}" Style="{StaticResource EventTitleStyle}" />
+                                                            <TextBlock Text="{Binding Detail}" Style="{StaticResource EventDetailStyle}" />
+                                                            <TextBlock Text="{Binding Meta}" Style="{StaticResource EventMetaStyle}" />
+                                                        </StackPanel>
+                                                        <Border Grid.Column="2"
+                                                                Style="{StaticResource StatusPillBaseStyle}"
+                                                                Background="{Binding PillBackground}">
+                                                            <TextBlock Text="{Binding Result}"
+                                                                       Style="{StaticResource StatusPillTextStyle}"
+                                                                       Foreground="{Binding PillForeground}" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+
+                                <Border x:Name="EventsEmptyPanel" Style="{StaticResource TableEmptyOverlayStyle}" Visibility="Collapsed">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Border Style="{StaticResource TableEmptyIconBoxStyle}">
+                                            <TextBlock Text="&#xE7C3;" Style="{StaticResource TableEmptyIconTextStyle}" />
+                                        </Border>
+                                        <TextBlock Text="Журнал пуст" Style="{StaticResource TableEmptyTitleStyle}" />
+                                        <TextBlock Text="Здесь появятся записи о создании, изменениях и связанных документах клиента." Style="{StaticResource TableEmptyHintStyle}" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Grid>
                     </TabItem>
 
                     <TabItem Header="Файлы">
@@ -402,16 +607,135 @@
 
                     <TabItem Header="Отчеты">
                         <StackPanel Margin="0,16,0,0">
-                            <TextBlock Text="Отчеты" Style="{StaticResource SectionTitleStyle}" />
-                            <TextBlock x:Name="ReportsSummaryText" Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
+                            <TextBlock Text="Документы клиента" Style="{StaticResource SectionTitleStyle}" />
+                            <TextBlock x:Name="ReportsSummaryText" Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
+
+                            <UniformGrid Columns="5" Margin="0,0,0,12">
+                                <Border Style="{StaticResource MetricCardStyle}" Margin="0,0,12,0">
+                                    <StackPanel>
+                                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#EEF1FF" Margin="0,0,0,12">
+                                            <TextBlock Text="&#xE7BF;" Style="{StaticResource MetricIconTextStyle}" Foreground="#4F5BFF" />
+                                        </Border>
+                                        <TextBlock x:Name="ReportsOrdersCountText" Style="{StaticResource MetricValueStyle}" Text="0" />
+                                        <TextBlock Text="Заказы" Style="{StaticResource MetricLabelStyle}" />
+                                        <TextBlock x:Name="ReportsOrdersTotalText" Style="{StaticResource MetricHintStyle}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource MetricCardStyle}" Margin="0,0,12,0">
+                                    <StackPanel>
+                                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#FFF4E5" Margin="0,0,0,12">
+                                            <TextBlock Text="&#xE8A5;" Style="{StaticResource MetricIconTextStyle}" Foreground="#FF9F1A" />
+                                        </Border>
+                                        <TextBlock x:Name="ReportsInvoicesCountText" Style="{StaticResource MetricValueStyle}" Text="0" />
+                                        <TextBlock Text="Счета" Style="{StaticResource MetricLabelStyle}" />
+                                        <TextBlock x:Name="ReportsInvoicesTotalText" Style="{StaticResource MetricHintStyle}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource MetricCardStyle}" Margin="0,0,12,0">
+                                    <StackPanel>
+                                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#E8F8EF" Margin="0,0,0,12">
+                                            <TextBlock Text="&#xE8AF;" Style="{StaticResource MetricIconTextStyle}" Foreground="#1AA65F" />
+                                        </Border>
+                                        <TextBlock x:Name="ReportsShipmentsCountText" Style="{StaticResource MetricValueStyle}" Text="0" />
+                                        <TextBlock Text="Отгрузки" Style="{StaticResource MetricLabelStyle}" />
+                                        <TextBlock x:Name="ReportsShipmentsTotalText" Style="{StaticResource MetricHintStyle}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource MetricCardStyle}" Margin="0,0,12,0">
+                                    <StackPanel>
+                                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#FFE8EA" Margin="0,0,0,12">
+                                            <TextBlock Text="&#xE72C;" Style="{StaticResource MetricIconTextStyle}" Foreground="#FF3045" />
+                                        </Border>
+                                        <TextBlock x:Name="ReportsReturnsCountText" Style="{StaticResource MetricValueStyle}" Text="0" />
+                                        <TextBlock Text="Возвраты" Style="{StaticResource MetricLabelStyle}" />
+                                        <TextBlock x:Name="ReportsReturnsTotalText" Style="{StaticResource MetricHintStyle}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource MetricCardStyle}">
+                                    <StackPanel>
+                                        <Border Style="{StaticResource MetricIconBoxStyle}" Background="#F3E8FF" Margin="0,0,0,12">
+                                            <TextBlock Text="&#xE8C7;" Style="{StaticResource MetricIconTextStyle}" Foreground="#7C3AED" />
+                                        </Border>
+                                        <TextBlock x:Name="ReportsCashCountText" Style="{StaticResource MetricValueStyle}" Text="0" />
+                                        <TextBlock Text="Касса" Style="{StaticResource MetricLabelStyle}" />
+                                        <TextBlock x:Name="ReportsCashTotalText" Style="{StaticResource MetricHintStyle}" />
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+
+                            <TextBlock x:Name="ReportsLastActivityText" Margin="2,8,0,0" Style="{StaticResource SectionHintStyle}" />
+
+                            <Border x:Name="ReportsEmptyPanel" Style="{StaticResource TableEmptyOverlayStyle}" Visibility="Collapsed" Margin="0,16,0,0">
+                                <StackPanel HorizontalAlignment="Center" Margin="0,24,0,24">
+                                    <Border Style="{StaticResource TableEmptyIconBoxStyle}">
+                                        <TextBlock Text="&#xE9D9;" Style="{StaticResource TableEmptyIconTextStyle}" />
+                                    </Border>
+                                    <TextBlock Text="Документов пока нет" Style="{StaticResource TableEmptyTitleStyle}" />
+                                    <TextBlock Text="Создайте заказ, счёт или отгрузку — статистика появится здесь." Style="{StaticResource TableEmptyHintStyle}" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </TabItem>
 
                     <TabItem Header="Персональные данные">
-                        <StackPanel Margin="0,16,0,0">
-                            <TextBlock Text="Персональные данные" Style="{StaticResource SectionTitleStyle}" />
-                            <TextBlock Text="Для физлиц и контактных лиц здесь фиксируется, какие персональные данные используются в карточке." Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
-                        </StackPanel>
+                        <Grid Margin="0,16,0,0">
+                            <Border x:Name="PersonalDataAppliesPanel" Style="{StaticResource DialogCardStyle}" Padding="20" MaxWidth="720" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Style="{StaticResource TabIconBoxStyle}" Margin="0,0,16,0">
+                                            <TextBlock Text="&#xE77B;" Style="{StaticResource TabIconGlyphStyle}" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Какие данные используются" Style="{StaticResource SectionTitleStyle}" />
+                                            <TextBlock Text="Перечень полей с зелёной отметкой заполнен, серые — пустые." Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <ItemsControl x:Name="PersonalDataItems">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource ChecklistRowStyle}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="180" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Border Grid.Column="0"
+                                                                Style="{StaticResource ChecklistBulletBoxStyle}"
+                                                                Background="{Binding BulletBackground}">
+                                                            <TextBlock Text="{Binding BulletGlyph}"
+                                                                       Style="{StaticResource ChecklistBulletGlyphStyle}"
+                                                                       Foreground="{Binding BulletForeground}" />
+                                                        </Border>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Label}" Style="{StaticResource ChecklistLabelStyle}" />
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding DisplayValue}"
+                                                                   Style="{StaticResource ChecklistValueStyle}"
+                                                                   Foreground="{Binding ValueForeground}"
+                                                                   FontWeight="{Binding ValueFontWeight}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border x:Name="PersonalDataNotApplicablePanel" Style="{StaticResource TableEmptyOverlayStyle}" Visibility="Collapsed">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,40,0,40">
+                                    <Border Style="{StaticResource TableEmptyIconBoxStyle}">
+                                        <TextBlock Text="&#xE77B;" Style="{StaticResource TableEmptyIconTextStyle}" />
+                                    </Border>
+                                    <TextBlock Text="Не применимо для юридических лиц" Style="{StaticResource TableEmptyTitleStyle}" />
+                                    <TextBlock Text="Персональные данные хранятся в карточках контактных лиц — раздел «Контакты» на вкладке Основное." Style="{StaticResource TableEmptyHintStyle}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                     </TabItem>
                 </TabControl>
             </Grid>

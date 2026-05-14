@@ -167,6 +167,7 @@ public sealed class SalesWorkspace
         var warehouses = new[]
         {
             "Главный склад",
+            "Ключевой посёлок",
             "Шоурум",
             "Монтажный склад"
         };
@@ -570,6 +571,7 @@ public sealed class SalesWorkspace
             CurrencyCode = order.CurrencyCode,
             Status = InvoiceStatuses.First(),
             Manager = order.Manager,
+            Organization = order.Organization,
             Comment = $"Основание: заказ {order.Number}",
             ManualDiscountPercent = order.ManualDiscountPercent,
             ManualDiscountAmount = order.ManualDiscountAmount,
@@ -597,6 +599,7 @@ public sealed class SalesWorkspace
             Status = ShipmentStatuses.First(),
             Carrier = "Собственный транспорт",
             Manager = order.Manager,
+            Organization = order.Organization,
             Comment = $"Подготовлено из заказа {order.Number}",
             ManualDiscountPercent = order.ManualDiscountPercent,
             ManualDiscountAmount = order.ManualDiscountAmount,
@@ -971,10 +974,10 @@ public sealed class SalesWorkspace
 
         var inventory = new SalesInventoryService(this);
         var check = inventory.AnalyzeOrder(order);
-        if (!check.IsFullyCovered)
+        var reserveShortageWarning = !check.IsFullyCovered;
+        if (reserveShortageWarning)
         {
-            WriteOperationLog("Заказ", order.Id, order.Number, "Резервирование", "Ошибка", check.HintText);
-            return CreateWorkflowResult(false, $"Не удалось зарезервировать заказ {order.Number}.", check.HintText);
+            WriteOperationLog("Заказ", order.Id, order.Number, "Резервирование", "Предупреждение", $"Дефицит остатка: {check.HintText}");
         }
 
         order.Status = "В работе";
@@ -1024,10 +1027,10 @@ public sealed class SalesWorkspace
 
         var inventory = new SalesInventoryService(this);
         var check = inventory.AnalyzeShipment(shipment);
-        if (!check.IsFullyCovered)
+        var shortageWarning = !check.IsFullyCovered;
+        if (shortageWarning)
         {
-            WriteOperationLog("Заказ", order.Id, order.Number, "Проведение расходной", "Ошибка", check.HintText);
-            return CreateWorkflowResult(false, $"Не удалось провести расходную по заказу {order.Number}.", check.HintText);
+            WriteOperationLog("Заказ", order.Id, order.Number, "Проведение расходной", "Предупреждение", $"Дефицит остатка: {check.HintText}");
         }
 
         if (createdShipment)
@@ -1045,6 +1048,10 @@ public sealed class SalesWorkspace
         var detail = createdShipment
             ? $"Создана и проведена расходная накладная {shipment.Number}. Заказ переведен в статус 'Завершен'."
             : $"Проведена расходная накладная {shipment.Number}. Заказ переведен в статус 'Завершен'.";
+        if (shortageWarning)
+        {
+            detail = $"{detail} Внимание: {check.HintText}";
+        }
         return CreateWorkflowResult(true, $"Расходная по заказу {order.Number} проведена.", detail);
     }
 
@@ -1175,8 +1182,7 @@ public sealed class SalesWorkspace
         var check = inventory.AnalyzeShipment(shipment);
         if (!check.IsFullyCovered)
         {
-            WriteOperationLog("Отгрузка", shipment.Id, shipment.Number, "Подготовка к сборке", "Ошибка", check.HintText);
-            return CreateWorkflowResult(false, $"Не удалось подготовить отгрузку {shipment.Number}.", check.HintText);
+            WriteOperationLog("Отгрузка", shipment.Id, shipment.Number, "Подготовка к сборке", "Предупреждение", $"Дефицит остатка: {check.HintText}");
         }
 
         shipment.Status = "К сборке";
@@ -1198,15 +1204,17 @@ public sealed class SalesWorkspace
         var check = inventory.AnalyzeShipment(shipment);
         if (!check.IsFullyCovered)
         {
-            WriteOperationLog("Отгрузка", shipment.Id, shipment.Number, "Проведение отгрузки", "Ошибка", check.HintText);
-            return CreateWorkflowResult(false, $"Не удалось провести отгрузку {shipment.Number}.", check.HintText);
+            WriteOperationLog("Отгрузка", shipment.Id, shipment.Number, "Проведение отгрузки", "Предупреждение", $"Дефицит остатка: {check.HintText}");
         }
 
         shipment.Status = "Отгружена";
         RefreshOrderLifecycle(shipment.SalesOrderId);
         WriteOperationLog("Отгрузка", shipment.Id, shipment.Number, "Проведение отгрузки", "Успех", $"Отгрузка {shipment.Number} проведена.");
         OnChanged();
-        return CreateWorkflowResult(true, $"Отгрузка {shipment.Number} проведена.", "Складское движение зафиксировано в локальном контуре.");
+        var detail = check.IsFullyCovered
+            ? "Складское движение зафиксировано в локальном контуре."
+            : $"Складское движение зафиксировано. Внимание: {check.HintText}";
+        return CreateWorkflowResult(true, $"Отгрузка {shipment.Number} проведена.", detail);
     }
 
     private void OnChanged()
@@ -2013,6 +2021,8 @@ public sealed class SalesInvoiceRecord
 
     public string Manager { get; set; } = string.Empty;
 
+    public string Organization { get; set; } = string.Empty;
+
     public string Comment { get; set; } = string.Empty;
 
     public decimal ManualDiscountPercent { get; set; }
@@ -2046,6 +2056,7 @@ public sealed class SalesInvoiceRecord
             CurrencyCode = CurrencyCode,
             Status = Status,
             Manager = Manager,
+            Organization = Organization,
             Comment = Comment,
             ManualDiscountPercent = ManualDiscountPercent,
             ManualDiscountAmount = ManualDiscountAmount,
@@ -2067,6 +2078,7 @@ public sealed class SalesInvoiceRecord
         CurrencyCode = source.CurrencyCode;
         Status = source.Status;
         Manager = source.Manager;
+        Organization = source.Organization;
         Comment = source.Comment;
         ManualDiscountPercent = source.ManualDiscountPercent;
         ManualDiscountAmount = source.ManualDiscountAmount;
@@ -2109,6 +2121,8 @@ public sealed class SalesShipmentRecord
 
     public string Manager { get; set; } = string.Empty;
 
+    public string Organization { get; set; } = string.Empty;
+
     public string Comment { get; set; } = string.Empty;
 
     public decimal ManualDiscountPercent { get; set; }
@@ -2143,6 +2157,7 @@ public sealed class SalesShipmentRecord
             Status = Status,
             Carrier = Carrier,
             Manager = Manager,
+            Organization = Organization,
             Comment = Comment,
             ManualDiscountPercent = ManualDiscountPercent,
             ManualDiscountAmount = ManualDiscountAmount,
@@ -2165,6 +2180,7 @@ public sealed class SalesShipmentRecord
         Status = source.Status;
         Carrier = source.Carrier;
         Manager = source.Manager;
+        Organization = source.Organization;
         Comment = source.Comment;
         ManualDiscountPercent = source.ManualDiscountPercent;
         ManualDiscountAmount = source.ManualDiscountAmount;

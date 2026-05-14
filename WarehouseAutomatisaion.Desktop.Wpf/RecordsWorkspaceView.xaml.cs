@@ -62,8 +62,26 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         MetricsItemsControl.ItemsSource = _metrics;
         PrimaryFilterCombo.ItemsSource = definition.PrimaryFilterOptions.Select(Clean).ToArray();
         PrimaryFilterCombo.SelectedIndex = 0;
+
+        if (definition.SecondaryFilterOptions is { Count: > 0 } secondaryOptions)
+        {
+            var cleanedSecondary = secondaryOptions.Select(Clean).ToArray();
+            SecondaryFilterCombo.ItemsSource = cleanedSecondary;
+            var defaultValue = Clean(definition.SecondaryFilterDefault);
+            var matchIndex = string.IsNullOrWhiteSpace(defaultValue)
+                ? 0
+                : Array.FindIndex(cleanedSecondary, item => item.Equals(defaultValue, StringComparison.OrdinalIgnoreCase));
+            SecondaryFilterCombo.SelectedIndex = matchIndex >= 0 ? matchIndex : 0;
+            SecondaryFilterCombo.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            SecondaryFilterCombo.ItemsSource = null;
+            SecondaryFilterCombo.Visibility = Visibility.Collapsed;
+        }
         _definition.SubscribeToChanges?.Invoke(HandleWorkspaceChanged);
         RecordsGrid.MouseDoubleClick += HandleRecordsGridMouseDoubleClick;
+        RecordsGrid.MouseLeftButtonUp += HandleRecordsGridMouseLeftButtonUp;
         RecordsGrid.KeyDown += HandleRecordsGridKeyDown;
 
         BuildColumns();
@@ -95,6 +113,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         _disposed = true;
         _searchDebounceTimer.Stop();
         RecordsGrid.MouseDoubleClick -= HandleRecordsGridMouseDoubleClick;
+        RecordsGrid.MouseLeftButtonUp -= HandleRecordsGridMouseLeftButtonUp;
         RecordsGrid.KeyDown -= HandleRecordsGridKeyDown;
         _definition.UnsubscribeFromChanges?.Invoke(HandleWorkspaceChanged);
     }
@@ -315,6 +334,31 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         }
     }
 
+    private void HandleRecordsGridMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source)
+        {
+            return;
+        }
+
+        if (FindVisualParent<WpfButton>(source) is not null
+            || FindVisualParent<DataGridColumnHeader>(source) is not null)
+        {
+            return;
+        }
+
+        if ((Keyboard.Modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) != 0)
+        {
+            return;
+        }
+
+        var row = FindVisualParent<DataGridRow>(source);
+        if (row?.Item is RecordsGridItem item)
+        {
+            ExecutePrimaryRowAction(item);
+        }
+    }
+
     private void RenderGroupTree()
     {
         _groupNodes.Clear();
@@ -389,6 +433,9 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         var search = Clean(HeaderSearchBox.Text).Trim();
         var allFilter = Clean(_definition.PrimaryFilterOptions.FirstOrDefault());
         var selectedFilter = PrimaryFilterCombo.SelectedItem?.ToString() ?? allFilter;
+        var secondaryOptions = _definition.SecondaryFilterOptions;
+        var allSecondaryFilter = secondaryOptions is { Count: > 0 } ? Clean(secondaryOptions[0]) : string.Empty;
+        var selectedSecondaryFilter = SecondaryFilterCombo.SelectedItem?.ToString() ?? allSecondaryFilter;
         var start = StartDatePicker.SelectedDate?.Date;
         var end = EndDatePicker.SelectedDate?.Date;
 
@@ -409,6 +456,14 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
             if (!string.IsNullOrWhiteSpace(selectedFilter)
                 && !selectedFilter.Equals(allFilter, StringComparison.OrdinalIgnoreCase)
                 && !row.FilterValue.Equals(selectedFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (secondaryOptions is { Count: > 0 }
+                && !string.IsNullOrWhiteSpace(selectedSecondaryFilter)
+                && !selectedSecondaryFilter.Equals(allSecondaryFilter, StringComparison.OrdinalIgnoreCase)
+                && !row.SecondaryFilterValue.Equals(selectedSecondaryFilter, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -447,7 +502,14 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
 
         RecordsGrid.ItemsSource = pageRows;
         EmptyStateText.Visibility = pageRows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        EmptyStateText.Text = _definition.EmptyStateText;
+        if (pageRows.Length == 0 && _allRows.Count > 0)
+        {
+            EmptyStateText.Text = "Нет данных по выбранным фильтрам. Нажмите «Фильтры» → «Сбросить фильтры», чтобы увидеть все записи.";
+        }
+        else
+        {
+            EmptyStateText.Text = _definition.EmptyStateText;
+        }
 
         var from = _filteredRows.Count == 0 ? 0 : ((_currentPage - 1) * PageSize) + 1;
         var to = Math.Min(_currentPage * PageSize, _filteredRows.Count);
@@ -667,6 +729,15 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                Window.GetWindow(this),
+                $"Не удалось выполнить действие.{Environment.NewLine}{Environment.NewLine}{exception.GetType().Name}: {exception.Message}",
+                AppBranding.MessageBoxTitle,
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private static string Clean(string? value)
@@ -694,7 +765,9 @@ public sealed record RecordsWorkspaceDefinition(
     Action<EventHandler>? SubscribeToChanges = null,
     Action<EventHandler>? UnsubscribeFromChanges = null,
     Func<IReadOnlyList<RecordsGroupNodeDefinition>>? GroupTreeFactory = null,
-    string GroupTreeTitle = "Папки");
+    string GroupTreeTitle = "Папки",
+    IReadOnlyList<string>? SecondaryFilterOptions = null,
+    string? SecondaryFilterDefault = null);
 
 public sealed record WorkspaceMetricCardDefinition(
     string Title,
@@ -745,7 +818,8 @@ public sealed record RecordsGridItem(
     DateTime? DateValue,
     IReadOnlyList<RecordsGridCellDefinition> Cells,
     IReadOnlyList<RecordsGridActionDefinition>? RowActions = null,
-    string GroupPath = "")
+    string GroupPath = "",
+    string SecondaryFilterValue = "")
 {
     public IReadOnlyList<RecordsGridActionDefinition> Actions => RowActions ?? Array.Empty<RecordsGridActionDefinition>();
 }

@@ -1,8 +1,10 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using WarehouseAutomatisaion.Desktop.Text;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
@@ -112,9 +114,14 @@ internal static class PrintDocumentComposer
 
     private static void AppendTableDocument(FlowDocument document, PrintableTableDocumentDefinition definition, double contentWidth, bool breakBefore)
     {
+        if (definition.BankBlock is not null)
+        {
+            document.Blocks.Add(BuildBankBlockTable(definition.BankBlock, contentWidth, breakBefore));
+        }
+
         var title = new Paragraph(new Run(Clean(definition.Title)))
         {
-            BreakPageBefore = breakBefore,
+            BreakPageBefore = breakBefore && definition.BankBlock is null,
             FontSize = 22,
             FontWeight = FontWeights.Bold,
             Margin = new Thickness(0, 0, 0, 4)
@@ -154,6 +161,199 @@ internal static class PrintDocumentComposer
                 BorderThickness = new Thickness(0.6)
             });
         }
+    }
+
+    private static Table BuildBankBlockTable(InvoiceBankBlock block, double contentWidth, bool breakBefore)
+    {
+        var qrColumnWidth = block.QrPngBytes is { Length: > 0 } ? 140d : 0d;
+        var infoColumnWidth = Math.Max(420d, contentWidth - qrColumnWidth);
+
+        var table = new Table
+        {
+            CellSpacing = 0,
+            Margin = new Thickness(0, 0, 0, 12),
+            BreakPageBefore = breakBefore
+        };
+        table.Columns.Add(new TableColumn { Width = new GridLength(infoColumnWidth) });
+        if (qrColumnWidth > 0)
+        {
+            table.Columns.Add(new TableColumn { Width = new GridLength(qrColumnWidth) });
+        }
+
+        var rowGroup = new TableRowGroup();
+        table.RowGroups.Add(rowGroup);
+
+        var infoCell = new TableCell
+        {
+            BorderBrush = BorderBrush,
+            BorderThickness = new Thickness(0.6),
+            Padding = new Thickness(0)
+        };
+        infoCell.Blocks.Add(BuildBankInfoInnerTable(block));
+
+        var bodyRow = new TableRow();
+        bodyRow.Cells.Add(infoCell);
+
+        if (qrColumnWidth > 0)
+        {
+            var qrCell = new TableCell
+            {
+                BorderBrush = BorderBrush,
+                BorderThickness = new Thickness(0, 0.6, 0.6, 0.6),
+                Padding = new Thickness(4)
+            };
+            qrCell.Blocks.Add(BuildQrBlock(block.QrPngBytes!));
+            bodyRow.Cells.Add(qrCell);
+        }
+
+        rowGroup.Rows.Add(bodyRow);
+        return table;
+    }
+
+    private static Table BuildBankInfoInnerTable(InvoiceBankBlock block)
+    {
+        var innerTable = new Table
+        {
+            CellSpacing = 0,
+            Margin = new Thickness(0)
+        };
+        innerTable.Columns.Add(new TableColumn { Width = new GridLength(2.6, GridUnitType.Star) });
+        innerTable.Columns.Add(new TableColumn { Width = new GridLength(0.8, GridUnitType.Star) });
+        innerTable.Columns.Add(new TableColumn { Width = new GridLength(2.0, GridUnitType.Star) });
+
+        var group = new TableRowGroup();
+        innerTable.RowGroups.Add(group);
+
+        var bankRow = new TableRow();
+        bankRow.Cells.Add(BankCell(block.BankName, "Банк получателя", rowSpan: 2));
+        bankRow.Cells.Add(BankLabelCell("БИК"));
+        bankRow.Cells.Add(BankCell(block.Bik));
+        group.Rows.Add(bankRow);
+
+        var corrRow = new TableRow();
+        corrRow.Cells.Add(BankLabelCell("Сч. №"));
+        corrRow.Cells.Add(BankCell(block.CorrespondentAccount));
+        group.Rows.Add(corrRow);
+
+        var innRow = new TableRow();
+        var innCell = new TableCell
+        {
+            BorderBrush = BorderBrush,
+            BorderThickness = new Thickness(0.6),
+            Padding = CellPadding
+        };
+        innCell.Blocks.Add(new Paragraph(new Run("ИНН " + Clean(block.Inn)))
+        {
+            Margin = new Thickness(0),
+            FontSize = 11
+        });
+        if (!string.IsNullOrWhiteSpace(block.Kpp))
+        {
+            innCell.Blocks.Add(new Paragraph(new Run("КПП " + Clean(block.Kpp)))
+            {
+                Margin = new Thickness(0, 2, 0, 0),
+                FontSize = 11
+            });
+        }
+        innRow.Cells.Add(innCell);
+        innRow.Cells.Add(BankLabelCell("Сч. №", rowSpan: 2));
+        innRow.Cells.Add(BankCell(block.PaymentAccount, rowSpan: 2));
+        group.Rows.Add(innRow);
+
+        var receiverRow = new TableRow();
+        receiverRow.Cells.Add(BankCell(block.OrganizationName, "Получатель"));
+        group.Rows.Add(receiverRow);
+
+        return innerTable;
+    }
+
+    private static TableCell BankCell(string value, string? caption = null, int rowSpan = 1)
+    {
+        var cell = new TableCell
+        {
+            BorderBrush = BorderBrush,
+            BorderThickness = new Thickness(0.6),
+            Padding = CellPadding,
+            RowSpan = rowSpan
+        };
+        cell.Blocks.Add(new Paragraph(new Run(Clean(value)))
+        {
+            Margin = new Thickness(0),
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold
+        });
+        if (!string.IsNullOrWhiteSpace(caption))
+        {
+            cell.Blocks.Add(new Paragraph(new Run(Clean(caption)))
+            {
+                Margin = new Thickness(0, 2, 0, 0),
+                FontSize = 8.5,
+                Foreground = MutedBrush
+            });
+        }
+
+        return cell;
+    }
+
+    private static TableCell BankLabelCell(string label, int rowSpan = 1)
+    {
+        var cell = new TableCell
+        {
+            BorderBrush = BorderBrush,
+            BorderThickness = new Thickness(0.6),
+            Padding = CellPadding,
+            RowSpan = rowSpan
+        };
+        cell.Blocks.Add(new Paragraph(new Run(Clean(label)))
+        {
+            Margin = new Thickness(0),
+            FontSize = 10
+        });
+        return cell;
+    }
+
+    private static BlockUIContainer BuildQrBlock(byte[] qrPngBytes)
+    {
+        var bitmap = new BitmapImage();
+        using (var stream = new MemoryStream(qrPngBytes))
+        {
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.StreamSource = stream;
+            bitmap.EndInit();
+        }
+        bitmap.Freeze();
+
+        var image = new Image
+        {
+            Source = bitmap,
+            Width = 120,
+            Height = 120,
+            Stretch = Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+
+        var stack = new StackPanel
+        {
+            Orientation = Orientation.Vertical,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        stack.Children.Add(image);
+        stack.Children.Add(new TextBlock
+        {
+            Text = Clean("Отсканируйте для оплаты"),
+            FontSize = 8.5,
+            Foreground = MutedBrush,
+            TextAlignment = TextAlignment.Center,
+            Margin = new Thickness(0, 4, 0, 0),
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        return new BlockUIContainer(stack)
+        {
+            Margin = new Thickness(0),
+            Padding = new Thickness(0)
+        };
     }
 
     private static Table BuildFactsTable(IReadOnlyList<PrintableField> facts, double contentWidth)
@@ -412,7 +612,18 @@ internal sealed record PrintableTableDocumentDefinition(
     IReadOnlyList<PrintableTableColumn> Columns,
     IReadOnlyList<PrintableTableRow> Rows,
     IReadOnlyList<PrintableField> Totals,
-    string Comment = "");
+    string Comment = "",
+    InvoiceBankBlock? BankBlock = null);
+
+internal sealed record InvoiceBankBlock(
+    string OrganizationName,
+    string Inn,
+    string Kpp,
+    string BankName,
+    string Bik,
+    string CorrespondentAccount,
+    string PaymentAccount,
+    byte[]? QrPngBytes);
 
 internal sealed record PrintableLabelDefinition(
     string Title,

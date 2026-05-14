@@ -336,6 +336,12 @@
                                       Width="150"
                                       Style="{StaticResource TableFilterComboBoxStyle}"
                                       SelectionChanged="HandleFilterChanged" />
+                            <ComboBox x:Name="SecondaryFilterCombo"
+                                      Width="170"
+                                      Margin="10,0,0,0"
+                                      Visibility="Collapsed"
+                                      Style="{StaticResource TableFilterComboBoxStyle}"
+                                      SelectionChanged="HandleFilterChanged" />
                             <StackPanel x:Name="DateRangePanel" Orientation="Horizontal" Margin="12,0,0,0" Visibility="Collapsed">
                                 <DatePicker x:Name="StartDatePicker"
                                             Width="128"
