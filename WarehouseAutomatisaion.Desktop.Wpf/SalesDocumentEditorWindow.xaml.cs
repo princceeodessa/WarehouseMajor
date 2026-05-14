@@ -1312,6 +1312,55 @@ public partial class SalesDocumentEditorWindow : Window
         RenderRelatedDocuments();
     }
 
+    // Открывает отдельное окно «Связанные документы» по образцу 1С (структура подчинённости).
+    private void HandleStructureLinksClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Window dialog;
+            switch (_mode)
+            {
+                case SalesDocumentEditorMode.Order:
+                    var order = BuildCurrentOrderSnapshot() ?? ResolveRelatedOrder();
+                    if (order is null)
+                    {
+                        ValidationText.Text = "Сначала сохраните заказ — затем можно посмотреть цепочку связанных документов.";
+                        return;
+                    }
+                    dialog = new SalesDocumentLinksWindow(_workspace, order);
+                    break;
+                case SalesDocumentEditorMode.Invoice:
+                    var invoice = BuildCurrentInvoiceSnapshot();
+                    if (invoice is null)
+                    {
+                        ValidationText.Text = "Сначала сохраните счёт.";
+                        return;
+                    }
+                    dialog = new SalesDocumentLinksWindow(_workspace, invoice);
+                    break;
+                case SalesDocumentEditorMode.Shipment:
+                    var shipment = BuildCurrentShipmentSnapshot();
+                    if (shipment is null)
+                    {
+                        ValidationText.Text = "Сначала сохраните отгрузку.";
+                        return;
+                    }
+                    dialog = new SalesDocumentLinksWindow(_workspace, shipment);
+                    break;
+                default:
+                    return;
+            }
+
+            WpfDialogOwner.TrySetOwner(dialog, ResolvePromptOwner());
+            dialog.ShowDialog();
+            RenderRelatedDocuments();
+        }
+        catch (Exception exception)
+        {
+            ValidationText.Text = $"Не удалось открыть структуру: {exception.Message}";
+        }
+    }
+
     private void HandleSetPurchaseMinClick(object sender, RoutedEventArgs e)
     {
         if (_lines.Count == 0)

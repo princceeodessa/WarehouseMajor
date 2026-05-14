@@ -95,6 +95,26 @@
                     </StackPanel>
                 </Button>
 
+                <Button x:Name="StructureLinksButton"
+                        Width="34"
+                        Height="32"
+                        Background="Transparent"
+                        BorderBrush="#D7DEEC"
+                        BorderThickness="1"
+                        Cursor="Hand"
+                        Margin="0,0,6,6"
+                        Padding="0"
+                        ToolTip="Структура подчинённости (связанные документы)"
+                        AutomationProperties.Name="Связанные документы"
+                        Click="HandleStructureLinksClick">
+                    <TextBlock FontFamily="Segoe Fluent Icons"
+                               Text="&#xE8B7;"
+                               FontSize="14"
+                               Foreground="#4F5BFF"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Button>
+
                 <Button x:Name="PrintButton"
                         Background="Transparent"
                         BorderBrush="#D7DEEC"
@@ -262,10 +282,16 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="3"
+        <!-- Inline-панель «Связанные документы» теперь скрыта: цепочка доступна
+             через кнопку в верхнем toolbar (как в 1С УНФ — иконка «Структура
+             подчинённости»). Сам DataGrid сохраняется в layout, чтобы
+             code-behind продолжал заполнять _relatedDocuments. -->
+        <Border x:Name="RelatedDocumentsInlineCard"
+                Grid.Row="3"
                 Style="{StaticResource CardStyle}"
                 Padding="16"
-                Margin="0,0,0,18">
+                Margin="0,0,0,18"
+                Visibility="Collapsed">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="260" />
