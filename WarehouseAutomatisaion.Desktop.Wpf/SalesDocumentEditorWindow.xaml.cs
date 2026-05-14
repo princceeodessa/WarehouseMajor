@@ -45,6 +45,7 @@ public partial class SalesDocumentEditorWindow : Window
     private SalesOrderRecord? _orderDraft;
     private SalesInvoiceRecord? _invoiceDraft;
     private SalesShipmentRecord? _shipmentDraft;
+    private IReadOnlyList<SalesCatalogItemOption>? _lineCatalogItems;
 
     public SalesDocumentEditorWindow(SalesWorkspace workspace, SalesDocumentEditorMode mode)
         : this(workspace, mode, null, null, null)
@@ -479,36 +480,29 @@ public partial class SalesDocumentEditorWindow : Window
 
     private void HandleAddLineClick(object sender, RoutedEventArgs e)
     {
-        var catalog = _workspace.CatalogItems
-            .OrderBy(item => Ui(item.Name), StringComparer.CurrentCultureIgnoreCase)
-            .ToArray();
-        var options = catalog.Select(BuildCatalogOption).ToArray();
-        var selected = PromptValue("Добавить позицию", "Выберите товар.", options.FirstOrDefault(), options);
-        if (string.IsNullOrWhiteSpace(selected))
+        var catalog = GetLineCatalogItems();
+        if (catalog.Count == 0)
+        {
+            ValidationText.Text = "Каталог номенклатуры пуст. Откройте раздел «Товары» или проверьте подключение к базе.";
+            return;
+        }
+
+        var dialog = new SalesCatalogPickerWindow(catalog)
+        {
+            Owner = this
+        };
+        if (dialog.ShowDialog() != true || dialog.ResultLine is null)
         {
             return;
         }
 
-        var item = ResolveCatalogItem(catalog, selected);
-        var unit = NormalizeUnit(item?.Unit, item?.Name);
-        var quantity = PromptDecimal("Количество", $"Введите количество ({unit}).", "1");
-        if (quantity <= 0m)
-        {
-            return;
-        }
-
-        var price = PromptDecimal("Цена", "Введите цену.", (item?.DefaultPrice ?? 0m).ToString("N2", RuCulture));
-        if (price < 0m)
-        {
-            return;
-        }
-
+        var line = dialog.ResultLine;
         _lines.Add(new SalesLineEditorRow(
-            item?.Code ?? selected.Trim(),
-            item?.Name ?? selected.Trim(),
-            unit,
-            quantity,
-            price));
+            Ui(line.ItemCode),
+            Ui(line.ItemName),
+            NormalizeUnit(line.Unit, line.ItemName),
+            line.Quantity,
+            line.Price));
         RefreshTotal();
     }
 
@@ -1174,6 +1168,7 @@ public partial class SalesDocumentEditorWindow : Window
             if (success)
             {
                 HostedSaved?.Invoke(this, EventArgs.Empty);
+                ReloadCurrentDocumentFromWorkspace();
                 RefreshTotal();
                 RenderRelatedDocuments();
             }
@@ -1186,6 +1181,45 @@ public partial class SalesDocumentEditorWindow : Window
         }
 
         DialogResult = success;
+    }
+
+    private void ReloadCurrentDocumentFromWorkspace()
+    {
+        _loading = true;
+        try
+        {
+            if (_mode == SalesDocumentEditorMode.Order && _orderDraft is not null)
+            {
+                var order = _workspace.Orders.FirstOrDefault(item => item.Id == _orderDraft.Id);
+                if (order is not null)
+                {
+                    _orderDraft = order.Clone();
+                    LoadOrder(_orderDraft);
+                }
+            }
+            else if (_mode == SalesDocumentEditorMode.Invoice && _invoiceDraft is not null)
+            {
+                var invoice = _workspace.Invoices.FirstOrDefault(item => item.Id == _invoiceDraft.Id);
+                if (invoice is not null)
+                {
+                    _invoiceDraft = invoice.Clone();
+                    LoadInvoice(_invoiceDraft);
+                }
+            }
+            else if (_mode == SalesDocumentEditorMode.Shipment && _shipmentDraft is not null)
+            {
+                var shipment = _workspace.Shipments.FirstOrDefault(item => item.Id == _shipmentDraft.Id);
+                if (shipment is not null)
+                {
+                    _shipmentDraft = shipment.Clone();
+                    LoadShipment(_shipmentDraft);
+                }
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     private SalesCustomerRecord? GetSelectedCustomer()
@@ -1315,6 +1349,75 @@ public partial class SalesDocumentEditorWindow : Window
             .ToArray();
 
         return matches.Length == 1 ? matches[0] : null;
+    }
+
+    private IReadOnlyList<SalesCatalogItemOption> GetLineCatalogItems()
+    {
+        if (_lineCatalogItems is not null)
+        {
+            return _lineCatalogItems;
+        }
+
+        var result = new List<SalesCatalogItemOption>();
+        var knownKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        AddCatalogItems(_workspace.CatalogItems);
+
+        if (_workspace.OperationalSnapshot?.CatalogItems is { Count: > 0 } operationalItems)
+        {
+            AddCatalogItems(operationalItems);
+        }
+
+        try
+        {
+            var operatorName = string.IsNullOrWhiteSpace(_workspace.CurrentOperator)
+                ? Environment.UserName
+                : _workspace.CurrentOperator;
+            var catalogWorkspace = CatalogWorkspaceStore
+                .CreateDefault()
+                .TryLoadExisting(operatorName, _workspace.Currencies, _workspace.Warehouses);
+            if (catalogWorkspace is not null)
+            {
+                AddCatalogItems(catalogWorkspace.BuildSalesCatalogItems());
+            }
+        }
+        catch
+        {
+            // Catalog from the sales workspace is still usable if the catalog module cache is unavailable.
+        }
+
+        _lineCatalogItems = result
+            .OrderBy(item => Ui(item.Name), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => Ui(item.Code), StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+        return _lineCatalogItems;
+
+        void AddCatalogItems(IEnumerable<SalesCatalogItemOption> items)
+        {
+            foreach (var item in items)
+            {
+                var code = Ui(item.Code).Trim();
+                var name = Ui(item.Name).Trim();
+                if (string.IsNullOrWhiteSpace(code) && string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                var key = !string.IsNullOrWhiteSpace(code)
+                    ? $"code:{code}"
+                    : $"name:{name}";
+                if (!knownKeys.Add(key))
+                {
+                    continue;
+                }
+
+                result.Add(new SalesCatalogItemOption(
+                    code,
+                    name,
+                    NormalizeUnit(item.Unit, name),
+                    item.DefaultPrice));
+            }
+        }
     }
 
     private static SalesCatalogItemOption? ResolveCatalogItem(

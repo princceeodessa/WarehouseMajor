@@ -1,0 +1,198 @@
+<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.SalesCatalogPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Подбор номенклатуры"
+        Width="1080"
+        Height="680"
+        MinWidth="900"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        Background="#F7F9FD">
+    <Window.Resources>
+        <Style x:Key="PickerGridStyle" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="CanUserResizeRows" Value="False" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="#E9EEF8" />
+            <Setter Property="VerticalGridLinesBrush" Value="#E9EEF8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="RowHeight" Value="42" />
+            <Setter Property="ColumnHeaderHeight" Value="38" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="RowHeaderWidth" Value="0" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="EnableRowVirtualization" Value="True" />
+            <Setter Property="EnableColumnVirtualization" Value="True" />
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E9EEF8" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Foreground" Value="#7B86A0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="10,0" />
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E9EEF8" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Foreground" Value="#1B2440" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FAFBFF" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#FFF7D7" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,14">
+            <TextBlock Text="Подбор номенклатуры"
+                       FontSize="25"
+                       FontWeight="SemiBold"
+                       Foreground="#17213A" />
+            <TextBlock Text="Наберите часть названия, кода или единицы измерения."
+                       Margin="0,5,0,0"
+                       FontSize="13"
+                       Foreground="#6E7B98" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="170" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="140" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Номенклатура" Style="{StaticResource DialogFieldLabelStyle}" />
+                <TextBox x:Name="SearchTextBox"
+                         Style="{StaticResource DialogTextBoxStyle}"
+                         TextChanged="HandleSearchTextChanged" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock x:Name="QuantityLabelText" Text="Количество" Style="{StaticResource DialogFieldLabelStyle}" />
+                <TextBox x:Name="QuantityTextBox"
+                         Style="{StaticResource DialogTextBoxStyle}"
+                         Text="1" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="4">
+                <TextBlock Text="Цена" Style="{StaticResource DialogFieldLabelStyle}" />
+                <TextBox x:Name="PriceTextBox"
+                         Style="{StaticResource DialogTextBoxStyle}"
+                         Text="0,00" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="2"
+                Background="#FFFFFF"
+                BorderBrush="#E4EAF5"
+                BorderThickness="1"
+                CornerRadius="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DataGrid x:Name="CatalogGrid"
+                          Grid.Row="0"
+                          Style="{StaticResource PickerGridStyle}"
+                          SelectionChanged="HandleCatalogSelectionChanged"
+                          MouseDoubleClick="HandleCatalogGridDoubleClick"
+                          KeyDown="HandleCatalogGridKeyDown">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="150" />
+                        <DataGridTemplateColumn Header="Номенклатура" Width="*" MinWidth="420">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"
+                                               TextWrapping="Wrap"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Name}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Ед." Binding="{Binding Unit}" Width="70" />
+                        <DataGridTextColumn Header="Цена" Binding="{Binding PriceDisplay}" Width="110" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <DockPanel Grid.Row="1"
+                           Height="38"
+                           Background="#FBFCFF"
+                           LastChildFill="False">
+                    <TextBlock x:Name="ResultCountText"
+                               DockPanel.Dock="Left"
+                               Margin="12,0,0,0"
+                               VerticalAlignment="Center"
+                               Foreground="#6E7B98" />
+                    <TextBlock x:Name="SelectedItemText"
+                               DockPanel.Dock="Right"
+                               Margin="12,0,12,0"
+                               VerticalAlignment="Center"
+                               Foreground="#17213A"
+                               FontWeight="SemiBold" />
+                </DockPanel>
+            </Grid>
+        </Border>
+
+        <DockPanel Grid.Row="3" Margin="0,16,0,0">
+            <TextBlock x:Name="ValidationText"
+                       DockPanel.Dock="Left"
+                       VerticalAlignment="Center"
+                       Foreground="#D92D20" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Отмена"
+                        Style="{StaticResource DialogSecondaryButtonStyle}"
+                        Width="120"
+                        Margin="0,0,10,0"
+                        Click="HandleCancelClick" />
+                <Button Content="Перенести в документ"
+                        Style="{StaticResource DialogPrimaryButtonStyle}"
+                        Width="180"
+                        Click="HandleSaveClick" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

@@ -100,7 +100,7 @@
             <Setter Property="VerticalGridLinesBrush" Value="#EEF2FA" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="RowHeight" Value="58" />
+            <Setter Property="RowHeight" Value="66" />
             <Setter Property="ColumnHeaderHeight" Value="44" />
             <Setter Property="SelectionMode" Value="Single" />
             <Setter Property="SelectionUnit" Value="FullRow" />
@@ -110,6 +110,7 @@
             <Setter Property="EnableColumnVirtualization" Value="True" />
             <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
             <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
             <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
         </Style>
@@ -465,12 +466,17 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Артикул / код" Binding="{Binding Code}" Width="92" IsReadOnly="True" />
-                                    <DataGridTemplateColumn Header="Товар" Width="1.7*" IsReadOnly="True">
+                                    <DataGridTextColumn Header="Артикул / код" Binding="{Binding Code}" Width="118" IsReadOnly="True" />
+                                    <DataGridTemplateColumn Header="Товар" Width="360" MinWidth="320" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel>
-                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#1B2440" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#1B2440"
+                                                               TextWrapping="Wrap"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               ToolTip="{Binding Name}" />
                                                     <TextBlock Text="{Binding UnitDisplay}" Margin="0,3,0,0" Foreground="#7A86A5" FontSize="11" TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
                                             </DataTemplate>

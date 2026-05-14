@@ -98,12 +98,29 @@ public sealed class SalesWorkspaceStore
             : null;
         if (salesRowsRecord is not null)
         {
-            workspace.AttachOperationalSnapshot(null);
+            var operationalLookupSnapshot = includeOperationalSnapshot
+                ? AttachOperationalSnapshot(workspace)
+                : null;
             _remoteMetadata = salesRowsRecord.Metadata;
             _lastSavedSnapshotHash = salesRowsRecord.Metadata.PayloadHash;
             _hasPendingLocalSync = ShouldPromoteLocalSnapshot(salesRowsRecord.Metadata);
             TryWriteServerCache(salesRowsRecord.Snapshot, salesRowsRecord.Metadata.PayloadHash);
-            ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot: null, importRoots: importRoots, cloneRecords: false);
+            ApplySnapshot(workspace, salesRowsRecord.Snapshot, cloneRecords: false);
+            if (operationalLookupSnapshot is not null)
+            {
+                ApplyOperationalReferenceData(workspace, operationalLookupSnapshot, currentOperator);
+            }
+
+            if (importRoots is { Count: > 0 })
+            {
+                AttachImportSnapshot(workspace, importRoots);
+                SalesWorkspaceImportMerger.Merge(workspace);
+            }
+            else
+            {
+                workspace.AttachOneCImportSnapshot(null);
+            }
+
             return RepairAndReturn(workspace, currentOperator);
         }
 
@@ -1460,10 +1477,16 @@ public sealed class SalesWorkspaceStore
         if (operationalSnapshot?.HasSalesData == true)
         {
             MergeSnapshotIntoOperationalWorkspace(workspace, snapshot);
+            ApplyOperationalReferenceData(workspace, operationalSnapshot, workspace.CurrentOperator);
             return;
         }
 
         ApplySnapshot(workspace, snapshot, cloneRecords);
+        if (operationalSnapshot is not null)
+        {
+            ApplyOperationalReferenceData(workspace, operationalSnapshot, workspace.CurrentOperator);
+        }
+
         if (importRoots is { Count: > 0 })
         {
             AttachImportSnapshot(workspace, importRoots);
@@ -1610,6 +1633,24 @@ public sealed class SalesWorkspaceStore
         ReplaceList(workspace.Returns, Array.Empty<SalesReturnRecord>(), item => item.Clone());
         ReplaceList(workspace.CashReceipts, Array.Empty<SalesCashReceiptRecord>(), item => item.Clone());
 
+        if (snapshot.CatalogItems.Count > 0)
+        {
+            workspace.CatalogItems = snapshot.CatalogItems
+                .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        workspace.Managers = BuildLookupList(snapshot.Managers, workspace.Managers, currentOperator);
+        workspace.Currencies = BuildLookupList(snapshot.Currencies, workspace.Currencies, "RUB");
+        workspace.Warehouses = BuildLookupList(snapshot.Warehouses, workspace.Warehouses);
+    }
+
+    private static void ApplyOperationalReferenceData(
+        SalesWorkspace workspace,
+        DesktopOperationalSnapshot snapshot,
+        string currentOperator)
+    {
         if (snapshot.CatalogItems.Count > 0)
         {
             workspace.CatalogItems = snapshot.CatalogItems

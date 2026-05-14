@@ -3866,7 +3866,7 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
             ?? _salesWorkspace.Warehouses.Select(Ui).FirstOrDefault()
             ?? "Главный склад";
-        order.Status = _salesWorkspace.OrderStatuses.FirstOrDefault(status => EqualsUi(status, "Готов к отгрузке"))
+        order.Status = _salesWorkspace.OrderStatuses.FirstOrDefault(status => EqualsUi(status, "На выполнении"))
             ?? _salesWorkspace.OrderStatuses.FirstOrDefault()
             ?? order.Status;
         order.Comment = $"Создано со склада для отгрузки: {string.Join(", ", dialog.ResultLines.Select(item => item.Name).Take(3))}.";
