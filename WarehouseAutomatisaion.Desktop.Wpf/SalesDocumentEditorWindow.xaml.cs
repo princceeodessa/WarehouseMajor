@@ -19,6 +19,21 @@ public enum SalesDocumentEditorMode
     Shipment
 }
 
+public sealed class SalesDocumentHostedSaveEventArgs : EventArgs
+{
+    public bool Succeeded { get; private set; } = true;
+
+    public string? ErrorMessage { get; private set; }
+
+    public void Fail(string message)
+    {
+        Succeeded = false;
+        ErrorMessage = string.IsNullOrWhiteSpace(message)
+            ? "Документ не сохранен."
+            : message.Trim();
+    }
+}
+
 public partial class SalesDocumentEditorWindow : Window
 {
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
@@ -26,6 +41,8 @@ public partial class SalesDocumentEditorWindow : Window
     private static readonly Brush PartialIndicatorBrush = new SolidColorBrush(Color.FromRgb(242, 154, 23));
     private static readonly Brush EmptyIndicatorBrush = new SolidColorBrush(Color.FromRgb(205, 46, 46));
     private static readonly Brush NeutralIndicatorBrush = new SolidColorBrush(Color.FromRgb(110, 124, 150));
+    private static readonly Brush ValidationMessageBrush = new SolidColorBrush(Color.FromRgb(217, 45, 32));
+    private static readonly Brush SuccessMessageBrush = new SolidColorBrush(Color.FromRgb(31, 164, 95));
 
     private readonly SalesWorkspace _workspace;
     private readonly SalesDocumentEditorMode _mode;
@@ -99,7 +116,7 @@ public partial class SalesDocumentEditorWindow : Window
 
     public SalesShipmentRecord? ResultShipment { get; private set; }
 
-    public event EventHandler? HostedSaved;
+    public event EventHandler<SalesDocumentHostedSaveEventArgs>? HostedSaved;
 
     public event EventHandler? HostedCanceled;
 
@@ -756,7 +773,7 @@ public partial class SalesDocumentEditorWindow : Window
 
     private void HandleSaveClick(object sender, RoutedEventArgs e)
     {
-        ValidationText.Text = string.Empty;
+        ClearValidationMessage();
         if (string.IsNullOrWhiteSpace(NumberTextBox.Text))
         {
             ValidationText.Text = "Укажите номер документа.";
@@ -796,7 +813,7 @@ public partial class SalesDocumentEditorWindow : Window
 
     private void HandlePrintButtonClick(object sender, RoutedEventArgs e)
     {
-        ValidationText.Text = string.Empty;
+        ClearValidationMessage();
 
         var menu = BuildPrintMenu();
         if (menu.Items.Count == 0)
@@ -1172,10 +1189,19 @@ public partial class SalesDocumentEditorWindow : Window
         {
             if (success)
             {
-                HostedSaved?.Invoke(this, EventArgs.Empty);
+                var args = new SalesDocumentHostedSaveEventArgs();
+                HostedSaved?.Invoke(this, args);
+                if (!args.Succeeded)
+                {
+                    ValidationText.Foreground = ValidationMessageBrush;
+                    ValidationText.Text = args.ErrorMessage ?? "Документ не сохранен.";
+                    return;
+                }
+
                 ReloadCurrentDocumentFromWorkspace();
                 RefreshTotal();
                 RenderRelatedDocuments();
+                ShowSuccessMessage("Документ сохранен.");
             }
             else
             {
@@ -1186,6 +1212,18 @@ public partial class SalesDocumentEditorWindow : Window
         }
 
         DialogResult = success;
+    }
+
+    private void ClearValidationMessage()
+    {
+        ValidationText.Foreground = ValidationMessageBrush;
+        ValidationText.Text = string.Empty;
+    }
+
+    private void ShowSuccessMessage(string message)
+    {
+        ValidationText.Foreground = SuccessMessageBrush;
+        ValidationText.Text = message;
     }
 
     private void ReloadCurrentDocumentFromWorkspace()

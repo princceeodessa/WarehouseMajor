@@ -1586,7 +1586,7 @@ internal static class RecordsWorkspaceCatalog
                 ? new SalesCustomerEditorWindow(salesWorkspace)
                 : new SalesCustomerEditorWindow(salesWorkspace, customer);
 
-            editor.HostedSaved += (_, _) =>
+            editor.HostedSaved += (_, args) =>
             {
                 if (editor.ResultCustomer is null)
                 {
@@ -1632,17 +1632,19 @@ internal static class RecordsWorkspaceCatalog
                 ? new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Order)
                 : new SalesDocumentEditorWindow(salesWorkspace, order!);
 
-            editor.HostedSaved += (_, _) =>
+            editor.HostedSaved += (_, args) =>
             {
                 if (editor.ResultOrder is null)
                 {
+                    args.Fail("Заказ не сохранен: редактор не вернул документ.");
                     return;
                 }
 
                 if (isNew)
                 {
-                    if (!TryRunSalesEditorSave(() => salesWorkspace.AddOrder(editor.ResultOrder)))
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.AddOrder(editor.ResultOrder), out var errorMessage))
                     {
+                        args.Fail(errorMessage ?? "Заказ не сохранен.");
                         return;
                     }
 
@@ -1650,8 +1652,9 @@ internal static class RecordsWorkspaceCatalog
                 }
                 else
                 {
-                    if (!TryRunSalesEditorSave(() => salesWorkspace.UpdateOrder(editor.ResultOrder)))
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.UpdateOrder(editor.ResultOrder), out var errorMessage))
                     {
+                        args.Fail(errorMessage ?? "Заказ не сохранен.");
                         return;
                     }
 
@@ -1691,17 +1694,19 @@ internal static class RecordsWorkspaceCatalog
                 ? new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Invoice)
                 : new SalesDocumentEditorWindow(salesWorkspace, invoice!);
 
-            editor.HostedSaved += (_, _) =>
+            editor.HostedSaved += (_, args) =>
             {
                 if (editor.ResultInvoice is null)
                 {
+                    args.Fail("Счет не сохранен: редактор не вернул документ.");
                     return;
                 }
 
                 if (isNew)
                 {
-                    if (!TryRunSalesEditorSave(() => salesWorkspace.AddInvoice(editor.ResultInvoice)))
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.AddInvoice(editor.ResultInvoice), out var errorMessage))
                     {
+                        args.Fail(errorMessage ?? "Счет не сохранен.");
                         return;
                     }
 
@@ -1709,8 +1714,9 @@ internal static class RecordsWorkspaceCatalog
                 }
                 else
                 {
-                    if (!TryRunSalesEditorSave(() => salesWorkspace.UpdateInvoice(editor.ResultInvoice)))
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.UpdateInvoice(editor.ResultInvoice), out var errorMessage))
                     {
+                        args.Fail(errorMessage ?? "Счет не сохранен.");
                         return;
                     }
 
@@ -1745,17 +1751,19 @@ internal static class RecordsWorkspaceCatalog
                 ? new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Shipment)
                 : new SalesDocumentEditorWindow(salesWorkspace, shipment!);
 
-            editor.HostedSaved += (_, _) =>
+            editor.HostedSaved += (_, args) =>
             {
                 if (editor.ResultShipment is null)
                 {
+                    args.Fail("Расходная накладная не сохранена: редактор не вернул документ.");
                     return;
                 }
 
                 if (isNew)
                 {
-                    if (!TryRunSalesEditorSave(() => salesWorkspace.AddShipment(editor.ResultShipment)))
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.AddShipment(editor.ResultShipment), out var errorMessage))
                     {
+                        args.Fail(errorMessage ?? "Расходная накладная не сохранена.");
                         return;
                     }
 
@@ -1763,8 +1771,9 @@ internal static class RecordsWorkspaceCatalog
                 }
                 else
                 {
-                    if (!TryRunSalesEditorSave(() => salesWorkspace.UpdateShipment(editor.ResultShipment)))
+                    if (!TryRunSalesEditorSave(() => salesWorkspace.UpdateShipment(editor.ResultShipment), out var errorMessage))
                     {
+                        args.Fail(errorMessage ?? "Расходная накладная не сохранена.");
                         return;
                     }
 
@@ -1799,6 +1808,22 @@ internal static class RecordsWorkspaceCatalog
         }
         catch (InvalidOperationException exception)
         {
+            ShowMessage("Проверка документа", exception.Message, MessageBoxImage.Warning);
+            return false;
+        }
+    }
+
+    private static bool TryRunSalesEditorSave(Action action, out string? errorMessage)
+    {
+        try
+        {
+            action();
+            errorMessage = null;
+            return true;
+        }
+        catch (InvalidOperationException exception)
+        {
+            errorMessage = exception.Message;
             ShowMessage("Проверка документа", exception.Message, MessageBoxImage.Warning);
             return false;
         }
