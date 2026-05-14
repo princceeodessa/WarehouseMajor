@@ -1492,6 +1492,13 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private void OpenProductEditor(CatalogItemRecord? item)
     {
+        var mainWindow = System.Windows.Application.Current?.MainWindow as MainWindow;
+        if (mainWindow is not null && TryOpenProductEditorInTab(mainWindow, item))
+        {
+            return;
+        }
+
+        // Fallback: модальное окно (если MainWindow недоступно или лимит вкладок исчерпан)
         var dialog = new ProductEditorWindow(
             _catalogWorkspace,
             item,
@@ -1507,6 +1514,38 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
         _catalogWorkspace.UpsertItem(dialog.ResultItem);
         TryPersistCatalog();
+    }
+
+    private bool TryOpenProductEditorInTab(MainWindow mainWindow, CatalogItemRecord? item)
+    {
+        var isNew = item is null;
+        var key = isNew ? "product-new" : $"product-{item!.Id:N}";
+        var caption = isNew ? "Новый товар" : $"Товар {Ui(item!.Code)}";
+        var subtitle = isNew
+            ? "Создание карточки товара в рабочей вкладке."
+            : $"Карточка товара {Ui(item!.Name)}.";
+
+        return mainWindow.OpenWorkspaceEditorTab(key, caption, subtitle, () =>
+        {
+            var editor = new ProductEditorWindow(
+                _catalogWorkspace,
+                item,
+                item is null ? Array.Empty<WarehouseCellBalanceRecord>() : ResolveProductCellBalances(item));
+
+            editor.HostedSaved += (_, _) =>
+            {
+                if (editor.ResultItem is null)
+                {
+                    return;
+                }
+
+                _catalogWorkspace.UpsertItem(editor.ResultItem);
+                TryPersistCatalog();
+                mainWindow.CloseWorkspaceTab(key);
+            };
+            editor.HostedCanceled += (_, _) => mainWindow.CloseWorkspaceTab(key);
+            return editor.DetachContentForWorkspaceTab();
+        });
     }
 
     private void EditProduct(ProductRowViewModel product)

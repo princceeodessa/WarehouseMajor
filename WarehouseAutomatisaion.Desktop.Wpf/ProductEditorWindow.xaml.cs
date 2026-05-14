@@ -12,6 +12,7 @@ public partial class ProductEditorWindow : Window
     private readonly CatalogWorkspace _workspace;
     private readonly CatalogItemRecord _draft;
     private readonly IReadOnlyList<WarehouseCellBalanceRecord> _cellBalances;
+    private bool _hostedInWorkspace;
 
     public ProductEditorWindow(
         CatalogWorkspace workspace,
@@ -40,6 +41,19 @@ public partial class ProductEditorWindow : Window
     }
 
     public CatalogItemRecord? ResultItem { get; private set; }
+
+    public event EventHandler? HostedSaved;
+
+    public event EventHandler? HostedCanceled;
+
+    public FrameworkElement DetachContentForWorkspaceTab()
+    {
+        _hostedInWorkspace = true;
+        var content = Content as FrameworkElement
+            ?? throw new InvalidOperationException("Editor content is not available.");
+        Content = null;
+        return content;
+    }
 
     private static string Ui(string? value)
     {
@@ -117,12 +131,31 @@ public partial class ProductEditorWindow : Window
             SourceLabel = string.IsNullOrWhiteSpace(_draft.SourceLabel) ? "Локальный каталог" : _draft.SourceLabel
         };
 
-        DialogResult = true;
+        CompleteEditing(success: true);
     }
 
     private void HandleCancelClick(object sender, RoutedEventArgs e)
     {
-        DialogResult = false;
+        CompleteEditing(success: false);
+    }
+
+    private void CompleteEditing(bool success)
+    {
+        if (_hostedInWorkspace)
+        {
+            if (success)
+            {
+                HostedSaved?.Invoke(this, EventArgs.Empty);
+            }
+            else
+            {
+                HostedCanceled?.Invoke(this, EventArgs.Empty);
+            }
+
+            return;
+        }
+
+        DialogResult = success;
     }
 
     private static void SelectComboValue(System.Windows.Controls.ComboBox comboBox, string value)
