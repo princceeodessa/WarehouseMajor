@@ -45,9 +45,9 @@
             <!-- 1С-стиль toolbar -->
             <WrapPanel Margin="0,12,0,0" Orientation="Horizontal">
                 <Button Content="Провести и закрыть"
-                        Background="#FFD43B"
+                        Background="#4F5BFF"
                         BorderThickness="0"
-                        Foreground="#17213A"
+                        Foreground="#FFFFFF"
                         FontWeight="SemiBold"
                         Padding="14,7"
                         Height="32"
