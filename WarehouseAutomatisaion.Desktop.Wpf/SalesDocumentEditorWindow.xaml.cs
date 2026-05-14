@@ -593,10 +593,41 @@ public partial class SalesDocumentEditorWindow : Window
         }
     }
 
-    private void HandleLinesGridDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    // 1C-style inline edit: ОДИН клик по ячейке кол-ва/цены/ед./кода сразу включает редактирование.
+    // Раньше двойной клик открывал отдельное окно — теперь окно вызывается только кнопкой «Изменить».
+    private void HandleLinesGridPreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        e.Handled = true;
-        HandleEditLineClick(sender, e);
+        if (sender is not DataGrid grid)
+        {
+            return;
+        }
+
+        // Ищем DataGridCell, по которой кликнули
+        var dep = e.OriginalSource as DependencyObject;
+        while (dep is not null && dep is not DataGridCell)
+        {
+            dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
+        }
+
+        if (dep is not DataGridCell cell || cell.IsReadOnly)
+        {
+            return;
+        }
+
+        // Не входим в edit если ячейка из read-only колонки (Сумма)
+        if (cell.Column is DataGridColumn col && col.IsReadOnly)
+        {
+            return;
+        }
+
+        // Если ячейка ещё не сфокусирована — сначала фокусируем
+        if (!cell.IsFocused)
+        {
+            cell.Focus();
+        }
+
+        // Включаем режим редактирования сразу
+        grid.BeginEdit();
     }
 
     private void HandleLinesGridCellEditEnding(object sender, DataGridCellEditEndingEventArgs e)

@@ -389,12 +389,13 @@
                           IsReadOnly="False"
                           CanUserAddRows="False"
                           SelectionMode="Extended"
+                          SelectionUnit="CellOrRowHeader"
                           MinHeight="118"
                           MaxHeight="220"
                           MinRowHeight="44"
                           CellEditEnding="HandleLinesGridCellEditEnding"
                           CurrentCellChanged="HandleLinesGridCurrentCellChanged"
-                          MouseDoubleClick="HandleLinesGridDoubleClick">
+                          PreviewMouseLeftButtonDown="HandleLinesGridPreviewMouseLeftButtonDown">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Код" Binding="{Binding ItemCode}" Width="1*" />
                         <DataGridTemplateColumn Header="Товар" Width="3.2*">
