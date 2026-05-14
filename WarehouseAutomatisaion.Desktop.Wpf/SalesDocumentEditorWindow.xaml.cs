@@ -1735,7 +1735,14 @@ public partial class SalesDocumentEditorWindow : Window
 
     private void OpenSelectedRelatedDocument(bool showSelectionWarning)
     {
-        if (RelatedDocumentsGrid.SelectedItem is not SalesRelatedDocumentRow row)
+        var row = RelatedDocumentsGrid.SelectedItem as SalesRelatedDocumentRow;
+        if (row is null && showSelectionWarning && _relatedDocuments.Count == 1)
+        {
+            row = _relatedDocuments[0];
+            RelatedDocumentsGrid.SelectedItem = row;
+        }
+
+        if (row is null)
         {
             if (showSelectionWarning)
             {
@@ -1747,6 +1754,11 @@ public partial class SalesDocumentEditorWindow : Window
 
         if (row.Category == "order" && _mode == SalesDocumentEditorMode.Order && _orderDraft?.Id == row.Id)
         {
+            if (showSelectionWarning)
+            {
+                ValidationText.Text = "Этот заказ уже открыт. Связанные счет, расходка или возврат появятся здесь после создания.";
+            }
+
             return;
         }
 

@@ -25,7 +25,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="*" MinHeight="92" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -128,7 +128,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="2"
+        <Border Grid.Row="3"
                 Style="{StaticResource CardStyle}"
                 Padding="16"
                 Margin="0,0,0,18">
@@ -152,6 +152,8 @@
                           Grid.Column="1"
                           Height="112"
                           AutoGenerateColumns="False"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
                           ScrollViewer.VerticalScrollBarVisibility="Hidden"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                           MouseDoubleClick="HandleRelatedDocumentsGridDoubleClick">
@@ -196,7 +198,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="3" Style="{StaticResource CardStyle}" Padding="18">
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="18" Margin="0,0,0,18">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -228,7 +230,7 @@
                           CanUserAddRows="False"
                           SelectionMode="Extended"
                           MinHeight="118"
-                          MaxHeight="260"
+                          MaxHeight="220"
                           MinRowHeight="44"
                           CellEditEnding="HandleLinesGridCellEditEnding"
                           CurrentCellChanged="HandleLinesGridCurrentCellChanged"
