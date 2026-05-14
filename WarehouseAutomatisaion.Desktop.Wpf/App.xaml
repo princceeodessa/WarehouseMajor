@@ -570,5 +570,112 @@
         <Style TargetType="{x:Type TextBox}">
             <Setter Property="VerticalScrollBarVisibility" Value="Hidden" />
         </Style>
+
+        <!-- ===== 1С Номенклатура стиль: фильтр-блок + узкий тулбар + строчные action-иконки ===== -->
+        <SolidColorBrush x:Key="OneCFilterPanelBg" Color="#EEF7FF" />
+        <SolidColorBrush x:Key="OneCFilterPanelBorder" Color="#C7DDF7" />
+        <SolidColorBrush x:Key="OneCFilterAccent" Color="#2F6BB8" />
+        <SolidColorBrush x:Key="OneCFilterMuted" Color="#5F7DA8" />
+        <SolidColorBrush x:Key="OneCToolbarBg" Color="#F7FAFE" />
+        <SolidColorBrush x:Key="OneCToolbarBorder" Color="#E1E8F4" />
+        <SolidColorBrush x:Key="OneCToolbarTextBrush" Color="#17213A" />
+        <SolidColorBrush x:Key="OneCPrimaryYellow" Color="#FFD43B" />
+
+        <Style x:Key="OneCFilterCheckBoxStyle" TargetType="{x:Type CheckBox}">
+            <Setter Property="Foreground" Value="{StaticResource OneCFilterAccent}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        </Style>
+
+        <Style x:Key="OneCFilterComboBoxStyle" TargetType="{x:Type ComboBox}" BasedOn="{StaticResource TableFilterComboBoxStyle}">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+
+        <Style x:Key="OneCFilterTextBoxStyle" TargetType="{x:Type TextBox}">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#C7DDF7" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="OneCToolbarButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#D7DEEC" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{StaticResource OneCToolbarTextBrush}" />
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinWidth" Value="30" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F2F5FF" />
+                    <Setter Property="BorderBrush" Value="#C8D1FF" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#E6ECFF" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.55" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="OneCToolbarIconButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource OneCToolbarButtonStyle}">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Width" Value="30" />
+        </Style>
+
+        <Style x:Key="OneCPrimaryToolbarButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource OneCToolbarButtonStyle}">
+            <Setter Property="Background" Value="{StaticResource OneCPrimaryYellow}" />
+            <Setter Property="BorderBrush" Value="{StaticResource OneCPrimaryYellow}" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="14,4" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FFDF6A" />
+                    <Setter Property="BorderBrush" Value="#FFDF6A" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#F0C429" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="OneCRowActionButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource OneCToolbarIconButtonStyle}">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Width" Value="26" />
+            <Setter Property="BorderBrush" Value="#E1E8F4" />
+            <Setter Property="Background" Value="#FFFFFF" />
+        </Style>
+
     </Application.Resources>
 </Application>

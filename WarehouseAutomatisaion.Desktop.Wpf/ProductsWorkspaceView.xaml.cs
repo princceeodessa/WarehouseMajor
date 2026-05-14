@@ -43,6 +43,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     private static readonly SolidColorBrush DangerSoftBrush = BrushFromHex("#FFF0F3");
     private static readonly SolidColorBrush NeutralBrush = BrushFromHex("#687693");
     private static readonly SolidColorBrush NeutralSoftBrush = BrushFromHex("#F0F3FA");
+    private static readonly SolidColorBrush TextBrush = BrushFromHex("#1B2440");
 
     private readonly SalesWorkspace _salesWorkspace;
     private readonly CatalogWorkspaceStore _store;
@@ -554,7 +555,26 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         PriceTypeFilterCombo.SelectedIndex = 0;
         StatusFilterCombo.SelectedIndex = 0;
 
+        // 1С-стиль фильтр-блок: разделяемые данные для StockWarehouseCombo / OneCPriceTypeCombo
+        StockStateCombo.ItemsSource = new[] { "Все", "В наличии", "Нет в наличии" };
+        StockStateCombo.SelectedIndex = 1;
+        StockWarehouseCombo.ItemsSource = BuildOptions(AllWarehousesFilter, _allProducts.Select(item => item.Warehouse));
+        StockWarehouseCombo.SelectedIndex = 0;
+        OneCPriceTypeCombo.ItemsSource = BuildOptions(
+            AllPriceTypesFilter,
+            _catalogWorkspace.PriceTypes.Select(item => item.Name).Concat(_allProducts.SelectMany(item => item.PriceTypes)));
+        OneCPriceTypeCombo.SelectedIndex = 0;
+        UpdateFilterContextText();
+
         _suppressFilterEvents = false;
+    }
+
+    private void UpdateFilterContextText()
+    {
+        var warehouse = Ui(StockWarehouseCombo.SelectedItem as string);
+        FilterContextText.Text = string.IsNullOrWhiteSpace(warehouse) || warehouse == AllWarehousesFilter
+            ? "(Все склады)"
+            : $"({warehouse})";
     }
 
     private static string[] BuildOptions(string allCaption, IEnumerable<string> source)
@@ -580,6 +600,16 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         var onlyProblems = OnlyProblemsCheckBox.IsChecked == true;
         var onlyWithoutCells = OnlyWithoutCellsCheckBox.IsChecked == true;
 
+        // 1С-стиль: фильтр-блок (остатки / цены / типы номенклатуры)
+        var stockEnabled = FilterStockEnabled.IsChecked == true;
+        var stockState = Ui(StockStateCombo.SelectedItem as string);
+        var stockWarehouse = Ui(StockWarehouseCombo.SelectedItem as string);
+        var priceEnabled = FilterPriceEnabled.IsChecked == true;
+        var oneCPriceType = Ui(OneCPriceTypeCombo.SelectedItem as string);
+        var priceFrom = TryParseDecimal(PriceFromBox.Text);
+        var priceTo = TryParseDecimal(PriceToBox.Text);
+        var allowedKinds = GetAllowedItemKinds();
+
         var rows = _allProducts
             .Where(item => MatchesSearch(item, search))
             .Where(item => category == AllCategoriesFilter || item.Category.Equals(category, StringComparison.OrdinalIgnoreCase))
@@ -589,6 +619,12 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             .Where(item => status == AllStatusesFilter || item.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
             .Where(item => !onlyProblems || item.HasProblem)
             .Where(item => !onlyWithoutCells || item.MissingCellPlacement)
+            .Where(item => !stockEnabled || MatchesStockState(item, stockState))
+            .Where(item => !stockEnabled || stockWarehouse == AllWarehousesFilter || item.Warehouse.Equals(stockWarehouse, StringComparison.OrdinalIgnoreCase))
+            .Where(item => !priceEnabled || string.IsNullOrWhiteSpace(oneCPriceType) || oneCPriceType == AllPriceTypesFilter || item.HasPriceType(oneCPriceType))
+            .Where(item => !priceEnabled || !priceFrom.HasValue || item.Price >= priceFrom.Value)
+            .Where(item => !priceEnabled || !priceTo.HasValue || item.Price <= priceTo.Value)
+            .Where(item => allowedKinds is null || allowedKinds.Contains(item.Kind))
             .OrderByDescending(item => onlyWithoutCells && item.MissingCellPlacement)
             .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
@@ -597,6 +633,48 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         _filteredProducts = rows;
         MoveCurrentPageToProduct(previousId);
         RebuildProductPage(previousId);
+    }
+
+    private static bool MatchesStockState(ProductRowViewModel item, string stockState)
+    {
+        return stockState switch
+        {
+            "В наличии" => item.FreeQuantity > 0m,
+            "Нет в наличии" => item.FreeQuantity <= 0m,
+            _ => true,
+        };
+    }
+
+    private HashSet<ItemKind>? GetAllowedItemKinds()
+    {
+        var allowed = new HashSet<ItemKind>();
+        if (KindStockBox.IsChecked == true) allowed.Add(ItemKind.Stock);
+        if (KindServiceBox.IsChecked == true) allowed.Add(ItemKind.Service);
+        if (KindWorkBox.IsChecked == true) allowed.Add(ItemKind.Work);
+        if (KindOperationBox.IsChecked == true) allowed.Add(ItemKind.Operation);
+        if (KindWorkTypeBox.IsChecked == true) allowed.Add(ItemKind.WorkKind);
+        return allowed.Count == 0 ? null : allowed;
+    }
+
+    private static decimal? TryParseDecimal(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim().Replace(',', '.');
+        if (decimal.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var result))
+        {
+            return result;
+        }
+
+        if (decimal.TryParse(value, NumberStyles.Any, RuCulture, out result))
+        {
+            return result;
+        }
+
+        return null;
     }
 
     private void MoveCurrentPageToProduct(Guid? productId)
@@ -1066,8 +1144,108 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         StatusFilterCombo.SelectedIndex = 0;
         OnlyProblemsCheckBox.IsChecked = false;
         OnlyWithoutCellsCheckBox.IsChecked = false;
+        FilterStockEnabled.IsChecked = true;
+        StockStateCombo.SelectedIndex = 1;
+        StockWarehouseCombo.SelectedIndex = 0;
+        FilterPriceEnabled.IsChecked = false;
+        OneCPriceTypeCombo.SelectedIndex = 0;
+        PriceFromBox.Clear();
+        PriceToBox.Clear();
+        KindStockBox.IsChecked = false;
+        KindServiceBox.IsChecked = false;
+        KindWorkBox.IsChecked = false;
+        KindOperationBox.IsChecked = false;
+        KindWorkTypeBox.IsChecked = false;
+        UpdateFilterContextText();
         _suppressFilterEvents = false;
         ApplyFilters(keepSelected: false);
+    }
+
+    private void HandleFilterBlockToggle(object sender, MouseButtonEventArgs e)
+    {
+        var collapsed = FilterDetails.Visibility == Visibility.Visible;
+        FilterDetails.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+        FilterChevronRotation.Angle = collapsed ? -90 : 0;
+        e.Handled = true;
+    }
+
+    private void HandleStockWarehouseChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateFilterContextText();
+        HandleFilterChanged(sender, e);
+    }
+
+    private void HandlePriceRangeChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_suppressFilterEvents)
+        {
+            ApplyFilters(keepSelected: true);
+        }
+    }
+
+    private void HandlePriceRangeKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            ApplyFilters(keepSelected: true);
+            e.Handled = true;
+        }
+    }
+
+    private void HandleAdvancedFiltersClick(object sender, RoutedEventArgs e)
+    {
+        AdvancedFiltersGrid.Visibility = AdvancedFiltersGrid.Visibility == Visibility.Visible
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
+    private void HandleQuickAddClick(object sender, RoutedEventArgs e)
+    {
+        HandleNewProductClick(sender, e);
+    }
+
+    private void HandleSellSplitClick(object sender, RoutedEventArgs e)
+    {
+        var products = GetSelectedOrCurrentProducts();
+        if (products.Length == 0)
+        {
+            return;
+        }
+
+        CreateSalesReserve(products);
+    }
+
+    private void HandleBuySplitClick(object sender, RoutedEventArgs e)
+    {
+        var products = GetSelectedOrCurrentProducts();
+        if (products.Length == 0)
+        {
+            return;
+        }
+
+        CreatePurchaseOrder(products);
+    }
+
+    private void HandleRowOpenClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfButton { Tag: ProductRowViewModel product })
+        {
+            return;
+        }
+
+        SelectProduct(product);
+        EditProduct(product);
+    }
+
+    private void HandleRowSellClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfButton { Tag: ProductRowViewModel product })
+        {
+            return;
+        }
+
+        SelectProduct(product);
+        CreateSalesReserve(new[] { product });
     }
 
     private void HandleShowProblemsClick(object sender, RoutedEventArgs e)
@@ -2456,6 +2634,15 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
+    public enum ItemKind
+    {
+        Stock,
+        Service,
+        Work,
+        Operation,
+        WorkKind,
+    }
+
     public sealed class ProductRowViewModel : INotifyPropertyChanged
     {
         private bool _isSelected;
@@ -2485,7 +2672,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             IReadOnlyList<ProductCellPlacementViewModel> cellPlacements,
             string cellSummary,
             IReadOnlyList<string> priceTypes,
-            string searchText)
+            string searchText,
+            ItemKind kind)
         {
             Record = record;
             Id = id;
@@ -2512,6 +2700,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             CellSummary = cellSummary;
             PriceTypes = priceTypes;
             SearchText = searchText;
+            Kind = kind;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -2569,6 +2758,23 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         public IReadOnlyList<string> PriceTypes { get; }
 
         public string SearchText { get; }
+
+        // TODO: завести Kind в CatalogProductDto после миграции схемы.
+        // Сейчас Kind определяется эвристически в фабрике Create().
+        public ItemKind Kind { get; }
+
+        public string KindIcon => Kind switch
+        {
+            ItemKind.Service => "",   // Info (i)
+            ItemKind.Work => "",      // Lightning
+            ItemKind.Operation => "", // Page document
+            ItemKind.WorkKind => "",  // Work (tool)
+            _ => "",                  // Cube (Stock)
+        };
+
+        public Brush KindIconBrush => Kind == ItemKind.Stock ? PrimaryBrush : DangerBrush;
+
+        public Brush NameBrush => Kind == ItemKind.Stock ? TextBrush : DangerBrush;
 
         public bool IsSelected
         {
@@ -2655,6 +2861,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                 cellSummary,
                 string.Join(" ", priceTypes));
 
+            var kind = ResolveItemKind(unit, name, category, free + reserved + inTransit, barcode);
+
             return new ProductRowViewModel(
                 item,
                 item.Id,
@@ -2680,7 +2888,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                 cellPlacements,
                 cellSummary,
                 priceTypes,
-                searchText);
+                searchText,
+                kind);
 
             double Scale(decimal value)
             {
@@ -2738,6 +2947,41 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         private static string Fallback(params string[] values)
         {
             return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "-";
+        }
+
+        private static ItemKind ResolveItemKind(string unit, string name, string category, decimal totalQuantity, string barcode)
+        {
+            var unitNorm = (unit ?? string.Empty).Trim().ToLowerInvariant();
+            var nameNorm = (name ?? string.Empty).ToLowerInvariant();
+            var categoryNorm = (category ?? string.Empty).ToLowerInvariant();
+
+            if (nameNorm.Contains("услуг") || categoryNorm.Contains("услуг") || unitNorm == "усл.ед")
+            {
+                return ItemKind.Service;
+            }
+
+            if (nameNorm.Contains("работ") || categoryNorm.Contains("работ"))
+            {
+                return ItemKind.Work;
+            }
+
+            if (nameNorm.Contains("операц") || categoryNorm.Contains("операц"))
+            {
+                return ItemKind.Operation;
+            }
+
+            if (categoryNorm.Contains("вид работ"))
+            {
+                return ItemKind.WorkKind;
+            }
+
+            var noBarcode = string.IsNullOrWhiteSpace(barcode) || barcode == "-" || barcode == "б/а";
+            if (totalQuantity <= 0m && noBarcode && (unitNorm == "п.м" || unitNorm == "м" || unitNorm == "усл.ед" || unitNorm == "час"))
+            {
+                return ItemKind.Service;
+            }
+
+            return ItemKind.Stock;
         }
     }
 

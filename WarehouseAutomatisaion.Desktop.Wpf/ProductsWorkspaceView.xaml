@@ -198,6 +198,8 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" MinHeight="360" />
             </Grid.RowDefinitions>
 
@@ -373,7 +375,180 @@
                 <Button x:Name="JournalTabButton" Tag="journal" Content="Журнал" Style="{StaticResource ModuleTabStyle}" Click="HandleModuleTabClick" />
             </WrapPanel>
 
-            <Grid Grid.Row="3" Margin="0,0,0,14">
+            <!-- 1С-стиль: светло-голубой сворачиваемый фильтр-блок -->
+            <Border x:Name="OneCFilterBlock"
+                    Grid.Row="3"
+                    Background="{StaticResource OneCFilterPanelBg}"
+                    BorderBrush="{StaticResource OneCFilterPanelBorder}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="14,10"
+                    Margin="0,0,0,10">
+                <StackPanel>
+                    <DockPanel x:Name="OneCFilterHeader"
+                               Cursor="Hand"
+                               LastChildFill="True"
+                               MouseLeftButtonUp="HandleFilterBlockToggle">
+                        <TextBlock x:Name="FilterToggleChevron"
+                                   FontFamily="Segoe Fluent Icons"
+                                   Text="&#xE70D;"
+                                   FontSize="10"
+                                   Foreground="{StaticResource OneCFilterAccent}"
+                                   VerticalAlignment="Center"
+                                   DockPanel.Dock="Left">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform x:Name="FilterChevronRotation" Angle="0" CenterX="5" CenterY="5" />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                        <TextBlock Text="Фильтры"
+                                   Margin="10,0,6,0"
+                                   FontWeight="SemiBold"
+                                   FontSize="13"
+                                   Foreground="{StaticResource OneCFilterAccent}"
+                                   VerticalAlignment="Center"
+                                   DockPanel.Dock="Left" />
+                        <TextBlock x:Name="FilterContextText"
+                                   Text="(Все склады)"
+                                   FontSize="12.5"
+                                   Foreground="{StaticResource OneCFilterMuted}"
+                                   VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <StackPanel x:Name="FilterDetails" Margin="0,10,0,0">
+                        <!-- Row A: Остатки + состояние + склад -->
+                        <DockPanel Margin="0,0,0,6" LastChildFill="False">
+                            <CheckBox x:Name="FilterStockEnabled"
+                                      Content="Остатки"
+                                      IsChecked="True"
+                                      Style="{StaticResource OneCFilterCheckBoxStyle}"
+                                      DockPanel.Dock="Left"
+                                      Checked="HandleFilterChanged"
+                                      Unchecked="HandleFilterChanged" />
+                            <ComboBox x:Name="StockStateCombo"
+                                      Width="160"
+                                      Margin="14,0,8,0"
+                                      Style="{StaticResource OneCFilterComboBoxStyle}"
+                                      DockPanel.Dock="Left"
+                                      SelectionChanged="HandleFilterChanged" />
+                            <ComboBox x:Name="StockWarehouseCombo"
+                                      Width="280"
+                                      Style="{StaticResource OneCFilterComboBoxStyle}"
+                                      DockPanel.Dock="Left"
+                                      SelectionChanged="HandleStockWarehouseChanged" />
+                        </DockPanel>
+
+                        <!-- Row B: Цены + вид цены + диапазон -->
+                        <DockPanel Margin="0,0,0,6" LastChildFill="False">
+                            <CheckBox x:Name="FilterPriceEnabled"
+                                      Content="Цены"
+                                      Style="{StaticResource OneCFilterCheckBoxStyle}"
+                                      DockPanel.Dock="Left"
+                                      Checked="HandleFilterChanged"
+                                      Unchecked="HandleFilterChanged" />
+                            <ComboBox x:Name="OneCPriceTypeCombo"
+                                      Width="160"
+                                      Margin="34,0,8,0"
+                                      Style="{StaticResource OneCFilterComboBoxStyle}"
+                                      DockPanel.Dock="Left"
+                                      SelectionChanged="HandleFilterChanged" />
+                            <TextBlock Text="От:"
+                                       VerticalAlignment="Center"
+                                       Margin="14,0,6,0"
+                                       FontSize="12.5"
+                                       Foreground="{StaticResource OneCFilterAccent}"
+                                       DockPanel.Dock="Left" />
+                            <TextBox x:Name="PriceFromBox"
+                                     Width="90"
+                                     Style="{StaticResource OneCFilterTextBoxStyle}"
+                                     DockPanel.Dock="Left"
+                                     LostFocus="HandlePriceRangeChanged"
+                                     KeyDown="HandlePriceRangeKeyDown" />
+                            <TextBlock Text="до:"
+                                       VerticalAlignment="Center"
+                                       Margin="14,0,6,0"
+                                       FontSize="12.5"
+                                       Foreground="{StaticResource OneCFilterAccent}"
+                                       DockPanel.Dock="Left" />
+                            <TextBox x:Name="PriceToBox"
+                                     Width="90"
+                                     Style="{StaticResource OneCFilterTextBoxStyle}"
+                                     DockPanel.Dock="Left"
+                                     LostFocus="HandlePriceRangeChanged"
+                                     KeyDown="HandlePriceRangeKeyDown" />
+                        </DockPanel>
+
+                        <!-- Row C: чекбоксы типов номенклатуры -->
+                        <WrapPanel Margin="0,2,0,0">
+                            <CheckBox x:Name="KindStockBox" Content="Запас" Style="{StaticResource OneCFilterCheckBoxStyle}" Margin="0,0,22,0" Checked="HandleFilterChanged" Unchecked="HandleFilterChanged" />
+                            <CheckBox x:Name="KindServiceBox" Content="Услуга" Style="{StaticResource OneCFilterCheckBoxStyle}" Margin="0,0,22,0" Checked="HandleFilterChanged" Unchecked="HandleFilterChanged" />
+                            <CheckBox x:Name="KindWorkBox" Content="Работа" Style="{StaticResource OneCFilterCheckBoxStyle}" Margin="0,0,22,0" Checked="HandleFilterChanged" Unchecked="HandleFilterChanged" />
+                            <CheckBox x:Name="KindOperationBox" Content="Операция" Style="{StaticResource OneCFilterCheckBoxStyle}" Margin="0,0,22,0" Checked="HandleFilterChanged" Unchecked="HandleFilterChanged" />
+                            <CheckBox x:Name="KindWorkTypeBox" Content="Вид работ" Style="{StaticResource OneCFilterCheckBoxStyle}" Checked="HandleFilterChanged" Unchecked="HandleFilterChanged" />
+                        </WrapPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 1С-стиль: компактный тулбар -->
+            <Border Grid.Row="4"
+                    Background="{StaticResource OneCToolbarBg}"
+                    BorderBrush="{StaticResource OneCToolbarBorder}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="6,5"
+                    Margin="0,0,0,12">
+                <WrapPanel>
+                    <Button Content="Создать"
+                            Style="{StaticResource OneCPrimaryToolbarButtonStyle}"
+                            Margin="0,0,6,0"
+                            ToolTip="Создать новый товар"
+                            Click="HandleNewProductClick" />
+                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                            Margin="0,0,10,0"
+                            ToolTip="Быстрое добавление"
+                            Click="HandleQuickAddClick">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
+                    </Button>
+                    <Button x:Name="OneCSellButton"
+                            Content="Продать ▾"
+                            Style="{StaticResource OneCToolbarButtonStyle}"
+                            Margin="0,0,4,0"
+                            ToolTip="Создать продажу выбранного товара"
+                            Click="HandleSellSplitClick" />
+                    <Button x:Name="OneCBuyButton"
+                            Content="Купить ▾"
+                            Style="{StaticResource OneCToolbarButtonStyle}"
+                            Margin="0,0,12,0"
+                            ToolTip="Создать заказ поставщику"
+                            Click="HandleBuySplitClick" />
+                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                            Margin="0,0,4,0"
+                            ToolTip="Печать"
+                            Click="HandlePrintLabelsClick">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
+                    </Button>
+                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                            Margin="0,0,4,0"
+                            ToolTip="Предпросмотр"
+                            Click="HandleShowProblemsClick">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE890;" FontSize="13" />
+                    </Button>
+                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                            Margin="0,0,4,0"
+                            ToolTip="Штрихкод">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8B8;" FontSize="13" />
+                    </Button>
+                    <Button x:Name="OneCAdvancedFiltersButton"
+                            Style="{StaticResource OneCToolbarIconButtonStyle}"
+                            Margin="0,0,4,0"
+                            ToolTip="Расширенные фильтры (категория, поставщик, статус)"
+                            Click="HandleAdvancedFiltersClick">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" FontSize="13" />
+                    </Button>
+                </WrapPanel>
+            </Border>
+
+            <Grid x:Name="AdvancedFiltersGrid" Grid.Row="5" Margin="0,0,0,14" Visibility="Collapsed">
                 <WrapPanel x:Name="ProductsFilterPanel">
                     <Border Width="270"
                             Style="{StaticResource TableFilterSearchContainerStyle}"
@@ -406,7 +581,7 @@
             </Grid>
 
             <Border x:Name="BulkActionsPanel"
-                    Grid.Row="4"
+                    Grid.Row="6"
                     Style="{StaticResource TableBulkBarStyle}"
                     CornerRadius="12,12,0,0"
                     Visibility="Collapsed">
@@ -425,7 +600,7 @@
                 </WrapPanel>
             </Border>
 
-            <Grid Grid.Row="5">
+            <Grid Grid.Row="7">
                 <Grid x:Name="ProductsContentGrid">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
@@ -466,58 +641,87 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Артикул / код" Binding="{Binding Code}" Width="118" IsReadOnly="True" />
-                                    <DataGridTemplateColumn Header="Товар" Width="360" MinWidth="320" IsReadOnly="True">
+
+                                    <!-- 1С-маркер типа: кубик / красная иконка для услуг/работ -->
+                                    <DataGridTemplateColumn Width="34" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding Name}"
-                                                               FontWeight="SemiBold"
-                                                               Foreground="#1B2440"
-                                                               TextWrapping="Wrap"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               ToolTip="{Binding Name}" />
-                                                    <TextBlock Text="{Binding UnitDisplay}" Margin="0,3,0,0" Foreground="#7A86A5" FontSize="11" TextTrimming="CharacterEllipsis" />
-                                                </StackPanel>
+                                                <TextBlock FontFamily="Segoe Fluent Icons"
+                                                           Text="{Binding KindIcon}"
+                                                           Foreground="{Binding KindIconBrush}"
+                                                           FontSize="14"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Категория" Binding="{Binding Category}" Width="100" IsReadOnly="True" />
-                                    <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="112" IsReadOnly="True" />
-                                    <DataGridTextColumn Header="Ячейки" Binding="{Binding CellSummary}" Width="150" IsReadOnly="True" />
-                                    <DataGridTemplateColumn Header="Остаток" Width="125" IsReadOnly="True">
+
+                                    <DataGridTemplateColumn Header="Наименование" Width="*" MinWidth="320" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding FreeDisplay}" FontWeight="SemiBold" Foreground="#1B2440" />
+                                                <TextBlock Text="{Binding Name}"
+                                                           Foreground="{Binding NameBrush}"
+                                                           FontWeight="Medium"
+                                                           VerticalAlignment="Center"
+                                                           TextWrapping="NoWrap"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Name}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <DataGridTemplateColumn Header="Остаток" Width="135" IsReadOnly="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding FreeDisplay}" FontWeight="SemiBold" Foreground="{Binding NameBrush}" />
                                                     <StackPanel Orientation="Horizontal" Height="5" Margin="0,4,0,4">
                                                         <Border Width="{Binding FreeBarWidth}" Background="#2FB36B" CornerRadius="2,0,0,2" />
                                                         <Border Width="{Binding ReservedBarWidth}" Background="#FF9F1A" />
                                                         <Border Width="{Binding TransitBarWidth}" Background="#4F75FF" CornerRadius="0,2,2,0" />
                                                     </StackPanel>
-                                                    <TextBlock Text="{Binding StockRatio}" Foreground="#64718F" FontSize="11" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Резерв" Binding="{Binding ReservedDisplay}" Width="70" IsReadOnly="True" />
-                                    <DataGridTextColumn Header="В пути" Binding="{Binding InTransitDisplay}" Width="68" IsReadOnly="True" />
-                                    <DataGridTextColumn Header="Мин. остаток" Binding="{Binding MinimumStockDisplay}" Width="84" IsReadOnly="True" />
-                                    <DataGridTextColumn Header="Цена" Binding="{Binding PriceDisplay}" Width="86" IsReadOnly="True" />
-                                    <DataGridTemplateColumn Header="Статус" Width="92" IsReadOnly="True">
+
+                                    <DataGridTextColumn Header="Ед.изм" Binding="{Binding Unit}" Width="80" IsReadOnly="True" />
+
+                                    <DataGridTemplateColumn Width="160" IsReadOnly="True">
+                                        <DataGridTemplateColumn.Header>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Розничная цена УДМ" />
+                                                <TextBlock Text="  ↓" FontSize="10" Foreground="#7B86A0" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </DataGridTemplateColumn.Header>
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Border Background="{Binding StatusBackground}" CornerRadius="7" Padding="8,4" HorizontalAlignment="Left">
-                                                    <TextBlock Text="{Binding Status}" Foreground="{Binding StatusForeground}" FontSize="11" FontWeight="SemiBold" />
-                                                </Border>
+                                                <TextBlock Text="{Binding PriceDisplay}" Foreground="{Binding NameBrush}" FontWeight="Medium" VerticalAlignment="Center" />
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Штрихкод" Binding="{Binding Barcode}" Width="118" IsReadOnly="True" />
-                                    <DataGridTemplateColumn Header="Действия" Width="66" IsReadOnly="True">
+
+                                    <DataGridTextColumn Header="Артикул" Binding="{Binding Code}" Width="130" IsReadOnly="True" />
+
+                                    <!-- Строчные действия 1С: лупа (открыть карточку) + корзина (продать) -->
+                                    <DataGridTemplateColumn Width="82" IsReadOnly="True">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Button Content="&#xE712;" AutomationProperties.Name="Действия товара" Tag="{Binding}" Style="{StaticResource TableRowActionButtonStyle}" Click="HandleRowActionsClick" />
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                    <Button Tag="{Binding}"
+                                                            Style="{StaticResource OneCRowActionButtonStyle}"
+                                                            Margin="0,0,4,0"
+                                                            ToolTip="Открыть карточку"
+                                                            Click="HandleRowOpenClick">
+                                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE721;" FontSize="11" />
+                                                    </Button>
+                                                    <Button Tag="{Binding}"
+                                                            Style="{StaticResource OneCRowActionButtonStyle}"
+                                                            ToolTip="Продать товар"
+                                                            Click="HandleRowSellClick">
+                                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7BF;" FontSize="11" />
+                                                    </Button>
+                                                </StackPanel>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
