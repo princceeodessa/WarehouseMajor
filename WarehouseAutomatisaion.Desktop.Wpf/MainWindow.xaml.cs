@@ -455,32 +455,20 @@ public partial class MainWindow : Window
         UserProfileCard.ContextMenu.IsOpen = true;
     }
 
-    private void HandleSidebarCollapseClick(object sender, RoutedEventArgs e)
-    {
-        _isSidebarCollapsed = !_isSidebarCollapsed;
-        ApplySidebarState();
-    }
-
     private void ApplySidebarState()
     {
-        SidebarColumn.Width = new GridLength(_isSidebarCollapsed ? SidebarCollapsedWidth : SidebarExpandedWidth);
-        SidebarRoot.Margin = _isSidebarCollapsed ? new Thickness(12, 18, 12, 16) : new Thickness(16, 18, 16, 16);
-        SidebarCollapseButton.HorizontalContentAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
-        SidebarCollapseIconText.Text = _isSidebarCollapsed ? "\uE76C" : "\uE76B";
-        SidebarCollapseText.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        System.Windows.Automation.AutomationProperties.SetName(
-            SidebarCollapseButton,
-            _isSidebarCollapsed ? "Развернуть меню" : "Свернуть меню");
-
-        var textVisibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        ApplicationNameText.Visibility = textVisibility;
-        SidebarNavigationTitleText.Visibility = textVisibility;
-        UserProfileTextPanel.Visibility = textVisibility;
-        UserProfileChevronText.Visibility = textVisibility;
-        UpdatePanelCard.Visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        UserProfileCard.Padding = _isSidebarCollapsed ? new Thickness(8) : new Thickness(14);
-        UserProfileCard.Width = _isSidebarCollapsed ? 44 : double.NaN;
-        UserProfileCard.HorizontalAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+        // Сворачивание сайдбара убрано — кнопка заменена на «История посещений».
+        _isSidebarCollapsed = false;
+        SidebarColumn.Width = new GridLength(SidebarExpandedWidth);
+        SidebarRoot.Margin = new Thickness(16, 18, 16, 16);
+        ApplicationNameText.Visibility = Visibility.Visible;
+        SidebarNavigationTitleText.Visibility = Visibility.Visible;
+        UserProfileTextPanel.Visibility = Visibility.Visible;
+        UserProfileChevronText.Visibility = Visibility.Visible;
+        UpdatePanelCard.Visibility = Visibility.Visible;
+        UserProfileCard.Padding = new Thickness(14);
+        UserProfileCard.Width = double.NaN;
+        UserProfileCard.HorizontalAlignment = HorizontalAlignment.Stretch;
 
         foreach (var button in _navButtonsByKey.Values)
         {
@@ -1334,8 +1322,252 @@ public partial class MainWindow : Window
             ApplySelection(sectionKey);
             ReleaseInactiveSectionContent(sectionKey);
             PruneInactiveSectionTabs(sectionKey);
+            PushNavHistory(sectionKey);
+            UpdateNavToolbar();
         }
     }
+
+    // ===== Навигация в стиле 1С (Назад / Вперёд / Избранное / История) =====
+
+    private readonly List<string> _navHistory = new();
+    private int _navHistoryIndex = -1;
+    private bool _suppressNavHistoryPush;
+    private readonly HashSet<string> _favoriteTabs = new(StringComparer.OrdinalIgnoreCase);
+
+    private void PushNavHistory(string key)
+    {
+        if (_suppressNavHistoryPush || string.IsNullOrWhiteSpace(key))
+        {
+            return;
+        }
+
+        // Если уже на этой вкладке — не дублируем
+        if (_navHistoryIndex >= 0
+            && _navHistoryIndex < _navHistory.Count
+            && _navHistory[_navHistoryIndex].Equals(key, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        // Если перешли вперёд после Назад — обрезаем «forward» хвост
+        if (_navHistoryIndex < _navHistory.Count - 1)
+        {
+            _navHistory.RemoveRange(_navHistoryIndex + 1, _navHistory.Count - _navHistoryIndex - 1);
+        }
+
+        _navHistory.Add(key);
+        _navHistoryIndex = _navHistory.Count - 1;
+
+        // Ограничение длины
+        const int maxHistory = 50;
+        if (_navHistory.Count > maxHistory)
+        {
+            var trim = _navHistory.Count - maxHistory;
+            _navHistory.RemoveRange(0, trim);
+            _navHistoryIndex -= trim;
+        }
+    }
+
+    private void UpdateNavToolbar()
+    {
+        var hasBack = _navHistoryIndex > 0;
+        var hasForward = _navHistoryIndex >= 0 && _navHistoryIndex < _navHistory.Count - 1;
+
+        NavBackButton.IsEnabled = hasBack;
+        NavBackButton.Opacity = hasBack ? 1.0 : 0.5;
+        NavForwardButton.IsEnabled = hasForward;
+        NavForwardButton.Opacity = hasForward ? 1.0 : 0.5;
+        NavForwardIconText.Foreground = hasForward
+            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4F, 0x5B, 0xFF))
+            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x9C, 0xAD, 0xD4));
+
+        var currentKey = WorkspaceTabs.SelectedItem is TabItem t && t.Tag is string k ? k : null;
+        var isFavorite = currentKey is not null && _favoriteTabs.Contains(currentKey);
+        FavoriteIconText.Text = isFavorite ? "" : ""; // E735 = filled star, E734 = outline star
+        FavoriteIconText.Foreground = isFavorite
+            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF5, 0xB0, 0x00))
+            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x9C, 0xAD, 0xD4));
+        FavoriteButton.ToolTip = isFavorite ? "Убрать из избранного" : "Добавить в избранное";
+
+        NavCurrentTabText.Text = currentKey is not null && _tabsByKey.TryGetValue(currentKey, out var tab)
+            ? ResolveTabCaption(tab)
+            : string.Empty;
+    }
+
+    private static string ResolveTabCaption(TabItem tab)
+    {
+        if (tab.Header is DockPanel panel)
+        {
+            foreach (var child in panel.Children)
+            {
+                if (child is TextBlock tb && !string.IsNullOrWhiteSpace(tb.Text) && tb.Text != "×")
+                {
+                    return tb.Text;
+                }
+            }
+        }
+        return tab.Header?.ToString() ?? string.Empty;
+    }
+
+    private void HandleNavBackClick(object sender, RoutedEventArgs e)
+    {
+        if (_navHistoryIndex <= 0)
+        {
+            return;
+        }
+
+        _navHistoryIndex--;
+        NavigateToHistoryEntry();
+    }
+
+    private void HandleNavForwardClick(object sender, RoutedEventArgs e)
+    {
+        if (_navHistoryIndex >= _navHistory.Count - 1)
+        {
+            return;
+        }
+
+        _navHistoryIndex++;
+        NavigateToHistoryEntry();
+    }
+
+    private void NavigateToHistoryEntry()
+    {
+        if (_navHistoryIndex < 0 || _navHistoryIndex >= _navHistory.Count)
+        {
+            return;
+        }
+
+        var key = _navHistory[_navHistoryIndex];
+        if (!_tabsByKey.TryGetValue(key, out var tab))
+        {
+            // Вкладка уже закрыта — открыть заново (только секции)
+            if (_sections.ContainsKey(key))
+            {
+                _suppressNavHistoryPush = true;
+                try { OpenSection(key); }
+                finally { _suppressNavHistoryPush = false; }
+            }
+            UpdateNavToolbar();
+            return;
+        }
+
+        _suppressNavHistoryPush = true;
+        try
+        {
+            WorkspaceTabs.SelectedItem = tab;
+        }
+        finally
+        {
+            _suppressNavHistoryPush = false;
+        }
+        UpdateNavToolbar();
+    }
+
+    private void HandleFavoriteClick(object sender, RoutedEventArgs e)
+    {
+        if (WorkspaceTabs.SelectedItem is not TabItem tab || tab.Tag is not string key)
+        {
+            return;
+        }
+
+        if (_favoriteTabs.Contains(key))
+        {
+            _favoriteTabs.Remove(key);
+        }
+        else
+        {
+            _favoriteTabs.Add(key);
+        }
+        UpdateNavToolbar();
+    }
+
+    private void HandleHistoryButtonClick(object sender, RoutedEventArgs e)
+    {
+        var items = new List<HistoryEntryViewModel>();
+        var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Избранное — сначала
+        foreach (var key in _favoriteTabs)
+        {
+            var caption = ResolveHistoryCaption(key);
+            if (!string.IsNullOrWhiteSpace(caption) && added.Add(key))
+            {
+                items.Add(new HistoryEntryViewModel(key, caption, ""));
+            }
+        }
+
+        // 2. История посещений в обратном порядке (свежие сверху)
+        for (var i = _navHistory.Count - 1; i >= 0; i--)
+        {
+            var key = _navHistory[i];
+            if (!added.Add(key))
+            {
+                continue;
+            }
+            var caption = ResolveHistoryCaption(key);
+            if (!string.IsNullOrWhiteSpace(caption))
+            {
+                items.Add(new HistoryEntryViewModel(key, caption, ""));
+            }
+        }
+
+        // 3. Доступные разделы которые пользователь ещё не посещал — снизу
+        foreach (var section in _sections.Values)
+        {
+            if (added.Add(section.Key))
+            {
+                items.Add(new HistoryEntryViewModel(section.Key, section.Caption, ""));
+            }
+        }
+
+        HistoryItemsControl.ItemsSource = items;
+        HistoryEmptyText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        HistoryPopup.IsOpen = true;
+    }
+
+    private string ResolveHistoryCaption(string key)
+    {
+        if (_tabsByKey.TryGetValue(key, out var tab))
+        {
+            var caption = ResolveTabCaption(tab);
+            if (!string.IsNullOrWhiteSpace(caption))
+            {
+                return caption;
+            }
+        }
+        if (_dynamicTabsByKey.TryGetValue(key, out var dynamic))
+        {
+            return dynamic.Caption;
+        }
+        if (_sections.TryGetValue(key, out var section))
+        {
+            return section.Caption;
+        }
+        return key;
+    }
+
+    private void HandleHistoryItemClick(object sender, RoutedEventArgs e)
+    {
+        HistoryPopup.IsOpen = false;
+        if (sender is WpfButton button && button.Tag is string key)
+        {
+            if (_tabsByKey.ContainsKey(key))
+            {
+                // tab уже открыт — просто переключусь
+                if (_tabsByKey[key] is TabItem tab)
+                {
+                    WorkspaceTabs.SelectedItem = tab;
+                }
+            }
+            else if (_sections.ContainsKey(key))
+            {
+                OpenSection(key);
+            }
+        }
+    }
+
+    private sealed record HistoryEntryViewModel(string Key, string Caption, string Glyph);
 
     private void HandleCloseTabClick(object sender, RoutedEventArgs e)
     {
