@@ -129,104 +129,135 @@
 
         <Border Grid.Row="1"
                 Style="{StaticResource CardStyle}"
-                Padding="18"
-                Margin="0,0,0,18">
+                Padding="16"
+                Margin="0,0,0,14">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="28" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,14">
-                    <TextBlock Text="Номер" Style="{StaticResource FieldLabelStyle}" />
-                    <TextBox x:Name="NumberTextBox" Style="{StaticResource InputStyle}" />
-                </StackPanel>
-                <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,14">
-                    <TextBlock x:Name="DocumentDateLabelText" Text="Дата" Style="{StaticResource FieldLabelStyle}" />
-                    <DatePicker x:Name="DocumentDatePicker" Style="{StaticResource InputStyle}" />
-                </StackPanel>
-                <StackPanel x:Name="SecondaryDatePanel" Grid.Row="0" Grid.Column="4" Margin="0,0,0,14">
-                    <TextBlock x:Name="SecondaryDateLabelText" Text="Срок оплаты" Style="{StaticResource FieldLabelStyle}" />
-                    <DatePicker x:Name="SecondaryDatePicker" Style="{StaticResource InputStyle}" />
+                <!-- Левая колонка: Статус / Покупатель / Основание / Склад / Менеджер / Валюта -->
+                <StackPanel Grid.Column="0">
+                    <DockPanel Margin="0,0,0,6">
+                        <TextBlock Text="Состояние:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
+                        <ComboBox x:Name="StatusComboBox"
+                                  Height="26"
+                                  Padding="6,0"
+                                  FontSize="12.5"
+                                  SelectionChanged="HandleStatusSelectionChanged" />
+                    </DockPanel>
+                    <DockPanel x:Name="CustomerPanel" Margin="0,0,0,6">
+                        <TextBlock Text="Покупатель:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
+                        <ComboBox x:Name="CustomerComboBox"
+                                  Height="26"
+                                  Padding="6,0"
+                                  FontSize="12.5"
+                                  IsEditable="True"
+                                  IsTextSearchEnabled="False"
+                                  StaysOpenOnEdit="True"
+                                  SelectionChanged="HandleCustomerSelectionChanged"
+                                  LostFocus="HandleCustomerLookupLostFocus" />
+                    </DockPanel>
+                    <DockPanel x:Name="OrderPanel" Margin="0,0,0,6">
+                        <TextBlock Text="Основание:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
+                        <ComboBox x:Name="OrderComboBox"
+                                  Height="26"
+                                  Padding="6,0"
+                                  FontSize="12.5"
+                                  IsEditable="True"
+                                  IsTextSearchEnabled="True"
+                                  StaysOpenOnEdit="True"
+                                  SelectionChanged="HandleOrderSelectionChanged" />
+                    </DockPanel>
+                    <DockPanel x:Name="WarehousePanel" Margin="0,0,0,6">
+                        <TextBlock Text="Склад:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
+                        <ComboBox x:Name="WarehouseComboBox"
+                                  Height="26"
+                                  Padding="6,0"
+                                  FontSize="12.5"
+                                  IsEditable="True" />
+                    </DockPanel>
+                    <DockPanel Margin="0,0,0,6">
+                        <TextBlock Text="Менеджер:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
+                        <ComboBox x:Name="ManagerComboBox"
+                                  Height="26"
+                                  Padding="6,0"
+                                  FontSize="12.5"
+                                  IsEditable="True" />
+                    </DockPanel>
+                    <DockPanel x:Name="CurrencyPanel" Margin="0,0,0,6">
+                        <TextBlock Text="Валюта:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
+                        <ComboBox x:Name="CurrencyComboBox"
+                                  Height="26"
+                                  Padding="6,0"
+                                  FontSize="12.5" />
+                    </DockPanel>
                 </StackPanel>
 
-                <StackPanel x:Name="OrganizationPanel" Grid.Row="0" Grid.Column="4" Margin="0,0,0,14">
-                    <TextBlock Text="Организация" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="OrganizationComboBox" Style="{StaticResource InputStyle}" IsEditable="True" SelectionChanged="HandleOrganizationSelectionChanged" />
+                <!-- Правая колонка: Номер+Дата / Срок оплаты / Организация (+ ссылка реквизиты) / Способ доставки / Комментарий -->
+                <StackPanel Grid.Column="2">
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="36" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Номер:" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
+                        <TextBox Grid.Column="1" x:Name="NumberTextBox" Height="26" Padding="6,0" FontSize="12.5" VerticalContentAlignment="Center" />
+                        <TextBlock Grid.Column="2" x:Name="DocumentDateLabelText" Text="от:" VerticalAlignment="Center" TextAlignment="Right" FontSize="12.5" Foreground="#3A4868" Margin="0,0,6,0" />
+                        <DatePicker Grid.Column="3" x:Name="DocumentDatePicker" Height="26" Padding="6,0" FontSize="12.5" />
+                    </Grid>
+                    <DockPanel x:Name="SecondaryDatePanel" Margin="0,0,0,6">
+                        <TextBlock x:Name="SecondaryDateLabelText" Text="Срок оплаты:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
+                        <DatePicker x:Name="SecondaryDatePicker" Height="26" Padding="6,0" FontSize="12.5" />
+                    </DockPanel>
+                    <DockPanel x:Name="OrganizationPanel" Margin="0,0,0,2">
+                        <TextBlock Text="Организация:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
+                        <ComboBox x:Name="OrganizationComboBox"
+                                  Height="26"
+                                  Padding="6,0"
+                                  FontSize="12.5"
+                                  IsEditable="True"
+                                  SelectionChanged="HandleOrganizationSelectionChanged" />
+                    </DockPanel>
                     <Button x:Name="OrganizationRequisitesLink"
                             Background="Transparent"
                             BorderThickness="0"
-                            Padding="0"
-                            Margin="0,6,0,0"
+                            Padding="100,0,0,0"
+                            Margin="0,0,0,6"
                             HorizontalAlignment="Left"
+                            HorizontalContentAlignment="Left"
                             Cursor="Hand"
                             Click="HandleOrganizationRequisitesClick">
                         <TextBlock x:Name="OrganizationRequisitesText"
                                    Text="Банковский счёт, подписи и другие реквизиты"
-                                   FontSize="11.5"
+                                   FontSize="11"
                                    Foreground="#4F5BFF"
                                    TextDecorations="Underline" />
                     </Button>
-                </StackPanel>
-
-                <StackPanel x:Name="CustomerPanel" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,14">
-                    <TextBlock Text="Клиент" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="CustomerComboBox"
-                              Style="{StaticResource InputStyle}"
-                              IsEditable="True"
-                              IsTextSearchEnabled="False"
-                              StaysOpenOnEdit="True"
-                              SelectionChanged="HandleCustomerSelectionChanged"
-                              LostFocus="HandleCustomerLookupLostFocus" />
-                </StackPanel>
-                <StackPanel x:Name="OrderPanel" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,14">
-                    <TextBlock Text="Основание / заказ" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="OrderComboBox"
-                              Style="{StaticResource InputStyle}"
-                              IsEditable="True"
-                              IsTextSearchEnabled="True"
-                              StaysOpenOnEdit="True"
-                              SelectionChanged="HandleOrderSelectionChanged" />
-                </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="4" Margin="0,0,0,14">
-                    <TextBlock Text="Статус" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="StatusComboBox"
-                              Style="{StaticResource InputStyle}"
-                              SelectionChanged="HandleStatusSelectionChanged" />
-                </StackPanel>
-
-                <StackPanel x:Name="WarehousePanel" Grid.Row="2" Grid.Column="0" Margin="0,0,0,14">
-                    <TextBlock Text="Склад" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="WarehouseComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
-                </StackPanel>
-                <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,14">
-                    <TextBlock Text="Менеджер" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="ManagerComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
-                </StackPanel>
-                <StackPanel x:Name="CurrencyPanel" Grid.Row="2" Grid.Column="4" Margin="0,0,0,14">
-                    <TextBlock Text="Валюта" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="CurrencyComboBox" Style="{StaticResource InputStyle}" />
-                </StackPanel>
-                <StackPanel x:Name="CarrierPanel" Grid.Row="2" Grid.Column="4" Margin="0,0,0,14">
-                    <TextBlock Text="Способ доставки" Style="{StaticResource FieldLabelStyle}" />
-                    <TextBox x:Name="CarrierTextBox" Style="{StaticResource InputStyle}" />
-                </StackPanel>
-
-                <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="5">
-                    <TextBlock Text="Комментарий" Style="{StaticResource FieldLabelStyle}" />
-                    <TextBox x:Name="CommentTextBox"
-                             Style="{StaticResource DialogMultilineTextBoxStyle}"
-                             Height="78"
-                             VerticalScrollBarVisibility="Hidden" />
+                    <DockPanel x:Name="CarrierPanel" Margin="0,0,0,6">
+                        <TextBlock Text="Доставка:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
+                        <TextBox x:Name="CarrierTextBox" Height="26" Padding="6,0" FontSize="12.5" VerticalContentAlignment="Center" />
+                    </DockPanel>
+                    <DockPanel Margin="0,4,0,0" LastChildFill="True">
+                        <TextBlock Text="Комментарий:"
+                                   Width="100"
+                                   VerticalAlignment="Top"
+                                   Margin="0,4,0,0"
+                                   DockPanel.Dock="Left"
+                                   FontSize="12.5"
+                                   Foreground="#3A4868" />
+                        <TextBox x:Name="CommentTextBox"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 Height="56"
+                                 Padding="6,4"
+                                 FontSize="12.5"
+                                 VerticalScrollBarVisibility="Hidden" />
+                    </DockPanel>
                 </StackPanel>
             </Grid>
         </Border>
