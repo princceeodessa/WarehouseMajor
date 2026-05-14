@@ -590,6 +590,13 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private void ApplyFilters(bool keepSelected)
     {
+        // XAML-init-time события (IsChecked="True" на чекбоксе фильтра) могут вызвать ApplyFilters
+        // до того, как ниже-стоящие именованные контролы (KindStockBox и пр.) будут созданы.
+        if (!IsInitialized || FilterStockEnabled is null || KindStockBox is null)
+        {
+            return;
+        }
+
         var previousId = keepSelected ? SelectedProduct?.Id : null;
         var search = Ui(TableSearchBox.Text);
         var category = Ui(CategoryFilterCombo.SelectedItem as string);
