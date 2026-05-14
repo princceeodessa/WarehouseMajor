@@ -486,7 +486,23 @@ public partial class SalesDocumentEditorWindow : Window
         }
 
         ApplySelectedStatusToDraft();
-        RenderRelatedDocuments();
+        // RenderRelatedDocuments сюда вызывать НЕ нужно — статус не влияет на цепочку.
+        // Раньше вызов RenderRelatedDocuments через ResolveRelatedOrder() мог в редких случаях
+        // переинициализировать ComboBox.SelectedItem и сбрасывать визуальный выбор на «Не обработан».
+
+        // Гарантируем что combo показывает реально выбранный элемент даже если что-то
+        // в дочерних handler'ах попыталось сбросить визуал.
+        if (sender is ComboBox combo && combo.SelectedItem is not null)
+        {
+            var picked = combo.SelectedItem;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!ReferenceEquals(combo.SelectedItem, picked))
+                {
+                    combo.SelectedItem = picked;
+                }
+            }));
+        }
     }
 
     private void LoadFromBaseOrder(SalesOrderRecord order)

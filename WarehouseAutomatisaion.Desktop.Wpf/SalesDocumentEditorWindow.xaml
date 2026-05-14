@@ -226,13 +226,13 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Номер:" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
-                        <TextBox Grid.Column="1" x:Name="NumberTextBox" Height="26" Padding="6,0" FontSize="12.5" VerticalContentAlignment="Center" />
+                        <TextBox Grid.Column="1" x:Name="NumberTextBox" Style="{StaticResource InputStyle}" Height="30" FontSize="12.5" VerticalContentAlignment="Center" />
                         <TextBlock Grid.Column="2" x:Name="DocumentDateLabelText" Text="от:" VerticalAlignment="Center" TextAlignment="Right" FontSize="12.5" Foreground="#3A4868" Margin="0,0,6,0" />
-                        <DatePicker Grid.Column="3" x:Name="DocumentDatePicker" Height="26" Padding="6,0" FontSize="12.5" />
+                        <DatePicker Grid.Column="3" x:Name="DocumentDatePicker" Style="{StaticResource InputStyle}" Height="30" FontSize="12.5" />
                     </Grid>
                     <DockPanel x:Name="SecondaryDatePanel" Margin="0,0,0,6">
                         <TextBlock x:Name="SecondaryDateLabelText" Text="Срок оплаты:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
-                        <DatePicker x:Name="SecondaryDatePicker" Height="26" Padding="6,0" FontSize="12.5" />
+                        <DatePicker x:Name="SecondaryDatePicker" Style="{StaticResource InputStyle}" Height="30" FontSize="12.5" />
                     </DockPanel>
                     <DockPanel x:Name="OrganizationPanel" Margin="0,0,0,2">
                         <TextBlock Text="Организация:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
@@ -260,7 +260,7 @@
                     </Button>
                     <DockPanel x:Name="CarrierPanel" Margin="0,0,0,6">
                         <TextBlock Text="Доставка:" Width="100" VerticalAlignment="Center" FontSize="12.5" Foreground="#3A4868" />
-                        <TextBox x:Name="CarrierTextBox" Height="26" Padding="6,0" FontSize="12.5" VerticalContentAlignment="Center" />
+                        <TextBox x:Name="CarrierTextBox" Style="{StaticResource InputStyle}" Height="30" FontSize="12.5" VerticalContentAlignment="Center" />
                     </DockPanel>
                     <DockPanel Margin="0,4,0,0" LastChildFill="True">
                         <TextBlock Text="Комментарий:"
