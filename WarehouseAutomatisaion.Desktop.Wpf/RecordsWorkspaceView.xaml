@@ -85,8 +85,8 @@
             <Setter Property="VerticalGridLinesBrush" Value="#EEF2FA" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="RowHeight" Value="52" />
-            <Setter Property="ColumnHeaderHeight" Value="42" />
+            <Setter Property="RowHeight" Value="32" />
+            <Setter Property="ColumnHeaderHeight" Value="34" />
             <Setter Property="SelectionMode" Value="Single" />
             <Setter Property="SelectionUnit" Value="FullRow" />
             <Setter Property="IsReadOnly" Value="True" />

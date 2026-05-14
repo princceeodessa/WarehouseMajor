@@ -242,6 +242,8 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
             {
                 RecordsColumnKind.Status => CreateStatusColumn(column),
                 RecordsColumnKind.Action => CreateActionColumn(column),
+                RecordsColumnKind.Indicator => CreateIndicatorColumn(column),
+                RecordsColumnKind.Link => CreateLinkColumn(column),
                 _ => CreateTextColumn(column)
             };
 
@@ -319,6 +321,48 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         };
     }
 
+    // Кружок-индикатор статуса (как в 1С УНФ — оплата/отгрузка).
+    // Text = "●" / "○" / "", цвет = ForegroundBrush.
+    private DataGridColumn CreateIndicatorColumn(RecordsGridColumnDefinition column)
+    {
+        var template = new DataTemplate();
+        var text = new FrameworkElementFactory(typeof(TextBlock));
+        text.SetBinding(TextBlock.TextProperty, new Binding($"Cells[{column.CellIndex}].Text"));
+        text.SetBinding(TextBlock.ForegroundProperty, new Binding($"Cells[{column.CellIndex}].ForegroundBrush"));
+        text.SetValue(TextBlock.FontSizeProperty, 13d);
+        text.SetValue(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        text.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+        template.VisualTree = text;
+
+        return new DataGridTemplateColumn
+        {
+            Header = Clean(column.Header),
+            Width = column.ToDataGridLength(),
+            CellTemplate = template
+        };
+    }
+
+    // Ссылка с подчёркиванием — для "Состояние оригинала".
+    private DataGridColumn CreateLinkColumn(RecordsGridColumnDefinition column)
+    {
+        var template = new DataTemplate();
+        var text = new FrameworkElementFactory(typeof(TextBlock));
+        text.SetBinding(TextBlock.TextProperty, new Binding($"Cells[{column.CellIndex}].Text"));
+        text.SetBinding(TextBlock.ForegroundProperty, new Binding($"Cells[{column.CellIndex}].ForegroundBrush"));
+        text.SetValue(TextBlock.MarginProperty, new Thickness(8, 0, 8, 0));
+        text.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+        text.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+        text.SetValue(TextBlock.TextDecorationsProperty, TextDecorations.Underline);
+        text.SetValue(TextBlock.CursorProperty, System.Windows.Input.Cursors.Hand);
+        template.VisualTree = text;
+
+        return new DataGridTemplateColumn
+        {
+            Header = Clean(column.Header),
+            Width = column.ToDataGridLength(),
+            CellTemplate = template
+        };
+    }
     private void HandleRowActionsClick(object sender, RoutedEventArgs e)
     {
         if (sender is not WpfButton button || button.Tag is not RecordsGridItem row || row.Actions.Count == 0)
@@ -848,7 +892,9 @@ public enum RecordsColumnKind
 {
     Text,
     Status,
-    Action
+    Action,
+    Indicator,
+    Link
 }
 
 public sealed record RecordsGridItem(

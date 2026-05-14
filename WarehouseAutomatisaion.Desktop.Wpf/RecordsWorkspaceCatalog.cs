@@ -83,35 +83,51 @@ internal static class RecordsWorkspaceCatalog
             ],
             RowsFactory: () => salesWorkspace.Orders
                 .OrderByDescending(item => item.OrderDate)
-                .Select(item => new RecordsGridItem(
-                    SearchText: SearchIndex(item.Number, item.CustomerName, item.Manager, item.Status, item.Warehouse),
-                    FilterValue: NormalizeOrderFilter(item.Status),
-                    DateValue: item.OrderDate,
-                    Cells:
-                    [
-                        // Cells re-ordered to match 1С УНФ layout: Дата · Номер · Состояние · Покупатель · Сумма · Дата отгрузки · Состояние оригинала · Действия
-                        Cell(item.OrderDate.ToString("dd.MM.yyyy", RuCulture)),                                          // 0 Дата
-                        Cell(Clean(item.Number)),                                                                       // 1 Номер
-                        Cell(NormalizeOrderStatusLabel(item.Status)),                                                   // 2 Состояние (текст)
-                        Cell(Clean(item.CustomerName)),                                                                 // 3 Покупатель
-                        Cell(FormatMoney(item.TotalAmount, item.CurrencyCode), semiBold: true),                          // 4 Сумма
-                        Cell(item.OrderDate.AddDays(3).ToString("dd.MM.yyyy", RuCulture)),                              // 5 Дата отгрузки
-                        Cell("<Неизвестно>"),                                                                          // 6 Состояние оригинала
-                        ActionCell()                                                                                    // 7 Действия
-                    ],
-                    RowActions: BuildOrderActions(salesWorkspace, item),
-                    SecondaryFilterValue: Clean(item.Warehouse)))
+                .Select(item =>
+                {
+                    var statusFilter = NormalizeOrderFilter(item.Status);
+                    var paid = statusFilter is "Выставлен счет" or "Завершен";
+                    var shipped = statusFilter == "Завершен";
+                    var payCell = paid
+                        ? new RecordsGridCellDefinition("●", "#1AA65F")
+                        : new RecordsGridCellDefinition("○", "#D8DDE8");
+                    var shipCell = shipped
+                        ? new RecordsGridCellDefinition("●", "#1AA65F")
+                        : new RecordsGridCellDefinition("○", "#D8DDE8");
+                    return new RecordsGridItem(
+                        SearchText: SearchIndex(item.Number, item.CustomerName, item.Manager, item.Status, item.Warehouse),
+                        FilterValue: NormalizeOrderFilter(item.Status),
+                        DateValue: item.OrderDate,
+                        Cells:
+                        [
+                            // 1С УНФ-стиль: 2 круга-индикатора + табличные колонки
+                            payCell,                                                                                       // 0 Оплата
+                            shipCell,                                                                                      // 1 Отгрузка
+                            Cell(item.OrderDate.ToString("dd.MM.yyyy", RuCulture)),                                        // 2 Дата
+                            Cell(Clean(item.Number)),                                                                      // 3 Номер
+                            Cell(NormalizeOrderStatusLabel(item.Status)),                                                  // 4 Состояние
+                            Cell(Clean(item.CustomerName)),                                                                // 5 Покупатель
+                            Cell(FormatMoney(item.TotalAmount, item.CurrencyCode), semiBold: true),                         // 6 Сумма
+                            Cell(item.OrderDate.AddDays(3).ToString("dd.MM.yyyy", RuCulture)),                             // 7 Дата отгрузки
+                            new RecordsGridCellDefinition("<Неизвестно>", "#4F5BFF"),                                     // 8 Состояние оригинала
+                            ActionCell()                                                                                   // 9 Действия
+                        ],
+                        RowActions: BuildOrderActions(salesWorkspace, item),
+                        SecondaryFilterValue: Clean(item.Warehouse));
+                })
                 .ToArray(),
             Columns:
             [
-                new RecordsGridColumnDefinition("", 7, RecordsColumnKind.Action, 56, false),
-                new RecordsGridColumnDefinition("Дата", 0, WidthValue: 0.9),
-                new RecordsGridColumnDefinition("Номер", 1, WidthValue: 1.05),
-                new RecordsGridColumnDefinition("Состояние", 2, WidthValue: 1.0),
-                new RecordsGridColumnDefinition("Покупатель", 3, WidthValue: 2.0),
-                new RecordsGridColumnDefinition("Сумма", 4, WidthValue: 1.0, Alignment: TextAlignment.Right),
-                new RecordsGridColumnDefinition("Дата отгрузки", 5, WidthValue: 1.0),
-                new RecordsGridColumnDefinition("Состояние оригинала", 6, WidthValue: 1.3)
+                new RecordsGridColumnDefinition("", 9, RecordsColumnKind.Action, 48, false),
+                new RecordsGridColumnDefinition("", 0, RecordsColumnKind.Indicator, 26, false),
+                new RecordsGridColumnDefinition("", 1, RecordsColumnKind.Indicator, 26, false),
+                new RecordsGridColumnDefinition("Дата", 2, WidthValue: 0.85),
+                new RecordsGridColumnDefinition("Номер", 3, WidthValue: 1.0),
+                new RecordsGridColumnDefinition("Состояние", 4, WidthValue: 1.0),
+                new RecordsGridColumnDefinition("Покупатель", 5, WidthValue: 2.0),
+                new RecordsGridColumnDefinition("Сумма", 6, WidthValue: 1.0, Alignment: TextAlignment.Right),
+                new RecordsGridColumnDefinition("Дата отгрузки", 7, WidthValue: 1.0),
+                new RecordsGridColumnDefinition("Состояние оригинала", 8, RecordsColumnKind.Link, WidthValue: 1.3)
             ],
             SubscribeToChanges: handler => salesWorkspace.Changed += handler,
             UnsubscribeFromChanges: handler => salesWorkspace.Changed -= handler,
