@@ -248,7 +248,7 @@
                     </Border>
                 </StackPanel>
 
-                <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" Style="{StaticResource TopHeaderActionsWrapPanelStyle}">
+                <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" Style="{StaticResource TopHeaderActionsWrapPanelStyle}" Visibility="Collapsed">
                     <Border Width="330"
                             Style="{StaticResource TopSearchContainerStyle}"
                             Margin="0,0,10,0">

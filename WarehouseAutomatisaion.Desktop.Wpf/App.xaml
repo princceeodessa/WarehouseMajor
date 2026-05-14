@@ -579,7 +579,8 @@
         <SolidColorBrush x:Key="OneCToolbarBg" Color="#F7FAFE" />
         <SolidColorBrush x:Key="OneCToolbarBorder" Color="#E1E8F4" />
         <SolidColorBrush x:Key="OneCToolbarTextBrush" Color="#17213A" />
-        <SolidColorBrush x:Key="OneCPrimaryYellow" Color="#FFD43B" />
+        <!-- Primary brand color: основной синий системы #4F5BFF -->
+        <SolidColorBrush x:Key="OneCPrimaryAccent" Color="#4F5BFF" />
 
         <Style x:Key="OneCFilterCheckBoxStyle" TargetType="{x:Type CheckBox}">
             <Setter Property="Foreground" Value="{StaticResource OneCFilterAccent}" />
@@ -654,18 +655,18 @@
         </Style>
 
         <Style x:Key="OneCPrimaryToolbarButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource OneCToolbarButtonStyle}">
-            <Setter Property="Background" Value="{StaticResource OneCPrimaryYellow}" />
-            <Setter Property="BorderBrush" Value="{StaticResource OneCPrimaryYellow}" />
-            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="Background" Value="{StaticResource OneCPrimaryAccent}" />
+            <Setter Property="BorderBrush" Value="{StaticResource OneCPrimaryAccent}" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Padding" Value="14,4" />
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FFDF6A" />
-                    <Setter Property="BorderBrush" Value="#FFDF6A" />
+                    <Setter Property="Background" Value="#6471FF" />
+                    <Setter Property="BorderBrush" Value="#6471FF" />
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#F0C429" />
+                    <Setter Property="Background" Value="#3D49E5" />
                 </Trigger>
             </Style.Triggers>
         </Style>
