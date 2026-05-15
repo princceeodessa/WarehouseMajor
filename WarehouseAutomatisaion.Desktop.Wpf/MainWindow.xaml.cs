@@ -815,6 +815,13 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new SalesReconciliationsWorkspaceView(_salesWorkspace));
 
+        _sections["priceRegistrations"] = new SectionDefinition(
+            Key: "priceRegistrations",
+            Caption: "Установка цен",
+            Subtitle: "Журнал документов установки цен номенклатуры.",
+            Closable: true,
+            Factory: () => new PriceRegistrationsWorkspaceView(_salesWorkspace));
+
         _sections["purchasing"] = new SectionDefinition(
             Key: "purchasing",
             Caption: "Закупки",

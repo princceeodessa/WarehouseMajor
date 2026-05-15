@@ -95,7 +95,7 @@ public static class NavigationCommandCatalog
             }),
             new NavigationGroup("Цены и скидки", new[]
             {
-                new NavigationCommand("Установка цен", IconTag, OrangePrimary, OrangeSoft, "catalog", "priceSetup"),
+                new NavigationCommand("Установка цен", IconTag, OrangePrimary, OrangeSoft, "priceRegistrations"),
                 new NavigationCommand("Виды цен", IconList, BluePrimary, BlueSoft, "catalog", "prices"),
                 new NavigationCommand("Скидки", IconPercent, PinkPrimary, PinkSoft, "catalog", "discounts"),
             }),
