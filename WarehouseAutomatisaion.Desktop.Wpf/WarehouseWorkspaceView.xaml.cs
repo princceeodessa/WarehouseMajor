@@ -755,6 +755,14 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         DocumentsItemsControl.ItemsSource = BuildRelatedDocumentItems(record);
     }
 
+    public void ActivateSubSection(string subSectionKey)
+    {
+        if (!string.IsNullOrWhiteSpace(subSectionKey))
+        {
+            SwitchSection(subSectionKey);
+        }
+    }
+
     private void SwitchSection(string section)
     {
         _activeSection = section;

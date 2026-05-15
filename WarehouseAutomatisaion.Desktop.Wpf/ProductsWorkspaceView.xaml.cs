@@ -2434,6 +2434,14 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         }
     }
 
+    public void ActivateSubSection(string subSectionKey)
+    {
+        if (!string.IsNullOrWhiteSpace(subSectionKey))
+        {
+            ApplySection(subSectionKey);
+        }
+    }
+
     private void ApplySection(string section)
     {
         _activeSection = section;

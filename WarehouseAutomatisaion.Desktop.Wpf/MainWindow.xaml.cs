@@ -736,16 +736,25 @@ public partial class MainWindow : Window
 
     private void RegisterSidebarButtons()
     {
+        // Маппинг section-key → sidebar button. Подразделы (sales/customers/shipments/...)
+        // подсвечивают родительский крупный блок (section-sales/section-purchasing/section-warehouse).
         _navButtonsByKey["dashboard"] = NavDashboardButton;
-        _navButtonsByKey["sales"] = NavSalesButton;
-        _navButtonsByKey["customers"] = NavCustomersButton;
-        _navButtonsByKey["shipments"] = NavShipmentsButton;
-        _navButtonsByKey["finance"] = NavFinanceButton;
-        _navButtonsByKey["purchasing"] = NavPurchasingButton;
-        _navButtonsByKey["warehouse"] = NavWarehouseButton;
-        _navButtonsByKey["catalog"] = NavCatalogButton;
         _navButtonsByKey["audit"] = NavAuditButton;
         _navButtonsByKey["settings"] = NavSettingsButton;
+
+        _navButtonsByKey[NavigationCommandCatalog.SalesSectionKey] = NavSalesButton;
+        _navButtonsByKey["sales"] = NavSalesButton;
+        _navButtonsByKey["customers"] = NavSalesButton;
+        _navButtonsByKey["shipments"] = NavSalesButton;
+        _navButtonsByKey["finance"] = NavSalesButton;
+
+        _navButtonsByKey[NavigationCommandCatalog.PurchasingSectionKey] = NavPurchasingButton;
+        _navButtonsByKey["purchasing"] = NavPurchasingButton;
+
+        _navButtonsByKey[NavigationCommandCatalog.WarehouseSectionKey] = NavWarehouseButton;
+        _navButtonsByKey["warehouse"] = NavWarehouseButton;
+
+        // catalog (Товары) — общий пункт для всех 3 разделов, без выделения в сайдбаре.
     }
 
     private void RegisterSections()
@@ -822,6 +831,65 @@ public partial class MainWindow : Window
                 _startupStatus,
                 RecordsWorkspaceCatalog.CreateModel(_coverage, _salesWorkspace),
                 _salesWorkspace.Warehouses));
+
+        // 1С УНФ-стиль «Панель разделов»: 3 крупные витрины (Продажи / Закупки / Склад).
+        _sections[NavigationCommandCatalog.SalesSectionKey] = new SectionDefinition(
+            Key: NavigationCommandCatalog.SalesSectionKey,
+            Caption: "Продажи",
+            Subtitle: "Витрина раздела «Продажи».",
+            Closable: true,
+            Factory: () => new SectionOverviewView(NavigationCommandCatalog.Sales));
+
+        _sections[NavigationCommandCatalog.PurchasingSectionKey] = new SectionDefinition(
+            Key: NavigationCommandCatalog.PurchasingSectionKey,
+            Caption: "Закупки",
+            Subtitle: "Витрина раздела «Закупки».",
+            Closable: true,
+            Factory: () => new SectionOverviewView(NavigationCommandCatalog.Purchasing));
+
+        _sections[NavigationCommandCatalog.WarehouseSectionKey] = new SectionDefinition(
+            Key: NavigationCommandCatalog.WarehouseSectionKey,
+            Caption: "Склад",
+            Subtitle: "Витрина раздела «Склад».",
+            Closable: true,
+            Factory: () => new SectionOverviewView(NavigationCommandCatalog.Warehouse));
+    }
+
+    /// <summary>
+    /// Активирует внутреннюю подсекцию workspace-view (Purchasing/Warehouse/Products),
+    /// если он уже открыт. Вызывается из <see cref="SectionOverviewView"/> сразу после
+    /// <see cref="OpenSection"/>, чтобы провалиться в нужный подраздел.
+    /// </summary>
+    internal void ActivateSubSection(string sectionKey, string subSectionKey)
+    {
+        if (string.IsNullOrWhiteSpace(sectionKey) || string.IsNullOrWhiteSpace(subSectionKey))
+        {
+            return;
+        }
+
+        if (!_tabsByKey.TryGetValue(sectionKey, out var tab))
+        {
+            return;
+        }
+
+        var content = tab.Content;
+        if (content is ScrollViewer scrollViewer)
+        {
+            content = scrollViewer.Content;
+        }
+
+        switch (content)
+        {
+            case PurchasingWorkspaceView purchasing:
+                purchasing.ActivateSubSection(subSectionKey);
+                break;
+            case WarehouseWorkspaceView warehouse:
+                warehouse.ActivateSubSection(subSectionKey);
+                break;
+            case ProductsWorkspaceView products:
+                products.ActivateSubSection(subSectionKey);
+                break;
+        }
     }
 
     private DashboardWorkspaceView CreateDashboardView()
@@ -841,7 +909,7 @@ public partial class MainWindow : Window
         return dashboard;
     }
 
-    private void OpenSection(string sectionKey)
+    internal void OpenSection(string sectionKey)
     {
         if (!CanOpenSection(sectionKey))
         {
@@ -1294,10 +1362,12 @@ public partial class MainWindow : Window
             CurrentSectionSubtitleText.Text = dynamicTab.Subtitle;
         }
 
-        foreach (var pair in _navButtonsByKey)
+        // Несколько ключей могут указывать на один и тот же блок сайдбара (подразделы
+        // → родительская секция). Определяем активный, затем красим уникальные кнопки.
+        _navButtonsByKey.TryGetValue(sectionKey, out var activeButton);
+        foreach (var button in _navButtonsByKey.Values.Distinct())
         {
-            var active = pair.Key.Equals(sectionKey, StringComparison.OrdinalIgnoreCase);
-            var button = pair.Value;
+            var active = activeButton is not null && button == activeButton;
             button.Background = active ? ActiveNavBackground : DefaultNavBackground;
             button.BorderBrush = active ? ActiveNavBorder : DefaultNavBorder;
             button.Foreground = active ? ActiveNavForeground : DefaultNavForeground;

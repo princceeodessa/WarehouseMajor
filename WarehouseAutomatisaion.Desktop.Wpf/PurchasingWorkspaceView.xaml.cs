@@ -319,6 +319,16 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
                + _workspace.PurchaseReceipts.Count(HasDiscrepancy);
     }
 
+    public void ActivateSubSection(string subSectionKey)
+    {
+        if (string.IsNullOrWhiteSpace(subSectionKey))
+        {
+            return;
+        }
+
+        ApplySection(subSectionKey, keepSelection: false, resetFilters: false);
+    }
+
     private void ApplySection(string section, bool keepSelection = false, bool resetFilters = false)
     {
         if (string.IsNullOrWhiteSpace(section))

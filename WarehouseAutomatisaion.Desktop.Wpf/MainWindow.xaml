@@ -59,6 +59,83 @@
             </Style.Triggers>
         </Style>
 
+        <!-- 1С-стиль «Панель разделов»: крупный блок раздела -->
+        <Style x:Key="MainSectionBlockButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="74" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#1B2440" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12">
+                            <ContentPresenter HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F2F5FF" />
+                    <Setter Property="BorderBrush" Value="#C8D1FF" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#E6ECFF" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="MinorIconButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Margin" Value="3" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#5F6F95" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F2F5FF" />
+                    <Setter Property="BorderBrush" Value="#C8D1FF" />
+                    <Setter Property="Foreground" Value="#4F5BFF" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.55" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style TargetType="TabControl">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
@@ -149,115 +226,108 @@
                                   VerticalScrollBarVisibility="Hidden"
                                   HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
-                            <Button x:Name="NavDashboardButton"
-                                    Tag="dashboard"
-                                    AutomationProperties.Name="Главная"
-                                    Style="{StaticResource SidebarNavButtonStyle}"
-                                    Click="HandleNavButtonClick">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE80F;" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="Главная" Margin="12,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-
+                            <!-- 1С УНФ-стиль: 3 крупных блока разделов -->
                             <Button x:Name="NavSalesButton"
-                                    Tag="sales"
-                                    AutomationProperties.Name="Заказы"
-                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Tag="section-sales"
+                                    AutomationProperties.Name="Продажи"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
                                     Click="HandleNavButtonClick">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE14C;" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="Заказы" Margin="12,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-
-                            <Button x:Name="NavCustomersButton"
-                                    Tag="customers"
-                                    AutomationProperties.Name="Клиенты"
-                                    Style="{StaticResource SidebarNavButtonStyle}"
-                                    Click="HandleNavButtonClick">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE716;" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="Клиенты" Margin="12,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-
-                            <Button x:Name="NavShipmentsButton"
-                                    Tag="shipments"
-                                    AutomationProperties.Name="Отгрузки"
-                                    Style="{StaticResource SidebarNavButtonStyle}"
-                                    Click="HandleNavButtonClick">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEC47;" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="Отгрузки" Margin="12,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-
-                            <Button x:Name="NavFinanceButton"
-                                    Tag="finance"
-                                    AutomationProperties.Name="Возвраты и оплаты"
-                                    Style="{StaticResource SidebarNavButtonStyle}"
-                                    Click="HandleNavButtonClick">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8FB;" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="Возвраты и оплаты" Margin="12,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE14C;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Продажи"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
                             </Button>
 
                             <Button x:Name="NavPurchasingButton"
-                                    Tag="purchasing"
+                                    Tag="section-purchasing"
                                     AutomationProperties.Name="Закупки"
-                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
                                     Click="HandleNavButtonClick">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE719;" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="Закупки" Margin="12,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE719;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Закупки"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
                             </Button>
 
                             <Button x:Name="NavWarehouseButton"
-                                    Tag="warehouse"
+                                    Tag="section-warehouse"
                                     AutomationProperties.Name="Склад"
-                                    Style="{StaticResource SidebarNavButtonStyle}"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
                                     Click="HandleNavButtonClick">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7F8;" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="Склад" Margin="12,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE7F8;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Склад"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
                             </Button>
 
-                            <Button x:Name="NavCatalogButton"
-                                    Tag="catalog"
-                                    AutomationProperties.Name="Товары"
-                                    Style="{StaticResource SidebarNavButtonStyle}"
-                                    Click="HandleNavButtonClick">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEECA;" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="Товары" Margin="12,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
+                            <!-- Разделитель -->
+                            <Border Height="1"
+                                    Background="#E1E8F4"
+                                    Margin="6,14,6,12" />
 
-                            <Button x:Name="NavAuditButton"
-                                    Tag="audit"
-                                    AutomationProperties.Name="Отчеты"
-                                    Style="{StaticResource SidebarNavButtonStyle}"
-                                    Click="HandleNavButtonClick">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE9D2;" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="Отчеты" Margin="12,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-
-                            <Button x:Name="NavSettingsButton"
-                                    Tag="settings"
-                                    AutomationProperties.Name="Настройки"
-                                    Style="{StaticResource SidebarNavButtonStyle}"
-                                    Click="HandleNavButtonClick">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="Настройки" Margin="12,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
+                            <!-- Сервисные иконки: Главная, Отчёты, Настройки -->
+                            <UniformGrid Columns="3" HorizontalAlignment="Center">
+                                <Button x:Name="NavDashboardButton"
+                                        Tag="dashboard"
+                                        AutomationProperties.Name="Главная"
+                                        ToolTip="Главная"
+                                        Style="{StaticResource MinorIconButtonStyle}"
+                                        Click="HandleNavButtonClick">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE80F;" FontSize="16" />
+                                </Button>
+                                <Button x:Name="NavAuditButton"
+                                        Tag="audit"
+                                        AutomationProperties.Name="Отчёты"
+                                        ToolTip="Отчёты"
+                                        Style="{StaticResource MinorIconButtonStyle}"
+                                        Click="HandleNavButtonClick">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE9D2;" FontSize="16" />
+                                </Button>
+                                <Button x:Name="NavSettingsButton"
+                                        Tag="settings"
+                                        AutomationProperties.Name="Настройки"
+                                        ToolTip="Настройки"
+                                        Style="{StaticResource MinorIconButtonStyle}"
+                                        Click="HandleNavButtonClick">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" FontSize="16" />
+                                </Button>
+                            </UniformGrid>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
