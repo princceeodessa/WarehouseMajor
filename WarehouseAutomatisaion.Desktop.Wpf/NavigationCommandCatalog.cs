@@ -81,7 +81,7 @@ public static class NavigationCommandCatalog
             {
                 new NavigationCommand("Покупатели", IconContact, GreenPrimary, GreenSoft, "customers", "buyers"),
                 new NavigationCommand("Заказы покупателей", IconCart, BluePrimary, BlueSoft, "sales"),
-                new NavigationCommand("Счета на оплату", IconMoney, OrangePrimary, OrangeSoft, "sales"),
+                new NavigationCommand("Счета на оплату", IconMoney, OrangePrimary, OrangeSoft, "invoices"),
                 new NavigationCommand("Расходные накладные", IconPackage, IndigoPrimary, IndigoSoft, "shipments"),
                 new NavigationCommand("Возвраты от покупателей", IconReturn, RedPrimary, RedSoft, "finance"),
             }),

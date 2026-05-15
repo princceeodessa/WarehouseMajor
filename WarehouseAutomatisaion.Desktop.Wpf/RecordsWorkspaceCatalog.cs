@@ -1364,12 +1364,23 @@ internal static class RecordsWorkspaceCatalog
 
     private static void EditInvoice(SalesWorkspace salesWorkspace, SalesInvoiceRecord invoice)
     {
+        OpenInvoiceEditorTabOrDialog(salesWorkspace, invoice);
+    }
+
+    /// <summary>
+    /// Открывает редактор счёта на оплату: сначала во вкладке, иначе модально.
+    /// Публичный wrapper для <see cref="SalesInvoicesWorkspaceView"/>.
+    /// </summary>
+    internal static void OpenInvoiceEditorTabOrDialog(SalesWorkspace salesWorkspace, SalesInvoiceRecord? invoice)
+    {
         if (TryOpenInvoiceEditorTab(salesWorkspace, invoice))
         {
             return;
         }
 
-        var dialog = new SalesDocumentEditorWindow(salesWorkspace, invoice);
+        var dialog = invoice is null
+            ? new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Invoice)
+            : new SalesDocumentEditorWindow(salesWorkspace, invoice);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
         {
@@ -1378,8 +1389,16 @@ internal static class RecordsWorkspaceCatalog
 
         if (dialog.ShowDialog() == true && dialog.ResultInvoice is not null)
         {
-            salesWorkspace.UpdateInvoice(dialog.ResultInvoice);
-            ShowMessage("Счета", $"Обновлен счет {dialog.ResultInvoice.Number}.");
+            if (invoice is null)
+            {
+                salesWorkspace.AddInvoice(dialog.ResultInvoice);
+                ShowMessage("Счета", $"Создан счёт {dialog.ResultInvoice.Number}.");
+            }
+            else
+            {
+                salesWorkspace.UpdateInvoice(dialog.ResultInvoice);
+                ShowMessage("Счета", $"Обновлен счет {dialog.ResultInvoice.Number}.");
+            }
         }
     }
 

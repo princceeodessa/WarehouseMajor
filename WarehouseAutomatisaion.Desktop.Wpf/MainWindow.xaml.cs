@@ -780,6 +780,13 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new ContractorsWorkspaceView(_salesWorkspace));
 
+        _sections["invoices"] = new SectionDefinition(
+            Key: "invoices",
+            Caption: "Счета на оплату",
+            Subtitle: "Список счетов покупателей в стиле 1С УНФ — даты, оплата, ЭДО.",
+            Closable: true,
+            Factory: () => new SalesInvoicesWorkspaceView(_salesWorkspace));
+
         _sections["shipments"] = new SectionDefinition(
             Key: "shipments",
             Caption: "Отгрузки",
