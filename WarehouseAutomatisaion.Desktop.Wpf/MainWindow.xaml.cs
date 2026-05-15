@@ -808,6 +808,13 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new SalesReturnsWorkspaceView(_salesWorkspace));
 
+        _sections["reconciliations"] = new SectionDefinition(
+            Key: "reconciliations",
+            Caption: "Сверки взаиморасчетов",
+            Subtitle: "Журнал актов сверки с контрагентами.",
+            Closable: true,
+            Factory: () => new SalesReconciliationsWorkspaceView(_salesWorkspace));
+
         _sections["purchasing"] = new SectionDefinition(
             Key: "purchasing",
             Caption: "Закупки",

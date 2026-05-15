@@ -87,7 +87,7 @@ public static class NavigationCommandCatalog
             }),
             new NavigationGroup("Расчеты с покупателями", new[]
             {
-                new NavigationCommand("Сверки взаиморасчетов", IconBalance, CyanPrimary, CyanSoft, "finance"),
+                new NavigationCommand("Сверки взаиморасчетов", IconBalance, CyanPrimary, CyanSoft, "reconciliations"),
             }),
             new NavigationGroup("Товары и услуги", new[]
             {
@@ -122,7 +122,7 @@ public static class NavigationCommandCatalog
             }),
             new NavigationGroup("Расчеты с поставщиками", new[]
             {
-                new NavigationCommand("Сверки взаиморасчетов", IconBalance, CyanPrimary, CyanSoft, "purchasing", "payments"),
+                new NavigationCommand("Сверки взаиморасчетов", IconBalance, CyanPrimary, CyanSoft, "reconciliations"),
             }),
             new NavigationGroup("Товары и услуги", new[]
             {
