@@ -801,6 +801,13 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateReturnsAndPayments(_salesWorkspace)));
 
+        _sections["returns"] = new SectionDefinition(
+            Key: "returns",
+            Caption: "Приходные накладные: возвраты",
+            Subtitle: "Возвраты покупателей в стиле 1С УНФ.",
+            Closable: true,
+            Factory: () => new SalesReturnsWorkspaceView(_salesWorkspace));
+
         _sections["purchasing"] = new SectionDefinition(
             Key: "purchasing",
             Caption: "Закупки",

@@ -1444,7 +1444,24 @@ internal static class RecordsWorkspaceCatalog
 
     private static void EditReturn(SalesWorkspace salesWorkspace, SalesReturnRecord returnDocument)
     {
-        var dialog = new SalesReturnEditorWindow(salesWorkspace, returnDocument);
+        OpenReturnEditorDialog(salesWorkspace, returnDocument);
+    }
+
+    /// <summary>
+    /// Открывает редактор возврата от покупателя модально.
+    /// Публичный wrapper для <see cref="SalesReturnsWorkspaceView"/>.
+    /// </summary>
+    internal static void OpenReturnEditorDialog(SalesWorkspace salesWorkspace, SalesReturnRecord? returnDocument)
+    {
+        var draft = returnDocument ?? new SalesReturnRecord
+        {
+            Id = Guid.NewGuid(),
+            ReturnDate = DateTime.Today,
+            CurrencyCode = salesWorkspace.Currencies.FirstOrDefault() ?? "RUB",
+            Status = "Черновик",
+            Organization = "ИП",
+        };
+        var dialog = new SalesReturnEditorWindow(salesWorkspace, draft);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
         {
@@ -1453,8 +1470,16 @@ internal static class RecordsWorkspaceCatalog
 
         if (dialog.ShowDialog() == true && dialog.ResultReturn is not null)
         {
-            salesWorkspace.UpdateReturn(dialog.ResultReturn);
-            ShowMessage("Возвраты", $"Обновлен возврат {dialog.ResultReturn.Number}.");
+            if (returnDocument is null)
+            {
+                salesWorkspace.AddReturn(dialog.ResultReturn);
+                ShowMessage("Возвраты", $"Создан возврат {dialog.ResultReturn.Number}.");
+            }
+            else
+            {
+                salesWorkspace.UpdateReturn(dialog.ResultReturn);
+                ShowMessage("Возвраты", $"Обновлен возврат {dialog.ResultReturn.Number}.");
+            }
         }
     }
 
