@@ -322,17 +322,102 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                     .First(),
                 StringComparer.OrdinalIgnoreCase);
 
+        // Fallback: остатки по имени для случаев, когда код в balance отличается от код в каталоге
+        var stockByName = _warehouseWorkspace.StockBalances
+            .Where(item => !string.IsNullOrWhiteSpace(Ui(item.ItemName)))
+            .GroupBy(item => Ui(item.ItemName), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .OrderByDescending(item => item.FreeQuantity + item.ReservedQuantity + item.ShippedQuantity)
+                    .First(),
+                StringComparer.OrdinalIgnoreCase);
+
         var priceTypesByItem = BuildPriceTypesByItemKey();
+        var priceByItem = BuildDisplayPriceByItem();
 
         return BuildVisibleCatalogItems()
             .OrderBy(item => Ui(item.Name), StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(item => Ui(item.Code), StringComparer.OrdinalIgnoreCase)
             .Select(item =>
             {
-                stockByCode.TryGetValue(Ui(item.Code), out var stock);
-                return ProductRowViewModel.Create(item, stock, ResolveProductCellBalances(item), ResolvePriceTypes(item, priceTypesByItem));
+                if (!stockByCode.TryGetValue(Ui(item.Code), out var stock))
+                {
+                    stockByName.TryGetValue(Ui(item.Name), out stock);
+                }
+
+                var displayPrice = ResolveDisplayPrice(item, priceByItem);
+                return ProductRowViewModel.Create(
+                    item,
+                    stock,
+                    ResolveProductCellBalances(item),
+                    ResolvePriceTypes(item, priceTypesByItem),
+                    displayPrice);
             })
             .ToArray();
+    }
+
+    /// <summary>
+    /// Строит lookup лучшей цены для отображения. Источник — последние проведённые
+    /// документы установки цен из <see cref="CatalogWorkspace.PriceRegistrations"/>.
+    /// Приоритет — «Розничная …» виды цены; при их отсутствии — любая последняя цена.
+    /// </summary>
+    private Dictionary<string, decimal> BuildDisplayPriceByItem()
+    {
+        var byKey = new Dictionary<string, (DateTime Date, decimal Price, int Priority)>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var document in _catalogWorkspace.PriceRegistrations.OrderBy(item => item.DocumentDate))
+        {
+            var priceType = Ui(document.PriceTypeName);
+            var priority = priceType.Contains("розничн", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
+            foreach (var line in document.Lines)
+            {
+                if (line.NewPrice <= 0m)
+                {
+                    continue;
+                }
+
+                foreach (var key in EnumerateItemKeys(line.ItemCode, line.ItemName))
+                {
+                    if (!byKey.TryGetValue(key, out var existing)
+                        || priority > existing.Priority
+                        || (priority == existing.Priority && document.DocumentDate >= existing.Date))
+                    {
+                        byKey[key] = (document.DocumentDate, line.NewPrice, priority);
+                    }
+                }
+            }
+        }
+
+        return byKey.ToDictionary(entry => entry.Key, entry => entry.Value.Price, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static decimal ResolveDisplayPrice(CatalogItemRecord item, IReadOnlyDictionary<string, decimal> priceByItem)
+    {
+        foreach (var key in EnumerateItemKeys(item.Code, item.Name))
+        {
+            if (priceByItem.TryGetValue(key, out var price) && price > 0m)
+            {
+                return price;
+            }
+        }
+
+        return item.DefaultPrice;
+    }
+
+    private static IEnumerable<string> EnumerateItemKeys(string? code, string? name)
+    {
+        var normalizedCode = Ui(code).Trim();
+        if (!string.IsNullOrWhiteSpace(normalizedCode))
+        {
+            yield return $"code:{normalizedCode}";
+        }
+
+        var normalizedName = Ui(name).Trim();
+        if (!string.IsNullOrWhiteSpace(normalizedName))
+        {
+            yield return $"name:{normalizedName}";
+        }
     }
 
     private Dictionary<string, SortedSet<string>> BuildPriceTypesByItemKey()
@@ -2852,7 +2937,8 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             CatalogItemRecord item,
             WarehouseStockBalanceRecord? stock,
             IReadOnlyList<WarehouseCellBalanceRecord> cellBalances,
-            IReadOnlyList<string> priceTypes)
+            IReadOnlyList<string> priceTypes,
+            decimal? displayPrice = null)
         {
             var code = Fallback(Ui(item.Code), "ITEM");
             var name = Fallback(Ui(item.Name), "Без названия");
@@ -2900,7 +2986,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                 reserved,
                 inTransit,
                 minimum,
-                item.DefaultPrice,
+                displayPrice is > 0m ? displayPrice.Value : item.DefaultPrice,
                 Fallback(Ui(item.CurrencyCode), "RUB"),
                 status,
                 barcode,
