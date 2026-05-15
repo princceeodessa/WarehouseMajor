@@ -775,10 +775,10 @@ public partial class MainWindow : Window
 
         _sections["customers"] = new SectionDefinition(
             Key: "customers",
-            Caption: "Клиенты",
-            Subtitle: "База клиентов, контактов и статусов работы.",
+            Caption: "Контрагенты",
+            Subtitle: "База покупателей, поставщиков и прочих контрагентов.",
             Closable: true,
-            Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateCustomers(_salesWorkspace)));
+            Factory: () => new ContractorsWorkspaceView(_salesWorkspace));
 
         _sections["shipments"] = new SectionDefinition(
             Key: "shipments",
@@ -888,6 +888,9 @@ public partial class MainWindow : Window
                 break;
             case ProductsWorkspaceView products:
                 products.ActivateSubSection(subSectionKey);
+                break;
+            case ContractorsWorkspaceView contractors:
+                contractors.ActivateSubSection(subSectionKey);
                 break;
         }
     }

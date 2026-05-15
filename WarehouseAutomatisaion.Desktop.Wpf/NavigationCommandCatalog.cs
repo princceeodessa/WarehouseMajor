@@ -79,7 +79,7 @@ public static class NavigationCommandCatalog
         {
             new NavigationGroup("Продажи", new[]
             {
-                new NavigationCommand("Покупатели", IconContact, GreenPrimary, GreenSoft, "customers"),
+                new NavigationCommand("Покупатели", IconContact, GreenPrimary, GreenSoft, "customers", "buyers"),
                 new NavigationCommand("Заказы покупателей", IconCart, BluePrimary, BlueSoft, "sales"),
                 new NavigationCommand("Счета на оплату", IconMoney, OrangePrimary, OrangeSoft, "sales"),
                 new NavigationCommand("Расходные накладные", IconPackage, IndigoPrimary, IndigoSoft, "shipments"),
@@ -113,7 +113,7 @@ public static class NavigationCommandCatalog
         {
             new NavigationGroup("Закупки", new[]
             {
-                new NavigationCommand("Поставщики", IconContact, GreenPrimary, GreenSoft, "purchasing", "suppliers"),
+                new NavigationCommand("Поставщики", IconContact, GreenPrimary, GreenSoft, "customers", "suppliers"),
                 new NavigationCommand("Заказы поставщикам", IconCart, BluePrimary, BlueSoft, "purchasing", "orders"),
                 new NavigationCommand("Счета на оплату (полученные)", IconMoney, OrangePrimary, OrangeSoft, "purchasing", "invoices"),
                 new NavigationCommand("Приходные накладные", IconPackage, IndigoPrimary, IndigoSoft, "purchasing", "receipts"),

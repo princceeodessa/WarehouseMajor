@@ -903,12 +903,23 @@ internal static class RecordsWorkspaceCatalog
 
     private static void EditCustomer(SalesWorkspace salesWorkspace, SalesCustomerRecord customer)
     {
+        OpenCustomerEditorTabOrDialog(salesWorkspace, customer);
+    }
+
+    /// <summary>
+    /// Открывает карточку контрагента: сначала пытается во вкладке, иначе модально.
+    /// Публичный wrapper для использования из <see cref="ContractorsWorkspaceView"/>.
+    /// </summary>
+    internal static void OpenCustomerEditorTabOrDialog(SalesWorkspace salesWorkspace, SalesCustomerRecord? customer)
+    {
         if (TryOpenCustomerEditorTab(salesWorkspace, customer))
         {
             return;
         }
 
-        var dialog = new SalesCustomerEditorWindow(salesWorkspace, customer);
+        var dialog = customer is null
+            ? new SalesCustomerEditorWindow(salesWorkspace)
+            : new SalesCustomerEditorWindow(salesWorkspace, customer);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
         {
@@ -917,8 +928,16 @@ internal static class RecordsWorkspaceCatalog
 
         if (dialog.ShowDialog() == true && dialog.ResultCustomer is not null)
         {
-            salesWorkspace.UpdateCustomer(dialog.ResultCustomer);
-            ShowMessage("Клиенты", $"Обновлена карточка {dialog.ResultCustomer.Name}.");
+            if (customer is null)
+            {
+                salesWorkspace.AddCustomer(dialog.ResultCustomer);
+                ShowMessage("Клиенты", $"Создан контрагент {dialog.ResultCustomer.Name}.");
+            }
+            else
+            {
+                salesWorkspace.UpdateCustomer(dialog.ResultCustomer);
+                ShowMessage("Клиенты", $"Обновлена карточка {dialog.ResultCustomer.Name}.");
+            }
         }
     }
 
