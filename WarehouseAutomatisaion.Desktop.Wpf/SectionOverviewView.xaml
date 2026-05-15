@@ -7,42 +7,48 @@
              Background="#F7F9FD">
     <UserControl.Resources>
         <Style x:Key="SectionGroupTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="14.5" />
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#1F8F50" />
-            <Setter Property="Margin" Value="0,0,0,12" />
+            <Setter Property="Foreground" Value="#7A86A5" />
+            <Setter Property="Margin" Value="2,0,0,10" />
         </Style>
 
         <Style x:Key="SectionCommandButtonStyle" TargetType="{x:Type Button}">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="2,3" />
-            <Setter Property="Margin" Value="0,0,0,2" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E7ECF7" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,10" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Button}">
-                        <Border Background="{TemplateBinding Background}"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Left" />
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="14,11">
+                            <ContentPresenter HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#F7FAFF" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#C8D1FF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#EEF2FF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-        </Style>
-
-        <Style x:Key="SectionCommandTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="Foreground" Value="#4F5BFF" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding IsImplemented}" Value="False">
-                    <Setter Property="Foreground" Value="#5F6F95" />
-                </DataTrigger>
-            </Style.Triggers>
         </Style>
     </UserControl.Resources>
 
@@ -52,8 +58,8 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Top toolbar: search + settings + close (как в 1С header панели разделов) -->
-        <Grid Grid.Row="0" Margin="0,0,0,18">
+        <!-- Top toolbar: search + settings + close -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -63,11 +69,11 @@
 
             <Border Grid.Column="1"
                     Width="320"
-                    Height="32"
+                    Height="34"
                     Background="#FFFFFF"
                     BorderBrush="#D7DEEC"
                     BorderThickness="1"
-                    CornerRadius="6">
+                    CornerRadius="8">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -78,8 +84,8 @@
                              BorderThickness="0"
                              Background="Transparent"
                              VerticalContentAlignment="Center"
-                             Padding="10,0"
-                             FontSize="12.5"
+                             Padding="12,0"
+                             FontSize="13"
                              TextChanged="HandleSearchTextChanged" />
                     <TextBlock x:Name="SearchPlaceholderText"
                                Grid.Column="0"
@@ -87,7 +93,7 @@
                                IsHitTestVisible="False"
                                Foreground="#9AA4BC"
                                VerticalAlignment="Center"
-                               Margin="12,0" />
+                               Margin="14,0" />
                     <TextBlock Grid.Column="1"
                                FontFamily="Segoe Fluent Icons"
                                Text="&#xE721;"
@@ -99,8 +105,8 @@
             </Border>
 
             <Button Grid.Column="2"
-                    Width="32"
-                    Height="32"
+                    Width="34"
+                    Height="34"
                     Margin="8,0,0,0"
                     Background="Transparent"
                     BorderBrush="#D7DEEC"
@@ -110,13 +116,13 @@
                     Click="HandleSettingsClick">
                 <TextBlock FontFamily="Segoe Fluent Icons"
                            Text="&#xE713;"
-                           FontSize="13"
+                           FontSize="14"
                            Foreground="#5F6F95" />
             </Button>
 
             <Button Grid.Column="3"
-                    Width="32"
-                    Height="32"
+                    Width="34"
+                    Height="34"
                     Margin="6,0,0,0"
                     Background="Transparent"
                     BorderThickness="0"
@@ -125,16 +131,16 @@
                     Click="HandleCloseClick">
                 <TextBlock FontFamily="Segoe Fluent Icons"
                            Text="&#xE894;"
-                           FontSize="13"
+                           FontSize="14"
                            Foreground="#5F6F95" />
             </Button>
         </Grid>
 
-        <!-- Content: 3 колонки групп -->
+        <!-- Content: WrapPanel of groups, each group is a 320px column of card-tiles -->
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
-                      Padding="0,4,0,16">
+                      Padding="0,0,0,16">
             <ItemsControl x:Name="GroupsItemsControl">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -143,9 +149,7 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel x:Name="GroupPanel"
-                                    Width="320"
-                                    Margin="0,0,40,28">
+                        <StackPanel Width="320" Margin="0,0,28,28">
                             <TextBlock Text="{Binding Title}"
                                        Style="{StaticResource SectionGroupTitleStyle}" />
                             <ItemsControl ItemsSource="{Binding Items}">
@@ -154,28 +158,40 @@
                                         <Button Tag="{Binding}"
                                                 Style="{StaticResource SectionCommandButtonStyle}"
                                                 Click="HandleCommandClick">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock FontFamily="Segoe Fluent Icons"
-                                                           Text="&#xE735;"
-                                                           Foreground="#FF9F1A"
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="40" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0"
+                                                        Width="40"
+                                                        Height="40"
+                                                        CornerRadius="12"
+                                                        Background="{Binding IconBackground}">
+                                                    <TextBlock FontFamily="Segoe Fluent Icons"
+                                                               Text="{Binding IconGlyph}"
+                                                               Foreground="{Binding AccentBrush}"
+                                                               FontSize="18"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center" />
+                                                </Border>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Caption}"
+                                                           Margin="14,0,0,0"
+                                                           FontSize="13.5"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#17213A"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="2"
+                                                           FontFamily="Segoe Fluent Icons"
+                                                           Text="&#xE76C;"
+                                                           Margin="8,0,2,0"
+                                                           Foreground="#9AA4BC"
                                                            FontSize="11"
-                                                           Width="16"
-                                                           VerticalAlignment="Center">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsImplemented}" Value="False">
-                                                                    <Setter Property="Visibility" Value="Hidden" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                                <TextBlock Text="{Binding Caption}"
-                                                           Margin="8,0,0,0"
-                                                           Style="{StaticResource SectionCommandTextStyle}" />
-                                            </StackPanel>
+                                                           VerticalAlignment="Center" />
+                                            </Grid>
                                         </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

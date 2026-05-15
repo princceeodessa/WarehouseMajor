@@ -28,18 +28,8 @@ public partial class SectionOverviewView : UserControl
         }
 
         var mainWindow = System.Windows.Application.Current?.MainWindow as MainWindow;
-        if (mainWindow is null)
+        if (mainWindow is null || string.IsNullOrWhiteSpace(command.TargetSectionKey))
         {
-            return;
-        }
-
-        if (!command.IsImplemented || string.IsNullOrWhiteSpace(command.TargetSectionKey))
-        {
-            mainWindow.OpenWorkspaceEditorTab(
-                $"coming-{command.Caption}",
-                command.Caption,
-                "В разработке",
-                () => new ComingSoonView(command.Caption));
             return;
         }
 
