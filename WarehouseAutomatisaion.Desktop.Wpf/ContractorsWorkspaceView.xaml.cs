@@ -24,7 +24,6 @@ public partial class ContractorsWorkspaceView : UserControl
 
     private readonly SalesWorkspace _salesWorkspace;
     private bool _initializing = true;
-    private bool _sidePanelExpanded = true;
 
     public ContractorsWorkspaceView(SalesWorkspace salesWorkspace)
     {
@@ -188,23 +187,35 @@ public partial class ContractorsWorkspaceView : UserControl
             DetailPhoneText.Text = "—";
             DetailEmailText.Text = string.Empty;
             DetailAddressText.Text = string.Empty;
-            ContactInfoBadge.Visibility = Visibility.Collapsed;
+            SelectedContactInfo.Visibility = Visibility.Collapsed;
             return;
         }
 
+        // Поля Popup-фильтра — отражают выделенный контрагент как контекст
         TagText.Text = FallbackPlaceholder(customer.Tags);
         SegmentText.Text = FallbackPlaceholder(customer.CounterpartyType);
         SourceText.Text = FallbackPlaceholder(customer.Source);
         ContactText.Text = FallbackPlaceholder(customer.Contacts.FirstOrDefault()?.Name ?? customer.Phone);
         ResponsibleText.Text = FallbackPlaceholder(customer.Responsible.Length > 0 ? customer.Responsible : customer.Manager);
 
+        // Компактный inline-бейдж в футере
         var phone = Ui(customer.Phone);
         var email = Ui(customer.Email);
         var address = FirstNonEmpty(Ui(customer.ActualAddress), Ui(customer.LegalAddress));
-        DetailPhoneText.Text = string.IsNullOrWhiteSpace(phone) ? "Телефон не указан" : $"Телефон: {phone}";
-        DetailEmailText.Text = string.IsNullOrWhiteSpace(email) ? string.Empty : $"Email: {email}";
-        DetailAddressText.Text = string.IsNullOrWhiteSpace(address) ? string.Empty : address;
-        ContactInfoBadge.Visibility = Visibility.Visible;
+        DetailPhoneText.Text = string.IsNullOrWhiteSpace(phone) ? "Телефон не указан" : phone;
+        DetailEmailText.Text = string.IsNullOrWhiteSpace(email) ? string.Empty : $"· {email}";
+        DetailAddressText.Text = string.IsNullOrWhiteSpace(address) ? string.Empty : $"· {address}";
+        SelectedContactInfo.Visibility = Visibility.Visible;
+    }
+
+    private void HandleFilterPopupToggle(object sender, RoutedEventArgs e)
+    {
+        FilterPopup.IsOpen = !FilterPopup.IsOpen;
+    }
+
+    private void HandleFilterPopupClose(object sender, RoutedEventArgs e)
+    {
+        FilterPopup.IsOpen = false;
     }
 
     private void HandleCreateClick(object sender, RoutedEventArgs e)
@@ -287,25 +298,6 @@ public partial class ContractorsWorkspaceView : UserControl
         {
             var label = tag == "spark" ? "1СПАРК Риски" : "Проверка контрагента";
             ShowInfo(label, $"Интеграция «{label}» в разработке. Структура готова к подключению внешнего API.");
-        }
-    }
-
-    private void HandleToggleSidePanelClick(object sender, RoutedEventArgs e)
-    {
-        _sidePanelExpanded = !_sidePanelExpanded;
-        if (_sidePanelExpanded)
-        {
-            SidePanelSpacer.Width = new GridLength(14);
-            SidePanelColumn.Width = new GridLength(300);
-            SidePanel.Visibility = Visibility.Visible;
-            if (sender is Button btn) btn.Content = "свернуть";
-        }
-        else
-        {
-            SidePanelSpacer.Width = new GridLength(0);
-            SidePanelColumn.Width = new GridLength(0);
-            SidePanel.Visibility = Visibility.Collapsed;
-            if (sender is Button btn) btn.Content = "развернуть";
         }
     }
 
