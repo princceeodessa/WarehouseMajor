@@ -93,7 +93,7 @@
             <Setter Property="CanUserDeleteRows" Value="False" />
             <Setter Property="CanUserResizeRows" Value="False" />
             <Setter Property="CanUserResizeColumns" Value="True" />
-            <Setter Property="CanUserSortColumns" Value="False" />
+            <Setter Property="CanUserSortColumns" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="None" />
             <Setter Property="BorderThickness" Value="0" />
@@ -664,7 +664,7 @@
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
 
-                                    <DataGridTemplateColumn Header="Наименование" Width="*" MinWidth="280" IsReadOnly="True">
+                                    <DataGridTemplateColumn Header="Наименование" Width="*" MinWidth="280" IsReadOnly="True" SortMemberPath="Name">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Name}"
@@ -677,7 +677,7 @@
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
 
-                                    <DataGridTemplateColumn Header="Остаток" Width="100" IsReadOnly="True">
+                                    <DataGridTemplateColumn Header="Остаток" Width="100" IsReadOnly="True" SortMemberPath="FreeQuantity">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding FreeDisplay}"

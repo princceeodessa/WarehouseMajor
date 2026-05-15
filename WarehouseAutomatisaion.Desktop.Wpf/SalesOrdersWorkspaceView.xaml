@@ -12,7 +12,7 @@
             <Setter Property="CanUserDeleteRows" Value="False" />
             <Setter Property="CanUserResizeRows" Value="False" />
             <Setter Property="CanUserResizeColumns" Value="True" />
-            <Setter Property="CanUserSortColumns" Value="False" />
+            <Setter Property="CanUserSortColumns" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="None" />
             <Setter Property="BorderThickness" Value="0" />
@@ -209,7 +209,7 @@
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Дата" Binding="{Binding OrderDateDisplay}" Width="100" IsReadOnly="True" />
                     <DataGridTextColumn Header="Номер" Binding="{Binding Number}" Width="130" IsReadOnly="True" />
-                    <DataGridTemplateColumn Header="Состояние" Width="130" IsReadOnly="True">
+                    <DataGridTemplateColumn Header="Состояние" Width="130" IsReadOnly="True" SortMemberPath="Status">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding Status}" Foreground="{Binding StatusBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
@@ -229,7 +229,7 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="Состояние оригинала" Width="170" IsReadOnly="True">
+                    <DataGridTemplateColumn Header="Состояние оригинала" Width="170" IsReadOnly="True" SortMemberPath="OriginalStatus">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding OriginalStatus}" Foreground="{Binding OriginalStatusBrush}" VerticalAlignment="Center" TextDecorations="Underline" Cursor="Hand" />

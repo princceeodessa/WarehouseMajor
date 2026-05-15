@@ -12,7 +12,7 @@
             <Setter Property="CanUserDeleteRows" Value="False" />
             <Setter Property="CanUserResizeRows" Value="False" />
             <Setter Property="CanUserResizeColumns" Value="True" />
-            <Setter Property="CanUserSortColumns" Value="False" />
+            <Setter Property="CanUserSortColumns" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="None" />
             <Setter Property="BorderThickness" Value="0" />
@@ -284,7 +284,7 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Дата" Binding="{Binding DateDisplay}" Width="120" IsReadOnly="True" />
                         <DataGridTextColumn Header="Номер" Binding="{Binding Number}" Width="150" IsReadOnly="True" />
-                        <DataGridTemplateColumn Header="Состояние" Width="160" IsReadOnly="True">
+                        <DataGridTemplateColumn Header="Состояние" Width="160" IsReadOnly="True" SortMemberPath="StatusDisplay">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding StatusDisplay}" Foreground="{Binding StatusBrush}" VerticalAlignment="Center" />

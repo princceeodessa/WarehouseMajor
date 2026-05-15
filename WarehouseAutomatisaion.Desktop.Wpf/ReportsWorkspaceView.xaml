@@ -100,7 +100,7 @@
             <Setter Property="CanUserDeleteRows" Value="False" />
             <Setter Property="CanUserResizeRows" Value="False" />
             <Setter Property="CanUserResizeColumns" Value="False" />
-            <Setter Property="CanUserSortColumns" Value="False" />
+            <Setter Property="CanUserSortColumns" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HorizontalGridLinesBrush" Value="#EEF2FA" />
