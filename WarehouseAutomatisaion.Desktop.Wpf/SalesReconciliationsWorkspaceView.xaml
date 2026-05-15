@@ -35,8 +35,9 @@
             <Setter Property="BorderThickness" Value="0,0,1,1" />
             <Setter Property="Foreground" Value="#3A4868" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Padding" Value="8,4" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="ReconciliationsRowStyle" TargetType="DataGridRow">
@@ -191,8 +192,23 @@
                     <DataGridTextColumn Header="Number" Binding="{Binding Number}" Width="140" IsReadOnly="True" />
                     <DataGridTextColumn Header="Организация" Binding="{Binding Organization}" Width="200" IsReadOnly="True" />
                     <DataGridTextColumn Header="Контрагент" Binding="{Binding CounterpartyName}" Width="*" MinWidth="220" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Период с" Binding="{Binding PeriodFromDisplay}" Width="110" IsReadOnly="True" />
-                    <DataGridTextColumn Header="по" Binding="{Binding PeriodToDisplay}" Width="110" IsReadOnly="True" />
+                    <!-- Спаренные колонки «Период сверки» (с/по) — 2-строчные заголовки -->
+                    <DataGridTextColumn Binding="{Binding PeriodFromDisplay}" Width="110" IsReadOnly="True" SortMemberPath="PeriodFromDisplay">
+                        <DataGridTextColumn.Header>
+                            <StackPanel>
+                                <TextBlock Text="Период сверки" FontSize="12" FontWeight="SemiBold" Foreground="#3A4868" HorizontalAlignment="Center" Margin="0,0,0,4" />
+                                <TextBlock Text="с ..." FontSize="12" Foreground="#3A4868" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding PeriodToDisplay}" Width="110" IsReadOnly="True" SortMemberPath="PeriodToDisplay">
+                        <DataGridTextColumn.Header>
+                            <StackPanel>
+                                <TextBlock Text=" " FontSize="12" FontWeight="SemiBold" Foreground="Transparent" HorizontalAlignment="Center" Margin="0,0,0,4" />
+                                <TextBlock Text="по ..." FontSize="12" Foreground="#3A4868" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
                     <DataGridTemplateColumn Header="Статус" Width="120" IsReadOnly="True" SortMemberPath="Status">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
