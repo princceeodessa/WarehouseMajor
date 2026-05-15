@@ -943,12 +943,23 @@ internal static class RecordsWorkspaceCatalog
 
     private static void EditOrder(SalesWorkspace salesWorkspace, SalesOrderRecord order)
     {
+        OpenOrderEditorTabOrDialog(salesWorkspace, order);
+    }
+
+    /// <summary>
+    /// Открывает редактор заказа покупателя: сначала во вкладке, иначе модально.
+    /// Публичный wrapper для <see cref="SalesOrdersWorkspaceView"/>.
+    /// </summary>
+    internal static void OpenOrderEditorTabOrDialog(SalesWorkspace salesWorkspace, SalesOrderRecord? order)
+    {
         if (TryOpenOrderEditorTab(salesWorkspace, order))
         {
             return;
         }
 
-        var dialog = new SalesDocumentEditorWindow(salesWorkspace, order);
+        var dialog = order is null
+            ? new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Order)
+            : new SalesDocumentEditorWindow(salesWorkspace, order);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
         {
@@ -957,8 +968,16 @@ internal static class RecordsWorkspaceCatalog
 
         if (dialog.ShowDialog() == true && dialog.ResultOrder is not null)
         {
-            salesWorkspace.UpdateOrder(dialog.ResultOrder);
-            ShowMessage("Заказы", $"Обновлен заказ {dialog.ResultOrder.Number}.");
+            if (order is null)
+            {
+                salesWorkspace.AddOrder(dialog.ResultOrder);
+                ShowMessage("Заказы", $"Создан заказ {dialog.ResultOrder.Number}.");
+            }
+            else
+            {
+                salesWorkspace.UpdateOrder(dialog.ResultOrder);
+                ShowMessage("Заказы", $"Обновлен заказ {dialog.ResultOrder.Number}.");
+            }
         }
     }
 

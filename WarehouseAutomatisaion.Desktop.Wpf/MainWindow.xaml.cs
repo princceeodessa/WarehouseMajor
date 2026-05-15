@@ -768,10 +768,10 @@ public partial class MainWindow : Window
 
         _sections["sales"] = new SectionDefinition(
             Key: "sales",
-            Caption: "Заказы",
-            Subtitle: "Управление заказами клиентов в едином рабочем контуре.",
+            Caption: "Заказы покупателей",
+            Subtitle: "Список заказов в стиле 1С УНФ — даты, состояние, отгрузка, оплата.",
             Closable: true,
-            Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateSales(_salesWorkspace)));
+            Factory: () => new SalesOrdersWorkspaceView(_salesWorkspace));
 
         _sections["customers"] = new SectionDefinition(
             Key: "customers",
