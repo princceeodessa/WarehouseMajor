@@ -789,10 +789,10 @@ public partial class MainWindow : Window
 
         _sections["shipments"] = new SectionDefinition(
             Key: "shipments",
-            Caption: "Отгрузки",
-            Subtitle: "Исполнение, доставка и контроль статусов отгрузок.",
+            Caption: "Расходные накладные",
+            Subtitle: "Накладные + заказы покупателей к отгрузке.",
             Closable: true,
-            Factory: () => new RecordsWorkspaceView(RecordsWorkspaceCatalog.CreateShipments(_salesWorkspace)));
+            Factory: () => new SalesShipmentsWorkspaceView(_salesWorkspace));
 
         _sections["finance"] = new SectionDefinition(
             Key: "finance",

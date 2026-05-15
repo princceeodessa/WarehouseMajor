@@ -1404,12 +1404,23 @@ internal static class RecordsWorkspaceCatalog
 
     private static void EditShipment(SalesWorkspace salesWorkspace, SalesShipmentRecord shipment)
     {
+        OpenShipmentEditorTabOrDialog(salesWorkspace, shipment);
+    }
+
+    /// <summary>
+    /// Открывает редактор расходной накладной: сначала во вкладке, иначе модально.
+    /// Публичный wrapper для <see cref="SalesShipmentsWorkspaceView"/>.
+    /// </summary>
+    internal static void OpenShipmentEditorTabOrDialog(SalesWorkspace salesWorkspace, SalesShipmentRecord? shipment)
+    {
         if (TryOpenShipmentEditorTab(salesWorkspace, shipment))
         {
             return;
         }
 
-        var dialog = new SalesDocumentEditorWindow(salesWorkspace, shipment);
+        var dialog = shipment is null
+            ? new SalesDocumentEditorWindow(salesWorkspace, SalesDocumentEditorMode.Shipment)
+            : new SalesDocumentEditorWindow(salesWorkspace, shipment);
         var owner = ResolveOwnerWindow();
         if (owner is not null)
         {
@@ -1418,8 +1429,16 @@ internal static class RecordsWorkspaceCatalog
 
         if (dialog.ShowDialog() == true && dialog.ResultShipment is not null)
         {
-            salesWorkspace.UpdateShipment(dialog.ResultShipment);
-            ShowMessage("Отгрузки", $"Обновлена отгрузка {dialog.ResultShipment.Number}.");
+            if (shipment is null)
+            {
+                salesWorkspace.AddShipment(dialog.ResultShipment);
+                ShowMessage("Отгрузки", $"Создана отгрузка {dialog.ResultShipment.Number}.");
+            }
+            else
+            {
+                salesWorkspace.UpdateShipment(dialog.ResultShipment);
+                ShowMessage("Отгрузки", $"Обновлена отгрузка {dialog.ResultShipment.Number}.");
+            }
         }
     }
 
