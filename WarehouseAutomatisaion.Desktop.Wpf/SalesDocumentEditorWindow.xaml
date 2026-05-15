@@ -132,18 +132,6 @@
                     </StackPanel>
                 </Button>
 
-                <Button x:Name="SetPurchaseMinButton"
-                        Content="Установить закуп"
-                        Background="Transparent"
-                        BorderBrush="#D7DEEC"
-                        BorderThickness="1"
-                        Foreground="#17213A"
-                        Padding="12,6"
-                        Height="32"
-                        Cursor="Hand"
-                        Margin="0,0,6,6"
-                        ToolTip="Установить минимальное количество для закупки"
-                        Click="HandleSetPurchaseMinClick" />
             </WrapPanel>
         </StackPanel>
 
@@ -388,31 +376,51 @@
                           AutoGenerateColumns="False"
                           IsReadOnly="False"
                           CanUserAddRows="False"
+                          CanUserResizeRows="False"
+                          CanUserSortColumns="False"
                           SelectionMode="Extended"
                           SelectionUnit="CellOrRowHeader"
                           MinHeight="118"
-                          MaxHeight="220"
-                          MinRowHeight="44"
+                          MaxHeight="320"
+                          RowHeight="34"
+                          ColumnHeaderHeight="36"
+                          GridLinesVisibility="All"
+                          HorizontalGridLinesBrush="#E1E4EA"
+                          VerticalGridLinesBrush="#CBD0D9"
+                          BorderBrush="#B9C0CB"
+                          BorderThickness="1"
+                          Background="#FFFFFF"
                           CellEditEnding="HandleLinesGridCellEditEnding"
                           CurrentCellChanged="HandleLinesGridCurrentCellChanged"
                           PreviewMouseLeftButtonDown="HandleLinesGridPreviewMouseLeftButtonDown">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="Background" Value="#FFFFFF" />
+                            <Setter Property="Foreground" Value="#101828" />
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#FFF8D8" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#FFF0A6" />
+                                    <Setter Property="Foreground" Value="#101828" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Код" Binding="{Binding ItemCode}" Width="1*" />
-                        <DataGridTemplateColumn Header="Товар" Width="3.2*">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding ItemName}"
-                                               TextWrapping="Wrap"
-                                               TextTrimming="CharacterEllipsis"
-                                               ToolTip="{Binding ItemName}"
-                                               Padding="0,2" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="Ед." Binding="{Binding Unit}" Width="0.6*" />
-                        <DataGridTextColumn Header="Кол-во" Binding="{Binding QuantityDisplay}" Width="0.9*" />
-                        <DataGridTextColumn Header="Цена" Binding="{Binding PriceDisplay}" Width="1*" />
-                        <DataGridTextColumn Header="Сумма" Binding="{Binding AmountDisplay}" Width="1*" IsReadOnly="True" />
+                        <DataGridTextColumn Header="#" Binding="{Binding LineNumberDisplay}" Width="44" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Номенклатура" Binding="{Binding ItemName}" Width="2.4*" MinWidth="280" />
+                        <DataGridTextColumn Header="Количество" Binding="{Binding QuantityDisplay}" Width="116" />
+                        <DataGridTextColumn Header="Цена" Binding="{Binding PriceDisplay}" Width="116" />
+                        <DataGridTextColumn Header="Скидка авт., %" Binding="{Binding AutoDiscountPercentDisplay}" Width="86" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Скидка авт., сумма" Binding="{Binding AutoDiscountAmountDisplay}" Width="110" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Скидка руч., %" Binding="{Binding ManualDiscountPercentDisplay}" Width="92" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Скидка руч., сумма" Binding="{Binding ManualDiscountAmountDisplay}" Width="118" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Сумма" Binding="{Binding AmountDisplay}" Width="126" IsReadOnly="True" />
+                        <DataGridTextColumn Header="% НДС" Binding="{Binding VatRateDisplay}" Width="74" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Сумма НДС" Binding="{Binding VatAmountDisplay}" Width="126" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Всего" Binding="{Binding TotalDisplay}" Width="126" IsReadOnly="True" />
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>

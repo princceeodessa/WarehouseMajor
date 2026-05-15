@@ -130,7 +130,6 @@
         <Grid Margin="28,22,28,28">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -157,39 +156,7 @@
                 </StackPanel>
 
                 <StackPanel x:Name="HeaderActionsPanel" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Right">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Border x:Name="HeaderSearchBorder" Width="320"
-                                Height="40"
-                                Background="#FFFFFF"
-                                BorderBrush="#E4EAF5"
-                                BorderThickness="1"
-                                CornerRadius="12"
-                                Padding="14,0,12,0">
-                            <Grid>
-                                <TextBox x:Name="HeaderSearchBox"
-                                         BorderThickness="0"
-                                         Background="Transparent"
-                                         FontSize="14"
-                                         Foreground="#1B2440"
-                                         VerticalContentAlignment="Center"
-                                         TextChanged="HandleHeaderSearchTextChanged" />
-                                <TextBlock x:Name="HeaderSearchPlaceholderText"
-                                           Text="Поиск..."
-                                           FontSize="14"
-                                           Foreground="#9AA5BD"
-                                           VerticalAlignment="Center"
-                                           IsHitTestVisible="False" />
-                                <TextBlock FontFamily="Segoe Fluent Icons"
-                                           Text="&#xE721;"
-                                           HorizontalAlignment="Right"
-                                           VerticalAlignment="Center"
-                                           Foreground="#909AB5"
-                                           FontSize="13" />
-                            </Grid>
-                        </Border>
-                    </StackPanel>
-
-                    <WrapPanel HorizontalAlignment="Right" Margin="0,12,0,0">
+                    <WrapPanel HorizontalAlignment="Right">
                         <Button x:Name="ImportButton"
                                 Style="{StaticResource GhostButtonStyle}"
                                 Margin="0,0,10,0"
@@ -206,54 +173,7 @@
                 </StackPanel>
             </Grid>
 
-            <ItemsControl x:Name="MetricsItemsControl" Grid.Row="1" Margin="0,0,0,24">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Width="176"
-                                MinHeight="118"
-                                Margin="0,0,14,14"
-                                Style="{StaticResource MetricCardStyle}">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <Border Style="{StaticResource MetricIconBoxStyle}"
-                                            Background="{Binding IconBackground}"
-                                            Width="34"
-                                            Height="34">
-                                        <TextBlock Text="{Binding IconGlyph}"
-                                                   Style="{StaticResource MetricIconTextStyle}"
-                                                   FontSize="16"
-                                                   Foreground="{Binding AccentBrush}" />
-                                    </Border>
-                                    <TextBlock Text="{Binding Title}"
-                                               Margin="12,6,0,0"
-                                               MaxHeight="34"
-                                               Style="{StaticResource MetricCaptionStyle}" />
-                                </StackPanel>
-                                <TextBlock Text="{Binding Value}"
-                                           Margin="0,12,0,0"
-                                           Style="{StaticResource MetricValueStyle}" />
-                                <TextBlock Text="{Binding Delta}"
-                                           Margin="0,10,0,0"
-                                           FontWeight="SemiBold"
-                                           Foreground="{Binding DeltaBrush}"
-                                           Style="{StaticResource MetricHintStyle}" />
-                                <TextBlock Text="{Binding Hint}"
-                                           Margin="0,2,0,0"
-                                           TextWrapping="Wrap"
-                                           MaxHeight="32"
-                                           Style="{StaticResource MetricHintStyle}" />
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            <Grid Grid.Row="2">
+            <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -325,66 +245,122 @@
 
                 <Border Grid.Column="2" Padding="0" Style="{StaticResource PageCardStyle}">
                     <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="60" />
-                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition x:Name="FilterPanelColumn" Width="272" />
+                            <ColumnDefinition Width="1" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                        <WrapPanel Margin="18,16,18,16" VerticalAlignment="Center">
-                            <ComboBox x:Name="PrimaryFilterCombo"
-                                      Width="150"
-                                      Style="{StaticResource TableFilterComboBoxStyle}"
-                                      SelectionChanged="HandleFilterChanged" />
-                            <ComboBox x:Name="SecondaryFilterCombo"
-                                      Width="170"
-                                      Margin="10,0,0,0"
-                                      Visibility="Collapsed"
-                                      Style="{StaticResource TableFilterComboBoxStyle}"
-                                      SelectionChanged="HandleFilterChanged" />
-                            <StackPanel x:Name="DateRangePanel" Orientation="Horizontal" Margin="12,0,0,0" Visibility="Collapsed">
-                                <DatePicker x:Name="StartDatePicker"
-                                            Width="128"
-                                            Style="{StaticResource TableFilterDatePickerStyle}"
-                                            SelectedDateChanged="HandleDateFilterChanged" />
-                                <DatePicker x:Name="EndDatePicker"
-                                            Width="128"
-                                            Style="{StaticResource TableFilterDatePickerStyle}"
-                                            Margin="10,0,0,0"
-                                            SelectedDateChanged="HandleDateFilterChanged" />
+                        <Border Grid.Column="0" Padding="18,18,16,18">
+                            <StackPanel x:Name="FilterFieldsPanel" Width="238">
+                                <Border x:Name="HeaderSearchBorder"
+                                        Width="238"
+                                        Height="32"
+                                        Background="#FFFFFF"
+                                        BorderBrush="#D5DBE7"
+                                        BorderThickness="1"
+                                        CornerRadius="2"
+                                        Padding="4,0,26,0"
+                                        Margin="0,0,0,8">
+                                    <Grid>
+                                        <TextBox x:Name="HeaderSearchBox"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 FontSize="14"
+                                                 Foreground="#1B2440"
+                                                 VerticalContentAlignment="Center"
+                                                 TextChanged="HandleHeaderSearchTextChanged" />
+                                        <TextBlock x:Name="HeaderSearchPlaceholderText"
+                                                   Text="Поиск..."
+                                                   FontSize="14"
+                                                   Foreground="#A6ACB8"
+                                                   VerticalAlignment="Center"
+                                                   IsHitTestVisible="False" />
+                                        <TextBlock FontFamily="Segoe Fluent Icons"
+                                                   Text="&#xE721;"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#6C7482"
+                                                   FontSize="12" />
+                                    </Grid>
+                                </Border>
+
+                                <ComboBox x:Name="PrimaryFilterCombo"
+                                          Width="238"
+                                          Height="30"
+                                          Margin="0,0,0,8"
+                                          Style="{StaticResource TableFilterComboBoxStyle}"
+                                          SelectionChanged="HandleFilterChanged" />
+                                <ComboBox x:Name="SecondaryFilterCombo"
+                                          Width="238"
+                                          Height="30"
+                                          Margin="0,0,0,8"
+                                          Visibility="Collapsed"
+                                          Style="{StaticResource TableFilterComboBoxStyle}"
+                                          SelectionChanged="HandleFilterChanged" />
+                                <StackPanel x:Name="DateRangePanel" Visibility="Collapsed">
+                                    <DatePicker x:Name="StartDatePicker"
+                                                Width="238"
+                                                Height="30"
+                                                Margin="0,0,0,8"
+                                                Style="{StaticResource TableFilterDatePickerStyle}"
+                                                SelectedDateChanged="HandleDateFilterChanged" />
+                                    <DatePicker x:Name="EndDatePicker"
+                                                Width="238"
+                                                Height="30"
+                                                Margin="0,0,0,8"
+                                                Style="{StaticResource TableFilterDatePickerStyle}"
+                                                SelectedDateChanged="HandleDateFilterChanged" />
+                                </StackPanel>
+                                <Button x:Name="FilterButton"
+                                        HorizontalAlignment="Right"
+                                        Background="Transparent"
+                                        BorderBrush="Transparent"
+                                        BorderThickness="0"
+                                        Foreground="#4D5B79"
+                                        FontSize="14"
+                                        FontWeight="Normal"
+                                        Padding="0,4,0,0"
+                                        Cursor="Hand"
+                                        Content="+ фильтры"
+                                        Click="HandleFilterButtonClick" />
                             </StackPanel>
-                            <Button x:Name="FilterButton"
-                                    Margin="12,0,0,0"
-                                    Style="{StaticResource TableFilterActionButtonStyle}"
-                                    Content="Фильтры"
-                                    Click="HandleFilterButtonClick" />
-                        </WrapPanel>
+                        </Border>
 
-                        <Grid Grid.Row="1">
-                            <DataGrid x:Name="RecordsGrid"
-                                      ScrollViewer.VerticalScrollBarVisibility="Hidden"
-                                      ScrollViewer.HorizontalScrollBarVisibility="Auto" />
-                            <TextBlock x:Name="EmptyStateText"
-                                       Text="Нет данных"
-                                       Style="{StaticResource TableEmptyTitleStyle}"
-                                       Visibility="Collapsed"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" />
-                        </Grid>
+                        <Border Grid.Column="1" Background="#EEF2FA" />
 
-                        <Grid Grid.Row="2" Style="{StaticResource TableFooterGridStyle}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="60" />
+                            </Grid.RowDefinitions>
 
-                            <TextBlock x:Name="FooterCountText"
-                                       Style="{StaticResource TableFooterTextStyle}" />
+                            <Grid Grid.Row="0">
+                                <DataGrid x:Name="RecordsGrid"
+                                          ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+                                <TextBlock x:Name="EmptyStateText"
+                                           Text="Нет данных"
+                                           Style="{StaticResource TableEmptyTitleStyle}"
+                                           Visibility="Collapsed"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Grid>
 
-                            <WrapPanel x:Name="PaginationPanel"
-                                       Grid.Column="1"
-                                       VerticalAlignment="Center"
-                                       Orientation="Horizontal" />
+                            <Grid Grid.Row="1" Style="{StaticResource TableFooterGridStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock x:Name="FooterCountText"
+                                           Style="{StaticResource TableFooterTextStyle}" />
+
+                                <WrapPanel x:Name="PaginationPanel"
+                                           Grid.Column="1"
+                                           VerticalAlignment="Center"
+                                           Orientation="Horizontal" />
+                            </Grid>
                         </Grid>
                     </Grid>
                 </Border>
