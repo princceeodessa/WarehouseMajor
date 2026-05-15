@@ -39,40 +39,15 @@ public partial class SalesReconciliationsWorkspaceView : UserControl
     }
 
     /// <summary>
-    /// Генерирует демо-сверки на основе существующих контрагентов. Заменить
-    /// на реальный <c>SalesWorkspace.Reconciliations</c> после миграции схемы.
+    /// Пока в SalesWorkspace нет поля Reconciliations и таблицы в БД, оставляем
+    /// пустой список — пользователь видит честное «нет данных», а не демо.
+    /// После миграции схемы (добавление SalesReconciliationRecord +
+    /// BindingList&lt;Reconciliations&gt; в SalesWorkspace) заменить на чтение
+    /// _salesWorkspace.Reconciliations.
     /// </summary>
     private void BuildDemoRecords()
     {
         _records.Clear();
-        var i = 0;
-        var today = DateTime.Today;
-
-        foreach (var customer in _salesWorkspace.Customers.Take(40))
-        {
-            i++;
-            var periodFrom = i % 5 == 0 ? (DateTime?)null : new DateTime(today.Year, 1, 1).AddMonths(-i % 4);
-            var periodTo = today.AddDays(-(i % 30));
-            var status = i % 3 == 0 ? "Сверена" : "Создана";
-            var record = new ReconciliationRecord
-            {
-                Number = $"НФНФ-{4 + i:D6}",
-                Organization = Ui(string.IsNullOrWhiteSpace(customer.Manager) ? "ИП Закирова Ирина В..." : customer.Manager),
-                CounterpartyName = Ui(customer.Name),
-                CounterpartyInn = Ui(customer.Inn),
-                PeriodFrom = periodFrom,
-                PeriodTo = periodTo,
-                Status = status,
-                Author = (i % 4) switch
-                {
-                    0 => "Ахмедзянова Лилия",
-                    1 => "Булыгина Мария",
-                    2 => "Русакова А",
-                    _ => "Нестеренко Роман"
-                },
-            };
-            _records.Add(record);
-        }
     }
 
     private void RefreshFilters()

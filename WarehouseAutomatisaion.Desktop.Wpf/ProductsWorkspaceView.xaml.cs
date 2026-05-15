@@ -680,25 +680,84 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         var priceTo = TryParseDecimal(PriceToBox.Text);
         var allowedKinds = GetAllowedItemKinds();
 
-        var rows = _allProducts
-            .Where(item => MatchesSearch(item, search))
-            .Where(item => category == AllCategoriesFilter || item.Category.Equals(category, StringComparison.OrdinalIgnoreCase))
-            .Where(item => warehouse == AllWarehousesFilter || item.Warehouse.Equals(warehouse, StringComparison.OrdinalIgnoreCase))
-            .Where(item => supplier == AllSuppliersFilter || item.Supplier.Equals(supplier, StringComparison.OrdinalIgnoreCase))
-            .Where(item => string.IsNullOrWhiteSpace(priceType) || priceType == AllPriceTypesFilter || item.HasPriceType(priceType))
-            .Where(item => status == AllStatusesFilter || item.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
-            .Where(item => !onlyProblems || item.HasProblem)
-            .Where(item => !onlyWithoutCells || item.MissingCellPlacement)
-            .Where(item => !stockEnabled || MatchesStockState(item, stockState))
-            .Where(item => !stockEnabled || stockWarehouse == AllWarehousesFilter || item.Warehouse.Equals(stockWarehouse, StringComparison.OrdinalIgnoreCase))
-            .Where(item => !priceEnabled || string.IsNullOrWhiteSpace(oneCPriceType) || oneCPriceType == AllPriceTypesFilter || item.HasPriceType(oneCPriceType))
-            .Where(item => !priceEnabled || !priceFrom.HasValue || item.Price >= priceFrom.Value)
-            .Where(item => !priceEnabled || !priceTo.HasValue || item.Price <= priceTo.Value)
-            .Where(item => allowedKinds is null || allowedKinds.Contains(item.Kind))
-            .OrderByDescending(item => onlyWithoutCells && item.MissingCellPlacement)
-            .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        // Перф: _allProducts уже отсортирован по Name/Code в BuildProducts; LINQ Where сохраняет порядок,
+        // поэтому повторная общая сортировка не нужна. Сортируем дополнительно только когда
+        // включён фильтр «Без ячеек» (приоритизировать missingCell строки).
+        IEnumerable<ProductRowViewModel> filtered = _allProducts;
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            filtered = filtered.Where(item => MatchesSearch(item, search));
+        }
+        if (category != AllCategoriesFilter)
+        {
+            filtered = filtered.Where(item => item.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
+        }
+        if (warehouse != AllWarehousesFilter)
+        {
+            filtered = filtered.Where(item => item.Warehouse.Equals(warehouse, StringComparison.OrdinalIgnoreCase));
+        }
+        if (supplier != AllSuppliersFilter)
+        {
+            filtered = filtered.Where(item => item.Supplier.Equals(supplier, StringComparison.OrdinalIgnoreCase));
+        }
+        if (!string.IsNullOrWhiteSpace(priceType) && priceType != AllPriceTypesFilter)
+        {
+            filtered = filtered.Where(item => item.HasPriceType(priceType));
+        }
+        if (status != AllStatusesFilter)
+        {
+            filtered = filtered.Where(item => item.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
+        }
+        if (onlyProblems)
+        {
+            filtered = filtered.Where(item => item.HasProblem);
+        }
+        if (onlyWithoutCells)
+        {
+            filtered = filtered.Where(item => item.MissingCellPlacement);
+        }
+        if (stockEnabled)
+        {
+            filtered = filtered.Where(item => MatchesStockState(item, stockState));
+            if (stockWarehouse != AllWarehousesFilter)
+            {
+                filtered = filtered.Where(item => item.Warehouse.Equals(stockWarehouse, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        if (priceEnabled)
+        {
+            if (!string.IsNullOrWhiteSpace(oneCPriceType) && oneCPriceType != AllPriceTypesFilter)
+            {
+                filtered = filtered.Where(item => item.HasPriceType(oneCPriceType));
+            }
+            if (priceFrom.HasValue)
+            {
+                var from = priceFrom.Value;
+                filtered = filtered.Where(item => item.Price >= from);
+            }
+            if (priceTo.HasValue)
+            {
+                var to = priceTo.Value;
+                filtered = filtered.Where(item => item.Price <= to);
+            }
+        }
+        if (allowedKinds is not null)
+        {
+            filtered = filtered.Where(item => allowedKinds.Contains(item.Kind));
+        }
+
+        ProductRowViewModel[] rows;
+        if (onlyWithoutCells)
+        {
+            rows = filtered
+                .OrderByDescending(item => item.MissingCellPlacement)
+                .ToArray();
+        }
+        else
+        {
+            rows = filtered.ToArray();
+        }
 
         _filteredProducts = rows;
         MoveCurrentPageToProduct(previousId);

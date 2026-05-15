@@ -17,68 +17,72 @@ public partial class PriceRegistrationsWorkspaceView : UserControl
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
 
     private readonly SalesWorkspace _salesWorkspace;
+    private readonly CatalogWorkspaceStore _catalogStore;
+    private CatalogWorkspace _catalogWorkspace;
     private readonly List<PriceRegistrationRecord> _records = new();
     private bool _initializing = true;
 
     public PriceRegistrationsWorkspaceView(SalesWorkspace salesWorkspace)
     {
         _salesWorkspace = salesWorkspace;
+        _catalogStore = CatalogWorkspaceStore.CreateDefault();
+        _catalogWorkspace = CatalogWorkspace.CreateEmpty(
+            string.IsNullOrWhiteSpace(_salesWorkspace.CurrentOperator) ? "Загрузка..." : _salesWorkspace.CurrentOperator,
+            _salesWorkspace.Currencies,
+            _salesWorkspace.Warehouses);
+
         InitializeComponent();
         WpfTextNormalizer.NormalizeTree(this);
 
-        BuildDemoRecords();
+        Loaded += HandleLoaded;
+    }
+
+    private async void HandleLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= HandleLoaded;
+
+        // Грузим реальные документы установки цен из CatalogWorkspaceStore
+        // (MySQL Backplane → app_catalog_price_registrations / _lines).
+        try
+        {
+            _catalogWorkspace = await System.Threading.Tasks.Task.Run(() =>
+                _catalogStore.LoadOrCreate(
+                    string.IsNullOrWhiteSpace(_salesWorkspace.CurrentOperator) ? "Оператор" : _salesWorkspace.CurrentOperator,
+                    _salesWorkspace));
+        }
+        catch
+        {
+            // если сеть/БД недоступны — пустой каталог, _records останется пустым
+        }
+
+        LoadRecords();
         RefreshFilters();
         _initializing = false;
         ApplyFilters();
     }
 
     /// <summary>
-    /// Генерирует демо-документы установки цен. После миграции схемы заменить
-    /// на чтение из <c>CatalogWorkspace.PriceRegistrations</c>.
+    /// Загружает реальные документы установки цен из <see cref="CatalogWorkspace.PriceRegistrations"/>.
+    /// Каждый документ = одна строка списка (одна шапка с одним видом цены).
     /// </summary>
-    private void BuildDemoRecords()
+    private void LoadRecords()
     {
         _records.Clear();
-        var today = DateTime.Today;
-        var baseDate = new DateTime(today.Year, 1, 1);
 
-        var priceTypeVariants = new[]
+        if (_catalogWorkspace?.PriceRegistrations is null)
         {
-            "Цены для операций (г. Иже…",
-            "Розничная цена УДМ, Закуп…",
-            "Учетная цена, Оптовая, Оп…",
-            "Учетная цена, Закупочная",
-            "Учетная цена, Оптовая, Зак…",
-            "Дилер Тюмень, Дилер Тюме…",
-            "Дилер Пермь, Дилер Пермь…",
-            "Розничная цена РРЦ, Опто…",
-            "Закупочная",
-            "Дилер Ижевск",
-        };
+            return;
+        }
 
-        var authors = new[]
-        {
-            "Администратор", "Вологжанина Кристина", "Русакова А",
-            "КозачковС", "Богданов Александр", "Чуракова Надежда",
-            "Шорников Владимир",
-        };
-
-        var comments = new[]
-        {
-            string.Empty, string.Empty, string.Empty,
-            "Глянцевые гардины - выво…",
-            string.Empty, string.Empty,
-        };
-
-        for (var i = 0; i < 30; i++)
+        foreach (var doc in _catalogWorkspace.PriceRegistrations.OrderByDescending(d => d.DocumentDate))
         {
             _records.Add(new PriceRegistrationRecord
             {
-                Date = baseDate.AddDays(i * 3),
-                Number = $"НФ-{i + 1:D8}",
-                PriceTypes = priceTypeVariants[i % priceTypeVariants.Length],
-                Comment = comments[i % comments.Length],
-                Author = authors[i % authors.Length],
+                Date = doc.DocumentDate,
+                Number = Ui(doc.Number),
+                PriceTypes = Ui(doc.PriceTypeName),
+                Comment = Ui(doc.Comment),
+                Author = Ui(doc.Status), // в схеме нет поля Author — используем Status для отображения
             });
         }
     }
