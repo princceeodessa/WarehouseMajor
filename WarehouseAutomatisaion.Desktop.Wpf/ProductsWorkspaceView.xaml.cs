@@ -503,37 +503,24 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private IReadOnlyList<CatalogItemRecord> BuildVisibleCatalogItems()
     {
+        // Только серверная БД (app_catalog_items). Operational MySQL и записи из документов
+        // продаж раньше «подсасывались» сюда же — это и было причиной 9 830 товаров по 0 ₽,
+        // которые перекрывали честные цены из Backplane. Теперь источник один.
         var items = new List<CatalogItemRecord>();
         var knownKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in _catalogWorkspace.Items)
         {
-            AddItem(item);
-        }
-
-        foreach (var option in EnumerateSalesCatalogOptions())
-        {
-            var key = BuildCatalogItemKey(option.Code, option.Name);
-            if (string.IsNullOrWhiteSpace(key) || knownKeys.Contains(key))
+            var key = BuildCatalogItemKey(item.Code, item.Name);
+            if (!string.IsNullOrWhiteSpace(key) && !knownKeys.Add(key))
             {
                 continue;
             }
 
-            AddItem(CreateRuntimeCatalogRecord(option));
+            items.Add(item);
         }
 
         return items;
-
-        void AddItem(CatalogItemRecord item)
-        {
-            var key = BuildCatalogItemKey(item.Code, item.Name);
-            if (!string.IsNullOrWhiteSpace(key) && !knownKeys.Add(key))
-            {
-                return;
-            }
-
-            items.Add(item);
-        }
     }
 
     private IEnumerable<SalesCatalogItemOption> EnumerateSalesCatalogOptions()

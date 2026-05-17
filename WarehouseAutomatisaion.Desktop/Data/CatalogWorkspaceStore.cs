@@ -63,45 +63,31 @@ public sealed class CatalogWorkspaceStore
     public CatalogWorkspace LoadOrCreate(string currentOperator, SalesWorkspace salesWorkspace)
     {
         EnsureBackplaneReady(currentOperator);
-
-        var seed = BuildSeed(salesWorkspace);
-        var workspace = CatalogWorkspace.Create(currentOperator, seed);
         TryGetBackplane()?.TryEnsureUserProfile(currentOperator);
 
-        var backplaneRecord = TryGetBackplane()?.TryLoadCatalogWorkspaceSnapshotRecord();
-        if (backplaneRecord is not null)
+        // Серверная БД — единственный источник истины. Локальные JSON-кэши и
+        // operational-схема не используются для каталога: всё читаем напрямую из
+        // app_catalog_items / app_catalog_price_registrations. Никакого reconcile
+        // и автосохранения «слиянием» — иначе seed с нулевыми ценами затирает
+        // импортированные данные.
+        var workspace = CatalogWorkspace.CreateEmpty(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses);
+
+        if (_serverModeEnabled)
         {
-            var backplaneSnapshot = backplaneRecord.Snapshot;
-            _remoteMetadata = backplaneRecord.Metadata;
-            _lastSavedSnapshotHash = backplaneRecord.Metadata.PayloadHash;
-            _hasPendingLocalSync = ShouldPromoteLocalSnapshot(backplaneRecord.Metadata);
-
-            var normalized = NormalizeSnapshot(backplaneSnapshot);
-            normalized |= ReconcileSnapshot(backplaneSnapshot, seed);
-            workspace.ReplaceFrom(backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
-            if (normalized && !_hasPendingLocalSync)
+            var backplaneRecord = TryGetBackplane()?.TryLoadCatalogWorkspaceSnapshotRecord();
+            if (backplaneRecord is not null)
             {
-                TrySaveToBackplane(backplaneSnapshot, currentOperator);
+                var backplaneSnapshot = backplaneRecord.Snapshot;
+                _remoteMetadata = backplaneRecord.Metadata;
+                _lastSavedSnapshotHash = backplaneRecord.Metadata.PayloadHash;
+                _hasPendingLocalSync = false;
+                NormalizeSnapshot(backplaneSnapshot);
+                workspace.ReplaceFrom(backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
             }
-
             return workspace;
         }
 
-        var legacyBackplaneRecord = TryGetBackplane()?.TryLoadModuleSnapshotRecord<CatalogWorkspaceSnapshot>("catalog");
-        if (legacyBackplaneRecord is not null)
-        {
-            var backplaneSnapshot = legacyBackplaneRecord.Snapshot;
-            NormalizeSnapshot(backplaneSnapshot);
-            ReconcileSnapshot(backplaneSnapshot, seed);
-            workspace.ReplaceFrom(backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
-            if (TrySaveToBackplane(backplaneSnapshot, currentOperator))
-            {
-                _lastSavedSnapshotHash = ComputeSnapshotHash(backplaneSnapshot);
-            }
-
-            return workspace;
-        }
-
+        // Локальный режим (Backplane выключен) — fallback на JSON-файл.
         if (!File.Exists(StoragePath))
         {
             return workspace;
@@ -116,24 +102,8 @@ public sealed class CatalogWorkspaceStore
                 return workspace;
             }
 
-            var normalized = NormalizeSnapshot(snapshot);
-            normalized |= ReconcileSnapshot(snapshot, seed);
+            NormalizeSnapshot(snapshot);
             workspace.ReplaceFrom(snapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
-            if (normalized)
-            {
-                WriteSnapshot(snapshot);
-            }
-
-            var backplane = _backplane;
-            if (backplane is not null && TrySaveToBackplane(snapshot, currentOperator))
-            {
-                _lastSavedSnapshotHash = ComputeSnapshotHash(snapshot);
-            }
-            else if (_serverModeEnabled)
-            {
-                _hasPendingLocalSync = true;
-            }
-
             return workspace;
         }
         catch
