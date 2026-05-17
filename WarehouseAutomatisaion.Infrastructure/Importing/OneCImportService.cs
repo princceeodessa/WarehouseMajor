@@ -145,6 +145,16 @@ public sealed class OneCImportService
                 referenceLookup,
                 BuildWriteOffRecord,
                 allowSchemaProbeFallback: true),
+            PriceRegistrations = LoadDataset(
+                manifestEntries,
+                "Document",
+                "УстановкаЦенНоменклатуры",
+                "Установка цен 1С",
+                "Документы установки цен номенклатуры из 1С (шапка + табличная часть «Товары»).",
+                schemaMap,
+                referenceLookup,
+                BuildPriceRegistrationRecord,
+                allowSchemaProbeFallback: true),
             Schemas = schemaMap.Values.OrderBy(schema => schema.ObjectName, StringComparer.OrdinalIgnoreCase).ToArray()
         };
     }
@@ -1094,6 +1104,28 @@ public sealed class OneCImportService
             Status = FirstNonEmpty(
                 GetFieldDisplayValue(context.Fields, "ВидОперации"),
                 BoolToStatus(GetFieldRawValue(context.Fields, "Проведен"))),
+            Date = ParseOneCDate(GetFieldRawValue(context.Fields, "Дата")),
+            Fields = context.Fields,
+            TabularSections = context.TabularSections
+        };
+    }
+
+    private static OneCRecordSnapshot BuildPriceRegistrationRecord(RecordBuildContext context)
+    {
+        return new OneCRecordSnapshot
+        {
+            ObjectName = context.ObjectName,
+            Reference = GetFieldRawValue(context.Fields, "Ссылка"),
+            Number = GetFieldDisplayValue(context.Fields, "Номер"),
+            Title = $"Установка цен {GetFieldDisplayValue(context.Fields, "Номер")}",
+            Subtitle = JoinNonEmpty(" | ",
+                GetFieldDisplayValue(context.Fields, "ВидЦен"),
+                GetFieldDisplayValue(context.Fields, "ВидЦены"),
+                GetFieldDisplayValue(context.Fields, "Валюта"),
+                GetFieldDisplayValue(context.Fields, "Организация")),
+            Status = FirstNonEmpty(
+                BoolToStatus(GetFieldRawValue(context.Fields, "Проведен")),
+                GetFieldDisplayValue(context.Fields, "Комментарий")),
             Date = ParseOneCDate(GetFieldRawValue(context.Fields, "Дата")),
             Fields = context.Fields,
             TabularSections = context.TabularSections

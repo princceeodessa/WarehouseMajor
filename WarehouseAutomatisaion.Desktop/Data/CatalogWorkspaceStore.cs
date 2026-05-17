@@ -850,15 +850,144 @@ public sealed class CatalogWorkspaceStore
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+        var priceRegistrations = MapPriceRegistrationsFromImport(salesWorkspace, priceTypes);
+
         return new CatalogWorkspaceSeed
         {
             Items = items,
             PriceTypes = priceTypes,
             Discounts = Array.Empty<CatalogDiscountRecord>(),
-            PriceRegistrations = Array.Empty<CatalogPriceRegistrationRecord>(),
+            PriceRegistrations = priceRegistrations,
             Currencies = currencies,
             Warehouses = warehouses
         };
+    }
+
+    /// <summary>
+    /// Маппит документы «Установка цен номенклатуры» из 1С выгрузки в наши
+    /// <see cref="CatalogPriceRegistrationRecord"/>. Каждый документ становится
+    /// одной записью с табличной частью «Товары» → CatalogPriceRegistrationLineRecord.
+    /// </summary>
+    private static IReadOnlyList<CatalogPriceRegistrationRecord> MapPriceRegistrationsFromImport(
+        SalesWorkspace salesWorkspace,
+        IReadOnlyList<CatalogPriceTypeRecord> priceTypes)
+    {
+        var importRecords = salesWorkspace.OneCImport?.PriceRegistrations.Records;
+        if (importRecords is null || importRecords.Count == 0)
+        {
+            return Array.Empty<CatalogPriceRegistrationRecord>();
+        }
+
+        var defaultCurrency = priceTypes.FirstOrDefault()?.CurrencyCode
+            ?? salesWorkspace.Currencies.FirstOrDefault()
+            ?? "RUB";
+
+        var result = new List<CatalogPriceRegistrationRecord>(importRecords.Count);
+        foreach (var record in importRecords)
+        {
+            if (string.IsNullOrWhiteSpace(record.Reference) && string.IsNullOrWhiteSpace(record.Number))
+            {
+                continue;
+            }
+
+            var priceTypeName = FirstNonEmpty(
+                GetFieldDisplay(record, "ВидЦен", "ВидЦены"),
+                priceTypes.FirstOrDefault()?.Name ?? string.Empty);
+            var currencyCode = FirstNonEmpty(
+                GetFieldDisplay(record, "Валюта", "ВалютаДокумента"),
+                defaultCurrency);
+            var status = string.IsNullOrWhiteSpace(record.Status) ? "Проведен" : record.Status;
+
+            var lines = new List<CatalogPriceRegistrationLineRecord>();
+            foreach (var section in record.TabularSections)
+            {
+                if (!string.Equals(section.Name, "Товары", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(section.Name, "Цены", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                foreach (var row in section.Rows)
+                {
+                    var itemDisplay = FirstNonEmpty(
+                        GetRowFieldDisplay(row, "Номенклатура", "Товар"),
+                        GetRowFieldDisplay(row, "Наименование"));
+                    var itemCode = FirstNonEmpty(
+                        GetRowFieldDisplay(row, "КодНоменклатуры", "Код"),
+                        GetRowFieldDisplay(row, "Артикул"));
+                    var newPrice = ParseDecimal(GetRowFieldDisplay(row, "Цена", "НоваяЦена", "Сумма"));
+                    var previousPrice = ParseDecimal(GetRowFieldDisplay(row, "ПредыдущаяЦена", "СтараяЦена"));
+
+                    if (newPrice <= 0m && previousPrice <= 0m)
+                    {
+                        continue;
+                    }
+
+                    lines.Add(new CatalogPriceRegistrationLineRecord
+                    {
+                        Id = Guid.NewGuid(),
+                        ItemCode = itemCode,
+                        ItemName = itemDisplay,
+                        Unit = GetRowFieldDisplay(row, "ЕдиницаИзмерения", "ЕдИзмерения", "Ед"),
+                        NewPrice = newPrice,
+                        PreviousPrice = previousPrice
+                    });
+                }
+            }
+
+            if (lines.Count == 0)
+            {
+                continue;
+            }
+
+            result.Add(new CatalogPriceRegistrationRecord
+            {
+                Id = CreateDeterministicGuid($"catalog-price-registration|{record.Reference}|{record.Number}"),
+                Number = record.Number,
+                DocumentDate = record.Date ?? DateTime.Today,
+                PriceTypeName = priceTypeName,
+                CurrencyCode = currencyCode,
+                Status = status,
+                Comment = GetFieldDisplay(record, "Комментарий"),
+                Lines = lines
+            });
+        }
+
+        return result;
+    }
+
+    private static string GetRowFieldDisplay(OneCTabularSectionRowSnapshot row, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            var value = row.FindField(name)?.DisplayValue;
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return TextMojibakeFixer.NormalizeText(value);
+            }
+        }
+        return string.Empty;
+    }
+
+    private static decimal ParseDecimal(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return 0m;
+        }
+
+        var normalized = value.Trim()
+            .Replace(' ', ' ')
+            .Replace(" ", string.Empty)
+            .Replace(',', '.');
+
+        return decimal.TryParse(
+            normalized,
+            System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var result)
+            ? result
+            : 0m;
     }
 
     private static IReadOnlyList<CatalogPriceTypeRecord> MapOperationalPriceTypes(IEnumerable<OperationalCatalogPriceTypeSeed> priceTypes)

@@ -28,6 +28,13 @@ public sealed class OneCImportSnapshot
 
     public OneCEntityDataset StockWriteOffs { get; init; } = OneCEntityDataset.Empty("СписаниеЗапасов");
 
+    /// <summary>
+    /// Документы «Установка цен номенклатуры» (1С УНФ).
+    /// Шапка содержит ВидЦен, Дату, Комментарий; табличная часть «Товары» — строки
+    /// с Номенклатура + Цена. Используется для подтягивания цен в карточку товара.
+    /// </summary>
+    public OneCEntityDataset PriceRegistrations { get; init; } = OneCEntityDataset.Empty("УстановкаЦенНоменклатуры");
+
     public IReadOnlyList<OneCSchemaDefinition> Schemas { get; init; } = Array.Empty<OneCSchemaDefinition>();
 
     public bool HasAnyData =>
@@ -43,6 +50,7 @@ public sealed class OneCImportSnapshot
         || StockReservations.Records.Count > 0
         || InventoryCounts.Records.Count > 0
         || StockWriteOffs.Records.Count > 0
+        || PriceRegistrations.Records.Count > 0
         || Schemas.Count > 0;
 
     public OneCSchemaDefinition? FindSchema(string objectName)
