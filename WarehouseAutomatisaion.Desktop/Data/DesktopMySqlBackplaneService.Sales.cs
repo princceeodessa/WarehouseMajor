@@ -1694,11 +1694,38 @@ public sealed partial class DesktopMySqlBackplaneService
         string tableName,
         IEnumerable<Guid> ids)
     {
-        using var command = CreateMySqlCommand(connection, transaction, $"INSERT IGNORE INTO {tableName} (id) VALUES (@id);");
-        AddParameter(command, "@id");
-        foreach (var id in ids.Where(id => id != Guid.Empty).Distinct())
+        // Release 1.0.108: multi-row INSERT VALUES батчами по 1000.
+        // Раньше делали per-row INSERT — для 70k+ catalog item_prices это
+        // десятки тысяч round-trip'ов по сети, что роняло соединение по
+        // wait_timeout / max_allowed_packet и валило весь Save с
+        // SocketException 10054. Теперь 70k → ~70 батчей за секунду.
+        var list = ids.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (list.Count == 0)
         {
-            SetParameter(command, "@id", id.ToString());
+            return;
+        }
+
+        const int batchSize = 1000;
+        for (int offset = 0; offset < list.Count; offset += batchSize)
+        {
+            var sliceCount = Math.Min(batchSize, list.Count - offset);
+            var sb = new System.Text.StringBuilder($"INSERT IGNORE INTO {tableName} (id) VALUES ");
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandTimeout = MysqlSalesCommandTimeoutSeconds;
+            for (int i = 0; i < sliceCount; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(',');
+                }
+
+                sb.Append("(@id").Append(i).Append(')');
+                command.Parameters.AddWithValue($"@id{i}", list[offset + i].ToString());
+            }
+
+            sb.Append(';');
+            command.CommandText = sb.ToString();
             command.ExecuteNonQuery();
         }
     }

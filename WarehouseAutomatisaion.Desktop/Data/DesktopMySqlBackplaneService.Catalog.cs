@@ -895,50 +895,48 @@ public sealed partial class DesktopMySqlBackplaneService
         MySqlTransaction transaction,
         IEnumerable<CatalogItemPriceRecord> prices)
     {
-        using var command = CreateMySqlCommand(connection, transaction, """
-            INSERT INTO app_catalog_item_prices (
-                id,
-                item_id,
-                price_type_id,
-                price_type_name,
-                price_value,
-                currency_code
-            )
-            VALUES (
-                @id,
-                @item_id,
-                @price_type_id,
-                @price_type_name,
-                @price_value,
-                @currency_code
-            )
-            ON DUPLICATE KEY UPDATE
-                price_type_name = VALUES(price_type_name),
-                price_value = VALUES(price_value),
-                currency_code = VALUES(currency_code);
-            """);
-        foreach (var name in new[]
-                 {
-                     "@id", "@item_id", "@price_type_id", "@price_type_name", "@price_value", "@currency_code"
-                 })
+        // Release 1.0.108: batch multi-row INSERT (по 500 строк за запрос).
+        // Раньше per-row INSERT на 70 935 строк = десятки тысяч round-trip → SocketException 10054.
+        var list = prices.Where(p => p.ItemId != Guid.Empty && p.PriceTypeId != Guid.Empty).ToList();
+        if (list.Count == 0)
         {
-            AddParameter(command, name);
+            return;
         }
 
-        foreach (var price in prices)
+        const int batchSize = 500;
+        for (int offset = 0; offset < list.Count; offset += batchSize)
         {
-            if (price.ItemId == Guid.Empty || price.PriceTypeId == Guid.Empty)
+            var sliceCount = Math.Min(batchSize, list.Count - offset);
+            var sb = new System.Text.StringBuilder(@"INSERT INTO app_catalog_item_prices (id, item_id, price_type_id, price_type_name, price_value, currency_code) VALUES ");
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandTimeout = MysqlSalesCommandTimeoutSeconds;
+
+            for (int i = 0; i < sliceCount; i++)
             {
-                continue;
+                var price = list[offset + i];
+                var priceId = EnsureId(price.Id, $"catalog-item-price|{price.ItemId:N}|{price.PriceTypeId:N}");
+                if (i > 0)
+                {
+                    sb.Append(',');
+                }
+
+                sb.Append("(@id").Append(i)
+                  .Append(",@iid").Append(i)
+                  .Append(",@ptid").Append(i)
+                  .Append(",@ptn").Append(i)
+                  .Append(",@pv").Append(i)
+                  .Append(",@cc").Append(i).Append(')');
+                command.Parameters.AddWithValue($"@id{i}", priceId.ToString());
+                command.Parameters.AddWithValue($"@iid{i}", price.ItemId.ToString());
+                command.Parameters.AddWithValue($"@ptid{i}", price.PriceTypeId.ToString());
+                command.Parameters.AddWithValue($"@ptn{i}", price.PriceTypeName ?? string.Empty);
+                command.Parameters.AddWithValue($"@pv{i}", price.Price);
+                command.Parameters.AddWithValue($"@cc{i}", string.IsNullOrWhiteSpace(price.CurrencyCode) ? "RUB" : price.CurrencyCode);
             }
 
-            var priceId = EnsureId(price.Id, $"catalog-item-price|{price.ItemId:N}|{price.PriceTypeId:N}");
-            SetParameter(command, "@id", priceId.ToString());
-            SetParameter(command, "@item_id", price.ItemId.ToString());
-            SetParameter(command, "@price_type_id", price.PriceTypeId.ToString());
-            SetParameter(command, "@price_type_name", price.PriceTypeName ?? string.Empty);
-            SetParameter(command, "@price_value", price.Price);
-            SetParameter(command, "@currency_code", string.IsNullOrWhiteSpace(price.CurrencyCode) ? "RUB" : price.CurrencyCode);
+            sb.Append(@" ON DUPLICATE KEY UPDATE price_type_name = VALUES(price_type_name), price_value = VALUES(price_value), currency_code = VALUES(currency_code);");
+            command.CommandText = sb.ToString();
             command.ExecuteNonQuery();
         }
     }
