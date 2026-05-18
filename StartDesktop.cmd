@@ -3,7 +3,7 @@ setlocal
 
 set "ROOT=%~dp0"
 set "PROJECT=%ROOT%WarehouseAutomatisaion.Desktop.Wpf\WarehouseAutomatisaion.Desktop.Wpf.csproj"
-set "EXE=%ROOT%WarehouseAutomatisaion.Desktop.Wpf\bin\Debug\net8.0-windows\MajorWarehause.exe"
+set "EXE=%ROOT%WarehouseAutomatisaion.Desktop.Wpf\bin\Debug\net8.0-windows\Major.exe"
 
 if not exist "%EXE%" (
     echo WPF executable not found. Building desktop shell...

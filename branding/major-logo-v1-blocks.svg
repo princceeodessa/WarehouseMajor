@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Major — вариант 1: «Блочная M из паллет».
+  Концепция: левая и правая ножки M — два параллельных «стеллажа» (вертикальные блоки),
+  внутренняя V — два диагональных блока, как сложенные коробки. Подчёркивает учётную/складскую природу.
+  Палитра: primary #4F5BFF, secondary #6B75FF, accent #A5ADFF, фон белый.
+  Размер: 256×256 (квадрат, легко обрезается в favicon 16/32/48/256).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+    <defs>
+        <linearGradient id="vg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#4F5BFF"/>
+            <stop offset="100%" stop-color="#3742D6"/>
+        </linearGradient>
+        <linearGradient id="dg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#6B75FF"/>
+            <stop offset="100%" stop-color="#4F5BFF"/>
+        </linearGradient>
+    </defs>
+
+    <!-- Скруглённый фон-плашка (для иконки приложения) -->
+    <rect x="0" y="0" width="256" height="256" rx="56" ry="56" fill="#EEF1FF"/>
+
+    <!-- Левая «стойка стеллажа» -->
+    <rect x="44" y="48" width="36" height="160" rx="6" fill="url(#vg)"/>
+
+    <!-- Правая «стойка стеллажа» -->
+    <rect x="176" y="48" width="36" height="160" rx="6" fill="url(#vg)"/>
+
+    <!-- Левая диагональ V (коробка, наклонённая вправо-вниз) -->
+    <path d="M 80 48 L 116 48 L 132 124 L 96 124 Z" fill="url(#dg)"/>
+
+    <!-- Правая диагональ V (коробка, наклонённая влево-вниз) -->
+    <path d="M 140 48 L 176 48 L 160 124 L 124 124 Z" fill="url(#dg)"/>
+
+    <!-- Нижний угол V — мост (соединяет левую и правую диагонали) -->
+    <path d="M 96 124 L 160 124 L 152 152 L 104 152 Z" fill="#A5ADFF"/>
+
+    <!-- Подпись Major — опционально, для full-логотипа можно убрать -->
+    <text x="128" y="232" font-family="Segoe UI, -apple-system, system-ui, sans-serif"
+          font-size="18" font-weight="700" fill="#1B2440" text-anchor="middle"
+          letter-spacing="2">MAJOR</text>
+</svg>

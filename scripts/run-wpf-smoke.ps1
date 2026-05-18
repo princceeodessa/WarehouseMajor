@@ -31,8 +31,8 @@ function Resolve-AppExePath {
     }
 
     $root = Split-Path -Parent $PSScriptRoot
-    $debugExe = Join-Path $root "WarehouseAutomatisaion.Desktop.Wpf\bin\Debug\net8.0-windows\MajorWarehause.exe"
-    $publishExe = Join-Path $root "artifacts\publish\majorwarehause-win-x64\MajorWarehause.exe"
+    $debugExe = Join-Path $root "WarehouseAutomatisaion.Desktop.Wpf\bin\Debug\net8.0-windows\Major.exe"
+    $publishExe = Join-Path $root "artifacts\publish\major-win-x64\Major.exe"
 
     if (Test-Path -LiteralPath $debugExe) {
         return $debugExe
@@ -42,7 +42,7 @@ function Resolve-AppExePath {
         return $publishExe
     }
 
-    throw "MajorWarehause.exe not found. Build or publish the application first."
+    throw "Major.exe not found. Build or publish the application first."
 }
 
 function Get-RootElementByProcessId {

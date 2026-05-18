@@ -21,9 +21,11 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <AssemblyName>MajorWarehause</AssemblyName>
-    <Title>MajorWarehause</Title>
-    <Product>MajorWarehause</Product>
+    <!-- Release 1.0.111: ребренд MajorWarehause → Major. AssemblyName управляет именем
+         итогового .exe (Major.exe), Title/Product — что видно в свойствах файла Windows. -->
+    <AssemblyName>Major</AssemblyName>
+    <Title>Major</Title>
+    <Product>Major</Product>
     <Version>1.0.97</Version>
     <AssemblyVersion>1.0.97.0</AssemblyVersion>
     <FileVersion>1.0.97.0</FileVersion>
@@ -33,6 +35,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>major.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Подхватываем major.ico как embedded resource, чтобы .exe носил иконку в свойствах
+         даже когда файл скопирован за пределы установочной папки. -->
+    <Content Include="major.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 
 </Project>

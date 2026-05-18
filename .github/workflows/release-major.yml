@@ -1,4 +1,4 @@
-name: Release MajorWarehause
+name: Release Major
 
 on:
   push:
@@ -92,13 +92,13 @@ jobs:
               '-ExecutionPolicy'
               'Bypass'
               '-File'
-              '.\scripts\build-majorwarehause-setup.ps1'
+              '.\scripts\build-major-setup.ps1'
               '-Version'
               '${{ steps.version.outputs.value }}'
           )
 
           if (-not [string]::IsNullOrWhiteSpace($env:MAJORWAREHAUSE_CODESIGN_PFX_BASE64)) {
-              $certificatePath = Join-Path $env:RUNNER_TEMP 'majorwarehause-codesign.pfx'
+              $certificatePath = Join-Path $env:RUNNER_TEMP 'major-codesign.pfx'
               [IO.File]::WriteAllBytes(
                   $certificatePath,
                   [Convert]::FromBase64String($env:MAJORWAREHAUSE_CODESIGN_PFX_BASE64))
@@ -121,10 +121,10 @@ jobs:
           $version = '${{ steps.version.outputs.value }}'
           $tag = "v$version"
           $assetPaths = @(
-              '.\artifacts\installers\MajorWarehauseSetup.exe',
-              '.\artifacts\publish\majorwarehause-win-x64.zip'
+              '.\artifacts\installers\MajorSetup.exe',
+              '.\artifacts\publish\major-win-x64.zip'
           )
-          $title = "MajorWarehause v$version"
+          $title = "Major v$version"
 
           gh release view $tag 1>$null 2>$null
           if ($LASTEXITCODE -eq 0) {
@@ -132,4 +132,4 @@ jobs:
               exit $LASTEXITCODE
           }
 
-          gh release create $tag $assetPaths --title $title --notes "Desktop release for MajorWarehause $version."
+          gh release create $tag $assetPaths --title $title --notes "Desktop release for Major $version."

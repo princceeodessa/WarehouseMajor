@@ -1,5 +1,5 @@
 param(
-    [string]$Subject = "CN=MajorWarehause Local Code Signing",
+    [string]$Subject = "CN=Major Local Code Signing",
     [int]$Years = 3,
     [switch]$TrustForCurrentUser
 )
@@ -17,7 +17,7 @@ $certificate = New-SelfSignedCertificate `
     -NotAfter (Get-Date).AddYears($Years)
 
 if ($TrustForCurrentUser) {
-    $certificatePath = Join-Path $env:TEMP "MajorWarehauseLocalCodeSigning.cer"
+    $certificatePath = Join-Path $env:TEMP "MajorLocalCodeSigning.cer"
     Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
     Import-Certificate -FilePath $certificatePath -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
     Import-Certificate -FilePath $certificatePath -CertStoreLocation "Cert:\CurrentUser\TrustedPublisher" | Out-Null

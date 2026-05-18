@@ -5,8 +5,8 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 
 internal static class AppBranding
 {
-    public const string ProductName = "MajorWarehause";
-    public const string ReleaseAssetName = "majorwarehause-win-x64.zip";
+    public const string ProductName = "Major";
+    public const string ReleaseAssetName = "major-win-x64.zip";
 
     public static string MessageBoxTitle => ProductName;
 

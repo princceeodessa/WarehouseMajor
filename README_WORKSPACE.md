@@ -15,7 +15,7 @@ Main working folders in this workspace:
 - `WarehouseAutomatisaion.Desktop/`
   Shared desktop services used by the WPF client: data access, printing, model metadata and text helpers. This project is no longer a WinForms executable.
 - `WarehouseAutomatisaion.Desktop.Wpf/`
-  Main WPF client application. The executable name is `MajorWarehause.exe`.
+  Main WPF client application. The executable name is `Major.exe`.
 - `docs/`
   Project notes and migration docs.
 - `scripts/`
@@ -45,11 +45,11 @@ Operational flow right now:
 How to run the desktop:
 
 1. Double-click `StartDesktop.cmd`
-2. Or run `WarehouseAutomatisaion.Desktop.Wpf\\bin\\Debug\\net8.0-windows\\MajorWarehause.exe`
+2. Or run `WarehouseAutomatisaion.Desktop.Wpf\\bin\\Debug\\net8.0-windows\\Major.exe`
 
 How to build a release:
 
-1. Run `powershell -ExecutionPolicy Bypass -File .\\scripts\\build-majorwarehause-setup.ps1 -Version 1.0.0`
-2. Send `artifacts\\installers\\MajorWarehauseSetup.exe` to the user for first install.
-3. Publish `artifacts\\publish\\majorwarehause-win-x64.zip` in GitHub Releases for in-app updates.
+1. Run `powershell -ExecutionPolicy Bypass -File .\\scripts\\build-major-setup.ps1 -Version 1.0.0`
+2. Send `artifacts\\installers\\MajorSetup.exe` to the user for first install.
+3. Publish `artifacts\\publish\\major-win-x64.zip` in GitHub Releases for in-app updates.
 4. For signed builds, pass `-CodeSigningCertificateThumbprint <thumbprint>` or configure PFX secrets in GitHub Actions.

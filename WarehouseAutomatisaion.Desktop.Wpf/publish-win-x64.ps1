@@ -21,7 +21,7 @@ $ErrorActionPreference = "Stop"
 
 $projectPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectFile = Join-Path $projectPath "WarehouseAutomatisaion.Desktop.Wpf.csproj"
-$assetBaseName = "majorwarehause-$Runtime"
+$assetBaseName = "major-$Runtime"
 $outputPath = Join-Path $projectPath "..\\artifacts\\publish\\$assetBaseName"
 $readmePath = Join-Path $projectPath "..\\docs\\shared-client-deployment.md"
 $zipPath = Join-Path $projectPath "..\\artifacts\\publish\\$assetBaseName.zip"
@@ -43,7 +43,7 @@ $assemblyVersion = if ($versionParts.Length -ge 4) {
     "$normalizedVersion.0"
 }
 
-Get-Process -Name "MajorWarehause" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "Major" -ErrorAction SilentlyContinue | Stop-Process -Force
 
 if (Test-Path $outputPath) {
     Remove-Item -Path $outputPath -Recurse -Force
@@ -203,7 +203,7 @@ if (Test-Path $readmePath) {
     Copy-Item -Path $readmePath -Destination (Join-Path $outputPath 'README_DEPLOY.md') -Force
 }
 
-$publishedExePath = Join-Path $outputPath "MajorWarehause.exe"
+$publishedExePath = Join-Path $outputPath "Major.exe"
 $hasCodeSigningCertificate =
     -not [string]::IsNullOrWhiteSpace($CodeSigningCertificateThumbprint) -or
     -not [string]::IsNullOrWhiteSpace($CodeSigningCertificatePath)

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Major — горизонтальный lockup (логотип + текст рядом).
+  Для splash, шапки печатных форм, README и e-mail подписи.
+  Размер: 480×120.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120" width="480" height="120">
+    <!-- Иконка слева (компактный вариант v2 без фоновой плашки) -->
+    <g transform="translate(8, 16) scale(0.34)">
+        <rect x="0" y="0" width="256" height="256" rx="56" ry="56" fill="#4F5BFF"/>
+        <path d="M 60 196 L 60 60 L 128 144 L 196 60 L 196 196"
+              fill="none" stroke="#FFFFFF" stroke-width="22"
+              stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="48" y="200" width="160" height="6" rx="3" fill="#FFFFFF" opacity="0.45"/>
+    </g>
+
+    <!-- Wordmark справа -->
+    <text x="116" y="68"
+          font-family="Segoe UI, -apple-system, system-ui, sans-serif"
+          font-size="44" font-weight="700"
+          fill="#1B2440"
+          letter-spacing="-1">Major</text>
+    <text x="116" y="94"
+          font-family="Segoe UI, -apple-system, system-ui, sans-serif"
+          font-size="14" font-weight="500"
+          fill="#6E7B98"
+          letter-spacing="3.5">ERP · WAREHOUSE · SALES</text>
+</svg>

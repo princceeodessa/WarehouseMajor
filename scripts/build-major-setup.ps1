@@ -22,12 +22,12 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $publishScript = Join-Path $root "WarehouseAutomatisaion.Desktop.Wpf\publish-win-x64.ps1"
 $signScript = Join-Path $root "scripts\sign-authenticode.ps1"
-$publishAssetName = "majorwarehause-$Runtime"
+$publishAssetName = "major-$Runtime"
 $publishRoot = Join-Path $root "artifacts\publish"
 $publishZipPath = Join-Path $publishRoot "$publishAssetName.zip"
 $installerRoot = Join-Path $root "artifacts\installers"
 $stagingRoot = Join-Path $root "artifacts\installer-staging"
-$setupPath = Join-Path $installerRoot "MajorWarehauseSetup.exe"
+$setupPath = Join-Path $installerRoot "MajorSetup.exe"
 
 if (-not $SkipPublish) {
     $publishArguments = @(
@@ -128,11 +128,11 @@ exit /b %ERRORLEVEL%
 $installPs1 = @'
 $ErrorActionPreference = "Stop"
 
-$appName = "MajorWarehause"
-$installRoot = Join-Path $env:LOCALAPPDATA "Programs\MajorWarehause"
-$zipPath = Join-Path $PSScriptRoot "majorwarehause-win-x64.zip"
-$extractRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("MajorWarehause-install-" + [Guid]::NewGuid().ToString("N"))
-$backupRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("MajorWarehause-backup-" + [Guid]::NewGuid().ToString("N"))
+$appName = "Major"
+$installRoot = Join-Path $env:LOCALAPPDATA "Programs\Major"
+$zipPath = Join-Path $PSScriptRoot "major-win-x64.zip"
+$extractRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("Major-install-" + [Guid]::NewGuid().ToString("N"))
+$backupRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("Major-backup-" + [Guid]::NewGuid().ToString("N"))
 
 if (-not (Test-Path $zipPath)) {
     throw "Package archive was not found: $zipPath"
@@ -171,7 +171,7 @@ if (Test-Path $appDataBackup) {
     Copy-Item -LiteralPath $appDataBackup -Destination $appDataPath -Recurse -Force
 }
 
-$exePath = Join-Path $installRoot "MajorWarehause.exe"
+$exePath = Join-Path $installRoot "Major.exe"
 if (-not (Test-Path $exePath)) {
     throw "Installed executable was not found: $exePath"
 }
@@ -195,12 +195,12 @@ $desktop = [Environment]::GetFolderPath("DesktopDirectory")
 $programs = [Environment]::GetFolderPath("Programs")
 
 New-AppShortcut `
-    -ShortcutPath (Join-Path $desktop "MajorWarehause.lnk") `
+    -ShortcutPath (Join-Path $desktop "Major.lnk") `
     -TargetPath $exePath `
     -WorkingDirectory $installRoot
 
 New-AppShortcut `
-    -ShortcutPath (Join-Path $programs "MajorWarehause.lnk") `
+    -ShortcutPath (Join-Path $programs "Major.lnk") `
     -TargetPath $exePath `
     -WorkingDirectory $installRoot
 
@@ -217,7 +217,7 @@ if (Test-Path $setupPath) {
     Remove-Item -LiteralPath $setupPath -Force
 }
 
-$sedPath = Join-Path $stagingRoot "MajorWarehauseSetup.sed"
+$sedPath = Join-Path $stagingRoot "MajorSetup.sed"
 $sed = @"
 [Version]
 Class=IEXPRESS
@@ -248,7 +248,7 @@ InstallPrompt=
 DisplayLicense=
 FinishMessage=
 TargetName=$setupPath
-FriendlyName=MajorWarehause Setup
+FriendlyName=Major Setup
 AppLaunched=install.cmd
 PostInstallCmd=<None>
 AdminQuietInstCmd=

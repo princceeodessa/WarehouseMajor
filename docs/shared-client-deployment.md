@@ -1,7 +1,7 @@
-# Развертывание клиента MajorWarehause
+# Развертывание клиента Major
 
 ## Цель
-Один центральный MySQL на VPS и несколько WPF-клиентов MajorWarehause, которые работают с общей базой. Пользователю для первой установки отдается один файл `MajorWarehauseSetup.exe`, а последующие обновления ставятся кнопкой `Обновить` внутри приложения.
+Один центральный MySQL на VPS и несколько WPF-клиентов Major, которые работают с общей базой. Пользователю для первой установки отдается один файл `MajorSetup.exe`, а последующие обновления ставятся кнопкой `Обновить` внутри приложения.
 
 ## 1. Что должно быть на VPS
 - Linux VPS с SSH-доступом.
@@ -25,7 +25,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\apply-mysql-operational-schem
 Скрипт применяет файл `WarehouseAutomatisaion.Infrastructure/Persistence/Sql/mysql-operational-schema.sql`.
 
 ## 3. Настройка клиента
-Рядом с установленным `MajorWarehause.exe` должен лежать файл `appsettings.local.json`.
+Рядом с установленным `Major.exe` должен лежать файл `appsettings.local.json`.
 
 ```json
 {
@@ -41,8 +41,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\apply-mysql-operational-schem
   "ApplicationUpdate": {
     "Enabled": true,
     "GitHubOwner": "your-github-org-or-user",
-    "GitHubRepository": "MajorWarehause",
-    "AssetName": "majorwarehause-win-x64.zip"
+    "GitHubRepository": "Major",
+    "AssetName": "major-win-x64.zip"
   }
 }
 ```
@@ -58,19 +58,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\apply-mysql-operational-schem
 Локально установщик собирается командой:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build-majorwarehause-setup.ps1 -Version 1.0.0
+powershell -ExecutionPolicy Bypass -File .\scripts\build-major-setup.ps1 -Version 1.0.0
 ```
 
 Скрипт сначала собирает WPF-клиент, затем создает артефакты:
-- `artifacts/installers/MajorWarehauseSetup.exe` - один файл для первой установки пользователю.
-- `artifacts/publish/majorwarehause-win-x64.zip` - архив, который приложение скачивает при обновлении.
+- `artifacts/installers/MajorSetup.exe` - один файл для первой установки пользователю.
+- `artifacts/publish/major-win-x64.zip` - архив, который приложение скачивает при обновлении.
 
-Установщик ставит приложение в `%LOCALAPPDATA%\Programs\MajorWarehause`, создает ярлыки на рабочем столе и в меню Пуск, затем запускает приложение.
+Установщик ставит приложение в `%LOCALAPPDATA%\Programs\Major`, создает ярлыки на рабочем столе и в меню Пуск, затем запускает приложение.
 
 ## 5. Подпись установщика и приложения
 Подпись встроена в release-скрипты:
-- `MajorWarehause.exe` подписывается до упаковки в `majorwarehause-win-x64.zip`.
-- `MajorWarehauseSetup.exe` подписывается после сборки установщика.
+- `Major.exe` подписывается до упаковки в `major-win-x64.zip`.
+- `MajorSetup.exe` подписывается после сборки установщика.
 
 Для рабочей раздачи нужен настоящий OV/EV code-signing сертификат от доверенного центра сертификации. Self-signed сертификат подходит только для локального теста или закрытого контура, где сертификат заранее добавлен в доверенные.
 
@@ -83,7 +83,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\create-local-codesign-certifi
 Сборка с сертификатом из хранилища Windows:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build-majorwarehause-setup.ps1 `
+powershell -ExecutionPolicy Bypass -File .\scripts\build-major-setup.ps1 `
   -Version 1.0.0 `
   -CodeSigningCertificateThumbprint <thumbprint>
 ```
@@ -91,17 +91,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-majorwarehause-setup.ps
 Сборка с PFX-файлом:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build-majorwarehause-setup.ps1 `
+powershell -ExecutionPolicy Bypass -File .\scripts\build-major-setup.ps1 `
   -Version 1.0.0 `
-  -CodeSigningCertificatePath C:\certs\majorwarehause-codesign.pfx `
+  -CodeSigningCertificatePath C:\certs\major-codesign.pfx `
   -CodeSigningCertificatePassword <pfx-password>
 ```
 
 Проверка подписи:
 
 ```powershell
-Get-AuthenticodeSignature .\artifacts\installers\MajorWarehauseSetup.exe
-Get-AuthenticodeSignature .\artifacts\publish\majorwarehause-win-x64\MajorWarehause.exe
+Get-AuthenticodeSignature .\artifacts\installers\MajorSetup.exe
+Get-AuthenticodeSignature .\artifacts\publish\major-win-x64\Major.exe
 ```
 
 ## 6. GitHub Releases
@@ -112,9 +112,9 @@ git tag v1.0.1
 git push origin v1.0.1
 ```
 
-После пуша тега workflow `.github/workflows/release-majorwarehause.yml` собирает и прикрепляет к Release два файла:
-- `MajorWarehauseSetup.exe` - для первой установки или ручной переустановки.
-- `majorwarehause-win-x64.zip` - для кнопки `Обновить` внутри приложения.
+После пуша тега workflow `.github/workflows/release-major.yml` собирает и прикрепляет к Release два файла:
+- `MajorSetup.exe` - для первой установки или ручной переустановки.
+- `major-win-x64.zip` - для кнопки `Обновить` внутри приложения.
 
 Для подписи в GitHub Actions добавляются secrets:
 - `MAJORWAREHAUSE_CODESIGN_PFX_BASE64` - PFX-файл, закодированный в base64.
@@ -123,15 +123,15 @@ git push origin v1.0.1
 Base64 для PFX можно получить локально:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\certs\majorwarehause-codesign.pfx")) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\certs\major-codesign.pfx")) | Set-Clipboard
 ```
 
 Опционально можно задать repository variable `MAJORWAREHAUSE_CODESIGN_TIMESTAMP_SERVER`. Если переменная не задана, используется `http://timestamp.digicert.com`.
 
 ## 7. Что отправлять пользователю
-Для первой установки отправляется только `MajorWarehauseSetup.exe`.
+Для первой установки отправляется только `MajorSetup.exe`.
 
-Для следующих версий вручную ничего отправлять не нужно: пользователь открывает MajorWarehause и нажимает `Обновить`. Клиент проверяет последний GitHub Release, скачивает `majorwarehause-win-x64.zip`, заменяет файлы приложения и перезапускается.
+Для следующих версий вручную ничего отправлять не нужно: пользователь открывает Major и нажимает `Обновить`. Клиент проверяет последний GitHub Release, скачивает `major-win-x64.zip`, заменяет файлы приложения и перезапускается.
 
 Практические правила:
 - Лучше использовать публичный Release-канал без приватных токенов внутри клиента.
