@@ -414,6 +414,40 @@
                         <Button x:Name="JournalTabButton" Content="Журнал" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="journal" />
                     </WrapPanel>
 
+                    <!-- 1С УНФ sub-tabs внутри секции Заказы.
+                         Левая вкладка — текущие заказы поставщикам, правая — заказы покупателей,
+                         которые ещё надо оформить как заказ поставщику (с жёлтой Primary-кнопкой). -->
+                    <DockPanel x:Name="OrderSubTabsPanel" Margin="0,0,0,10" Visibility="Collapsed">
+                        <Button x:Name="OrderCustomerRequestPrimaryButton"
+                                DockPanel.Dock="Right"
+                                Background="#FFC107"
+                                Foreground="#1B2440"
+                                BorderBrush="#E0A900"
+                                BorderThickness="1"
+                                Padding="14,6"
+                                Height="32"
+                                FontWeight="SemiBold"
+                                FontSize="12.5"
+                                Cursor="Hand"
+                                Visibility="Collapsed"
+                                Click="HandleConvertCustomerOrderClick">
+                            Оформить заказ поставщику
+                        </Button>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="OrderSupplierSubTabButton"
+                                    Content="Заказы поставщикам"
+                                    Style="{StaticResource SectionTabStyle}"
+                                    Click="HandleOrdersSubTabClick"
+                                    Tag="supplier-orders" />
+                            <Button x:Name="OrderCustomerRequestSubTabButton"
+                                    Content="Заказы покупателей"
+                                    Style="{StaticResource SectionTabStyle}"
+                                    Click="HandleOrdersSubTabClick"
+                                    Tag="customer-requests"
+                                    Margin="18,0,0,0" />
+                        </StackPanel>
+                    </DockPanel>
+
                     <Border Style="{StaticResource CardStyle}" Padding="14,14,14,12" Margin="0,0,0,14">
                         <StackPanel>
                             <WrapPanel Margin="0,0,0,10">
@@ -509,6 +543,26 @@
                                     </DataGrid.ColumnHeaderStyle>
                                     <DataGrid.Columns>
                                         <DataGridCheckBoxColumn x:Name="SelectionColumn" Binding="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="44" />
+                                        <!-- 1С УНФ-style: 2 индикатора-кружка статуса. Левый = доставка/проведение,
+                                             правый = оплата. Цвет берётся из StatusDot1Color / StatusDot2Color на строке. -->
+                                        <DataGridTemplateColumn x:Name="StatusDotColumn1" Width="32" IsReadOnly="True">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Ellipse Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Stroke="{Binding StatusDot1Color}" StrokeThickness="2"
+                                                             Fill="{Binding StatusDot1Fill}" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn x:Name="StatusDotColumn2" Width="32" IsReadOnly="True">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Ellipse Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Stroke="{Binding StatusDot2Color}" StrokeThickness="2"
+                                                             Fill="{Binding StatusDot2Fill}" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
                                         <DataGridTextColumn x:Name="Column1" Binding="{Binding Col1}" Width="100" IsReadOnly="True" />
                                         <DataGridTextColumn x:Name="Column2" Binding="{Binding Col2}" Width="200" IsReadOnly="True" />
                                         <DataGridTextColumn x:Name="Column3" Binding="{Binding Col3}" Width="110" IsReadOnly="True" />

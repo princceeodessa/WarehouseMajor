@@ -366,6 +366,49 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         ApplySectionButton(DiscrepanciesTabButton, _activeSection == DiscrepanciesSection);
         ApplySectionButton(JournalTabButton, _activeSection == JournalSection);
         NewSupplierInTabButton.Visibility = _activeSection == SuppliersSection ? Visibility.Visible : Visibility.Collapsed;
+
+        // Sub-tabs «Заказы поставщикам / Заказы покупателей» показываем только когда активен раздел Заказы.
+        var ordersActive = _activeSection == OrdersSection;
+        OrderSubTabsPanel.Visibility = ordersActive ? Visibility.Visible : Visibility.Collapsed;
+        ApplySectionButton(OrderSupplierSubTabButton, ordersActive && _activeOrderSubTab == OrderSupplierSubTab);
+        ApplySectionButton(OrderCustomerRequestSubTabButton, ordersActive && _activeOrderSubTab == OrderCustomerRequestSubTab);
+        OrderCustomerRequestPrimaryButton.Visibility = ordersActive && _activeOrderSubTab == OrderCustomerRequestSubTab
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private const string OrderSupplierSubTab = "supplier-orders";
+    private const string OrderCustomerRequestSubTab = "customer-requests";
+    private string _activeOrderSubTab = OrderSupplierSubTab;
+
+    private void HandleOrdersSubTabClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.Tag is not string sub)
+        {
+            return;
+        }
+
+        if (string.Equals(_activeOrderSubTab, sub, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _activeOrderSubTab = sub;
+        _allRows = BuildRowsForSection(OrdersSection);
+        ApplySectionButtons();
+        ApplyFilters(keepSelection: false);
+        UpdateEmptyStateCopy();
+    }
+
+    private void HandleConvertCustomerOrderClick(object sender, RoutedEventArgs e)
+    {
+        // Заглушка: будущая логика — превращать выбранный заказ покупателя в заказ поставщику.
+        MessageBox.Show(
+            Window.GetWindow(this),
+            "Оформление заказа поставщику из заказа покупателя — в разработке.",
+            "Закупки",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private static void ApplySectionButton(WpfButton button, bool isActive)
@@ -769,7 +812,7 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         // Release 1.0.109: порядок колонок 1в1 как в 1С УНФ «Заказы поставщикам».
         // col1=Дата, col2=Номер, col3=Состояние, col4=Поставщик, col5=Сумма,
         // col6=Дата поступления, col7=Договор, col8=Склад, status=Статус оригинала, col9=Ответственный.
-        return CreateRow(
+        var row = CreateRow(
             OrdersSection,
             order.Id,
             order,
@@ -808,6 +851,36 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
                 order.Comment,
                 string.Join(" ", order.Lines.Select(item => $"{item.ItemCode} {item.ItemName}"))
             }));
+
+        // 1С УНФ-style индикаторы статусов:
+        // dot1 — выполнено (есть приёмка) ⇒ зелёный заполненный; иначе кружок-контур.
+        // dot2 — оплата: полностью оплачено ⇒ зелёный; частично/просрочка ⇒ красный.
+        var hasReceipts = receipts.Any();
+        var hasInvoices = invoices.Any();
+        var allPaid = hasInvoices && invoices.All(IsInvoicePaid);
+        if (hasReceipts)
+        {
+            row.StatusDot1Color = "#1FA45F";
+            row.StatusDot1Fill = "#1FA45F";
+        }
+        else
+        {
+            row.StatusDot1Color = "#1FA45F";
+            row.StatusDot1Fill = "Transparent";
+        }
+
+        if (allPaid)
+        {
+            row.StatusDot2Color = "#1FA45F";
+            row.StatusDot2Fill = "#1FA45F";
+        }
+        else if (!hasInvoices || balance > 0m)
+        {
+            row.StatusDot2Color = "#D92D20";
+            row.StatusDot2Fill = "Transparent";
+        }
+
+        return row;
     }
 
     private PurchasingGridRow BuildSupplierRow(OperationalPurchasingSupplierRecord supplier)
@@ -3763,6 +3836,13 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         public string SupplierName { get; init; } = string.Empty;
 
         public string Warehouse { get; init; } = string.Empty;
+
+        // 1С УНФ-style индикаторы-кружки. BuildOrderRow выставляет зелёный (закрыт/оплачен)
+        // или красный (не закрыт/не оплачен), для остальных секций остаются серым.
+        public string StatusDot1Color { get; set; } = "#BFC8DB";
+        public string StatusDot1Fill { get; set; } = "Transparent";
+        public string StatusDot2Color { get; set; } = "#BFC8DB";
+        public string StatusDot2Fill { get; set; } = "Transparent";
 
         public string Col1 { get; init; } = string.Empty;
 
