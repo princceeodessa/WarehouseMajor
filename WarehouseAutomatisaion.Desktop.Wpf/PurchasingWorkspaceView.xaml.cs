@@ -59,8 +59,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
     private string _activeSection = OrdersSection;
     private string? _selectedRowKey;
     private string? _dismissedLockKey;
-    private bool _syncingSearch;
-    private bool _suppressFilters;
     private bool _initialized;
     private bool _dateRangeInitialized;
     private int _page = 1;
@@ -86,7 +84,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
         InitializeStaticLabels();
         InitializeFilters();
-        InitializeActionsMenu();
         HookEvents();
         Loaded += HandleLoaded;
         SizeChanged += HandleSizeChanged;
@@ -116,8 +113,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void InitializeStaticLabels()
     {
-        HeaderSearchPlaceholderText.Text = "Поиск по номеру, поставщику, товару или коду...";
-        TableSearchPlaceholderText.Text = "Поиск по номеру, поставщику, товару...";
         EmptyStateTitleText.Text = "Нет закупочных документов";
         EmptyStateHintText.Text = "Создайте первый документ вручную или импортируйте данные.";
         ShowAllPositionsText.Text = "Показать все";
@@ -125,38 +120,7 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void InitializeFilters()
     {
-        _suppressFilters = true;
-        try
-        {
-            StatusFilterCombo.ItemsSource = new[] { AllStatusesFilter };
-            SupplierFilterCombo.ItemsSource = new[] { AllSuppliersFilter };
-            WarehouseFilterCombo.ItemsSource = new[] { AllWarehousesFilter };
-            DocumentTypeFilterCombo.ItemsSource = new[] { AllDocumentTypesFilter };
-
-            StatusFilterCombo.SelectedIndex = 0;
-            SupplierFilterCombo.SelectedIndex = 0;
-            WarehouseFilterCombo.SelectedIndex = 0;
-            DocumentTypeFilterCombo.SelectedIndex = 0;
-
-            PageSizeCombo.SelectedIndex = 1;
-        }
-        finally
-        {
-            _suppressFilters = false;
-        }
-    }
-
-    private void InitializeActionsMenu()
-    {
-        var menu = new ContextMenu();
-        menu.Items.Add(CreateMenuItem("Новая закупка", (_, _) => CreateNewPurchase()));
-        menu.Items.Add(CreateMenuItem("Новый поставщик", (_, _) => OpenSupplierEditor(null)));
-        menu.Items.Add(CreateMenuItem("Новый счет поставщика", (_, _) => OpenDocumentEditor(PurchasingDocumentEditorMode.SupplierInvoice, null, ResolveSelectedSupplierId())));
-        menu.Items.Add(CreateMenuItem("Новая приемка", (_, _) => OpenDocumentEditor(PurchasingDocumentEditorMode.PurchaseReceipt, null, ResolveSelectedSupplierId())));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(CreateMenuItem("Сбросить фильтры", (_, _) => ResetFilters(clearSearch: true)));
-        menu.Items.Add(CreateMenuItem("Экспорт текущего вида", (_, _) => ExportRows(_filteredRows, "Закупки")));
-        ActionsButton.ContextMenu = menu;
+        PageSizeCombo.SelectedIndex = 1;
     }
 
     private static MenuItem CreateMenuItem(string header, RoutedEventHandler handler)
@@ -287,18 +251,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         var max = allDates.Length > 0 ? allDates.Max().Date : DateTime.Today;
         _defaultDateFrom = min;
         _defaultDateTo = max > DateTime.Today ? max : DateTime.Today;
-
-        _suppressFilters = true;
-        try
-        {
-            DateFromPicker.SelectedDate = _defaultDateFrom;
-            DateToPicker.SelectedDate = _defaultDateTo;
-        }
-        finally
-        {
-            _suppressFilters = false;
-        }
-
         _dateRangeInitialized = true;
     }
 
@@ -325,13 +277,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         return _workspace.PurchaseOrders.Count(IsOrderOverdue)
                + _workspace.SupplierInvoices.Count(IsInvoiceOverdue)
                + _workspace.PurchaseReceipts.Count(IsReceiptOverdue);
-    }
-
-    private int CountDiscrepancyDocuments()
-    {
-        return _workspace.PurchaseOrders.Count(HasDiscrepancy)
-               + _workspace.SupplierInvoices.Count(HasDiscrepancy)
-               + _workspace.PurchaseReceipts.Count(HasDiscrepancy);
     }
 
     public void ActivateSubSection(string subSectionKey)
@@ -373,15 +318,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void ApplySectionButtons()
     {
-        ApplySectionButton(OrdersTabButton, _activeSection == OrdersSection);
-        ApplySectionButton(SuppliersTabButton, _activeSection == SuppliersSection);
-        ApplySectionButton(InvoicesTabButton, _activeSection == InvoicesSection);
-        ApplySectionButton(ReceiptsTabButton, _activeSection == ReceiptsSection);
-        ApplySectionButton(PaymentsTabButton, _activeSection == PaymentsSection);
-        ApplySectionButton(DiscrepanciesTabButton, _activeSection == DiscrepanciesSection);
-        ApplySectionButton(JournalTabButton, _activeSection == JournalSection);
-        NewSupplierInTabButton.Visibility = _activeSection == SuppliersSection ? Visibility.Visible : Visibility.Collapsed;
-
         // Sub-tabs «Заказы поставщикам / Заказы покупателей» показываем только когда активен раздел Заказы.
         var ordersActive = _activeSection == OrdersSection;
         OrderSubTabsPanel.Visibility = ordersActive ? Visibility.Visible : Visibility.Collapsed;
@@ -396,36 +332,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
     private const string OrderCustomerRequestSubTab = "customer-requests";
     private string _activeOrderSubTab = OrderSupplierSubTab;
 
-    private void HandleOrdersSubTabClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button button || button.Tag is not string sub)
-        {
-            return;
-        }
-
-        if (string.Equals(_activeOrderSubTab, sub, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        _activeOrderSubTab = sub;
-        _allRows = BuildRowsForSection(OrdersSection);
-        ApplySectionButtons();
-        ApplyFilters(keepSelection: false);
-        UpdateEmptyStateCopy();
-    }
-
-    private void HandleConvertCustomerOrderClick(object sender, RoutedEventArgs e)
-    {
-        // Заглушка: будущая логика — превращать выбранный заказ покупателя в заказ поставщику.
-        MessageBox.Show(
-            Window.GetWindow(this),
-            "Оформление заказа поставщику из заказа покупателя — в разработке.",
-            "Закупки",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
-    }
-
     private static void ApplySectionButton(WpfButton button, bool isActive)
     {
         button.BorderBrush = isActive ? PrimaryBrush : Brushes.Transparent;
@@ -434,81 +340,11 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void RefreshFilterOptions(bool resetSelections)
     {
-        var status = Ui(StatusFilterCombo.SelectedItem as string);
-        var supplier = Ui(SupplierFilterCombo.SelectedItem as string);
-        var warehouse = Ui(WarehouseFilterCombo.SelectedItem as string);
-        var documentType = Ui(DocumentTypeFilterCombo.SelectedItem as string);
-
-        _suppressFilters = true;
-        try
-        {
-            StatusFilterCombo.ItemsSource = BuildOptions(AllStatusesFilter, _allRows.Select(item => item.RawStatus));
-            SupplierFilterCombo.ItemsSource = BuildOptions(AllSuppliersFilter, _allRows.Select(item => item.SupplierName));
-            WarehouseFilterCombo.ItemsSource = BuildOptions(AllWarehousesFilter, _allRows.Select(item => item.Warehouse));
-            DocumentTypeFilterCombo.ItemsSource = BuildOptions(AllDocumentTypesFilter, _allRows.Select(item => item.DocumentType));
-
-            StatusFilterCombo.SelectedItem = resetSelections ? AllStatusesFilter : SelectOrFallback(StatusFilterCombo, status, AllStatusesFilter);
-            SupplierFilterCombo.SelectedItem = resetSelections ? AllSuppliersFilter : SelectOrFallback(SupplierFilterCombo, supplier, AllSuppliersFilter);
-            WarehouseFilterCombo.SelectedItem = resetSelections ? AllWarehousesFilter : SelectOrFallback(WarehouseFilterCombo, warehouse, AllWarehousesFilter);
-            DocumentTypeFilterCombo.SelectedItem = resetSelections ? AllDocumentTypesFilter : SelectOrFallback(DocumentTypeFilterCombo, documentType, AllDocumentTypesFilter);
-
-            if (resetSelections)
-            {
-                OverdueOnlyCheckBox.IsChecked = false;
-                MissingInvoiceOnlyCheckBox.IsChecked = false;
-                MissingReceiptOnlyCheckBox.IsChecked = false;
-                UnpaidOnlyCheckBox.IsChecked = false;
-            }
-        }
-        finally
-        {
-            _suppressFilters = false;
-        }
-    }
-
-    private static string[] BuildOptions(string allCaption, IEnumerable<string> source)
-    {
-        return new[] { allCaption }
-            .Concat(source
-                .Select(Ui)
-                .Where(item => !string.IsNullOrWhiteSpace(item) && item != "-")
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(item => item, StringComparer.CurrentCultureIgnoreCase))
-            .ToArray();
-    }
-
-    private static object SelectOrFallback(ComboBox comboBox, string current, string fallback)
-    {
-        return comboBox.Items.Cast<object>().FirstOrDefault(item => Ui(item?.ToString()).Equals(current, StringComparison.OrdinalIgnoreCase))
-               ?? fallback;
     }
 
     private void ApplyFilters(bool keepSelection)
     {
-        var search = Ui(TableSearchBox.Text).Trim();
-        var status = Ui(StatusFilterCombo.SelectedItem as string);
-        var supplier = Ui(SupplierFilterCombo.SelectedItem as string);
-        var warehouse = Ui(WarehouseFilterCombo.SelectedItem as string);
-        var documentType = Ui(DocumentTypeFilterCombo.SelectedItem as string);
-        var from = DateFromPicker.SelectedDate?.Date;
-        var to = DateToPicker.SelectedDate?.Date.AddDays(1).AddTicks(-1);
-        var onlyOverdue = OverdueOnlyCheckBox.IsChecked == true;
-        var onlyMissingInvoice = MissingInvoiceOnlyCheckBox.IsChecked == true;
-        var onlyMissingReceipt = MissingReceiptOnlyCheckBox.IsChecked == true;
-        var onlyUnpaid = UnpaidOnlyCheckBox.IsChecked == true;
-
         _filteredRows = _allRows
-            .Where(item => string.IsNullOrWhiteSpace(search) || item.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase))
-            .Where(item => status == AllStatusesFilter || item.RawStatus.Equals(status, StringComparison.OrdinalIgnoreCase))
-            .Where(item => supplier == AllSuppliersFilter || item.SupplierName.Equals(supplier, StringComparison.OrdinalIgnoreCase))
-            .Where(item => warehouse == AllWarehousesFilter || item.Warehouse.Equals(warehouse, StringComparison.OrdinalIgnoreCase))
-            .Where(item => documentType == AllDocumentTypesFilter || item.DocumentType.Equals(documentType, StringComparison.OrdinalIgnoreCase))
-            .Where(item => !from.HasValue || item.SortDate.Date >= from.Value)
-            .Where(item => !to.HasValue || item.SortDate <= to.Value)
-            .Where(item => !onlyOverdue || item.IsOverdue)
-            .Where(item => !onlyMissingInvoice || item.MissingInvoice)
-            .Where(item => !onlyMissingReceipt || item.MissingReceipt)
-            .Where(item => !onlyUnpaid || item.IsUnpaid)
             .OrderByDescending(item => item.SortDate)
             .ThenBy(item => item.Col1, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
@@ -724,21 +560,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void UpdateSearchPlaceholders()
     {
-        var placeholder = _activeSection switch
-        {
-            SuppliersSection => "Поиск по поставщику, ИНН, телефону или договору...",
-            InvoicesSection => "Поиск по счету, поставщику или заказу...",
-            ReceiptsSection => "Поиск по приемке, поставщику или заказу...",
-            PaymentsSection => "Поиск по оплате, счету или поставщику...",
-            DiscrepanciesSection => "Поиск по проблемным закупкам и расхождениям...",
-            JournalSection => "Поиск по журналу операций и документам...",
-            _ => "Поиск по номеру, поставщику, товару или коду..."
-        };
-
-        HeaderSearchPlaceholderText.Text = placeholder;
-        TableSearchPlaceholderText.Text = placeholder;
-        HeaderSearchPlaceholderText.Visibility = string.IsNullOrWhiteSpace(HeaderSearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;
-        TableSearchPlaceholderText.Visibility = string.IsNullOrWhiteSpace(TableSearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void UpdateEmptyStateCopy()
@@ -810,389 +631,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
                 .Select(BuildOrderRow)
                 .ToArray()
         };
-    }
-
-    private PurchasingGridRow[] BuildDiscrepancyRows()
-    {
-        return _workspace.PurchaseOrders.Cast<OperationalPurchasingDocumentRecord>()
-            .Concat(_workspace.SupplierInvoices)
-            .Concat(_workspace.PurchaseReceipts)
-            .Where(item => HasDiscrepancy(item) || IsDocumentOverdue(item) || MissingInvoiceForDocument(item) || MissingReceiptForDocument(item) || UnpaidForDocument(item))
-            .OrderByDescending(item => item.DocumentDate)
-            .Select(BuildDiscrepancyRow)
-            .ToArray();
-    }
-
-    private PurchasingGridRow BuildOrderRow(OperationalPurchasingDocumentRecord order)
-    {
-        var invoices = GetInvoicesForOrder(order.Id);
-        var receipts = GetReceiptsForOrder(order.Id);
-        var plannedDate = ResolvePlannedDate(order);
-        var paid = invoices.Where(IsInvoicePaid).Sum(item => item.TotalAmount);
-        var balance = Math.Max(order.TotalAmount - paid, 0m);
-        var responsible = ResolveResponsible(order.DocumentType, order.Id);
-
-        // Release 1.0.109: порядок колонок 1в1 как в 1С УНФ «Заказы поставщикам».
-        // col1=Дата, col2=Номер, col3=Состояние, col4=Поставщик, col5=Сумма,
-        // col6=Дата поступления, col7=Договор, col8=Склад, status=Статус оригинала, col9=Ответственный.
-        var row = CreateRow(
-            OrdersSection,
-            order.Id,
-            order,
-            order.DocumentType,
-            order.SupplierName,
-            order.Warehouse,
-            order.DocumentDate.ToString("dd.MM.yyyy", RuCulture),
-            order.Number,
-            order.Status,
-            order.SupplierName,
-            FormatMoney(order.TotalAmount),
-            plannedDate?.ToString("dd.MM.yyyy", RuCulture) ?? "-",
-            string.IsNullOrWhiteSpace(order.Contract) ? "-" : order.Contract,
-            order.Warehouse,
-            order.Status,
-            responsible,
-            order.Status,
-            order.DocumentDate,
-            IsOrderClosed(order),
-            IsOrderOverdue(order),
-            !invoices.Any(),
-            !receipts.Any(),
-            invoices.Any(item => !IsInvoicePaid(item)),
-            HasDiscrepancy(order) || invoices.Any(HasDiscrepancy) || receipts.Any(HasDiscrepancy),
-            order.Id,
-            order.TotalAmount,
-            paid,
-            balance,
-            string.Join(" ", new[]
-            {
-                order.Number,
-                order.SupplierName,
-                order.Warehouse,
-                order.Status,
-                order.Contract,
-                order.Comment,
-                string.Join(" ", order.Lines.Select(item => $"{item.ItemCode} {item.ItemName}"))
-            }));
-
-        // 1С УНФ-style индикаторы статусов:
-        // dot1 — выполнено (есть приёмка) ⇒ зелёный заполненный; иначе кружок-контур.
-        // dot2 — оплата: полностью оплачено ⇒ зелёный; частично/просрочка ⇒ красный.
-        var hasReceipts = receipts.Any();
-        var hasInvoices = invoices.Any();
-        var allPaid = hasInvoices && invoices.All(IsInvoicePaid);
-        if (hasReceipts)
-        {
-            row.StatusDot1Color = "#1FA45F";
-            row.StatusDot1Fill = "#1FA45F";
-        }
-        else
-        {
-            row.StatusDot1Color = "#1FA45F";
-            row.StatusDot1Fill = "Transparent";
-        }
-
-        if (allPaid)
-        {
-            row.StatusDot2Color = "#1FA45F";
-            row.StatusDot2Fill = "#1FA45F";
-        }
-        else if (!hasInvoices || balance > 0m)
-        {
-            row.StatusDot2Color = "#D92D20";
-            row.StatusDot2Fill = "Transparent";
-        }
-
-        return row;
-    }
-
-    private PurchasingGridRow BuildSupplierRow(OperationalPurchasingSupplierRecord supplier)
-    {
-        var orders = _workspace.PurchaseOrders.Where(item => item.SupplierId == supplier.Id).ToArray();
-        var invoices = _workspace.SupplierInvoices.Where(item => item.SupplierId == supplier.Id).ToArray();
-        var receipts = _workspace.PurchaseReceipts.Where(item => item.SupplierId == supplier.Id).ToArray();
-        var openOrders = orders.Count(item => !IsOrderClosed(item));
-        var activeDocuments = invoices.Length + receipts.Length;
-        var lastDate = orders.Select(item => item.DocumentDate)
-            .Concat(invoices.Select(item => item.DocumentDate))
-            .Concat(receipts.Select(item => item.DocumentDate))
-            .DefaultIfEmpty(DateTime.Today)
-            .Max();
-        var paid = invoices.Where(IsInvoicePaid).Sum(item => item.TotalAmount);
-        var amount = orders.Sum(item => item.TotalAmount);
-        var balance = Math.Max(amount - paid, 0m);
-
-        return CreateRow(
-            SuppliersSection,
-            supplier.Id,
-            supplier,
-            "Поставщик",
-            supplier.Name,
-            ResolveDominantWarehouse(orders, invoices, receipts),
-            supplier.Code,
-            supplier.Name,
-            EmptyAsDash(supplier.TaxId),
-            EmptyAsDash(supplier.Phone),
-            EmptyAsDash(supplier.Email),
-            EmptyAsDash(supplier.Contract),
-            openOrders.ToString("N0", RuCulture),
-            activeDocuments.ToString("N0", RuCulture),
-            supplier.Status,
-            EmptyAsDash(supplier.SourceLabel),
-            supplier.Status,
-            lastDate,
-            Ui(supplier.Status).Equals("Пауза", StringComparison.OrdinalIgnoreCase),
-            false,
-            orders.Any(item => !GetInvoicesForOrder(item.Id).Any()),
-            orders.Any(item => !GetReceiptsForOrder(item.Id).Any()),
-            invoices.Any(item => !IsInvoicePaid(item)),
-            orders.Any(HasDiscrepancy) || invoices.Any(HasDiscrepancy) || receipts.Any(HasDiscrepancy),
-            orders.FirstOrDefault()?.Id ?? Guid.Empty,
-            amount,
-            paid,
-            balance,
-            string.Join(" ", new[]
-            {
-                supplier.Code,
-                supplier.Name,
-                supplier.TaxId,
-                supplier.Phone,
-                supplier.Email,
-                supplier.Contract,
-                supplier.SourceLabel
-            }));
-    }
-
-    private PurchasingGridRow BuildInvoiceRow(OperationalPurchasingDocumentRecord invoice)
-    {
-        var paid = IsInvoicePaid(invoice) ? invoice.TotalAmount : 0m;
-        var balance = Math.Max(invoice.TotalAmount - paid, 0m);
-        return CreateRow(
-            InvoicesSection,
-            invoice.Id,
-            invoice,
-            invoice.DocumentType,
-            invoice.SupplierName,
-            invoice.Warehouse,
-            invoice.Number,
-            invoice.SupplierName,
-            invoice.DocumentDate.ToString("dd.MM.yyyy", RuCulture),
-            invoice.DueDate?.ToString("dd.MM.yyyy", RuCulture) ?? "-",
-            invoice.Warehouse,
-            FormatMoney(invoice.TotalAmount),
-            FormatMoney(paid),
-            EmptyAsDash(invoice.RelatedOrderNumber),
-            invoice.Status,
-            EmptyAsDash(invoice.SourceLabel),
-            invoice.Status,
-            invoice.DueDate ?? invoice.DocumentDate,
-            IsInvoicePaid(invoice),
-            IsInvoiceOverdue(invoice),
-            false,
-            MissingReceiptForDocument(invoice),
-            !IsInvoicePaid(invoice),
-            HasDiscrepancy(invoice),
-            invoice.RelatedOrderId,
-            invoice.TotalAmount,
-            paid,
-            balance,
-            string.Join(" ", new[]
-            {
-                invoice.Number,
-                invoice.SupplierName,
-                invoice.Warehouse,
-                invoice.Status,
-                invoice.RelatedOrderNumber,
-                invoice.Comment
-            }));
-    }
-
-    private PurchasingGridRow BuildReceiptRow(OperationalPurchasingDocumentRecord receipt)
-    {
-        var invoice = GetInvoiceForOrder(receipt.RelatedOrderId);
-        var paid = invoice is not null && IsInvoicePaid(invoice) ? invoice.TotalAmount : 0m;
-        var balance = invoice is null ? 0m : Math.Max(invoice.TotalAmount - paid, 0m);
-        // Release 1.0.119: порядок столбцов для «Приходных накладных» переставлен 1в1 со
-        // скрином 1С УНФ — Дата | Номер | Поставщик/Покупатель | Сумма | Склад | Операция |
-        // Состояние оригинала. Раньше первой шла Номер, а Дата стояла третьей.
-        return CreateRow(
-            ReceiptsSection,
-            receipt.Id,
-            receipt,
-            receipt.DocumentType,
-            receipt.SupplierName,
-            receipt.Warehouse,
-            receipt.DocumentDate.ToString("dd.MM.yyyy", RuCulture),  // Col1: Дата
-            receipt.Number,                                          // Col2: Номер
-            receipt.SupplierName,                                    // Col3: Поставщик / Покупатель
-            FormatMoney(receipt.TotalAmount),                        // Col4: Сумма
-            receipt.Warehouse,                                       // Col5: Склад
-            string.IsNullOrWhiteSpace(receipt.DocumentType)          // Col6: Операция
-                ? "Поступление от поставщика"
-                : receipt.DocumentType,
-            "<Неизвестно>",                                          // Col7: Состояние оригинала (плейсхолдер)
-            string.Empty,                                            // Col8: пусто (в 1С здесь только иконка $)
-            receipt.Status,
-            string.Empty,                                            // Col9: пусто
-            receipt.Status,
-            receipt.DocumentDate,
-            IsReceiptCompleted(receipt),
-            IsReceiptOverdue(receipt),
-            MissingInvoiceForDocument(receipt),
-            false,
-            invoice is not null && !IsInvoicePaid(invoice),
-            HasDiscrepancy(receipt),
-            receipt.RelatedOrderId,
-            receipt.TotalAmount,
-            paid,
-            balance,
-            string.Join(" ", new[]
-            {
-                receipt.Number,
-                receipt.SupplierName,
-                receipt.Warehouse,
-                receipt.Status,
-                receipt.RelatedOrderNumber,
-                receipt.Comment
-            }));
-    }
-
-    private PurchasingGridRow BuildPaymentRow(OperationalPurchasingDocumentRecord invoice)
-    {
-        var paymentStatus = IsInvoicePaid(invoice)
-            ? "Проведена"
-            : Ui(invoice.Status) switch
-            {
-                "К оплате" => "Ожидает оплаты",
-                "Получен" => "Ожидает оплаты",
-                _ => "Не оплачена"
-            };
-        var paid = IsInvoicePaid(invoice) ? invoice.TotalAmount : 0m;
-        var balance = Math.Max(invoice.TotalAmount - paid, 0m);
-        return CreateRow(
-            PaymentsSection,
-            invoice.Id,
-            invoice,
-            "Оплата",
-            invoice.SupplierName,
-            invoice.Warehouse,
-            $"PAY ? {invoice.Number}",
-            invoice.SupplierName,
-            invoice.DocumentDate.ToString("dd.MM.yyyy", RuCulture),
-            invoice.DueDate?.ToString("dd.MM.yyyy", RuCulture) ?? "-",
-            invoice.Warehouse,
-            FormatMoney(invoice.TotalAmount),
-            FormatMoney(paid),
-            FormatMoney(balance),
-            paymentStatus,
-            EmptyAsDash(invoice.RelatedOrderNumber),
-            paymentStatus,
-            invoice.DueDate ?? invoice.DocumentDate,
-            IsInvoicePaid(invoice),
-            IsInvoiceOverdue(invoice),
-            false,
-            MissingReceiptForDocument(invoice),
-            !IsInvoicePaid(invoice),
-            HasDiscrepancy(invoice),
-            invoice.RelatedOrderId,
-            invoice.TotalAmount,
-            paid,
-            balance,
-            string.Join(" ", new[]
-            {
-                invoice.Number,
-                invoice.SupplierName,
-                invoice.Warehouse,
-                paymentStatus,
-                invoice.RelatedOrderNumber
-            }));
-    }
-
-    private PurchasingGridRow BuildDiscrepancyRow(OperationalPurchasingDocumentRecord document)
-    {
-        var status = ResolveDiscrepancyStatus(document);
-        return CreateRow(
-            DiscrepanciesSection,
-            document.Id,
-            document,
-            document.DocumentType,
-            document.SupplierName,
-            document.Warehouse,
-            document.Number,
-            document.SupplierName,
-            document.DocumentDate.ToString("dd.MM.yyyy", RuCulture),
-            EmptyAsDash(document.RelatedOrderNumber),
-            document.Warehouse,
-            FormatMoney(document.TotalAmount),
-            TrimComment(document.Comment),
-            EmptyAsDash(document.SourceLabel),
-            status,
-            ResolveResponsible(document.DocumentType, document.Id),
-            status,
-            document.DocumentDate,
-            false,
-            status.Equals("Просрочено", StringComparison.OrdinalIgnoreCase),
-            MissingInvoiceForDocument(document),
-            MissingReceiptForDocument(document),
-            UnpaidForDocument(document),
-            HasDiscrepancy(document),
-            document.RelatedOrderId,
-            document.TotalAmount,
-            0m,
-            document.TotalAmount,
-            string.Join(" ", new[]
-            {
-                document.Number,
-                document.SupplierName,
-                document.Warehouse,
-                document.Status,
-                document.Comment,
-                status
-            }));
-    }
-
-    private PurchasingGridRow BuildJournalRow(PurchasingOperationLogEntry entry)
-    {
-        var status = Ui(entry.Result);
-        return CreateRow(
-            JournalSection,
-            entry.Id,
-            entry,
-            Ui(entry.EntityType),
-            ResolveSupplierNameForJournal(entry),
-            ResolveWarehouseForJournal(entry),
-            entry.LoggedAt.ToString("dd.MM.yyyy HH:mm", RuCulture),
-            Ui(entry.EntityType),
-            Ui(entry.EntityNumber),
-            Ui(entry.Action),
-            Ui(entry.Result),
-            Ui(entry.Actor),
-            TrimComment(entry.Message),
-            ResolveJournalSection(entry),
-            status,
-            Ui(entry.Actor),
-            status,
-            entry.LoggedAt,
-            true,
-            false,
-            false,
-            false,
-            false,
-            false,
-            Guid.Empty,
-            0m,
-            0m,
-            0m,
-            string.Join(" ", new[]
-            {
-                entry.LoggedAt.ToString("dd.MM.yyyy HH:mm", RuCulture),
-                entry.Actor,
-                entry.EntityType,
-                entry.EntityNumber,
-                entry.Action,
-                entry.Result,
-                entry.Message
-            }));
     }
 
     private PurchasingGridRow CreateRow(
@@ -1356,14 +794,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         return Ui(invoice.Status).Equals("Оплачен", StringComparison.OrdinalIgnoreCase);
     }
 
-    private bool IsReceiptCompleted(OperationalPurchasingDocumentRecord receipt)
-    {
-        var status = Ui(receipt.Status);
-        return status.Equals("Размещена", StringComparison.OrdinalIgnoreCase)
-               || status.Equals("Принята", StringComparison.OrdinalIgnoreCase)
-               || status.Equals("Архив", StringComparison.OrdinalIgnoreCase);
-    }
-
     private DateTime? ResolvePlannedDate(OperationalPurchasingDocumentRecord document)
     {
         var planned = document.Lines
@@ -1511,102 +941,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
                ?? "-";
     }
 
-    private string ResolveDiscrepancyStatus(OperationalPurchasingDocumentRecord document)
-    {
-        if (HasDiscrepancy(document))
-        {
-            return "Есть расхождения";
-        }
-
-        if (IsDocumentOverdue(document))
-        {
-            return "Просрочено";
-        }
-
-        if (MissingInvoiceForDocument(document))
-        {
-            return "Без счета";
-        }
-
-        if (MissingReceiptForDocument(document))
-        {
-            return "Без приемки";
-        }
-
-        if (UnpaidForDocument(document))
-        {
-            return "Частично оплачено";
-        }
-
-        return Ui(document.Status);
-    }
-
-    private string ResolveJournalSection(PurchasingOperationLogEntry entry)
-    {
-        var entityType = Ui(entry.EntityType);
-        if (entityType.Equals("Поставщик", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Поставщики";
-        }
-
-        if (entityType.Equals("Счет поставщика", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Счета";
-        }
-
-        if (entityType.Equals("Приемка", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Приемки";
-        }
-
-        return "Заказы";
-    }
-
-    private string ResolveSupplierNameForJournal(PurchasingOperationLogEntry entry)
-    {
-        if (_workspace.PurchaseOrders.FirstOrDefault(item => item.Id == entry.EntityId) is { } order)
-        {
-            return order.SupplierName;
-        }
-
-        if (_workspace.SupplierInvoices.FirstOrDefault(item => item.Id == entry.EntityId) is { } invoice)
-        {
-            return invoice.SupplierName;
-        }
-
-        if (_workspace.PurchaseReceipts.FirstOrDefault(item => item.Id == entry.EntityId) is { } receipt)
-        {
-            return receipt.SupplierName;
-        }
-
-        if (_workspace.Suppliers.FirstOrDefault(item => item.Id == entry.EntityId) is { } supplier)
-        {
-            return supplier.Name;
-        }
-
-        return string.Empty;
-    }
-
-    private string ResolveWarehouseForJournal(PurchasingOperationLogEntry entry)
-    {
-        if (_workspace.PurchaseOrders.FirstOrDefault(item => item.Id == entry.EntityId) is { } order)
-        {
-            return order.Warehouse;
-        }
-
-        if (_workspace.SupplierInvoices.FirstOrDefault(item => item.Id == entry.EntityId) is { } invoice)
-        {
-            return invoice.Warehouse;
-        }
-
-        if (_workspace.PurchaseReceipts.FirstOrDefault(item => item.Id == entry.EntityId) is { } receipt)
-        {
-            return receipt.Warehouse;
-        }
-
-        return string.Empty;
-    }
-
     private void RefreshDetails(PurchasingGridRow? row)
     {
         if (row is null)
@@ -1639,100 +973,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
         ConfigureCardActions(row);
         UpdateLockBanner(row);
-    }
-
-    private void RefreshSupplierDetails(OperationalPurchasingSupplierRecord supplier)
-    {
-        var orders = _workspace.PurchaseOrders.Where(item => item.SupplierId == supplier.Id).OrderByDescending(item => item.DocumentDate).ToArray();
-        var invoices = _workspace.SupplierInvoices.Where(item => item.SupplierId == supplier.Id).OrderByDescending(item => item.DocumentDate).ToArray();
-        var receipts = _workspace.PurchaseReceipts.Where(item => item.SupplierId == supplier.Id).OrderByDescending(item => item.DocumentDate).ToArray();
-        var latestOrder = orders.FirstOrDefault();
-        var latestInvoice = invoices.FirstOrDefault();
-        var latestReceipt = receipts.FirstOrDefault();
-        var paid = invoices.Where(IsInvoicePaid).Sum(item => item.TotalAmount);
-        var amount = orders.Sum(item => item.TotalAmount);
-        var balance = Math.Max(amount - paid, 0m);
-        var updatedAt = ResolveUpdatedAt("Поставщик", supplier.Id, latestOrder?.DocumentDate ?? DateTime.Today);
-
-        DetailsTitleText.Text = Ui(supplier.Name);
-        DetailsSubtitleText.Text = string.Join(" ? ", new[]
-        {
-            EmptyAsDash(supplier.TaxId),
-            EmptyAsDash(supplier.Phone),
-            EmptyAsDash(supplier.Email)
-        }.Where(item => item != "-"));
-
-        ApplyBadge(DetailsStatusBadge, DetailsStatusBadgeText, supplier.Status);
-        DetailsSupplierText.Text = Ui(supplier.Name);
-        DetailsWarehouseText.Text = ResolveDominantWarehouse(orders, invoices, receipts);
-        DetailsCreatedText.Text = latestOrder?.DocumentDate.ToString("dd.MM.yyyy", RuCulture) ?? "-";
-        DetailsPlannedText.Text = ResolvePlannedDate(latestOrder ?? new OperationalPurchasingDocumentRecord())?.ToString("dd.MM.yyyy", RuCulture) ?? "-";
-        DetailsNumberText.Text = Ui(supplier.Code);
-        DetailsResponsibleText.Text = ResolveResponsible("Поставщик", supplier.Id);
-        DetailsSourceText.Text = EmptyAsDash(supplier.SourceLabel);
-        DetailsContractText.Text = EmptyAsDash(supplier.Contract);
-        DetailsAmountText.Text = FormatMoney(amount);
-        DetailsPaidText.Text = FormatMoney(paid);
-        DetailsBalanceText.Text = FormatMoney(balance);
-        DetailsCommentText.Text = string.Join(Environment.NewLine, new[]
-        {
-            supplier.Phone,
-            supplier.Email
-        }.Where(item => !string.IsNullOrWhiteSpace(item)));
-        DetailsMetaResponsibleText.Text = ResolveResponsible("Поставщик", supplier.Id);
-        DetailsCreatedByText.Text = ResolveResponsible("Поставщик", supplier.Id);
-        DetailsUpdatedText.Text = updatedAt.ToString("dd.MM.yyyy HH:mm", RuCulture);
-
-        SetLinkedButton(LinkedOrderButton, latestOrder is null ? "Заказ: не создан" : $"Заказ: {latestOrder.Number}", latestOrder is null ? null : new LinkedTarget(OrdersSection, latestOrder.Id, latestOrder.Number));
-        SetLinkedButton(LinkedInvoiceButton, latestInvoice is null ? "Счет: не создан" : $"Счет: {latestInvoice.Number}", latestInvoice is null ? null : new LinkedTarget(InvoicesSection, latestInvoice.Id, latestInvoice.Number));
-        SetLinkedButton(LinkedReceiptButton, latestReceipt is null ? "Приемка: не создана" : $"Приемка: {latestReceipt.Number}", latestReceipt is null ? null : new LinkedTarget(ReceiptsSection, latestReceipt.Id, latestReceipt.Number));
-        SetLinkedButton(LinkedPaymentButton, latestInvoice is null ? "Оплата: не создана" : $"Оплата: {latestInvoice.Number}", latestInvoice is null ? null : new LinkedTarget(PaymentsSection, latestInvoice.Id, latestInvoice.Number));
-
-        RenderChain(latestOrder, latestInvoice, latestReceipt, latestInvoice);
-        RenderDetailLines((latestOrder?.Lines ?? latestInvoice?.Lines ?? latestReceipt?.Lines)?.ToArray() ?? Array.Empty<OperationalPurchasingLineRecord>());
-    }
-
-    private void RefreshJournalDetails(PurchasingOperationLogEntry entry)
-    {
-        var linkedOrder = _workspace.PurchaseOrders.FirstOrDefault(item => item.Id == entry.EntityId);
-        var linkedInvoice = _workspace.SupplierInvoices.FirstOrDefault(item => item.Id == entry.EntityId);
-        var linkedReceipt = _workspace.PurchaseReceipts.FirstOrDefault(item => item.Id == entry.EntityId);
-        var linkedSupplier = _workspace.Suppliers.FirstOrDefault(item => item.Id == entry.EntityId);
-
-        DetailsTitleText.Text = Ui(entry.Action);
-        DetailsSubtitleText.Text = Ui(entry.Message);
-        ApplyBadge(DetailsStatusBadge, DetailsStatusBadgeText, entry.Result);
-        DetailsSupplierText.Text = linkedOrder?.SupplierName ?? linkedInvoice?.SupplierName ?? linkedReceipt?.SupplierName ?? linkedSupplier?.Name ?? "-";
-        DetailsWarehouseText.Text = linkedOrder?.Warehouse ?? linkedInvoice?.Warehouse ?? linkedReceipt?.Warehouse ?? "-";
-        DetailsCreatedText.Text = entry.LoggedAt.ToString("dd.MM.yyyy HH:mm", RuCulture);
-        DetailsPlannedText.Text = "-";
-        DetailsNumberText.Text = Ui(entry.EntityNumber);
-        DetailsResponsibleText.Text = Ui(entry.Actor);
-        DetailsSourceText.Text = Ui(entry.EntityType);
-        DetailsContractText.Text = linkedSupplier?.Contract ?? linkedOrder?.Contract ?? linkedInvoice?.Contract ?? linkedReceipt?.Contract ?? "-";
-        DetailsAmountText.Text = linkedOrder is not null
-            ? FormatMoney(linkedOrder.TotalAmount)
-            : linkedInvoice is not null
-                ? FormatMoney(linkedInvoice.TotalAmount)
-                : linkedReceipt is not null
-                    ? FormatMoney(linkedReceipt.TotalAmount)
-                    : "0 ₽";
-        DetailsPaidText.Text = linkedInvoice is not null && IsInvoicePaid(linkedInvoice) ? FormatMoney(linkedInvoice.TotalAmount) : "0 ₽";
-        DetailsBalanceText.Text = linkedInvoice is not null && !IsInvoicePaid(linkedInvoice) ? FormatMoney(linkedInvoice.TotalAmount) : "0 ₽";
-        DetailsCommentText.Text = Ui(entry.Message);
-        DetailsMetaResponsibleText.Text = Ui(entry.Actor);
-        DetailsCreatedByText.Text = Ui(entry.Actor);
-        DetailsUpdatedText.Text = entry.LoggedAt.ToString("dd.MM.yyyy HH:mm", RuCulture);
-
-        var order = linkedOrder ?? (linkedInvoice is not null ? GetOrderById(linkedInvoice.RelatedOrderId) : linkedReceipt is not null ? GetOrderById(linkedReceipt.RelatedOrderId) : null);
-        var invoice = linkedInvoice ?? (order is not null ? GetInvoiceForOrder(order.Id) : null);
-        var receipt = linkedReceipt ?? (order is not null ? GetReceiptForOrder(order.Id) : null);
-        RenderChain(order, invoice, receipt, invoice);
-        SetLinkedButton(LinkedOrderButton, order is null ? "Заказ: не найден" : $"Заказ: {order.Number}", order is null ? null : new LinkedTarget(OrdersSection, order.Id, order.Number));
-        SetLinkedButton(LinkedInvoiceButton, invoice is null ? "Счет: не создан" : $"Счет: {invoice.Number}", invoice is null ? null : new LinkedTarget(InvoicesSection, invoice.Id, invoice.Number));
-        SetLinkedButton(LinkedReceiptButton, receipt is null ? "Приемка: не найдена" : $"Приемка: {receipt.Number}", receipt is null ? null : new LinkedTarget(ReceiptsSection, receipt.Id, receipt.Number));
-        SetLinkedButton(LinkedPaymentButton, invoice is null ? "Оплата: не найдена" : $"Оплата: {invoice.Number}", invoice is null ? null : new LinkedTarget(PaymentsSection, invoice.Id, invoice.Number));
-        RenderDetailLines((linkedOrder?.Lines ?? linkedInvoice?.Lines ?? linkedReceipt?.Lines)?.ToArray() ?? Array.Empty<OperationalPurchasingLineRecord>());
     }
 
     private void RefreshDocumentDetails(OperationalPurchasingDocumentRecord document, bool isPaymentView)
@@ -2126,16 +1366,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         LockBannerBorder.Visibility = Visibility.Visible;
     }
 
-    private Guid? ResolveSelectedSupplierId()
-    {
-        return GetCurrentRow()?.Payload switch
-        {
-            OperationalPurchasingSupplierRecord supplier => supplier.Id,
-            OperationalPurchasingDocumentRecord document when document.SupplierId != Guid.Empty => document.SupplierId,
-            _ => null
-        };
-    }
-
     private OperationalPurchasingDocumentRecord? ResolveDocumentForRow(PurchasingGridRow? row)
     {
         return row?.Payload switch
@@ -2237,31 +1467,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         return null;
     }
 
-    private LinkedTarget? ResolveLinkedTargetFromJournal(PurchasingOperationLogEntry entry)
-    {
-        if (_workspace.PurchaseOrders.Any(item => item.Id == entry.EntityId))
-        {
-            return new LinkedTarget(OrdersSection, entry.EntityId, entry.EntityNumber);
-        }
-
-        if (_workspace.SupplierInvoices.Any(item => item.Id == entry.EntityId))
-        {
-            return new LinkedTarget(InvoicesSection, entry.EntityId, entry.EntityNumber);
-        }
-
-        if (_workspace.PurchaseReceipts.Any(item => item.Id == entry.EntityId))
-        {
-            return new LinkedTarget(ReceiptsSection, entry.EntityId, entry.EntityNumber);
-        }
-
-        if (_workspace.Suppliers.Any(item => item.Id == entry.EntityId))
-        {
-            return new LinkedTarget(SuppliersSection, entry.EntityId, entry.EntityNumber);
-        }
-
-        return null;
-    }
-
     private void HandleRowPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is not PurchasingGridRow row || e.PropertyName != nameof(PurchasingGridRow.IsChecked))
@@ -2279,40 +1484,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         }
 
         UpdateBulkBar();
-    }
-
-    private void HandleSearchTextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_syncingSearch)
-        {
-            return;
-        }
-
-        _syncingSearch = true;
-        try
-        {
-            var source = (WpfTextBox)sender;
-            if (!ReferenceEquals(source, HeaderSearchBox))
-            {
-                HeaderSearchBox.Text = source.Text;
-            }
-
-            if (!ReferenceEquals(source, TableSearchBox))
-            {
-                TableSearchBox.Text = source.Text;
-            }
-        }
-        finally
-        {
-            _syncingSearch = false;
-        }
-
-        _page = 1;
-        UpdateSearchPlaceholders();
-        if (_initialized)
-        {
-            ApplyFilters(keepSelection: true);
-        }
     }
 
     private void HandleImportClick(object sender, RoutedEventArgs e)
@@ -2353,21 +1524,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         }
     }
 
-    private void HandleExportClick(object sender, RoutedEventArgs e)
-    {
-        ExportRows(_filteredRows, "Закупки");
-    }
-
-    private void HandleNewPurchaseClick(object sender, RoutedEventArgs e)
-    {
-        CreateNewPurchase();
-    }
-
-    private void HandleNewSupplierClick(object sender, RoutedEventArgs e)
-    {
-        OpenSupplierEditor(null);
-    }
-
     private void HandleEmptyStatePrimaryClick(object sender, RoutedEventArgs e)
     {
         if (_activeSection == SuppliersSection)
@@ -2379,17 +1535,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         CreateNewPurchase();
     }
 
-    private void HandleActionsClick(object sender, RoutedEventArgs e)
-    {
-        if (ActionsButton.ContextMenu is null)
-        {
-            return;
-        }
-
-        ActionsButton.ContextMenu.PlacementTarget = ActionsButton;
-        ActionsButton.ContextMenu.IsOpen = true;
-    }
-
     private void HandleDismissLockBannerClick(object sender, RoutedEventArgs e)
     {
         _dismissedLockKey = _selectedRowKey;
@@ -2398,101 +1543,10 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void HandleIssuePresetClick(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button || button.Tag is not string preset)
-        {
-            return;
-        }
-
-        switch (preset)
-        {
-            case "unpaid":
-                ApplySection(PaymentsSection, keepSelection: false, resetFilters: true);
-                UnpaidOnlyCheckBox.IsChecked = true;
-                break;
-            case "discrepancy":
-                ApplySection(DiscrepanciesSection, keepSelection: false, resetFilters: true);
-                break;
-            case "missing-receipt":
-                ApplySection(OrdersSection, keepSelection: false, resetFilters: true);
-                MissingReceiptOnlyCheckBox.IsChecked = true;
-                break;
-            case "missing-invoice":
-                ApplySection(OrdersSection, keepSelection: false, resetFilters: true);
-                MissingInvoiceOnlyCheckBox.IsChecked = true;
-                break;
-            default:
-                ApplySection(OrdersSection, keepSelection: false, resetFilters: true);
-                OverdueOnlyCheckBox.IsChecked = true;
-                break;
-        }
-
-        _page = 1;
-        ApplyFilters(keepSelection: false);
-    }
-
-    private void HandleTabClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button button && button.Tag is string section)
-        {
-            ApplySection(section, keepSelection: false, resetFilters: true);
-        }
-    }
-
-    private void HandleFilterChanged(object sender, RoutedEventArgs e)
-    {
-        if (_suppressFilters || !_initialized)
-        {
-            return;
-        }
-
-        _page = 1;
-        ApplyFilters(keepSelection: true);
-    }
-
-    private void HandleFilterChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressFilters || !_initialized)
-        {
-            return;
-        }
-
-        _page = 1;
-        ApplyFilters(keepSelection: true);
-    }
-
-    private void HandleResetFiltersClick(object sender, RoutedEventArgs e)
-    {
-        ResetFilters(clearSearch: false);
     }
 
     private void ResetFilters(bool clearSearch)
     {
-        _suppressFilters = true;
-        try
-        {
-            if (clearSearch)
-            {
-                HeaderSearchBox.Text = string.Empty;
-                TableSearchBox.Text = string.Empty;
-            }
-
-            StatusFilterCombo.SelectedIndex = 0;
-            SupplierFilterCombo.SelectedIndex = 0;
-            WarehouseFilterCombo.SelectedIndex = 0;
-            DocumentTypeFilterCombo.SelectedIndex = 0;
-            OverdueOnlyCheckBox.IsChecked = false;
-            MissingInvoiceOnlyCheckBox.IsChecked = false;
-            MissingReceiptOnlyCheckBox.IsChecked = false;
-            UnpaidOnlyCheckBox.IsChecked = false;
-            DateFromPicker.SelectedDate = _defaultDateFrom;
-            DateToPicker.SelectedDate = _defaultDateTo;
-        }
-        finally
-        {
-            _suppressFilters = false;
-        }
-
-        UpdateSearchPlaceholders();
         _page = 1;
         ApplyFilters(keepSelection: false);
     }
@@ -2710,28 +1764,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         }
     }
 
-    private void HandleCreateReceiptClick(object sender, RoutedEventArgs e)
-    {
-        var row = GetCurrentRow();
-        if (row is null)
-        {
-            return;
-        }
-
-        CreateOrEditReceipt(row);
-    }
-
-    private void HandlePaySelectedClick(object sender, RoutedEventArgs e)
-    {
-        var row = GetCurrentRow();
-        if (row is null)
-        {
-            return;
-        }
-
-        PayInvoice(row);
-    }
-
     private void HandleEditSelectedClick(object sender, RoutedEventArgs e)
     {
         var row = GetCurrentRow();
@@ -2742,65 +1774,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         }
 
         EditRow(row);
-    }
-
-    private void HandleSendSupplierClick(object sender, RoutedEventArgs e)
-    {
-        var row = GetCurrentRow();
-        if (row is null)
-        {
-            return;
-        }
-
-        SendSupplier(row);
-    }
-
-    private void SendSupplier(PurchasingGridRow row)
-    {
-        if (row.Payload is OperationalPurchasingSupplierRecord supplier)
-        {
-            MessageBox.Show(
-                Window.GetWindow(this),
-                $"Контакты поставщика:\n{supplier.Name}\n{supplier.Phone}\n{supplier.Email}",
-                "Закупки",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
-        if (ResolveOrderForRow(row) is { } order && !row.IsDisabled)
-        {
-            var result = _workspace.PlacePurchaseOrder(order.Id);
-            ShowWorkflowResult(result);
-            return;
-        }
-
-        MessageBox.Show(Window.GetWindow(this), "Для выбранной записи отправка поставщику не требуется.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
-    }
-
-    private void HandleCreateDiscrepancyClick(object sender, RoutedEventArgs e)
-    {
-        var row = GetCurrentRow();
-        if (row is null)
-        {
-            return;
-        }
-
-        var document = ResolveDocumentForRow(row) ?? ResolveInvoiceForRow(row) ?? ResolveReceiptForRow(row) ?? ResolveOrderForRow(row);
-        if (document is null)
-        {
-            MessageBox.Show(Window.GetWindow(this), "Для выбранной записи нельзя завести расхождение.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        var comment = PromptText("Расхождение", "Опишите найденное расхождение.", string.Empty, Array.Empty<string>());
-        if (string.IsNullOrWhiteSpace(comment))
-        {
-            return;
-        }
-
-        var result = _workspace.AppendDocumentComment(document.DocumentType, document.Id, $"[Расхождение] {comment}", "Создание расхождения");
-        ShowWorkflowResult(result);
     }
 
     private void HandlePrintSelectedClick(object sender, RoutedEventArgs e)
@@ -2882,48 +1855,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         var canceledStatus = Ui(document.DocumentType).Equals("Приемка", StringComparison.OrdinalIgnoreCase) ? "Отменена" : "Отменен";
         var result = _workspace.SetDocumentStatus(document.DocumentType, document.Id, canceledStatus, "Отмена документа", "Документ отменен.", refreshLifecycle: false);
         ShowWorkflowResult(result);
-    }
-
-    private void CreateNewPurchase(Guid? supplierId = null)
-    {
-        var dialog = new PurchasingDocumentEditorWindow(
-            _workspace,
-            PurchasingDocumentEditorMode.PurchaseOrder,
-            null,
-            supplierId,
-            ResolveStorageCellOptions())
-        {
-            Owner = Window.GetWindow(this)
-        };
-
-        if (dialog.ShowDialog() != true || dialog.ResultDocument is null)
-        {
-            return;
-        }
-
-        _workspace.AddPurchaseOrder(dialog.ResultDocument);
-    }
-
-    private void OpenSupplierEditor(OperationalPurchasingSupplierRecord? supplier)
-    {
-        var dialog = new PurchasingSupplierEditorWindow(_workspace, supplier)
-        {
-            Owner = Window.GetWindow(this)
-        };
-
-        if (dialog.ShowDialog() != true || dialog.ResultSupplier is null)
-        {
-            return;
-        }
-
-        if (supplier is null)
-        {
-            _workspace.AddSupplier(dialog.ResultSupplier);
-        }
-        else
-        {
-            _workspace.UpdateSupplier(dialog.ResultSupplier);
-        }
     }
 
     private void OpenDocumentEditor(
@@ -3010,121 +1941,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         }
     }
 
-    private void CreateOrEditInvoice(PurchasingGridRow row)
-    {
-        if (ResolveOrderForRow(row) is not { } order)
-        {
-            OpenDocumentEditor(PurchasingDocumentEditorMode.SupplierInvoice, ResolveInvoiceForRow(row), ResolveSelectedSupplierId());
-            return;
-        }
-
-        var existing = GetInvoiceForOrder(order.Id);
-        var draft = existing ?? _workspace.CreateSupplierInvoiceDraftFromOrder(order.Id);
-        OpenDocumentEditor(PurchasingDocumentEditorMode.SupplierInvoice, existing is null ? null : draft, order.SupplierId);
-        if (existing is null)
-        {
-            // The editor already persists through OpenDocumentEditor when ResultDocument is returned.
-        }
-    }
-
-    private void CreateOrEditReceipt(PurchasingGridRow row)
-    {
-        if (ResolveOrderForRow(row) is not { } order)
-        {
-            OpenDocumentEditor(PurchasingDocumentEditorMode.PurchaseReceipt, ResolveReceiptForRow(row), ResolveSelectedSupplierId());
-            return;
-        }
-
-        var existing = GetReceiptForOrder(order.Id);
-        var draft = existing ?? _workspace.CreateReceiptDraftFromOrder(order.Id);
-        OpenDocumentEditor(PurchasingDocumentEditorMode.PurchaseReceipt, existing is null ? null : draft, order.SupplierId);
-        if (existing is null)
-        {
-            // Persisted via OpenDocumentEditor.
-        }
-    }
-
-    private void MarkInvoiceReceived(PurchasingGridRow row)
-    {
-        var invoice = ResolveInvoiceForRow(row);
-        if (invoice is null)
-        {
-            MessageBox.Show(Window.GetWindow(this), "Для выбранной записи нет счета поставщика.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        var result = _workspace.MarkSupplierInvoiceReceived(invoice.Id);
-        ShowWorkflowResult(result);
-    }
-
-    private void MarkInvoicePayable(PurchasingGridRow row)
-    {
-        var invoice = ResolveInvoiceForRow(row);
-        if (invoice is null)
-        {
-            MessageBox.Show(Window.GetWindow(this), "Для выбранной записи нет счета поставщика.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        if (Ui(invoice.Status).Equals("Черновик", StringComparison.OrdinalIgnoreCase))
-        {
-            _workspace.MarkSupplierInvoiceReceived(invoice.Id);
-        }
-
-        var result = _workspace.MarkSupplierInvoicePayable(invoice.Id);
-        ShowWorkflowResult(result);
-    }
-
-    private void PayInvoice(PurchasingGridRow row)
-    {
-        var invoice = ResolveInvoiceForRow(row);
-        if (invoice is null)
-        {
-            MessageBox.Show(Window.GetWindow(this), "Для выбранной записи нет счета к оплате.", "Закупки", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        if (Ui(invoice.Status).Equals("Черновик", StringComparison.OrdinalIgnoreCase))
-        {
-            _workspace.MarkSupplierInvoiceReceived(invoice.Id);
-        }
-
-        if (Ui(invoice.Status).Equals("Получен", StringComparison.OrdinalIgnoreCase))
-        {
-            _workspace.MarkSupplierInvoicePayable(invoice.Id);
-        }
-
-        var result = _workspace.MarkSupplierInvoicePaid(invoice.Id);
-        ShowWorkflowResult(result);
-    }
-
-    private void ReceiveReceipt(PurchasingGridRow row)
-    {
-        if (ResolveReceiptForRow(row) is not { } receipt)
-        {
-            return;
-        }
-
-        var result = _workspace.ReceivePurchaseReceipt(receipt.Id);
-        ShowWorkflowResult(result);
-    }
-
-    private void PlaceReceipt(PurchasingGridRow row)
-    {
-        if (ResolveReceiptForRow(row) is not { } receipt)
-        {
-            return;
-        }
-
-        if (Ui(receipt.Status).Equals("Черновик", StringComparison.OrdinalIgnoreCase))
-        {
-            _workspace.ReceivePurchaseReceipt(receipt.Id);
-        }
-
-        var result = _workspace.PlacePurchaseReceipt(receipt.Id);
-        ShowWorkflowResult(result);
-    }
-
     private void OpenLinkedObject(PurchasingGridRow row)
     {
         switch (row.Payload)
@@ -3159,20 +1975,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         if (!_activeSection.Equals(target.Section, StringComparison.OrdinalIgnoreCase))
         {
             ApplySection(target.Section, keepSelection: true, resetFilters: false);
-        }
-
-        if (!string.IsNullOrWhiteSpace(target.SearchText))
-        {
-            _syncingSearch = true;
-            try
-            {
-                HeaderSearchBox.Text = target.SearchText;
-                TableSearchBox.Text = target.SearchText;
-            }
-            finally
-            {
-                _syncingSearch = false;
-            }
         }
 
         ApplyFilters(keepSelection: true);
@@ -3593,21 +2395,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         }
 
         return imported;
-    }
-
-    private OperationalPurchasingSupplierRecord EnsureSupplier(string supplierName)
-    {
-        var existing = _workspace.Suppliers.FirstOrDefault(item => Ui(item.Name).Equals(Ui(supplierName), StringComparison.OrdinalIgnoreCase));
-        if (existing is not null)
-        {
-            return existing;
-        }
-
-        var draft = _workspace.CreateSupplierDraft();
-        draft.Name = Ui(supplierName);
-        draft.Code = string.IsNullOrWhiteSpace(draft.Code) ? $"SUP-{DateTime.Now:yyMMddHHmmss}" : draft.Code;
-        _workspace.AddSupplier(draft);
-        return _workspace.Suppliers.First(item => item.Id == draft.Id);
     }
 
     private string? PromptText(string title, string prompt, string? initialValue, IEnumerable<string> options)

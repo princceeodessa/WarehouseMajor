@@ -198,18 +198,7 @@ public sealed class WarehouseOperationalWorkspaceStore
             return;
         }
 
-        if (_serverModeEnabled)
-        {
-            throw CreateRemoteSaveException("склада");
-        }
-
-        var tempPath = $"{StoragePath}.tmp";
-        using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
-        {
-            JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
-        }
-
-        File.Move(tempPath, StoragePath, true);
+        throw CreateRemoteSaveException("склада");
     }
 
     private void EnsureBackplaneReady(string currentOperator)

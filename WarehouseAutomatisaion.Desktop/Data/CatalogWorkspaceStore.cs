@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using System.Diagnostics;
 using System.Security.Cryptography;
 using WarehouseAutomatisaion.Desktop.Text;
 using WarehouseAutomatisaion.Infrastructure.Importing;
@@ -267,14 +266,7 @@ public sealed class CatalogWorkspaceStore
             return;
         }
 
-        if (_serverModeEnabled)
-        {
-            throw CreateRemoteSaveException("каталога");
-        }
-
-        WriteSnapshot(snapshot);
-        _lastSavedSnapshotHash = snapshotHash;
-        InvalidateCache();
+        throw CreateRemoteSaveException("каталога");
     }
 
     public CatalogWorkspace? TrySyncPendingLocalSnapshot(string currentOperator, SalesWorkspace salesWorkspace)
@@ -450,47 +442,6 @@ public sealed class CatalogWorkspaceStore
     {
         var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
-    }
-
-    private void WriteSnapshot(CatalogWorkspaceSnapshot snapshot)
-    {
-        var directory = Path.GetDirectoryName(StoragePath);
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            throw new InvalidOperationException("Storage directory is not configured.");
-        }
-
-        Directory.CreateDirectory(directory);
-        var tempPath = $"{StoragePath}.tmp";
-        var stopwatch = Stopwatch.StartNew();
-        using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
-        {
-            JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
-        }
-
-        File.Move(tempPath, StoragePath, true);
-        stopwatch.Stop();
-        TryWritePerformanceLog(directory, snapshot, stopwatch.Elapsed);
-    }
-
-    private void TryWritePerformanceLog(string directory, CatalogWorkspaceSnapshot snapshot, TimeSpan elapsed)
-    {
-        try
-        {
-            var fileSize = File.Exists(StoragePath) ? new FileInfo(StoragePath).Length : 0;
-            if (elapsed.TotalMilliseconds < 500 && fileSize < 10 * 1024 * 1024)
-            {
-                return;
-            }
-
-            var logPath = Path.Combine(directory, "catalog-workspace-performance.log");
-            var message =
-                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}; save={elapsed.TotalMilliseconds:N0}ms; size={fileSize / 1024d / 1024d:N2}MB; items={snapshot.Items.Count}; priceTypes={snapshot.PriceTypes.Count}; itemPrices={snapshot.ItemPrices.Count}; discounts={snapshot.Discounts.Count}; registrations={snapshot.PriceRegistrations.Count}; log={snapshot.OperationLog.Count}{Environment.NewLine}";
-            File.AppendAllText(logPath, message, Encoding.UTF8);
-        }
-        catch
-        {
-        }
     }
 
     private void EnsureBackplaneReady(string currentOperator)

@@ -147,15 +147,9 @@ public sealed class PurchasingOperationalWorkspaceStore
                 return workspace;
             }
 
-            var repaired = RepairSupplierLinks(snapshot);
+            RepairSupplierLinks(snapshot);
             var persisted = snapshot.ToWorkspace(currentOperator, salesWorkspace.CatalogItems, salesWorkspace.Warehouses);
             MergeWorkspace(workspace, persisted);
-            if (repaired)
-            {
-                WriteSnapshot(snapshot);
-            }
-
-
             return workspace;
         }
         catch
@@ -228,13 +222,7 @@ public sealed class PurchasingOperationalWorkspaceStore
             return;
         }
 
-        if (_serverModeEnabled)
-        {
-            throw CreateRemoteSaveException("закупок");
-        }
-
-        WriteSnapshot(snapshot);
-        InvalidateCache();
+        throw CreateRemoteSaveException("закупок");
     }
 
     private bool TryPromoteLocalSnapshotIfNewer(
@@ -336,24 +324,6 @@ public sealed class PurchasingOperationalWorkspaceStore
 
         _remoteMetadata = retry.Metadata;
         return true;
-    }
-
-    private void WriteSnapshot(PurchasingWorkspaceSnapshot snapshot)
-    {
-        var directory = Path.GetDirectoryName(StoragePath);
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            throw new InvalidOperationException("Storage directory is not configured.");
-        }
-
-        Directory.CreateDirectory(directory);
-        var tempPath = $"{StoragePath}.tmp";
-        using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
-        {
-            JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
-        }
-
-        File.Move(tempPath, StoragePath, true);
     }
 
     private void EnsureBackplaneReady(string currentOperator)

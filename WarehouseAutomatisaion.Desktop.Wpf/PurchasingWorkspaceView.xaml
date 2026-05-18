@@ -251,51 +251,6 @@
                                VerticalAlignment="Center" />
                 </StackPanel>
 
-                <!-- Release 1.0.122: верхняя плашка с Поиском + Импорт / Экспорт /
-                     Новая закупка / Действия скрыта по запросу пользователя. В 1С УНФ
-                     этого ряда нет — действия живут в узком тулбаре над таблицей
-                     (когда восстановим из 1.0.117 после диагностики краша), а поиск
-                     дублируется глобальным в шапке MainWindow. HeaderSearchBox,
-                     HeaderSearchPlaceholderText, NewPurchaseButton, ActionsButton
-                     остаются в визуальном дереве — code-behind на них продолжает
-                     ссылаться (HandleSearchTextChanged, HandleActionsClick и т.д.). -->
-                <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" Style="{StaticResource TopHeaderActionsWrapPanelStyle}" Visibility="Collapsed">
-                    <Border Width="330" Style="{StaticResource TopSearchContainerStyle}" Margin="0,0,10,0">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="20" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="HeaderSearchBox" Grid.Column="0" Style="{StaticResource TopSearchTextBoxStyle}" TextChanged="HandleSearchTextChanged" />
-                            <TextBlock x:Name="HeaderSearchPlaceholderText" Grid.Column="0" Text="Поиск по номеру, поставщику, товару или коду..." Style="{StaticResource TopSearchPlaceholderStyle}" />
-                            <TextBlock Grid.Column="1" Style="{StaticResource TopSearchIconStyle}" />
-                        </Grid>
-                    </Border>
-                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Импорт закупок" Margin="0,0,10,0" Click="HandleImportClick">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE896;" FontSize="12" VerticalAlignment="Center" />
-                            <TextBlock Text="Импорт" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Экспорт закупок" Margin="0,0,10,0" Click="HandleExportClick">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEDE1;" FontSize="12" VerticalAlignment="Center" />
-                            <TextBlock Text="Экспорт" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="NewPurchaseButton" AutomationProperties.Name="Новая закупка" Style="{StaticResource TopPrimaryActionButtonStyle}" Margin="0,0,10,0" Click="HandleNewPurchaseClick">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" VerticalAlignment="Center" />
-                            <TextBlock Text="Новая закупка" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ActionsButton" AutomationProperties.Name="Действия закупок" Style="{StaticResource TopActionButtonStyle}" Click="HandleActionsClick">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Действия" VerticalAlignment="Center" />
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                </WrapPanel>
             </Grid>
 
             <Border x:Name="LockBannerBorder" Grid.Row="1" Style="{StaticResource CardStyle}" BorderBrush="#AFC2FF" Background="#F7FAFF" Padding="16,12" Margin="0,0,0,18" Visibility="Collapsed">
@@ -436,22 +391,6 @@
                         </Button>
                     </UniformGrid>
 
-                    <!-- Release 1.0.124: дублирующий ряд вкладок убран по запросу пользователя.
-                         Та же навигация (Заказы / Поставщики / Счета / Приемки / Оплаты /
-                         Расхождения / Журнал) доступна из витрины «Закупки» в сайдбаре,
-                         каждая команда вызывает ActivateSubSection. Кнопки оставлены в
-                         дереве (Visibility=Collapsed), чтобы ApplySectionButtons и
-                         HandleTabClick продолжали работать. -->
-                    <WrapPanel x:Name="SectionTabsPanel" Margin="0,0,0,12" Visibility="Collapsed">
-                        <Button x:Name="OrdersTabButton" Content="Заказы" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="orders" />
-                        <Button x:Name="SuppliersTabButton" Content="Поставщики" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="suppliers" />
-                        <Button x:Name="InvoicesTabButton" Content="Счета" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="invoices" />
-                        <Button x:Name="ReceiptsTabButton" Content="Приемки" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="receipts" />
-                        <Button x:Name="PaymentsTabButton" Content="Оплаты" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="payments" />
-                        <Button x:Name="DiscrepanciesTabButton" Content="Расхождения" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="discrepancies" />
-                        <Button x:Name="JournalTabButton" Content="Журнал" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="journal" />
-                    </WrapPanel>
-
                     <!-- 1С УНФ sub-tabs внутри секции Заказы.
                          Левая вкладка — текущие заказы поставщикам, правая — заказы покупателей,
                          которые ещё надо оформить как заказ поставщику (с жёлтой Primary-кнопкой). -->
@@ -485,68 +424,6 @@
                                     Margin="18,0,0,0" />
                         </StackPanel>
                     </DockPanel>
-
-                    <!-- Release 1.0.121: фильтр-карточка скрыта по запросу пользователя.
-                         В 1С УНФ её нет на главных видах закупок — фильтрация делается
-                         выбором sub-tab (Заказы/Поставщики/Счета/...), поиском в верхней
-                         плашке и колонками таблицы. Все дочерние ComboBox/TextBox/CheckBox
-                         (StatusFilterCombo, SupplierFilterCombo, WarehouseFilterCombo,
-                         DocumentTypeFilterCombo, DateFromPicker, DateToPicker,
-                         OverdueOnlyCheckBox и т.д.) остаются в дереве — code-behind
-                         к ним обращается; они просто не отображаются. -->
-                    <Border x:Name="FiltersCard" Style="{StaticResource CardStyle}" Padding="14,14,14,12" Margin="0,0,0,14" Visibility="Collapsed">
-                        <StackPanel>
-                            <WrapPanel Margin="0,0,0,10">
-                                <Border Width="210" Style="{StaticResource TableFilterSearchContainerStyle}" Margin="0,0,10,10">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="18" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="TableSearchBox" Grid.Column="0" Style="{StaticResource TableFilterSearchTextBoxStyle}" TextChanged="HandleSearchTextChanged" />
-                                        <TextBlock x:Name="TableSearchPlaceholderText" Grid.Column="0" Text="Поиск по номеру, поставщику, товару..." Style="{StaticResource TableFilterSearchPlaceholderStyle}" />
-                                        <TextBlock Grid.Column="1" Style="{StaticResource TableFilterSearchIconStyle}" />
-                                    </Grid>
-                                </Border>
-                                <ComboBox x:Name="StatusFilterCombo" Style="{StaticResource FilterComboStyle}" Width="110" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
-                                <ComboBox x:Name="SupplierFilterCombo" Style="{StaticResource FilterComboStyle}" Width="118" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
-                                <ComboBox x:Name="WarehouseFilterCombo" Style="{StaticResource FilterComboStyle}" Width="110" Margin="0,0,10,10" SelectionChanged="HandleFilterChanged" />
-                                <ComboBox x:Name="DocumentTypeFilterCombo" Style="{StaticResource FilterComboStyle}" Width="122" Margin="0,0,0,10" SelectionChanged="HandleFilterChanged" />
-                                <Button x:Name="NewSupplierInTabButton"
-                                        Style="{StaticResource TableFilterActionButtonStyle}"
-                                        Width="160"
-                                        Margin="10,0,0,10"
-                                        Visibility="Collapsed"
-                                        Click="HandleNewSupplierClick">
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                        <TextBlock FontFamily="Segoe Fluent Icons"
-                                                   Text="&#xE710;"
-                                                   FontSize="12"
-                                                   VerticalAlignment="Center" />
-                                        <TextBlock Text="Новый поставщик"
-                                                   Margin="8,0,0,0"
-                                                   VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                            </WrapPanel>
-                            <WrapPanel Margin="0,0,0,10">
-                                <DatePicker x:Name="DateFromPicker" Width="132" Style="{StaticResource TableFilterDatePickerStyle}" Margin="0,0,10,10" SelectedDateChanged="HandleFilterChanged" />
-                                <DatePicker x:Name="DateToPicker" Width="132" Style="{StaticResource TableFilterDatePickerStyle}" Margin="0,0,10,10" SelectedDateChanged="HandleFilterChanged" />
-                                <Button Style="{StaticResource TableFilterResetButtonStyle}" Width="104" Click="HandleResetFiltersClick" Margin="0,0,0,10">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE72B;" FontSize="12" />
-                                        <TextBlock Text="Сбросить" Margin="8,0,0,0" />
-                                    </StackPanel>
-                                </Button>
-                            </WrapPanel>
-                            <WrapPanel>
-                                <CheckBox x:Name="OverdueOnlyCheckBox" Style="{StaticResource ToggleStyle}" Margin="0,0,16,0" Click="HandleFilterChanged">Только просроченные</CheckBox>
-                                <CheckBox x:Name="MissingInvoiceOnlyCheckBox" Style="{StaticResource ToggleStyle}" Margin="0,0,16,0" Click="HandleFilterChanged">Только без счета</CheckBox>
-                                <CheckBox x:Name="MissingReceiptOnlyCheckBox" Style="{StaticResource ToggleStyle}" Margin="0,0,16,0" Click="HandleFilterChanged">Только без приемки</CheckBox>
-                                <CheckBox x:Name="UnpaidOnlyCheckBox" Style="{StaticResource ToggleStyle}" Click="HandleFilterChanged">Только неоплаченные</CheckBox>
-                            </WrapPanel>
-                        </StackPanel>
-                    </Border>
 
                     <Border x:Name="BulkBarBorder" Style="{StaticResource TableBulkBarStyle}" Margin="0,0,0,14" Visibility="Collapsed">
                         <DockPanel>

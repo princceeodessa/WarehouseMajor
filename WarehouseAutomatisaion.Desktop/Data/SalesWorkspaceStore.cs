@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -128,7 +127,7 @@ public sealed class SalesWorkspaceStore
                 workspace.AttachOneCImportSnapshot(null);
             }
 
-            return RepairAndReturn(workspace, currentOperator);
+            return RepairAndReturn(workspace);
         }
 
         DesktopOperationalSnapshot? operationalSnapshot = null;
@@ -153,7 +152,7 @@ public sealed class SalesWorkspaceStore
             _hasPendingLocalSync = ShouldPromoteLocalSnapshot(salesRowsRecord.Metadata);
             TryWriteServerCache(salesRowsRecord.Snapshot, salesRowsRecord.Metadata.PayloadHash);
             ApplySnapshotToWorkspace(workspace, salesRowsRecord.Snapshot, operationalSnapshot, importRoots, cloneRecords: false);
-            return RepairAndReturn(workspace, currentOperator);
+            return RepairAndReturn(workspace);
         }
 
         var backplaneRecord = TryGetBackplane()?.TryLoadModuleSnapshotRecord<SalesWorkspaceSnapshot>("sales");
@@ -163,7 +162,7 @@ public sealed class SalesWorkspaceStore
             _lastSavedSnapshotHash = ComputeSnapshotHash(backplaneRecord.Snapshot);
             ApplySnapshotToWorkspace(workspace, backplaneRecord.Snapshot, operationalSnapshot, importRoots);
             TrySeedSalesRows(backplaneRecord.Snapshot, currentOperator);
-            return RepairAndReturn(workspace, currentOperator);
+            return RepairAndReturn(workspace);
         }
 
         try
@@ -172,7 +171,7 @@ public sealed class SalesWorkspaceStore
             var snapshot = JsonSerializer.Deserialize<SalesWorkspaceSnapshot>(json, SerializerOptions);
             if (snapshot is null)
             {
-                return RepairAndReturn(workspace, currentOperator);
+                return RepairAndReturn(workspace);
             }
 
             if (operationalSnapshot?.HasSalesData == true)
@@ -202,11 +201,11 @@ public sealed class SalesWorkspaceStore
                 _hasPendingLocalSync = true;
             }
 
-            return RepairAndReturn(workspace, currentOperator);
+            return RepairAndReturn(workspace);
         }
         catch
         {
-            return RepairAndReturn(workspace, currentOperator);
+            return RepairAndReturn(workspace);
         }
     }
 
@@ -266,13 +265,7 @@ public sealed class SalesWorkspaceStore
             return;
         }
 
-        if (_serverModeEnabled)
-        {
-            throw new InvalidOperationException("Не удалось сохранить данные продаж в серверную БД. Проверьте подключение к серверу.");
-        }
-
-        WriteSnapshot(snapshot);
-        _lastSavedSnapshotHash = snapshotHash;
+        throw new InvalidOperationException("Не удалось сохранить данные продаж в серверную БД. Проверьте подключение к серверу.");
     }
 
     public void SaveSnapshot(SalesWorkspaceSnapshot snapshot, string currentOperator)
@@ -290,13 +283,7 @@ public sealed class SalesWorkspaceStore
             return;
         }
 
-        if (_serverModeEnabled)
-        {
-            throw new InvalidOperationException("Не удалось сохранить данные продаж в серверную БД. Проверьте подключение к серверу.");
-        }
-
-        WriteSnapshot(snapshot);
-        _lastSavedSnapshotHash = snapshotHash;
+        throw new InvalidOperationException("Не удалось сохранить данные продаж в серверную БД. Проверьте подключение к серверу.");
     }
 
     public bool TrySyncPendingLocalSnapshot(string? currentOperator)
@@ -362,75 +349,15 @@ public sealed class SalesWorkspaceStore
         return true;
     }
 
-    private SalesWorkspace RepairAndReturn(SalesWorkspace workspace, string currentOperator)
+    private SalesWorkspace RepairAndReturn(SalesWorkspace workspace)
     {
         if (!RepairWorkspace(workspace))
         {
             return workspace;
         }
 
-        if (_serverModeEnabled)
-        {
-            _lastSavedSnapshotHash = ComputeSnapshotHash(SalesWorkspaceSnapshot.FromWorkspace(workspace));
-            return workspace;
-        }
-
-        var snapshot = SalesWorkspaceSnapshot.FromWorkspace(workspace);
-        try
-        {
-            if (TrySaveToBackplane(snapshot, currentOperator))
-            {
-                return workspace;
-            }
-
-            WriteSnapshot(snapshot);
-        }
-        catch
-        {
-        }
-
+        _lastSavedSnapshotHash = ComputeSnapshotHash(SalesWorkspaceSnapshot.FromWorkspace(workspace));
         return workspace;
-    }
-
-    private void WriteSnapshot(SalesWorkspaceSnapshot snapshot)
-    {
-        var directory = Path.GetDirectoryName(StoragePath);
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return;
-        }
-
-        Directory.CreateDirectory(directory);
-        var tempPath = $"{StoragePath}.tmp";
-        var stopwatch = Stopwatch.StartNew();
-        using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
-        {
-            JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
-        }
-
-        File.Move(tempPath, StoragePath, true);
-        stopwatch.Stop();
-        TryWritePerformanceLog(directory, snapshot, stopwatch.Elapsed);
-    }
-
-    private void TryWritePerformanceLog(string directory, SalesWorkspaceSnapshot snapshot, TimeSpan elapsed)
-    {
-        try
-        {
-            var fileSize = File.Exists(StoragePath) ? new FileInfo(StoragePath).Length : 0;
-            if (elapsed.TotalMilliseconds < 500 && fileSize < 10 * 1024 * 1024)
-            {
-                return;
-            }
-
-            var logPath = Path.Combine(directory, "sales-workspace-performance.log");
-            var message =
-                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}; save={elapsed.TotalMilliseconds:N0}ms; size={fileSize / 1024d / 1024d:N2}MB; customers={snapshot.Customers.Count}; orders={snapshot.Orders.Count}; invoices={snapshot.Invoices.Count}; shipments={snapshot.Shipments.Count}; returns={snapshot.Returns.Count}; cash={snapshot.CashReceipts.Count}; log={snapshot.OperationLog.Count}{Environment.NewLine}";
-            File.AppendAllText(logPath, message, Encoding.UTF8);
-        }
-        catch
-        {
-        }
     }
 
     private bool IsSnapshotAlreadySaved(string snapshotHash)
