@@ -263,25 +263,26 @@
                             <TextBlock Grid.Column="1" Style="{StaticResource TopSearchIconStyle}" />
                         </Grid>
                     </Border>
-                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Импорт закупок" Margin="0,0,10,0" Click="HandleImportClick">
+<!-- Release 1.0.117: эти кнопки переехали в узкий 1С-тулбар над таблицей; скрыты, не удалены. -->
+                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Импорт закупок" Margin="0,0,10,0" Click="HandleImportClick" Visibility="Collapsed">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE896;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Импорт" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Экспорт закупок" Margin="0,0,10,0" Click="HandleExportClick">
+                    <Button Style="{StaticResource TopActionButtonStyle}" AutomationProperties.Name="Экспорт закупок" Margin="0,0,10,0" Click="HandleExportClick" Visibility="Collapsed">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEDE1;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Экспорт" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="NewPurchaseButton" AutomationProperties.Name="Новая закупка" Style="{StaticResource TopPrimaryActionButtonStyle}" Margin="0,0,10,0" Click="HandleNewPurchaseClick">
+                    <Button x:Name="NewPurchaseButton" AutomationProperties.Name="Новая закупка" Style="{StaticResource TopPrimaryActionButtonStyle}" Margin="0,0,10,0" Click="HandleNewPurchaseClick" Visibility="Collapsed">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Новая закупка" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="ActionsButton" AutomationProperties.Name="Действия закупок" Style="{StaticResource TopActionButtonStyle}" Click="HandleActionsClick">
+                    <Button x:Name="ActionsButton" AutomationProperties.Name="Действия закупок" Style="{StaticResource TopActionButtonStyle}" Click="HandleActionsClick" Visibility="Collapsed">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Действия" VerticalAlignment="Center" />
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center" />
@@ -471,6 +472,48 @@
                                     Margin="18,0,0,0" />
                         </StackPanel>
                     </DockPanel>
+
+                    <!-- Release 1.0.117: узкий 1С УНФ-тулбар прямо над фильтрами и таблицей.
+                         Дублирует кнопки Header'а (Новая закупка / Импорт / Экспорт / Действия) в
+                         компактном стиле OneCToolbar — как в 1С-Закупках (скрин 1). После релиза
+                         кнопки в HeaderActionsPanel скрыты (Visibility=Collapsed), чтобы не было
+                         двух копий. Hookups к тем же handler'ам — функционал сохранён. -->
+                    <Border Background="{StaticResource OneCToolbarBg}"
+                            BorderBrush="{StaticResource OneCToolbarBorder}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="6,5"
+                            Margin="0,0,0,12">
+                        <WrapPanel>
+                            <Button Content="Create" Style="{StaticResource OneCPrimaryToolbarButtonStyle}"
+                                    Margin="0,0,6,0" Click="HandleNewPurchaseClick"
+                                    ToolTip="Создать новую закупку (Новый заказ поставщику / Счёт / Приёмку — в зависимости от активной вкладки)" />
+                            <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0"
+                                    ToolTip="Быстрое добавление" Click="HandleNewPurchaseClick">
+                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
+                            </Button>
+                            <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0"
+                                    ToolTip="Фильтры" Click="HandleFilterIconClick">
+                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE71C;" FontSize="13" />
+                            </Button>
+                            <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0"
+                                    ToolTip="Печать" Click="HandlePrintClick">
+                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
+                            </Button>
+                            <Button Content="Generate ▾" Style="{StaticResource OneCToolbarButtonStyle}"
+                                    Margin="0,0,4,0" ToolTip="Сформировать документ на основе выделенного"
+                                    Click="HandleActionsClick" />
+                            <Button Content="Заполнение..." Style="{StaticResource OneCToolbarButtonStyle}"
+                                    Margin="0,0,10,0" Click="HandleFillFromTemplateClick"
+                                    ToolTip="Заполнение шаблона / автоподстановка (в 1С — кнопка «Заполнение»)" />
+                            <Button Content="Импорт" Style="{StaticResource OneCToolbarButtonStyle}"
+                                    Margin="0,0,4,0" Click="HandleImportClick" />
+                            <Button Content="Экспорт" Style="{StaticResource OneCToolbarButtonStyle}"
+                                    Margin="0,0,10,0" Click="HandleExportClick" />
+                            <Button Content="More actions ▾" Style="{StaticResource OneCToolbarButtonStyle}"
+                                    Click="HandleActionsClick" />
+                        </WrapPanel>
+                    </Border>
 
                     <Border Style="{StaticResource CardStyle}" Padding="14,14,14,12" Margin="0,0,0,14">
                         <StackPanel>
