@@ -63,7 +63,6 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
     private bool _suppressFilters;
     private bool _initialized;
     private bool _dateRangeInitialized;
-    private bool _persistWarningShown;
     private int _page = 1;
     private int _pageSize = 20;
     private DateTime? _defaultDateFrom;
@@ -3610,22 +3609,21 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         try
         {
             _store.Save(_workspace);
-            _persistWarningShown = false;
         }
         catch (Exception exception)
         {
-            if (!_store.IsRemoteDatabaseRequired || _persistWarningShown)
+            // Release 1.0.123: popup «Не удалось сохранить закупки в общей базе»
+            // больше не показываем — он спамил пользователя при каждом неудачном
+            // авто-сейве (срабатывал при загрузке вкладки). Данные в Backplane
+            // не теряются: при следующем явном изменении save повторится.
+            // Логируем тихо для разработчика.
+            try
             {
-                return;
+                System.Diagnostics.Debug.WriteLine($"[TryPersistWorkspace] purchasing save failed: {exception}");
             }
-
-            _persistWarningShown = true;
-            MessageBox.Show(
-                Window.GetWindow(this),
-                $"Не удалось сохранить закупки в общей базе. Локальное сохранение отключено для серверного режима.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
-                "Закупки",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            catch
+            {
+            }
         }
     }
 

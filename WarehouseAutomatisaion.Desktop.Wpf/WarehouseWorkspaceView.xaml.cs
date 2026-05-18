@@ -58,8 +58,6 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
     private bool _syncingSearch;
     private bool _suppressFilterEvents;
     private bool _suppressStorageCellFilterEvents;
-    private bool _persistWarningShown;
-    private bool _salesPersistWarningShown;
     private bool _operationalWorkspacesLoaded;
     private bool _operationalWorkspacesLoading;
     private int _stockPage = 1;
@@ -4181,22 +4179,12 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         try
         {
             _store.Save(_workspace);
-            _persistWarningShown = false;
         }
         catch (Exception exception)
         {
-            if (!_store.IsRemoteDatabaseRequired || _persistWarningShown)
-            {
-                return;
-            }
-
-            _persistWarningShown = true;
-            MessageBox.Show(
-                Window.GetWindow(this),
-                $"Не удалось сохранить склад в общей базе. Локальное сохранение отключено для серверного режима.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
-                "Склад",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            // Release 1.0.123: popup убран — спамил пользователя при каждой
+            // неудачной авто-попытке save (срабатывало при загрузке вкладки).
+            try { System.Diagnostics.Debug.WriteLine($"[TryPersistWorkspace] warehouse save failed: {exception}"); } catch { }
         }
     }
 
@@ -4208,22 +4196,11 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
             var snapshot = SalesWorkspaceSnapshot.FromWorkspace(_salesWorkspace);
             var currentOperator = _salesWorkspace.CurrentOperator;
             await Task.Run(() => store.SaveSnapshot(snapshot, currentOperator));
-            _salesPersistWarningShown = false;
         }
         catch (Exception exception)
         {
-            if (!store.IsRemoteDatabaseRequired || _salesPersistWarningShown)
-            {
-                return;
-            }
-
-            _salesPersistWarningShown = true;
-            MessageBox.Show(
-                Window.GetWindow(this),
-                $"Не удалось сохранить изменения продаж в общей базе. Локальное сохранение отключено для серверного режима.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
-                "Склад",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            // Release 1.0.123: popup убран — то же что для warehouse.
+            try { System.Diagnostics.Debug.WriteLine($"[TryPersistSalesWorkspace] sales save failed: {exception}"); } catch { }
         }
     }
 
