@@ -406,7 +406,7 @@ public sealed class CatalogWorkspaceStore
 
             var logPath = Path.Combine(directory, "catalog-workspace-performance.log");
             var message =
-                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}; save={elapsed.TotalMilliseconds:N0}ms; size={fileSize / 1024d / 1024d:N2}MB; items={snapshot.Items.Count}; priceTypes={snapshot.PriceTypes.Count}; discounts={snapshot.Discounts.Count}; registrations={snapshot.PriceRegistrations.Count}; log={snapshot.OperationLog.Count}{Environment.NewLine}";
+                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}; save={elapsed.TotalMilliseconds:N0}ms; size={fileSize / 1024d / 1024d:N2}MB; items={snapshot.Items.Count}; priceTypes={snapshot.PriceTypes.Count}; itemPrices={snapshot.ItemPrices.Count}; discounts={snapshot.Discounts.Count}; registrations={snapshot.PriceRegistrations.Count}; log={snapshot.OperationLog.Count}{Environment.NewLine}";
             File.AppendAllText(logPath, message, Encoding.UTF8);
         }
         catch
@@ -1200,6 +1200,8 @@ public sealed class CatalogWorkspaceStore
 
         public List<CatalogOperationLogEntry> OperationLog { get; set; } = [];
 
+        public List<CatalogItemPriceRecord> ItemPrices { get; set; } = [];
+
         public List<string> Currencies { get; set; } = [];
 
         public List<string> Warehouses { get; set; } = [];
@@ -1214,6 +1216,7 @@ public sealed class CatalogWorkspaceStore
                 Discounts = workspace.Discounts.Select(item => item.Clone()).ToList(),
                 PriceRegistrations = workspace.PriceRegistrations.Select(item => item.Clone()).ToList(),
                 OperationLog = workspace.OperationLog.Select(item => item.Clone()).ToList(),
+                ItemPrices = workspace.ItemPrices.Select(item => item.Clone()).ToList(),
                 Currencies = workspace.Currencies.ToList(),
                 Warehouses = workspace.Warehouses.ToList()
             };
@@ -1233,6 +1236,7 @@ public sealed class CatalogWorkspaceStore
                     Discounts = Discounts.Select(item => item.Clone()).ToArray(),
                     PriceRegistrations = PriceRegistrations.Select(item => item.Clone()).ToArray(),
                     OperationLog = OperationLog.Select(item => item.Clone()).ToArray(),
+                    ItemPrices = ItemPrices.Select(item => item.Clone()).ToArray(),
                     Currencies = Currencies.Count > 0 ? Currencies.ToArray() : fallbackCurrencies ?? Array.Empty<string>(),
                     Warehouses = Warehouses.Count > 0 ? Warehouses.ToArray() : fallbackWarehouses ?? Array.Empty<string>()
                 });

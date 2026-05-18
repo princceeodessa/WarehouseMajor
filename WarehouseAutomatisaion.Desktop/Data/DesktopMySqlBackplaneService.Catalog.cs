@@ -173,6 +173,7 @@ public sealed partial class DesktopMySqlBackplaneService
             Discounts = LoadCatalogDiscounts(connection),
             PriceRegistrations = LoadCatalogPriceRegistrations(connection),
             OperationLog = LoadCatalogOperationLog(connection),
+            ItemPrices = LoadCatalogItemPrices(connection),
             Currencies = LoadCatalogList(connection, "currency"),
             Warehouses = LoadCatalogList(connection, "warehouse")
         };
@@ -247,9 +248,10 @@ public sealed partial class DesktopMySqlBackplaneService
         var discounts = snapshot.Discounts ?? [];
         var priceRegistrations = snapshot.PriceRegistrations ?? [];
         var operationLog = snapshot.OperationLog ?? [];
+        var itemPrices = snapshot.ItemPrices ?? [];
 
         CreateCatalogKeepTables(connection, transaction);
-        PopulateCatalogKeepTables(connection, transaction, items, priceTypes, discounts, priceRegistrations, operationLog);
+        PopulateCatalogKeepTables(connection, transaction, items, priceTypes, discounts, priceRegistrations, operationLog, itemPrices);
         DeleteMissingCatalogRows(connection, transaction);
         ReplaceCatalogLookupLists(connection, transaction, snapshot.Currencies ?? [], snapshot.Warehouses ?? []);
 
@@ -258,6 +260,7 @@ public sealed partial class DesktopMySqlBackplaneService
         InsertCatalogDiscounts(connection, transaction, discounts);
         InsertCatalogPriceRegistrations(connection, transaction, priceRegistrations);
         InsertCatalogOperationLog(connection, transaction, operationLog);
+        InsertCatalogItemPrices(connection, transaction, itemPrices);
     }
 
     private static void CreateCatalogKeepTables(
@@ -271,7 +274,8 @@ public sealed partial class DesktopMySqlBackplaneService
                      "tmp_app_catalog_keep_discounts",
                      "tmp_app_catalog_keep_price_registrations",
                      "tmp_app_catalog_keep_price_registration_lines",
-                     "tmp_app_catalog_keep_operation_log"
+                     "tmp_app_catalog_keep_operation_log",
+                     "tmp_app_catalog_keep_item_prices"
                  })
         {
             ExecuteMySqlNonQuery(connection, transaction, $"CREATE TEMPORARY TABLE {tableName} (id CHAR(36) NOT NULL PRIMARY KEY) ENGINE=MEMORY;");
@@ -285,7 +289,8 @@ public sealed partial class DesktopMySqlBackplaneService
         IEnumerable<CatalogPriceTypeRecord> priceTypes,
         IEnumerable<CatalogDiscountRecord> discounts,
         IEnumerable<CatalogPriceRegistrationRecord> priceRegistrations,
-        IEnumerable<CatalogOperationLogEntry> operationLog)
+        IEnumerable<CatalogOperationLogEntry> operationLog,
+        IEnumerable<CatalogItemPriceRecord> itemPrices)
     {
         InsertKeepIds(connection, transaction, "tmp_app_catalog_keep_items", items
             .Select(item => EnsureId(item.Id, $"catalog-item|{item.Code}|{item.Name}")));
@@ -299,6 +304,9 @@ public sealed partial class DesktopMySqlBackplaneService
         InsertKeepIds(connection, transaction, "tmp_app_catalog_keep_operation_log", operationLog
             .Take(500)
             .Select(item => EnsureId(item.Id, $"catalog-log|{item.EntityNumber}|{item.Action}|{item.LoggedAt:O}")));
+        InsertKeepIds(connection, transaction, "tmp_app_catalog_keep_item_prices", itemPrices
+            .Where(price => price.ItemId != Guid.Empty && price.PriceTypeId != Guid.Empty)
+            .Select(price => EnsureId(price.Id, $"catalog-item-price|{price.ItemId:N}|{price.PriceTypeId:N}")));
     }
 
     private static IEnumerable<Guid> EnumerateCatalogPriceRegistrationLineIds(
@@ -348,6 +356,15 @@ public sealed partial class DesktopMySqlBackplaneService
             DELETE target
             FROM app_catalog_price_types target
             LEFT JOIN tmp_app_catalog_keep_price_types keep_rows ON keep_rows.id = target.id
+            WHERE keep_rows.id IS NULL;
+            """);
+        // item_prices удаляем ДО items: на app_catalog_item_prices.item_id висит ON DELETE CASCADE,
+        // но cascade сработает и удалит цены, которые мы могли захотеть оставить под новым ItemId.
+        // Безопаснее почистить явно по keep-таблице.
+        ExecuteMySqlNonQuery(connection, transaction, """
+            DELETE target
+            FROM app_catalog_item_prices target
+            LEFT JOIN tmp_app_catalog_keep_item_prices keep_rows ON keep_rows.id = target.id
             WHERE keep_rows.id IS NULL;
             """);
         ExecuteMySqlNonQuery(connection, transaction, """
@@ -423,7 +440,23 @@ public sealed partial class DesktopMySqlBackplaneService
                 barcode_format,
                 qr_payload,
                 notes,
-                source_label
+                source_label,
+                item_type,
+                name_for_print,
+                parent_group,
+                brand,
+                color,
+                description_text,
+                width_cm,
+                height_cm,
+                depth_cm,
+                weight_kg,
+                is_weight,
+                forbid_fractional,
+                min_sale_quantity,
+                pack_quantity,
+                site_upload_status,
+                is_inactive
             FROM app_catalog_items
             ORDER BY name, code;
             """);
@@ -446,11 +479,57 @@ public sealed partial class DesktopMySqlBackplaneService
                 BarcodeFormat = ReadString(reader, "barcode_format"),
                 QrPayload = ReadString(reader, "qr_payload"),
                 Notes = ReadString(reader, "notes"),
-                SourceLabel = ReadString(reader, "source_label")
+                SourceLabel = ReadString(reader, "source_label"),
+                ItemType = ReadString(reader, "item_type"),
+                NameForPrint = ReadString(reader, "name_for_print"),
+                ParentGroup = ReadString(reader, "parent_group"),
+                Brand = ReadString(reader, "brand"),
+                Color = ReadString(reader, "color"),
+                Description = ReadString(reader, "description_text"),
+                WidthCm = ReadDecimal(reader, "width_cm"),
+                HeightCm = ReadDecimal(reader, "height_cm"),
+                DepthCm = ReadDecimal(reader, "depth_cm"),
+                WeightKg = ReadDecimal(reader, "weight_kg"),
+                IsWeight = ReadBoolean(reader, "is_weight"),
+                ForbidFractional = ReadBoolean(reader, "forbid_fractional"),
+                MinSaleQuantity = ReadDecimal(reader, "min_sale_quantity"),
+                PackQuantity = ReadDecimal(reader, "pack_quantity"),
+                SiteUploadStatus = ReadString(reader, "site_upload_status"),
+                IsInactive = ReadBoolean(reader, "is_inactive")
             });
         }
 
         return items;
+    }
+
+    private static List<CatalogItemPriceRecord> LoadCatalogItemPrices(MySqlConnection connection)
+    {
+        var prices = new List<CatalogItemPriceRecord>();
+        using var command = CreateMySqlCommand(connection, null, """
+            SELECT
+                id,
+                item_id,
+                price_type_id,
+                price_type_name,
+                price_value,
+                currency_code
+            FROM app_catalog_item_prices;
+            """);
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            prices.Add(new CatalogItemPriceRecord
+            {
+                Id = ReadGuid(reader, "id"),
+                ItemId = ReadGuid(reader, "item_id"),
+                PriceTypeId = ReadGuid(reader, "price_type_id"),
+                PriceTypeName = ReadString(reader, "price_type_name"),
+                Price = ReadDecimal(reader, "price_value"),
+                CurrencyCode = ReadString(reader, "currency_code")
+            });
+        }
+
+        return prices;
     }
 
     private static List<CatalogPriceTypeRecord> LoadCatalogPriceTypes(MySqlConnection connection)
@@ -676,7 +755,23 @@ public sealed partial class DesktopMySqlBackplaneService
                 barcode_format,
                 qr_payload,
                 notes,
-                source_label
+                source_label,
+                item_type,
+                name_for_print,
+                parent_group,
+                brand,
+                color,
+                description_text,
+                width_cm,
+                height_cm,
+                depth_cm,
+                weight_kg,
+                is_weight,
+                forbid_fractional,
+                min_sale_quantity,
+                pack_quantity,
+                site_upload_status,
+                is_inactive
             )
             VALUES (
                 @id,
@@ -693,7 +788,23 @@ public sealed partial class DesktopMySqlBackplaneService
                 @barcode_format,
                 @qr_payload,
                 @notes,
-                @source_label
+                @source_label,
+                @item_type,
+                @name_for_print,
+                @parent_group,
+                @brand,
+                @color,
+                @description_text,
+                @width_cm,
+                @height_cm,
+                @depth_cm,
+                @weight_kg,
+                @is_weight,
+                @forbid_fractional,
+                @min_sale_quantity,
+                @pack_quantity,
+                @site_upload_status,
+                @is_inactive
             )
             ON DUPLICATE KEY UPDATE
                 code = VALUES(code),
@@ -709,13 +820,33 @@ public sealed partial class DesktopMySqlBackplaneService
                 barcode_format = VALUES(barcode_format),
                 qr_payload = VALUES(qr_payload),
                 notes = VALUES(notes),
-                source_label = VALUES(source_label);
+                source_label = VALUES(source_label),
+                item_type = VALUES(item_type),
+                name_for_print = VALUES(name_for_print),
+                parent_group = VALUES(parent_group),
+                brand = VALUES(brand),
+                color = VALUES(color),
+                description_text = VALUES(description_text),
+                width_cm = VALUES(width_cm),
+                height_cm = VALUES(height_cm),
+                depth_cm = VALUES(depth_cm),
+                weight_kg = VALUES(weight_kg),
+                is_weight = VALUES(is_weight),
+                forbid_fractional = VALUES(forbid_fractional),
+                min_sale_quantity = VALUES(min_sale_quantity),
+                pack_quantity = VALUES(pack_quantity),
+                site_upload_status = VALUES(site_upload_status),
+                is_inactive = VALUES(is_inactive);
             """);
         foreach (var name in new[]
                  {
                      "@id", "@code", "@name", "@unit_name", "@category_name", "@supplier_name",
                      "@default_warehouse", "@status_text", "@currency_code", "@default_price",
-                     "@barcode_value", "@barcode_format", "@qr_payload", "@notes", "@source_label"
+                     "@barcode_value", "@barcode_format", "@qr_payload", "@notes", "@source_label",
+                     "@item_type", "@name_for_print", "@parent_group", "@brand", "@color",
+                     "@description_text", "@width_cm", "@height_cm", "@depth_cm", "@weight_kg",
+                     "@is_weight", "@forbid_fractional", "@min_sale_quantity", "@pack_quantity",
+                     "@site_upload_status", "@is_inactive"
                  })
         {
             AddParameter(command, name);
@@ -739,6 +870,75 @@ public sealed partial class DesktopMySqlBackplaneService
             SetParameter(command, "@qr_payload", item.QrPayload ?? string.Empty);
             SetParameter(command, "@notes", item.Notes ?? string.Empty);
             SetParameter(command, "@source_label", item.SourceLabel ?? string.Empty);
+            SetParameter(command, "@item_type", string.IsNullOrWhiteSpace(item.ItemType) ? "Запас" : item.ItemType);
+            SetParameter(command, "@name_for_print", item.NameForPrint ?? string.Empty);
+            SetParameter(command, "@parent_group", item.ParentGroup ?? string.Empty);
+            SetParameter(command, "@brand", item.Brand ?? string.Empty);
+            SetParameter(command, "@color", item.Color ?? string.Empty);
+            SetParameter(command, "@description_text", item.Description ?? string.Empty);
+            SetParameter(command, "@width_cm", item.WidthCm);
+            SetParameter(command, "@height_cm", item.HeightCm);
+            SetParameter(command, "@depth_cm", item.DepthCm);
+            SetParameter(command, "@weight_kg", item.WeightKg);
+            SetParameter(command, "@is_weight", item.IsWeight ? 1 : 0);
+            SetParameter(command, "@forbid_fractional", item.ForbidFractional ? 1 : 0);
+            SetParameter(command, "@min_sale_quantity", item.MinSaleQuantity);
+            SetParameter(command, "@pack_quantity", item.PackQuantity);
+            SetParameter(command, "@site_upload_status", item.SiteUploadStatus ?? string.Empty);
+            SetParameter(command, "@is_inactive", item.IsInactive ? 1 : 0);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    private static void InsertCatalogItemPrices(
+        MySqlConnection connection,
+        MySqlTransaction transaction,
+        IEnumerable<CatalogItemPriceRecord> prices)
+    {
+        using var command = CreateMySqlCommand(connection, transaction, """
+            INSERT INTO app_catalog_item_prices (
+                id,
+                item_id,
+                price_type_id,
+                price_type_name,
+                price_value,
+                currency_code
+            )
+            VALUES (
+                @id,
+                @item_id,
+                @price_type_id,
+                @price_type_name,
+                @price_value,
+                @currency_code
+            )
+            ON DUPLICATE KEY UPDATE
+                price_type_name = VALUES(price_type_name),
+                price_value = VALUES(price_value),
+                currency_code = VALUES(currency_code);
+            """);
+        foreach (var name in new[]
+                 {
+                     "@id", "@item_id", "@price_type_id", "@price_type_name", "@price_value", "@currency_code"
+                 })
+        {
+            AddParameter(command, name);
+        }
+
+        foreach (var price in prices)
+        {
+            if (price.ItemId == Guid.Empty || price.PriceTypeId == Guid.Empty)
+            {
+                continue;
+            }
+
+            var priceId = EnsureId(price.Id, $"catalog-item-price|{price.ItemId:N}|{price.PriceTypeId:N}");
+            SetParameter(command, "@id", priceId.ToString());
+            SetParameter(command, "@item_id", price.ItemId.ToString());
+            SetParameter(command, "@price_type_id", price.PriceTypeId.ToString());
+            SetParameter(command, "@price_type_name", price.PriceTypeName ?? string.Empty);
+            SetParameter(command, "@price_value", price.Price);
+            SetParameter(command, "@currency_code", string.IsNullOrWhiteSpace(price.CurrencyCode) ? "RUB" : price.CurrencyCode);
             command.ExecuteNonQuery();
         }
     }
@@ -1084,9 +1284,38 @@ public sealed partial class DesktopMySqlBackplaneService
             qr_payload TEXT NULL,
             notes TEXT NULL,
             source_label VARCHAR(256) NULL,
+            item_type VARCHAR(64) NOT NULL DEFAULT 'Запас',
+            name_for_print VARCHAR(512) NULL,
+            parent_group VARCHAR(256) NULL,
+            brand VARCHAR(256) NULL,
+            color VARCHAR(64) NULL,
+            description_text TEXT NULL,
+            width_cm DECIMAL(12, 4) NOT NULL DEFAULT 0,
+            height_cm DECIMAL(12, 4) NOT NULL DEFAULT 0,
+            depth_cm DECIMAL(12, 4) NOT NULL DEFAULT 0,
+            weight_kg DECIMAL(12, 4) NOT NULL DEFAULT 0,
+            is_weight TINYINT(1) NOT NULL DEFAULT 0,
+            forbid_fractional TINYINT(1) NOT NULL DEFAULT 0,
+            min_sale_quantity DECIMAL(18, 4) NOT NULL DEFAULT 0,
+            pack_quantity DECIMAL(18, 4) NOT NULL DEFAULT 0,
+            site_upload_status VARCHAR(64) NULL,
+            is_inactive TINYINT(1) NOT NULL DEFAULT 0,
             created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
             updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
             CONSTRAINT pk_app_catalog_items PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+        CREATE TABLE IF NOT EXISTS app_catalog_item_prices (
+            id CHAR(36) NOT NULL,
+            item_id CHAR(36) NOT NULL,
+            price_type_id CHAR(36) NOT NULL,
+            price_type_name VARCHAR(256) NULL,
+            price_value DECIMAL(18, 4) NOT NULL DEFAULT 0,
+            currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
+            updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+            CONSTRAINT pk_app_catalog_item_prices PRIMARY KEY (id),
+            CONSTRAINT uq_app_catalog_item_prices_pair UNIQUE (item_id, price_type_id),
+            CONSTRAINT fk_app_catalog_item_prices_item FOREIGN KEY (item_id) REFERENCES app_catalog_items (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
         CREATE TABLE IF NOT EXISTS app_catalog_price_types (

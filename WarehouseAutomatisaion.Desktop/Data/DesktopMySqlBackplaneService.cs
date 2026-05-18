@@ -1658,6 +1658,122 @@ public sealed partial class DesktopMySqlBackplaneService
         PREPARE warehouse_stmt FROM @warehouse_ddl;
         EXECUTE warehouse_stmt;
         DEALLOCATE PREPARE warehouse_stmt;
+
+        -- === Release 1.0.104: новые поля карточки товара под 1С-style редактор ===
+        -- Добавляем поля по одному, каждое — через INFORMATION_SCHEMA проверку,
+        -- чтобы повторный запуск миграции был безопасен.
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'item_type');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN item_type VARCHAR(64) NOT NULL DEFAULT ''Запас''', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'name_for_print');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN name_for_print VARCHAR(512) NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'parent_group');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN parent_group VARCHAR(256) NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'brand');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN brand VARCHAR(256) NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'color');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN color VARCHAR(64) NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'description_text');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN description_text TEXT NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'width_cm');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN width_cm DECIMAL(12, 4) NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'height_cm');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN height_cm DECIMAL(12, 4) NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'depth_cm');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN depth_cm DECIMAL(12, 4) NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'weight_kg');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN weight_kg DECIMAL(12, 4) NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'is_weight');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN is_weight TINYINT(1) NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'forbid_fractional');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN forbid_fractional TINYINT(1) NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'min_sale_quantity');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN min_sale_quantity DECIMAL(18, 4) NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'pack_quantity');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN pack_quantity DECIMAL(18, 4) NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'site_upload_status');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN site_upload_status VARCHAR(64) NULL', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_column_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_catalog_items'
+                AND COLUMN_NAME = 'is_inactive');
+        SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN is_inactive TINYINT(1) NOT NULL DEFAULT 0', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
         """;
 }
 

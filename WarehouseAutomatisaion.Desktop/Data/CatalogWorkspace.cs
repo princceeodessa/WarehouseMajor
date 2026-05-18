@@ -12,6 +12,7 @@ public sealed class CatalogWorkspace
         BindingList<CatalogPriceTypeRecord> priceTypes,
         BindingList<CatalogDiscountRecord> discounts,
         BindingList<CatalogPriceRegistrationRecord> priceRegistrations,
+        BindingList<CatalogItemPriceRecord> itemPrices,
         IReadOnlyList<string> itemStatuses,
         IReadOnlyList<string> priceRegistrationStatuses,
         IReadOnlyList<string> discountStatuses,
@@ -22,6 +23,7 @@ public sealed class CatalogWorkspace
         PriceTypes = priceTypes;
         Discounts = discounts;
         PriceRegistrations = priceRegistrations;
+        ItemPrices = itemPrices;
         ItemStatuses = itemStatuses;
         PriceRegistrationStatuses = priceRegistrationStatuses;
         DiscountStatuses = discountStatuses;
@@ -36,6 +38,10 @@ public sealed class CatalogWorkspace
     public BindingList<CatalogDiscountRecord> Discounts { get; }
 
     public BindingList<CatalogPriceRegistrationRecord> PriceRegistrations { get; }
+
+    // Цены товара по видам цен. Один товар × один вид цены = одна запись.
+    // Уникальность пары (ItemId, PriceTypeId) гарантируется через UpsertItemPrices.
+    public BindingList<CatalogItemPriceRecord> ItemPrices { get; }
 
     public BindingList<CatalogOperationLogEntry> OperationLog { get; } = new();
 
@@ -60,6 +66,7 @@ public sealed class CatalogWorkspace
             new BindingList<CatalogPriceTypeRecord>(),
             new BindingList<CatalogDiscountRecord>(),
             new BindingList<CatalogPriceRegistrationRecord>(),
+            new BindingList<CatalogItemPriceRecord>(),
             ["Активна", "На настройке", "Архив"],
             ["Черновик", "Подготовлен", "Проведен"],
             ["Активна", "Черновик", "Остановлена"],
@@ -96,6 +103,11 @@ public sealed class CatalogWorkspace
             workspace.OperationLog.Add(logEntry.Clone());
         }
 
+        foreach (var price in seed.ItemPrices)
+        {
+            workspace.ItemPrices.Add(price.Clone());
+        }
+
         return workspace;
     }
 
@@ -119,6 +131,7 @@ public sealed class CatalogWorkspace
         ReplaceBindingList(PriceTypes, source.PriceTypes, item => item.Clone());
         ReplaceBindingList(Discounts, source.Discounts, item => item.Clone());
         ReplaceBindingList(PriceRegistrations, source.PriceRegistrations, item => item.Clone());
+        ReplaceBindingList(ItemPrices, source.ItemPrices, item => item.Clone());
         ReplaceBindingList(OperationLog, source.OperationLog, item => item.Clone());
         CurrentOperator = source.CurrentOperator;
         Currencies = source.Currencies.ToArray();
@@ -189,6 +202,75 @@ public sealed class CatalogWorkspace
         {
             Items.Add(copy);
             WriteOperationLog("Номенклатура", copy.Id, copy.Code, "Создание карточки", "Успешно", $"Добавлена карточка {copy.Name}.");
+        }
+
+        OnChanged();
+    }
+
+    // Возвращает текущие цены товара по всем видам цен. Если у вида цены не задана цена —
+    // в ответ записи нет; вызывающий код должен подставить 0 для отсутствующих видов.
+    public IReadOnlyList<CatalogItemPriceRecord> GetPricesForItem(Guid itemId)
+    {
+        return ItemPrices.Where(item => item.ItemId == itemId).Select(item => item.Clone()).ToArray();
+    }
+
+    // Заменяет полный набор цен товара одним вызовом. Записи с Price <= 0 удаляются,
+    // чтобы не накапливать «пустые» строки в БД. Также синхронизирует DefaultPrice по виду
+    // цены IsDefault — это сохраняет совместимость с существующим кодом продаж и подбора.
+    public void UpsertItemPrices(Guid itemId, IEnumerable<CatalogItemPriceRecord> prices)
+    {
+        ArgumentNullException.ThrowIfNull(prices);
+        if (itemId == Guid.Empty)
+        {
+            return;
+        }
+
+        var incoming = prices
+            .Where(price => price.PriceTypeId != Guid.Empty)
+            .ToList();
+
+        for (var i = ItemPrices.Count - 1; i >= 0; i--)
+        {
+            if (ItemPrices[i].ItemId == itemId)
+            {
+                ItemPrices.RemoveAt(i);
+            }
+        }
+
+        foreach (var price in incoming)
+        {
+            if (price.Price <= 0m)
+            {
+                continue;
+            }
+
+            var copy = price.Clone();
+            copy.ItemId = itemId;
+            if (copy.Id == Guid.Empty)
+            {
+                copy.Id = Guid.NewGuid();
+            }
+
+            if (string.IsNullOrWhiteSpace(copy.CurrencyCode))
+            {
+                copy.CurrencyCode = Currencies.FirstOrDefault() ?? "RUB";
+            }
+
+            ItemPrices.Add(copy);
+        }
+
+        var defaultPriceType = PriceTypes.FirstOrDefault(item => item.IsDefault);
+        if (defaultPriceType is not null)
+        {
+            var defaultPrice = incoming
+                .FirstOrDefault(price => price.PriceTypeId == defaultPriceType.Id)
+                ?.Price ?? 0m;
+
+            var item = Items.FirstOrDefault(record => record.Id == itemId);
+            if (item is not null && defaultPrice > 0m)
+            {
+                item.DefaultPrice = defaultPrice;
+            }
         }
 
         OnChanged();
@@ -566,6 +648,8 @@ public sealed class CatalogWorkspaceSeed
 
     public IReadOnlyList<CatalogOperationLogEntry> OperationLog { get; init; } = Array.Empty<CatalogOperationLogEntry>();
 
+    public IReadOnlyList<CatalogItemPriceRecord> ItemPrices { get; init; } = Array.Empty<CatalogItemPriceRecord>();
+
     public IReadOnlyList<string> Currencies { get; init; } = Array.Empty<string>();
 
     public IReadOnlyList<string> Warehouses { get; init; } = Array.Empty<string>();
@@ -603,6 +687,56 @@ public sealed class CatalogItemRecord
 
     public string SourceLabel { get; set; } = string.Empty;
 
+    // === Поля, добавленные для 1С-style карточки товара (release 1.0.104+) ===
+    // Тип номенклатуры (Запас/Услуга/Набор/Работа). В 1С — отдельный комбо в верхней части карточки.
+    public string ItemType { get; set; } = "Запас";
+
+    // «Наименование для печати» в 1С — отдельное длинное поле, используется в чеках и накладных.
+    public string NameForPrint { get; set; } = string.Empty;
+
+    // «В группе» — путь в иерархии каталога. Отличается от Category тем, что Category — это
+    // витринная категория для магазина/сайта, а ParentGroup — внутренняя группа каталога 1С.
+    public string ParentGroup { get; set; } = string.Empty;
+
+    // Бренд (отдельный реквизит — НЕ строка из Category).
+    public string Brand { get; set; } = string.Empty;
+
+    // Цвет (свободный текст / название цвета).
+    public string Color { get; set; } = string.Empty;
+
+    // Длинное описание (отдельно от Notes: Notes — служебный комментарий менеджера,
+    // Description — публичное описание для сайта и печати).
+    public string Description { get; set; } = string.Empty;
+
+    // Габариты — длина/ширина/высота в сантиметрах. Используются для расчёта V, м³.
+    public decimal WidthCm { get; set; }
+
+    public decimal HeightCm { get; set; }
+
+    public decimal DepthCm { get; set; }
+
+    // Вес в килограммах.
+    public decimal WeightKg { get; set; }
+
+    // Весовой товар (продаётся на вес — добавляет требование к ШК).
+    public bool IsWeight { get; set; }
+
+    // Запрет дробного количества при подборе (по умолчанию false — можно подбирать 1.5, 0.25 и т.п.).
+    public bool ForbidFractional { get; set; }
+
+    // Минимальное продаваемое количество. 0 = ограничения нет.
+    public decimal MinSaleQuantity { get; set; }
+
+    // Кратность упаковки. 0 = можно продавать любым количеством.
+    public decimal PackQuantity { get; set; }
+
+    // Статус выгрузки на сайт (Выгружать / Не выгружать / Архив).
+    public string SiteUploadStatus { get; set; } = string.Empty;
+
+    // Признак «Недействительна» (нижний правый чекбокс на карточке 1С) — скрывает товар
+    // из подбора, но НЕ удаляет историю.
+    public bool IsInactive { get; set; }
+
     public CatalogItemRecord Clone()
     {
         return new CatalogItemRecord
@@ -621,7 +755,57 @@ public sealed class CatalogItemRecord
             BarcodeFormat = BarcodeFormat,
             QrPayload = QrPayload,
             Notes = Notes,
-            SourceLabel = SourceLabel
+            SourceLabel = SourceLabel,
+            ItemType = ItemType,
+            NameForPrint = NameForPrint,
+            ParentGroup = ParentGroup,
+            Brand = Brand,
+            Color = Color,
+            Description = Description,
+            WidthCm = WidthCm,
+            HeightCm = HeightCm,
+            DepthCm = DepthCm,
+            WeightKg = WeightKg,
+            IsWeight = IsWeight,
+            ForbidFractional = ForbidFractional,
+            MinSaleQuantity = MinSaleQuantity,
+            PackQuantity = PackQuantity,
+            SiteUploadStatus = SiteUploadStatus,
+            IsInactive = IsInactive
+        };
+    }
+}
+
+// Цена товара по конкретному виду цен. В 1С УНФ это таблица «РегистрСведений.ЦеныНоменклатуры»:
+// один товар × один вид цены = одна запись с числом. Мы храним по тому же принципу — пара
+// (ItemId, PriceTypeId) уникальна. Базовая цена товара (DefaultPrice) остаётся отдельным
+// «быстрым» полем для совместимости с подбором продаж и старым кодом.
+public sealed class CatalogItemPriceRecord
+{
+    public Guid Id { get; set; }
+
+    public Guid ItemId { get; set; }
+
+    public Guid PriceTypeId { get; set; }
+
+    // Денормализованное имя вида цены: пригодится, если вид цен будет удалён, а историю
+    // показать всё равно надо. При загрузке свежее имя берём из PriceTypes по PriceTypeId.
+    public string PriceTypeName { get; set; } = string.Empty;
+
+    public decimal Price { get; set; }
+
+    public string CurrencyCode { get; set; } = "RUB";
+
+    public CatalogItemPriceRecord Clone()
+    {
+        return new CatalogItemPriceRecord
+        {
+            Id = Id,
+            ItemId = ItemId,
+            PriceTypeId = PriceTypeId,
+            PriceTypeName = PriceTypeName,
+            Price = Price,
+            CurrencyCode = CurrencyCode
         };
     }
 }
