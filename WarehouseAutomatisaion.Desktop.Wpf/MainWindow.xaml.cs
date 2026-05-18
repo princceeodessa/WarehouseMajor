@@ -923,6 +923,56 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Release 1.0.125: вместо переключения внутри одного umbrella-view (старый
+    /// flow OpenSection+ActivateSubSection) открываем подраздел как СВОЁ окно-вкладку.
+    /// Это разгружает «жирные» umbrella-views (PurchasingWorkspaceView с 7 секциями
+    /// и т.п.): каждая вкладка содержит свой инстанс, фильтры/сорт/пагинация
+    /// независимы, утечки между секциями невозможны.
+    /// </summary>
+    internal void OpenSubSectionTab(string sectionKey, string subSectionKey, string caption)
+    {
+        if (string.IsNullOrWhiteSpace(sectionKey) || string.IsNullOrWhiteSpace(subSectionKey))
+        {
+            return;
+        }
+
+        var tabKey = $"{sectionKey}:{subSectionKey}";
+        OpenWorkspaceEditorTab(
+            tabKey,
+            string.IsNullOrWhiteSpace(caption) ? subSectionKey : caption,
+            string.Empty,
+            () =>
+            {
+                FrameworkElement view = sectionKey.ToLowerInvariant() switch
+                {
+                    "purchasing" => new PurchasingWorkspaceView(_salesWorkspace),
+                    "warehouse" => new WarehouseWorkspaceView(_salesWorkspace),
+                    "products" or "catalog" => new ProductsWorkspaceView(_salesWorkspace),
+                    "customers" => new ContractorsWorkspaceView(_salesWorkspace),
+                    _ => new ContractorsWorkspaceView(_salesWorkspace)
+                };
+
+                switch (view)
+                {
+                    case PurchasingWorkspaceView purchasing:
+                        purchasing.ActivateSubSection(subSectionKey);
+                        break;
+                    case WarehouseWorkspaceView warehouse:
+                        warehouse.ActivateSubSection(subSectionKey);
+                        break;
+                    case ProductsWorkspaceView products:
+                        products.ActivateSubSection(subSectionKey);
+                        break;
+                    case ContractorsWorkspaceView contractors:
+                        contractors.ActivateSubSection(subSectionKey);
+                        break;
+                }
+
+                return view;
+            });
+    }
+
     private DashboardWorkspaceView CreateDashboardView()
     {
         var dashboard = new DashboardWorkspaceView(_salesWorkspace, _demoWorkspace);

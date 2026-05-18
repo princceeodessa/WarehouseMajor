@@ -33,10 +33,17 @@ public partial class SectionOverviewView : UserControl
             return;
         }
 
-        mainWindow.OpenSection(command.TargetSectionKey);
+        // Release 1.0.125: каждый подраздел открывается своей вкладкой через
+        // OpenSubSectionTab (тяжёлый umbrella PurchasingWorkspaceView/
+        // WarehouseWorkspaceView не переключает 7 секций в одном инстансе).
+        // Команды без SubSection идут как раньше — открывают umbrella-вкладку.
         if (!string.IsNullOrEmpty(command.SubSection))
         {
-            mainWindow.ActivateSubSection(command.TargetSectionKey, command.SubSection);
+            mainWindow.OpenSubSectionTab(command.TargetSectionKey, command.SubSection, command.Caption);
+        }
+        else
+        {
+            mainWindow.OpenSection(command.TargetSectionKey);
         }
     }
 
