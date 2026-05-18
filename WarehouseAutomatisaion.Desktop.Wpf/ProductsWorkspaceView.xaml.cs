@@ -1473,6 +1473,38 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         RebuildProductPage(selectedId);
     }
 
+    // 1С УНФ-стиль нижних навигационных стрелок: вверх/вниз/в начало/в конец по записям.
+    private void HandleRowNavigateUpClick(object sender, RoutedEventArgs e)
+    {
+        if (Products.Count == 0) return;
+        var idx = SelectedProduct is null ? 0 : Math.Max(0, Products.ToList().IndexOf(SelectedProduct) - 1);
+        SelectedProduct = Products[idx];
+        ProductsGrid.ScrollIntoView(SelectedProduct);
+    }
+
+    private void HandleRowNavigateDownClick(object sender, RoutedEventArgs e)
+    {
+        if (Products.Count == 0) return;
+        var list = Products.ToList();
+        var idx = SelectedProduct is null ? 0 : Math.Min(list.Count - 1, list.IndexOf(SelectedProduct) + 1);
+        SelectedProduct = Products[idx];
+        ProductsGrid.ScrollIntoView(SelectedProduct);
+    }
+
+    private void HandleRowNavigateFirstClick(object sender, RoutedEventArgs e)
+    {
+        if (Products.Count == 0) return;
+        SelectedProduct = Products[0];
+        ProductsGrid.ScrollIntoView(SelectedProduct);
+    }
+
+    private void HandleRowNavigateLastClick(object sender, RoutedEventArgs e)
+    {
+        if (Products.Count == 0) return;
+        SelectedProduct = Products[Products.Count - 1];
+        ProductsGrid.ScrollIntoView(SelectedProduct);
+    }
+
     private void UpdateSearchPlaceholders()
     {
         HeaderSearchPlaceholderText.Visibility = string.IsNullOrWhiteSpace(HeaderSearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;

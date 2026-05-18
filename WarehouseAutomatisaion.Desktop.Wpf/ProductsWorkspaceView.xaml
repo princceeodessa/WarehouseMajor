@@ -217,44 +217,60 @@
                 <RowDefinition Height="*" MinHeight="360" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" Style="{StaticResource TopHeaderGridStyle}">
+            <Grid Grid.Row="0" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Style="{StaticResource TopHeaderTextPanelStyle}">
+                <!-- 1С УНФ-стиль: маленький заголовок с ⭐, без подзаголовка и больших бейджей. -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="FavoriteToggleButton"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            Margin="0,0,8,0"
+                            Cursor="Hand"
+                            ToolTip="Добавить в избранное"
+                            ToolTipService.InitialShowDelay="200">
+                        <TextBlock FontFamily="Segoe Fluent Icons"
+                                   Text="&#xE735;"
+                                   FontSize="16"
+                                   Foreground="#FFB400" />
+                    </Button>
                     <TextBlock Text="Товары"
-                               Style="{StaticResource TopHeaderTitleStyle}" />
-                    <TextBlock Text="Каталог товаров, качество данных и доступность на складах."
-                               Style="{StaticResource TopHeaderSubtitleStyle}" />
-                    <Border x:Name="CatalogSyncStatusBadge"
-                            Visibility="Collapsed"
-                            Background="#EEF7FF"
-                            BorderBrush="#CFE8FF"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="10,6"
-                            Margin="0,10,0,0"
-                            HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons"
-                                       Text="&#xE895;"
-                                       FontSize="12"
-                                       Foreground="#2B6CB0"
-                                       VerticalAlignment="Center" />
-                            <TextBlock x:Name="CatalogSyncStatusText"
-                                       Text="Синхронизация каталога с БД..."
-                                       Margin="8,0,0,0"
-                                       FontSize="12"
-                                       FontWeight="SemiBold"
-                                       Foreground="#2B4F72"
-                                       VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Border>
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="#17213A"
+                               VerticalAlignment="Center" />
                 </StackPanel>
 
-                <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" Style="{StaticResource TopHeaderActionsWrapPanelStyle}" Visibility="Collapsed">
+                <!-- Компактный inline-статус справа от заголовка. Видим только когда есть что показать. -->
+                <Border x:Name="CatalogSyncStatusBadge"
+                        Grid.Column="1"
+                        Visibility="Collapsed"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="14,0,0,0"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe Fluent Icons"
+                                   Text="&#xE895;"
+                                   FontSize="11"
+                                   Foreground="#7A86A5"
+                                   VerticalAlignment="Center" />
+                        <TextBlock x:Name="CatalogSyncStatusText"
+                                   Text=""
+                                   Margin="6,0,0,0"
+                                   FontSize="11"
+                                   Foreground="#7A86A5"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="2" Style="{StaticResource TopHeaderActionsWrapPanelStyle}" Visibility="Collapsed">
                     <Border Width="330"
                             Style="{StaticResource TopSearchContainerStyle}"
                             Margin="0,0,10,0">
@@ -381,7 +397,9 @@
                 </Border>
             </UniformGrid>
 
-            <WrapPanel x:Name="ModuleTabsPanel" Grid.Row="2" Margin="0,0,0,14">
+            <!-- 1С УНФ-стиль: компактные таб-кнопки сразу под заголовком (на скрине эти таб-страницы
+                 не показаны, но в нашей системе они нужны — оставляем, делаем поменьше). -->
+            <WrapPanel x:Name="ModuleTabsPanel" Grid.Row="2" Margin="0,0,0,8">
                 <Button x:Name="ProductsTabButton" Tag="products" Content="Товары" Style="{StaticResource ModuleTabStyle}" Click="HandleModuleTabClick" />
                 <Button x:Name="PriceTypesTabButton" Tag="prices" Content="Виды цен" Style="{StaticResource ModuleTabStyle}" Click="HandleModuleTabClick" />
                 <Button x:Name="DiscountsTabButton" Tag="discounts" Content="Скидки" Style="{StaticResource ModuleTabStyle}" Click="HandleModuleTabClick" />
@@ -814,6 +832,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock x:Name="ProductsCountText"
                                            AutomationProperties.AutomationId="ProductsCountText"
@@ -830,6 +849,41 @@
                                         <ComboBoxItem Content="100 / стр." />
                                         <ComboBoxItem Content="200 / стр." />
                                     </ComboBox>
+                                </StackPanel>
+
+                                <!-- 1С УНФ: 4 стрелки навигации по записям таблицы (вверх/вниз/начало/конец). -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center">
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                                            Width="26" Height="26"
+                                            Padding="0"
+                                            Margin="0,0,4,0"
+                                            ToolTip="Предыдущая запись"
+                                            Click="HandleRowNavigateUpClick">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70E;" FontSize="10" Foreground="#3A4868" />
+                                    </Button>
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                                            Width="26" Height="26"
+                                            Padding="0"
+                                            Margin="0,0,4,0"
+                                            ToolTip="Следующая запись"
+                                            Click="HandleRowNavigateDownClick">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="10" Foreground="#3A4868" />
+                                    </Button>
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                                            Width="26" Height="26"
+                                            Padding="0"
+                                            Margin="0,0,4,0"
+                                            ToolTip="В начало"
+                                            Click="HandleRowNavigateFirstClick">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74A;" FontSize="10" Foreground="#3A4868" />
+                                    </Button>
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                                            Width="26" Height="26"
+                                            Padding="0"
+                                            ToolTip="В конец"
+                                            Click="HandleRowNavigateLastClick">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74B;" FontSize="10" Foreground="#3A4868" />
+                                    </Button>
                                 </StackPanel>
                             </Grid>
                         </Grid>
