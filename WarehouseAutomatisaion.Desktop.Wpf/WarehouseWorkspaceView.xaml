@@ -100,8 +100,10 @@
             <Setter Property="VerticalGridLinesBrush" Value="#EEF2FA" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="RowHeight" Value="66" />
-            <Setter Property="ColumnHeaderHeight" Value="44" />
+            <!-- Release 1.0.114: уплотнено под 1С УНФ (раньше 66/44 px — это slack-стиль).
+                 Теперь те же ~20-25 видимых записей на экран, что и в 1С. -->
+            <Setter Property="RowHeight" Value="28" />
+            <Setter Property="ColumnHeaderHeight" Value="30" />
             <Setter Property="SelectionMode" Value="Single" />
             <Setter Property="SelectionUnit" Value="FullRow" />
             <Setter Property="IsReadOnly" Value="True" />
@@ -202,10 +204,20 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Grid.Column="0" Style="{StaticResource TopHeaderTextPanelStyle}">
-                    <TextBlock Text="Склад"
-                               Style="{StaticResource TopHeaderTitleStyle}" />
+                    <!-- Release 1.0.114: 1С УНФ-стиль — компактный заголовок «⭐ Склад» вместо
+                         крупного заголовка с подзаголовком. Подзаголовок скрыт (Visibility=Collapsed),
+                         но XAML-элемент оставлен, чтобы code-behind (если ссылается) не падал. -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,8,0"
+                                Cursor="Hand" ToolTip="Добавить раздел в избранное">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE735;" FontSize="16" Foreground="#FFB400" />
+                        </Button>
+                        <TextBlock Text="Склад" FontSize="20" FontWeight="SemiBold"
+                                   Foreground="#17213A" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="Остатки, перемещения, резервы и инвентаризация"
-                               Style="{StaticResource TopHeaderSubtitleStyle}" />
+                               Style="{StaticResource TopHeaderSubtitleStyle}"
+                               Visibility="Collapsed" />
 
                     <StackPanel Orientation="Horizontal" Margin="0,22,0,0" VerticalAlignment="Center">
                         <TextBlock FontFamily="Segoe Fluent Icons"
@@ -337,7 +349,9 @@
                 </Grid>
             </Grid>
 
-            <WrapPanel x:Name="MetricsPanel" Grid.Row="1" Margin="0,0,0,22">
+            <!-- Release 1.0.114: KPI-блок (Критичные остатки / Перемещений в работе / Резервов к сборке /
+                 Расхождений инвентаризации) скрыт — в 1С УНФ его нет, layout стремится к 1в1 со скрином. -->
+            <WrapPanel x:Name="MetricsPanel" Grid.Row="1" Margin="0,0,0,22" Visibility="Collapsed">
                 <Border Width="252"
                         Margin="0,0,14,14"
                         Style="{StaticResource MetricCardStyle}"
