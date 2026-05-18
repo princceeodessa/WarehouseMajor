@@ -63,12 +63,19 @@ public sealed class SalesWorkspaceStore
 
     public static SalesWorkspaceStore CreateDefault()
     {
+        // Release 1.0.106: серверная БД обязательна. См. CatalogWorkspaceStore.CreateDefault.
+        if (!DesktopRemoteDatabaseSettings.IsRemoteDatabaseEnabled())
+        {
+            throw new InvalidOperationException(
+                "SalesWorkspaceStore требует включённой серверной БД (RemoteDatabase.Enabled=true в appsettings).");
+        }
+
         var root = WorkspacePathResolver.ResolveWorkspaceRoot();
         var storagePath = Path.Combine(root, "app_data", "sales-workspace.json");
         return new SalesWorkspaceStore(
             storagePath,
             DesktopMySqlBackplaneService.TryCreateDefault(),
-            DesktopRemoteDatabaseSettings.IsRemoteDatabaseEnabled());
+            serverModeEnabled: true);
     }
 
     public SalesWorkspace LoadOrCreate(
@@ -1367,53 +1374,12 @@ public sealed class SalesWorkspaceStore
 
     private void TryWriteServerCache(SalesWorkspaceSnapshot snapshot, string? payloadHash = null)
     {
-        if (!_serverModeEnabled)
-        {
-            return;
-        }
-
-        try
-        {
-            if (!HasSalesBusinessData(snapshot)
-                && TryReadServerCacheSnapshot(out var cachedSnapshot)
-                && cachedSnapshot is not null
-                && HasSalesBusinessData(cachedSnapshot))
-            {
-                return;
-            }
-
-            var path = ServerCachePath;
-            var cacheHash = string.IsNullOrWhiteSpace(payloadHash) ? _remoteMetadata?.PayloadHash : payloadHash;
-            if (!string.IsNullOrWhiteSpace(cacheHash)
-                && File.Exists(path)
-                && TryReadServerCacheHash(out var existingHash)
-                && string.Equals(existingHash, cacheHash, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            var directory = Path.GetDirectoryName(path);
-            if (string.IsNullOrWhiteSpace(directory))
-            {
-                return;
-            }
-
-            Directory.CreateDirectory(directory);
-            var tempPath = $"{path}.tmp";
-            using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
-            {
-                JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
-            }
-
-            File.Move(tempPath, path, true);
-            if (!string.IsNullOrWhiteSpace(cacheHash))
-            {
-                File.WriteAllText(ServerCacheHashPath, cacheHash, Encoding.UTF8);
-            }
-        }
-        catch
-        {
-        }
+        // Release 1.0.106: локальный server-cache.json больше не пишется — серверная БД
+        // является единственным источником данных. Старые файлы кэша безопасно удалить
+        // с диска (приложение их игнорирует). При необходимости instant-first-paint
+        // вернётся через отдельный механизм memory-кэша в рамках одной сессии.
+        _ = snapshot;
+        _ = payloadHash;
     }
 
     private bool TryReadServerCacheHash(out string hash)

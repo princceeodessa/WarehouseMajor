@@ -53,11 +53,22 @@ public sealed class CatalogWorkspaceStore
 
     public static CatalogWorkspaceStore CreateDefault()
     {
+        // Release 1.0.106: серверная БД — единственный поддерживаемый источник данных.
+        // Если RemoteDatabase отключён в appsettings — падаем здесь же с понятной ошибкой,
+        // чтобы случайно не оказаться в legacy local-mode, который пишет JSON на диск.
+        // (ValidateInfrastructure ловит то же на старте, но эта проверка защищает от
+        // прямых вызовов CreateDefault из тестов / скриптов / будущего кода.)
+        if (!DesktopRemoteDatabaseSettings.IsRemoteDatabaseEnabled())
+        {
+            throw new InvalidOperationException(
+                "CatalogWorkspaceStore требует включённой серверной БД (RemoteDatabase.Enabled=true в appsettings).");
+        }
+
         var root = WorkspacePathResolver.ResolveWorkspaceRoot();
         return new CatalogWorkspaceStore(
             Path.Combine(root, "app_data", "catalog-workspace.json"),
             DesktopMySqlBackplaneService.TryCreateDefault(),
-            DesktopRemoteDatabaseSettings.IsRemoteDatabaseEnabled());
+            serverModeEnabled: true);
     }
 
     public CatalogWorkspace LoadOrCreate(string currentOperator, SalesWorkspace salesWorkspace)

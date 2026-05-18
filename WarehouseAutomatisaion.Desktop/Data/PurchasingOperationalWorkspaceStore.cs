@@ -33,11 +33,18 @@ public sealed class PurchasingOperationalWorkspaceStore
 
     public static PurchasingOperationalWorkspaceStore CreateDefault()
     {
+        // Release 1.0.106: серверная БД обязательна. См. CatalogWorkspaceStore.CreateDefault.
+        if (!DesktopRemoteDatabaseSettings.IsRemoteDatabaseEnabled())
+        {
+            throw new InvalidOperationException(
+                "PurchasingOperationalWorkspaceStore требует включённой серверной БД (RemoteDatabase.Enabled=true в appsettings).");
+        }
+
         var root = WorkspacePathResolver.ResolveWorkspaceRoot();
         return new PurchasingOperationalWorkspaceStore(
             Path.Combine(root, "app_data", "purchasing-workspace.json"),
             DesktopMySqlBackplaneService.TryCreateDefault(),
-            DesktopRemoteDatabaseSettings.IsRemoteDatabaseEnabled());
+            serverModeEnabled: true);
     }
 
     public OperationalPurchasingWorkspace LoadOrCreate(string currentOperator, SalesWorkspace salesWorkspace)
