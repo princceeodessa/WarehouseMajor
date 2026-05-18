@@ -3631,33 +3631,13 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
             return;
         }
 
-        // Release 1.0.118: ActionsButton может быть скрыт после переезда кнопок в узкий
-        // 1С-тулбар. Привязываем ContextMenu к реальному источнику клика, чтобы меню
-        // открылось возле новой кнопки в тулбаре.
-        var anchor = sender as FrameworkElement ?? ActionsButton;
-        ActionsButton.ContextMenu.PlacementTarget = anchor;
+        ActionsButton.ContextMenu.PlacementTarget = ActionsButton;
         ActionsButton.ContextMenu.IsOpen = true;
     }
 
     private void HandleImportClick(object sender, RoutedEventArgs e)
     {
         ImportInventoryDocument();
-    }
-
-    // Release 1.0.118: иконка-фильтр в узком тулбаре — заглушка под будущий
-    // расширенный фильтр. Сейчас просто фокусирует первый поиск в активном sub-tab.
-    private void HandleToolbarFilterClick(object sender, RoutedEventArgs e)
-    {
-        // Большинство sub-tabs Склада имеют свой поиск; в качестве разумного дефолта
-        // фокусируем главную таблицу — пользователь увидит, что фильтрация идёт там.
-        StockDataGrid?.Focus();
-    }
-
-    // Release 1.0.118: иконка-печать в узком тулбаре — проксирует к Actions меню,
-    // где есть пункты печати для каждого типа документа.
-    private void HandleToolbarPrintClick(object sender, RoutedEventArgs e)
-    {
-        HandleActionsClick(sender, e);
     }
 
     private void HandleCreateTransferClick(object sender, RoutedEventArgs e)

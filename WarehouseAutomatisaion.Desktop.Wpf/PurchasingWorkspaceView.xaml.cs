@@ -2371,35 +2371,8 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
             return;
         }
 
-        // Release 1.0.117: ActionsButton может быть скрыт (Visibility=Collapsed) после
-        // переезда кнопок в узкий 1С-тулбар, но ContextMenu всё равно надо привязать к
-        // реальному источнику клика, чтобы меню всплыло возле клика.
-        var anchor = sender as FrameworkElement ?? ActionsButton;
-        ActionsButton.ContextMenu.PlacementTarget = anchor;
+        ActionsButton.ContextMenu.PlacementTarget = ActionsButton;
         ActionsButton.ContextMenu.IsOpen = true;
-    }
-
-    // Release 1.0.117: иконка-фильтр в узком тулбаре открывает существующий
-    // расширенный фильтр (Border со StatusFilterCombo и т.д.). Сам фильтр в этой
-    // переработке всегда видим; кнопка-заглушка фокусирует TableSearchBox.
-    private void HandleFilterIconClick(object sender, RoutedEventArgs e)
-    {
-        TableSearchBox?.Focus();
-    }
-
-    // Release 1.0.117: иконка-печать в узком тулбаре проксирует к существующему
-    // обработчику печати выделенного документа.
-    private void HandlePrintClick(object sender, RoutedEventArgs e)
-    {
-        HandlePrintSelectedClick(sender, e);
-    }
-
-    // Release 1.0.117: кнопка «Заполнение...» — заглушка для 1С-фичи автозаполнения
-    // шаблонов. Сейчас просто открывает Actions меню, чтобы пользователь дошёл до
-    // нужной операции; реальный мастер заполнения появится в одном из следующих релизов.
-    private void HandleFillFromTemplateClick(object sender, RoutedEventArgs e)
-    {
-        HandleActionsClick(sender, e);
     }
 
     private void HandleDismissLockBannerClick(object sender, RoutedEventArgs e)
