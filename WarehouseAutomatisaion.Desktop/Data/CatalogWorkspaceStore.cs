@@ -90,10 +90,23 @@ public sealed class CatalogWorkspaceStore
             {
                 var backplaneSnapshot = backplaneRecord.Snapshot;
                 _remoteMetadata = backplaneRecord.Metadata;
-                _lastSavedSnapshotHash = backplaneRecord.Metadata.PayloadHash;
                 _hasPendingLocalSync = false;
                 NormalizeSnapshot(backplaneSnapshot);
                 workspace.ReplaceFrom(backplaneSnapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
+
+                // Release 1.0.107: после ReplaceFrom WPF получает событие Changed и
+                // ProductsWorkspaceView через дебаунс вызывает Save(). Раньше мы записывали
+                // в _lastSavedSnapshotHash хеш МЕТАДАННЫХ из Backplane (PayloadHash) —
+                // он не совпадает с локально-посчитанным хешем (другой алгоритм
+                // сериализации, плюс импорт из CSV ставил «imported-from-1c-1» как hash).
+                // В итоге IsSnapshotAlreadySaved всегда возвращал false → каждый старт
+                // вкладки «Товары» провоцировал полную перезапись 8898 строк по сети →
+                // зависание + ошибка save. Теперь зафиксируем «честный» локальный хеш,
+                // чтобы первый автосейв был no-op.
+                var loadedSnapshot = CatalogWorkspaceSnapshot.FromWorkspace(workspace);
+                NormalizeSnapshot(loadedSnapshot);
+                ReconcileSnapshot(loadedSnapshot, new CatalogWorkspaceSeed());
+                _lastSavedSnapshotHash = ComputeSnapshotHash(loadedSnapshot);
             }
             return workspace;
         }

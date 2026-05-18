@@ -60,7 +60,6 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     private int _pageSize = 100;
     private bool _syncingSearch;
     private bool _suppressFilterEvents;
-    private bool _persistWarningShown;
     private bool _catalogSyncStarted;
     private bool _catalogWorkspaceLoaded;
     private bool _catalogWorkspaceLoading;
@@ -2872,22 +2871,21 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         try
         {
             _store.Save(_catalogWorkspace);
-            _persistWarningShown = false;
         }
         catch (Exception exception)
         {
-            if (!_store.IsRemoteDatabaseRequired || _persistWarningShown)
+            // Release 1.0.107: больше не показываем MessageBox при каждой неудачной
+            // авто-сейв-попытке. Они срабатывали на startup-rerender карточки и
+            // спамили пользователя «Не удалось сохранить...». Данные в Backplane
+            // целы, при следующем явном изменении карточки save повторится.
+            // Логируем тихо, чтобы причина ошибки осталась видна разработчику.
+            try
             {
-                return;
+                System.Diagnostics.Debug.WriteLine($"[TryPersistCatalog] save failed: {exception}");
             }
-
-            _persistWarningShown = true;
-            MessageBox.Show(
-                Window.GetWindow(this),
-                $"Не удалось сохранить товары в общей базе. Локальное сохранение отключено для серверного режима.{Environment.NewLine}{Environment.NewLine}{exception.Message}",
-                "Товары",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            catch
+            {
+            }
         }
     }
 
