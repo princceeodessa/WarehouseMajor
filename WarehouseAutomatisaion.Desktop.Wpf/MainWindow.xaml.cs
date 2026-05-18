@@ -123,11 +123,103 @@ public partial class MainWindow : Window
         InitializeUpdatePanel();
         OpenSection("dashboard");
 
+        InitializeTrayIcon();
+
         Loaded += HandleWindowLoaded;
+    }
+
+    // Release 1.0.128: системный трей. При закрытии окна сворачиваемся вместо exit'а,
+    // чтобы держать прогретый кэш Backplane и не пересоединяться к серверу заново.
+    // Окончательный выход — через меню трея «Выход» или Alt+F4 повторно при свёрнутом
+    // (флаг _shutdownConfirmed).
+    private System.Windows.Forms.NotifyIcon? _trayIcon;
+    private bool _shutdownConfirmed;
+
+    private void InitializeTrayIcon()
+    {
+        try
+        {
+            _trayIcon = new System.Windows.Forms.NotifyIcon
+            {
+                Text = AppBranding.ProductName,
+                Visible = true,
+                Icon = LoadTrayIcon()
+            };
+
+            var menu = new System.Windows.Forms.ContextMenuStrip();
+            var openItem = new System.Windows.Forms.ToolStripMenuItem("Открыть Major");
+            openItem.Click += (_, _) => RestoreFromTray();
+            menu.Items.Add(openItem);
+            menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+            var exitItem = new System.Windows.Forms.ToolStripMenuItem("Выход");
+            exitItem.Click += (_, _) =>
+            {
+                _shutdownConfirmed = true;
+                Close();
+            };
+            menu.Items.Add(exitItem);
+            _trayIcon.ContextMenuStrip = menu;
+            _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+        }
+        catch (Exception ex)
+        {
+            App.WriteClientErrorLog(ex, "InitializeTrayIcon");
+            _trayIcon = null;
+        }
+    }
+
+    private static System.Drawing.Icon LoadTrayIcon()
+    {
+        // Используем тот же major.ico (включён в Content + CopyToOutputDirectory).
+        var iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "major.ico");
+        return System.IO.File.Exists(iconPath)
+            ? new System.Drawing.Icon(iconPath)
+            : System.Drawing.SystemIcons.Application;
+    }
+
+    private void RestoreFromTray()
+    {
+        try
+        {
+            Show();
+            if (WindowState == WindowState.Minimized)
+            {
+                WindowState = WindowState.Normal;
+            }
+            Activate();
+            Topmost = true;
+            Topmost = false;
+            Focus();
+        }
+        catch (Exception ex)
+        {
+            App.WriteClientErrorLog(ex, "RestoreFromTray");
+        }
     }
 
     protected override void OnClosing(CancelEventArgs e)
     {
+        // Release 1.0.128: клик «×» сворачивает в трей и сохраняет session/workspace.
+        // Реальный выход — через меню трея «Выход» (_shutdownConfirmed=true) или
+        // программный Application.Shutdown.
+        if (!_shutdownConfirmed && _trayIcon is not null)
+        {
+            e.Cancel = true;
+            try
+            {
+                Hide();
+                TrySaveSalesWorkspace(showWarning: false);
+                _trayIcon.BalloonTipTitle = AppBranding.ProductName;
+                _trayIcon.BalloonTipText = "Major работает в фоне. Двойной клик — открыть.";
+                _trayIcon.ShowBalloonTip(1500);
+            }
+            catch (Exception ex)
+            {
+                App.WriteClientErrorLog(ex, "MainWindow.OnClosing(minimize)");
+            }
+            return;
+        }
+
         base.OnClosing(e);
         Loaded -= HandleWindowLoaded;
         if (_salesWorkspace is not null)
@@ -172,6 +264,16 @@ public partial class MainWindow : Window
         finally
         {
             _applicationUpdateService?.Dispose();
+            try
+            {
+                if (_trayIcon is not null)
+                {
+                    _trayIcon.Visible = false;
+                    _trayIcon.Dispose();
+                    _trayIcon = null;
+                }
+            }
+            catch { }
         }
     }
 
@@ -634,7 +736,51 @@ public partial class MainWindow : Window
             }
         }
 
+        // Release 1.0.128: после старта прогреваем кэш Purchasing/Warehouse в фоне,
+        // чтобы при первом клике по «Закупки → Заказы поставщикам» / «Склад → …»
+        // не было 5-15 сек спиннера. Загрузка идёт через те же CreateDefault().LoadOrCreate,
+        // которые после 1.0.127 кладут результат в static-кэш. Ошибки не блокируют
+        // UI — пользователь просто увидит спиннер при первом клике, как до фикса.
+        _ = PrewarmOperationalCachesAsync();
+
         await RefreshUpdateStateAsync(showDialogOnNonUpdateResult: false);
+    }
+
+    private async Task PrewarmOperationalCachesAsync()
+    {
+        if (_salesWorkspace is null)
+        {
+            return;
+        }
+
+        var op = _salesWorkspace.CurrentOperator ?? string.Empty;
+        var sales = _salesWorkspace;
+        try
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    Data.PurchasingOperationalWorkspaceStore.CreateDefault().LoadOrCreate(op, sales);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Prewarm] purchasing: {ex.Message}");
+                }
+                try
+                {
+                    Data.WarehouseOperationalWorkspaceStore.CreateDefault().LoadOrCreate(op, sales);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Prewarm] warehouse: {ex.Message}");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Prewarm] failed: {ex}");
+        }
     }
 
     private async Task RefreshUpdateStateAsync(bool showDialogOnNonUpdateResult)

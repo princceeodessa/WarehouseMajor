@@ -35,6 +35,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- Release 1.0.128: WinForms подключаем ради System.Windows.Forms.NotifyIcon
+         (минимизация в системный трей). WPF не умеет нативно работать с иконкой
+         трея, проще включить совместимый референс чем тащить NuGet-зависимость. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>major.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -44,6 +48,16 @@
     <Content Include="major.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <!-- Release 1.0.128: UseWindowsForms=true (для NotifyIcon) автоматически добавляет
+       System.Windows.Forms / System.Drawing в ImplicitUsings, что ломает все WPF-views
+       конфликтом (Brush / ComboBox / UserControl). Убираем эти global usings —
+       полные пути System.Windows.Forms.NotifyIcon / System.Drawing.Icon используются
+       только в MainWindow явно. -->
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
   </ItemGroup>
 
 </Project>
