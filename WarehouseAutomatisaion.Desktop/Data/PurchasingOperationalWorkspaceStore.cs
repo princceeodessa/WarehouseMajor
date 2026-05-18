@@ -47,7 +47,48 @@ public sealed class PurchasingOperationalWorkspaceStore
             serverModeEnabled: true);
     }
 
+    // Release 1.0.127: процесс-уровневый кэш workspace. Раньше каждое открытие
+    // sub-tab (PurchasingWorkspaceView) делало полный LoadOrCreate из Backplane
+    // (2426 docs + 15330 lines + 288 suppliers) — это и есть лаг 5-15 сек при
+    // первом клике. После v1.0.125 (sub-tabs = отдельные окна) лаг повторялся
+    // на КАЖДОЙ новой вкладке. Теперь первая вкладка прогревает кэш, остальные
+    // получают тот же workspace мгновенно. Кэш живёт всю сессию приложения.
+    private static OperationalPurchasingWorkspace? s_cachedWorkspace;
+    private static SalesWorkspace? s_cachedSalesWorkspace;
+    private static readonly object s_cacheLock = new();
+
+    /// <summary>Сбросить кэш (например, при logout / переключении организации).</summary>
+    public static void InvalidateCache()
+    {
+        lock (s_cacheLock)
+        {
+            s_cachedWorkspace = null;
+            s_cachedSalesWorkspace = null;
+        }
+    }
+
     public OperationalPurchasingWorkspace LoadOrCreate(string currentOperator, SalesWorkspace salesWorkspace)
+    {
+        // Кэш-хит: если уже загружено в этой сессии и тот же sales workspace —
+        // возвращаем существующий инстанс (новая вкладка откроется мгновенно).
+        lock (s_cacheLock)
+        {
+            if (s_cachedWorkspace != null && ReferenceEquals(s_cachedSalesWorkspace, salesWorkspace))
+            {
+                return s_cachedWorkspace;
+            }
+        }
+
+        var result = LoadOrCreateInternal(currentOperator, salesWorkspace);
+        lock (s_cacheLock)
+        {
+            s_cachedWorkspace = result;
+            s_cachedSalesWorkspace = salesWorkspace;
+        }
+        return result;
+    }
+
+    private OperationalPurchasingWorkspace LoadOrCreateInternal(string currentOperator, SalesWorkspace salesWorkspace)
     {
         EnsureBackplaneReady(currentOperator);
 

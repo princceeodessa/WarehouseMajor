@@ -47,7 +47,40 @@ public sealed class WarehouseOperationalWorkspaceStore
             serverModeEnabled: true);
     }
 
+    // Release 1.0.127: процесс-уровневый кэш — то же что для Purchasing.
+    private static OperationalWarehouseWorkspace? s_cachedWorkspace;
+    private static SalesWorkspace? s_cachedSalesWorkspace;
+    private static readonly object s_cacheLock = new();
+
+    public static void InvalidateCache()
+    {
+        lock (s_cacheLock)
+        {
+            s_cachedWorkspace = null;
+            s_cachedSalesWorkspace = null;
+        }
+    }
+
     public OperationalWarehouseWorkspace LoadOrCreate(string currentOperator, SalesWorkspace salesWorkspace)
+    {
+        lock (s_cacheLock)
+        {
+            if (s_cachedWorkspace != null && ReferenceEquals(s_cachedSalesWorkspace, salesWorkspace))
+            {
+                return s_cachedWorkspace;
+            }
+        }
+
+        var result = LoadOrCreateInternal(currentOperator, salesWorkspace);
+        lock (s_cacheLock)
+        {
+            s_cachedWorkspace = result;
+            s_cachedSalesWorkspace = salesWorkspace;
+        }
+        return result;
+    }
+
+    private OperationalWarehouseWorkspace LoadOrCreateInternal(string currentOperator, SalesWorkspace salesWorkspace)
     {
         EnsureBackplaneReady(currentOperator);
 
