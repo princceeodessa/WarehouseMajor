@@ -472,7 +472,15 @@
                         </StackPanel>
                     </DockPanel>
 
-                    <Border Style="{StaticResource CardStyle}" Padding="14,14,14,12" Margin="0,0,0,14">
+                    <!-- Release 1.0.121: фильтр-карточка скрыта по запросу пользователя.
+                         В 1С УНФ её нет на главных видах закупок — фильтрация делается
+                         выбором sub-tab (Заказы/Поставщики/Счета/...), поиском в верхней
+                         плашке и колонками таблицы. Все дочерние ComboBox/TextBox/CheckBox
+                         (StatusFilterCombo, SupplierFilterCombo, WarehouseFilterCombo,
+                         DocumentTypeFilterCombo, DateFromPicker, DateToPicker,
+                         OverdueOnlyCheckBox и т.д.) остаются в дереве — code-behind
+                         к ним обращается; они просто не отображаются. -->
+                    <Border x:Name="FiltersCard" Style="{StaticResource CardStyle}" Padding="14,14,14,12" Margin="0,0,0,14" Visibility="Collapsed">
                         <StackPanel>
                             <WrapPanel Margin="0,0,0,10">
                                 <Border Width="210" Style="{StaticResource TableFilterSearchContainerStyle}" Margin="0,0,10,10">
