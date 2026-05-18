@@ -126,18 +126,24 @@
         </Style>
 
         <Style x:Key="GridRowStyle" TargetType="DataGridRow">
-            <!-- 1С-стиль: светло-зеленоватый фон строки, прозрачно-зелёная подсветка -->
-            <Setter Property="Background" Value="#F2F8E9" />
-            <Setter Property="BorderBrush" Value="#E5EDD7" />
+            <!-- 1С УНФ-layout, но синяя палитра вместо жёлтой:
+                 белая строка по умолчанию, светло-синий hover, насыщенно-синяя подсветка выделения. -->
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#EEF2F8" />
             <Setter Property="BorderThickness" Value="0,0,0,1" />
             <Setter Property="Foreground" Value="#17213A" />
             <Setter Property="FontSize" Value="12.5" />
             <Style.Triggers>
+                <!-- Чётные строки слегка тонированы, чтобы попадание глазом было легче. -->
+                <Trigger Property="AlternationIndex" Value="1">
+                    <Setter Property="Background" Value="#F7F9FD" />
+                </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E8F1D4" />
+                    <Setter Property="Background" Value="#EEF2FA" />
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#D9E8B8" />
+                    <Setter Property="Background" Value="#DDE4FF" />
+                    <Setter Property="BorderBrush" Value="#4F5BFF" />
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -497,7 +503,8 @@
                 </StackPanel>
             </Border>
 
-            <!-- 1С-стиль: компактный тулбар -->
+            <!-- 1С-стиль: компактный тулбар. Слева — Создать/Продать/Купить и иконки,
+                 справа — поиск + кнопка «Ещё». DockPanel позволяет правую секцию прижать к краю. -->
             <Border Grid.Row="4"
                     Background="{StaticResource OneCToolbarBg}"
                     BorderBrush="{StaticResource OneCToolbarBorder}"
@@ -505,55 +512,108 @@
                     CornerRadius="8"
                     Padding="6,5"
                     Margin="0,0,0,12">
-                <WrapPanel>
-                    <Button Content="Создать"
-                            Style="{StaticResource OneCPrimaryToolbarButtonStyle}"
-                            Margin="0,0,6,0"
-                            ToolTip="Создать новый товар"
-                            Click="HandleNewProductClick" />
-                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
-                            Margin="0,0,10,0"
-                            ToolTip="Быстрое добавление"
-                            Click="HandleQuickAddClick">
-                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
-                    </Button>
-                    <Button x:Name="OneCSellButton"
-                            Content="Продать ▾"
-                            Style="{StaticResource OneCToolbarButtonStyle}"
-                            Margin="0,0,4,0"
-                            ToolTip="Создать продажу выбранного товара"
-                            Click="HandleSellSplitClick" />
-                    <Button x:Name="OneCBuyButton"
-                            Content="Купить ▾"
-                            Style="{StaticResource OneCToolbarButtonStyle}"
-                            Margin="0,0,12,0"
-                            ToolTip="Создать заказ поставщику"
-                            Click="HandleBuySplitClick" />
-                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
-                            Margin="0,0,4,0"
-                            ToolTip="Печать"
-                            Click="HandlePrintLabelsClick">
-                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
-                    </Button>
-                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
-                            Margin="0,0,4,0"
-                            ToolTip="Предпросмотр"
-                            Click="HandleShowProblemsClick">
-                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE890;" FontSize="13" />
-                    </Button>
-                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
-                            Margin="0,0,4,0"
-                            ToolTip="Штрихкод">
-                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8B8;" FontSize="13" />
-                    </Button>
-                    <Button x:Name="OneCAdvancedFiltersButton"
-                            Style="{StaticResource OneCToolbarIconButtonStyle}"
-                            Margin="0,0,4,0"
-                            ToolTip="Расширенные фильтры (категория, поставщик, статус)"
-                            Click="HandleAdvancedFiltersClick">
-                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" FontSize="13" />
-                    </Button>
-                </WrapPanel>
+                <DockPanel LastChildFill="True">
+                    <!-- Правая часть: поиск + Ещё -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Border Width="240"
+                                Background="#FFFFFF"
+                                BorderBrush="#D7DEEC"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="8,0"
+                                Height="30"
+                                Margin="0,0,6,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="20" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="OneCSearchBox"
+                                         Grid.Column="0"
+                                         VerticalAlignment="Center"
+                                         BorderThickness="0"
+                                         Background="Transparent"
+                                         Foreground="#17213A"
+                                         FontSize="12"
+                                         TextChanged="HandleSearchTextChanged" />
+                                <TextBlock x:Name="OneCSearchPlaceholderText"
+                                           Grid.Column="0"
+                                           Text="Search (Ctrl+F)"
+                                           Foreground="#9AA4BC"
+                                           FontSize="12"
+                                           VerticalAlignment="Center"
+                                           IsHitTestVisible="False" />
+                                <TextBlock Grid.Column="1"
+                                           FontFamily="Segoe Fluent Icons"
+                                           Text="&#xE721;"
+                                           FontSize="12"
+                                           Foreground="#7C8AA7"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <Button x:Name="OneCMoreActionsButton"
+                                Style="{StaticResource OneCToolbarButtonStyle}"
+                                ToolTip="Ещё действия"
+                                Click="HandleActionsClick">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="More actions" VerticalAlignment="Center" />
+                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70D;" Margin="6,0,0,0" FontSize="9" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Левая часть: основные действия -->
+                    <WrapPanel>
+                        <Button Content="Создать"
+                                Style="{StaticResource OneCPrimaryToolbarButtonStyle}"
+                                Margin="0,0,6,0"
+                                ToolTip="Создать новый товар"
+                                Click="HandleNewProductClick" />
+                        <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                                Margin="0,0,10,0"
+                                ToolTip="Быстрое добавление"
+                                Click="HandleQuickAddClick">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
+                        </Button>
+                        <Button x:Name="OneCSellButton"
+                                Content="Продать ▾"
+                                Style="{StaticResource OneCToolbarButtonStyle}"
+                                Margin="0,0,4,0"
+                                ToolTip="Создать продажу выбранного товара"
+                                Click="HandleSellSplitClick" />
+                        <Button x:Name="OneCBuyButton"
+                                Content="Купить ▾"
+                                Style="{StaticResource OneCToolbarButtonStyle}"
+                                Margin="0,0,12,0"
+                                ToolTip="Создать заказ поставщику"
+                                Click="HandleBuySplitClick" />
+                        <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                                Margin="0,0,4,0"
+                                ToolTip="Печать"
+                                Click="HandlePrintLabelsClick">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
+                        </Button>
+                        <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                                Margin="0,0,4,0"
+                                ToolTip="Предпросмотр"
+                                Click="HandleShowProblemsClick">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE890;" FontSize="13" />
+                        </Button>
+                        <Button Style="{StaticResource OneCToolbarIconButtonStyle}"
+                                Margin="0,0,4,0"
+                                ToolTip="Штрихкод">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8B8;" FontSize="13" />
+                        </Button>
+                        <Button x:Name="OneCAdvancedFiltersButton"
+                                Style="{StaticResource OneCToolbarIconButtonStyle}"
+                                Margin="0,0,4,0"
+                                ToolTip="Расширенные фильтры (категория, поставщик, статус)"
+                                Click="HandleAdvancedFiltersClick">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" FontSize="13" />
+                        </Button>
+                    </WrapPanel>
+                </DockPanel>
             </Border>
 
             <Grid x:Name="AdvancedFiltersGrid" Grid.Row="5" Margin="0,0,0,14" Visibility="Collapsed">
@@ -634,6 +694,7 @@
                                       ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
                                       RowStyle="{StaticResource GridRowStyle}"
                                       CellStyle="{StaticResource GridCellStyle}"
+                                      AlternationCount="2"
                                       MouseDoubleClick="HandleProductsGridDoubleClick">
                                 <DataGrid.Columns>
                                     <DataGridTemplateColumn Width="30" IsReadOnly="False">

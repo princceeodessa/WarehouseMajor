@@ -1281,8 +1281,10 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         var text = sender is WpfTextBox textBox ? textBox.Text : string.Empty;
         HeaderSearchBox.Text = text;
         TableSearchBox.Text = text;
+        if (OneCSearchBox != null) OneCSearchBox.Text = text;
         HeaderSearchBox.CaretIndex = HeaderSearchBox.Text.Length;
         TableSearchBox.CaretIndex = TableSearchBox.Text.Length;
+        if (OneCSearchBox != null) OneCSearchBox.CaretIndex = OneCSearchBox.Text.Length;
         _syncingSearch = false;
 
         UpdateSearchPlaceholders();
@@ -1475,6 +1477,10 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     {
         HeaderSearchPlaceholderText.Visibility = string.IsNullOrWhiteSpace(HeaderSearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;
         TableSearchPlaceholderText.Visibility = string.IsNullOrWhiteSpace(TableSearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;
+        if (OneCSearchPlaceholderText != null && OneCSearchBox != null)
+        {
+            OneCSearchPlaceholderText.Visibility = string.IsNullOrWhiteSpace(OneCSearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     private void UpdateBulkActions()
