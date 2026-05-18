@@ -583,7 +583,11 @@ public sealed partial class DesktopMySqlBackplaneService
                 manual_discount_percent,
                 manual_discount_amount
             FROM app_sales_documents
-            ORDER BY document_date DESC, number DESC;
+            ORDER BY document_date DESC, number DESC
+            -- Release 1.0.132: жёсткий лимит 2000 самых свежих документов на каждый
+            -- LoadSnapshot, иначе тянем все 21 314 при каждом refresh-тике (15 сек).
+            -- Для исторических данных откроется отдельная dialog «История» позже.
+            LIMIT 2000;
             """);
         using var reader = command.ExecuteReader();
         while (reader.Read())
@@ -703,6 +707,14 @@ public sealed partial class DesktopMySqlBackplaneService
                 quantity,
                 price
             FROM app_sales_document_lines
+            -- Release 1.0.132: только строки документов которые мы загрузили
+            -- (2000 самых свежих, см. LoadSnapshotDocumentsAsync LIMIT). Линии
+            -- "осиротевших" документов не нужны и не отображаются.
+            WHERE document_id IN (
+                SELECT id FROM app_sales_documents
+                ORDER BY document_date DESC, number DESC
+                LIMIT 2000
+            )
             ORDER BY document_id, line_no;
             """);
         using var reader = command.ExecuteReader();

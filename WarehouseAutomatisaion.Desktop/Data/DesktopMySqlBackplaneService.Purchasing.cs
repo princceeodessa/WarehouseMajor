@@ -304,7 +304,10 @@ public sealed partial class DesktopMySqlBackplaneService
                 fields_json
             FROM app_purchasing_documents
             WHERE document_kind = @document_kind
-            ORDER BY document_date DESC, number DESC;
+            ORDER BY document_date DESC, number DESC
+            -- Release 1.0.132: лимит на kind. Из 587 purchase_order'ов + 1839 receipt'ов
+            -- грузим только 2000 самых свежих на каждый kind.
+            LIMIT 2000;
             """))
         {
             AddParameter(command, "@document_kind", documentKind);
