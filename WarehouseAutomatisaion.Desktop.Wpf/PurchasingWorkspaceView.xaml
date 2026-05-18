@@ -251,7 +251,15 @@
                                VerticalAlignment="Center" />
                 </StackPanel>
 
-                <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" Style="{StaticResource TopHeaderActionsWrapPanelStyle}">
+                <!-- Release 1.0.122: верхняя плашка с Поиском + Импорт / Экспорт /
+                     Новая закупка / Действия скрыта по запросу пользователя. В 1С УНФ
+                     этого ряда нет — действия живут в узком тулбаре над таблицей
+                     (когда восстановим из 1.0.117 после диагностики краша), а поиск
+                     дублируется глобальным в шапке MainWindow. HeaderSearchBox,
+                     HeaderSearchPlaceholderText, NewPurchaseButton, ActionsButton
+                     остаются в визуальном дереве — code-behind на них продолжает
+                     ссылаться (HandleSearchTextChanged, HandleActionsClick и т.д.). -->
+                <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" Style="{StaticResource TopHeaderActionsWrapPanelStyle}" Visibility="Collapsed">
                     <Border Width="330" Style="{StaticResource TopSearchContainerStyle}" Margin="0,0,10,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
