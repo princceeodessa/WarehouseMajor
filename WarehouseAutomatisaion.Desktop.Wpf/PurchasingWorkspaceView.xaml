@@ -226,9 +226,26 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Style="{StaticResource TopHeaderTextPanelStyle}">
-                    <TextBlock Text="Закупки" Style="{StaticResource TopHeaderTitleStyle}" />
-                    <TextBlock Text="Поставщики, заказы поставщику, счета, приемка и оплаты" Style="{StaticResource TopHeaderSubtitleStyle}" />
+                <!-- Release 1.0.112: 1С УНФ не показывает крупный заголовок раздела
+                     внутри окна — оставляем только компактное «Закупки» без подзаголовка. -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="HeaderFavoriteButton"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            Margin="0,0,8,0"
+                            Cursor="Hand"
+                            ToolTip="Добавить раздел в избранное">
+                        <TextBlock FontFamily="Segoe Fluent Icons"
+                                   Text="&#xE735;"
+                                   FontSize="16"
+                                   Foreground="#FFB400" />
+                    </Button>
+                    <TextBlock Text="Закупки"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="#17213A"
+                               VerticalAlignment="Center" />
                 </StackPanel>
 
                 <WrapPanel x:Name="HeaderActionsPanel" Grid.Column="1" Style="{StaticResource TopHeaderActionsWrapPanelStyle}">
@@ -298,7 +315,9 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel x:Name="WorkspaceLeftPanel" Grid.Row="0" Grid.Column="0" Margin="0,0,24,0">
-                                        <UniformGrid x:Name="MetricsGrid" Columns="5" Margin="-6,0,-6,18">
+                                        <!-- Release 1.0.112: KPI-блок (Активные поставщики / Открытые заказы / Ожидают счёт /
+                                             Ожидают приёмку / Просроченные) скрыт — в 1С УНФ его нет, наш макет должен быть 1в1. -->
+                                        <UniformGrid x:Name="MetricsGrid" Columns="5" Margin="-6,0,-6,18" Visibility="Collapsed">
                         <Border Style="{StaticResource MetricCardStyle}" Margin="6,0,6,0">
                             <Grid>
                                 <Grid.RowDefinitions>
@@ -351,7 +370,9 @@
                         </Border>
                     </UniformGrid>
 
-                                        <UniformGrid x:Name="IssueChipsGrid" Columns="5" Margin="-6,0,-6,18">
+                                        <!-- Release 1.0.112: chips «Без счёта / Без приёмки / Просрочено / Частично оплачено /
+                                             Есть расхождения» убраны — в 1С УНФ их нет, фильтрация делается через колонки таблицы. -->
+                                        <UniformGrid x:Name="IssueChipsGrid" Columns="5" Margin="-6,0,-6,18" Visibility="Collapsed">
                         <Button x:Name="MissingInvoiceChip" AutomationProperties.Name="Фильтр: без счета" Style="{StaticResource GhostButtonStyle}" Height="40" Margin="6,0,6,0" Click="HandleIssuePresetClick" Tag="missing-invoice">
                             <Grid>
                                 <Grid.ColumnDefinitions>
