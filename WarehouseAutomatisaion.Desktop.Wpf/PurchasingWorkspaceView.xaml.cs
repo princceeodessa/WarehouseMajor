@@ -64,7 +64,10 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
     private bool _initialized;
     private bool _dateRangeInitialized;
     private int _page = 1;
-    private int _pageSize = 20;
+    // Release 1.0.133: дефолт 50 (было 20 → 50 после init в HandleLoaded). Combo
+    // SelectedIndex=1 = "50/стр". Хороший компромисс: видно достаточно, грид
+    // отзывчив. Можно увеличить до 100/200 через combo.
+    private int _pageSize = 50;
     private DateTime? _defaultDateFrom;
     private DateTime? _defaultDateTo;
     private PurchasingCardAction _primaryCardAction = PurchasingCardAction.None;

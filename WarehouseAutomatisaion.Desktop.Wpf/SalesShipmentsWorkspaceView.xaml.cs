@@ -159,21 +159,28 @@ public partial class SalesShipmentsWorkspaceView : UserControl
             var dateFrom = DateFromPicker.SelectedDate;
             var dateTo = DateToPicker.SelectedDate;
 
-            var rows = _salesWorkspace.Shipments
+            // Release 1.0.133: cap 100 строк.
+            const int displayCap = 100;
+            var matched = _salesWorkspace.Shipments
                 .Where(s => string.IsNullOrEmpty(customer) || customer == AllCustomersFilter || Ui(s.CustomerName).Equals(customer, StringComparison.OrdinalIgnoreCase))
                 .Where(s => string.IsNullOrEmpty(warehouse) || warehouse == AllWarehousesFilter || Ui(s.Warehouse).Equals(warehouse, StringComparison.OrdinalIgnoreCase))
                 .Where(s => string.IsNullOrEmpty(manager) || manager == AllManagersFilter || Ui(s.Manager).Equals(manager, StringComparison.OrdinalIgnoreCase))
                 .Where(s => !dateFrom.HasValue || s.ShipmentDate.Date >= dateFrom.Value.Date)
                 .Where(s => !dateTo.HasValue || s.ShipmentDate.Date <= dateTo.Value.Date)
                 .Where(s => MatchesPayment(s, paymentFilter))
-                .Where(s => string.IsNullOrEmpty(query) || MatchesQuery(s, query))
+                .Where(s => string.IsNullOrEmpty(query) || MatchesQuery(s, query));
+            var totalMatched = matched.Count();
+            var rows = matched
                 .OrderByDescending(s => s.ShipmentDate)
                 .ThenBy(s => Ui(s.Number), StringComparer.OrdinalIgnoreCase)
+                .Take(displayCap)
                 .Select(ShipmentRowViewModel.Create)
                 .ToArray();
 
             ShipmentsGrid.ItemsSource = rows;
-            RecordsCountText.Text = $"Всего: {rows.Length:N0}";
+            RecordsCountText.Text = totalMatched > displayCap
+                ? $"Показано {rows.Length:N0} из {totalMatched:N0} — уточните фильтр"
+                : $"Всего: {rows.Length:N0}";
             if (rows.Length > 0) ShipmentsGrid.SelectedIndex = 0;
             else UpdateSummary(null, null);
         }
@@ -185,15 +192,22 @@ public partial class SalesShipmentsWorkspaceView : UserControl
                 .Select(s => s.SalesOrderId)
                 .ToHashSet();
 
-            var pendingRows = _salesWorkspace.Orders
+            // Release 1.0.133: cap 100.
+            const int displayCap = 100;
+            var pendingMatched = _salesWorkspace.Orders
                 .Where(o => !shippedOrderIds.Contains(o.Id))
-                .Where(o => string.IsNullOrEmpty(query) || MatchesOrderQuery(o, query))
+                .Where(o => string.IsNullOrEmpty(query) || MatchesOrderQuery(o, query));
+            var pendingTotal = pendingMatched.Count();
+            var pendingRows = pendingMatched
                 .OrderByDescending(o => o.OrderDate)
+                .Take(displayCap)
                 .Select(PendingOrderRowViewModel.Create)
                 .ToArray();
 
             PendingGrid.ItemsSource = pendingRows;
-            RecordsCountText.Text = $"К отгрузке: {pendingRows.Length:N0}";
+            RecordsCountText.Text = pendingTotal > displayCap
+                ? $"К отгрузке: {pendingRows.Length:N0} из {pendingTotal:N0}"
+                : $"К отгрузке: {pendingRows.Length:N0}";
             if (pendingRows.Length > 0) PendingGrid.SelectedIndex = 0;
             else UpdateSummary(null, null);
         }

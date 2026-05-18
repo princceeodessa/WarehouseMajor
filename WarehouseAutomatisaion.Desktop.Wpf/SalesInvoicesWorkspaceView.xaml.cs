@@ -130,21 +130,28 @@ public partial class SalesInvoicesWorkspaceView : UserControl
         var dateFrom = DateFromPicker.SelectedDate;
         var dateTo = DateToPicker.SelectedDate;
 
-        var rows = _salesWorkspace.Invoices
+        // Release 1.0.133: cap 100 строк, иначе грузим весь поток в UI.
+        const int displayCap = 100;
+        var matched = _salesWorkspace.Invoices
             .Where(i => string.IsNullOrEmpty(customer) || customer == AllCustomersFilter || Ui(i.CustomerName).Equals(customer, StringComparison.OrdinalIgnoreCase))
             .Where(i => string.IsNullOrEmpty(manager) || manager == AllManagersFilter || Ui(i.Manager).Equals(manager, StringComparison.OrdinalIgnoreCase))
             .Where(i => string.IsNullOrEmpty(organization) || organization == AllOrganizationsFilter || Ui(i.Organization).Equals(organization, StringComparison.OrdinalIgnoreCase))
             .Where(i => !dateFrom.HasValue || i.InvoiceDate.Date >= dateFrom.Value.Date)
             .Where(i => !dateTo.HasValue || i.InvoiceDate.Date <= dateTo.Value.Date)
             .Where(i => MatchesPayment(i, paymentFilter))
-            .Where(i => string.IsNullOrEmpty(query) || MatchesQuery(i, query))
+            .Where(i => string.IsNullOrEmpty(query) || MatchesQuery(i, query));
+        var totalMatched = matched.Count();
+        var rows = matched
             .OrderByDescending(i => i.InvoiceDate)
             .ThenBy(i => Ui(i.Number), StringComparer.OrdinalIgnoreCase)
+            .Take(displayCap)
             .Select(InvoiceRowViewModel.Create)
             .ToArray();
 
         InvoicesGrid.ItemsSource = rows;
-        InvoicesCountText.Text = $"Всего: {rows.Length:N0}";
+        InvoicesCountText.Text = totalMatched > displayCap
+            ? $"Показано {rows.Length:N0} из {totalMatched:N0} — уточните фильтр"
+            : $"Всего: {rows.Length:N0}";
 
         if (rows.Length > 0)
         {

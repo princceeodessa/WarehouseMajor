@@ -119,16 +119,23 @@ public partial class ContractorsWorkspaceView : UserControl
 
         var query = (SearchBox.Text ?? string.Empty).Trim();
 
-        var rows = _salesWorkspace.Customers
+        // Release 1.0.133: cap 100. 1 971 контрагентов без фильтра — поиском всё ок.
+        const int displayCap = 100;
+        var matched = _salesWorkspace.Customers
             .Where(c =>
                 (buyers && c.IsBuyer) || (suppliers && c.IsSupplier) || (others && c.IsOther))
-            .Where(c => MatchesQuery(c, query))
+            .Where(c => MatchesQuery(c, query));
+        var totalMatched = matched.Count();
+        var rows = matched
             .OrderBy(c => Ui(c.Name), StringComparer.CurrentCultureIgnoreCase)
+            .Take(displayCap)
             .Select(ContractorRowViewModel.Create)
             .ToArray();
 
         ContractorsGrid.ItemsSource = rows;
-        ContractorsCountText.Text = $"Всего: {rows.Length:N0}";
+        ContractorsCountText.Text = totalMatched > displayCap
+            ? $"Показано {rows.Length:N0} из {totalMatched:N0} — уточните фильтр"
+            : $"Всего: {rows.Length:N0}";
         HeaderTitleText.Text = $"Контрагенты: {BuildTypeLabel(buyers, suppliers, others)}";
 
         if (rows.Length > 0)

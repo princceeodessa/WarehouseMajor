@@ -135,20 +135,27 @@ public partial class SalesReturnsWorkspaceView : UserControl
         var dateFrom = DateFromPicker.SelectedDate;
         var dateTo = DateToPicker.SelectedDate;
 
-        var rows = _salesWorkspace.Returns
+        // Release 1.0.133: cap 100.
+        const int displayCap = 100;
+        var matched = _salesWorkspace.Returns
             .Where(r => string.IsNullOrEmpty(customer) || customer == AllCustomersFilter || Ui(r.CustomerName).Equals(customer, StringComparison.OrdinalIgnoreCase))
             .Where(r => string.IsNullOrEmpty(warehouse) || warehouse == AllWarehousesFilter || Ui(r.Warehouse).Equals(warehouse, StringComparison.OrdinalIgnoreCase))
             .Where(r => string.IsNullOrEmpty(manager) || manager == AllManagersFilter || Ui(r.Manager).Equals(manager, StringComparison.OrdinalIgnoreCase))
             .Where(r => !dateFrom.HasValue || r.ReturnDate.Date >= dateFrom.Value.Date)
             .Where(r => !dateTo.HasValue || r.ReturnDate.Date <= dateTo.Value.Date)
-            .Where(r => string.IsNullOrEmpty(query) || MatchesQuery(r, query))
+            .Where(r => string.IsNullOrEmpty(query) || MatchesQuery(r, query));
+        var totalMatched = matched.Count();
+        var rows = matched
             .OrderByDescending(r => r.ReturnDate)
             .ThenBy(r => Ui(r.Number), StringComparer.OrdinalIgnoreCase)
+            .Take(displayCap)
             .Select(ReturnRowViewModel.Create)
             .ToArray();
 
         ReturnsGrid.ItemsSource = rows;
-        ReturnsCountText.Text = $"Всего: {rows.Length:N0}";
+        ReturnsCountText.Text = totalMatched > displayCap
+            ? $"Показано {rows.Length:N0} из {totalMatched:N0} — уточните фильтр"
+            : $"Всего: {rows.Length:N0}";
 
         if (rows.Length > 0)
         {

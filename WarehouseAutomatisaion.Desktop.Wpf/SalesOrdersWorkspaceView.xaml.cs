@@ -116,19 +116,28 @@ public partial class SalesOrdersWorkspaceView : UserControl
         var dateFrom = DateFromPicker.SelectedDate;
         var dateTo = DateToPicker.SelectedDate;
 
-        var rows = _salesWorkspace.Orders
+        // Release 1.0.133: жёсткий cap 100 строк в гриде. Если match больше —
+        // подскажем «отфильтруй поиском/датой». UI остаётся отзывчивым даже
+        // при 20k заказах в workspace.
+        const int displayCap = 100;
+        var matchedQuery = _salesWorkspace.Orders
             .Where(o => string.IsNullOrEmpty(status) || status == AllStatusesFilter || Ui(o.Status).Equals(status, StringComparison.OrdinalIgnoreCase))
             .Where(o => string.IsNullOrEmpty(customer) || customer == AllCustomersFilter || Ui(o.CustomerName).Equals(customer, StringComparison.OrdinalIgnoreCase))
             .Where(o => !dateFrom.HasValue || o.OrderDate.Date >= dateFrom.Value.Date)
             .Where(o => !dateTo.HasValue || o.OrderDate.Date <= dateTo.Value.Date)
-            .Where(o => string.IsNullOrEmpty(query) || MatchesQuery(o, query))
+            .Where(o => string.IsNullOrEmpty(query) || MatchesQuery(o, query));
+        var totalMatched = matchedQuery.Count();
+        var rows = matchedQuery
             .OrderByDescending(o => o.OrderDate)
             .ThenBy(o => Ui(o.Number), StringComparer.OrdinalIgnoreCase)
+            .Take(displayCap)
             .Select(OrderRowViewModel.Create)
             .ToArray();
 
         OrdersGrid.ItemsSource = rows;
-        OrdersCountText.Text = $"Всего: {rows.Length:N0}";
+        OrdersCountText.Text = totalMatched > displayCap
+            ? $"Показано {rows.Length:N0} из {totalMatched:N0} — уточните фильтр (дата/контрагент/поиск)"
+            : $"Всего: {rows.Length:N0}";
 
         if (rows.Length > 0)
         {

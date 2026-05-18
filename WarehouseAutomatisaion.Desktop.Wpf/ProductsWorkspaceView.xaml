@@ -843,7 +843,7 @@
                                               Width="100"
                                               Style="{StaticResource TablePageSizeComboBoxStyle}"
                                               Margin="14,0,0,0"
-                                              SelectedIndex="1"
+                                              SelectedIndex="0"
                                               SelectionChanged="HandleProductsPageSizeChanged">
                                         <ComboBoxItem Content="50 / стр." />
                                         <ComboBoxItem Content="100 / стр." />

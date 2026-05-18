@@ -57,7 +57,9 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     private IReadOnlyList<ProductRowViewModel> _filteredProducts = Array.Empty<ProductRowViewModel>();
     private string _activeSection = ProductsSection;
     private int _currentPage = 1;
-    private int _pageSize = 100;
+    // Release 1.0.133: дефолт 50 (было 100). 8898 товаров без pagination = тяжело,
+    // 50 хватает на typical lookup. Combo даёт 50/100/200.
+    private int _pageSize = 50;
     private bool _syncingSearch;
     private bool _suppressFilterEvents;
     private bool _catalogSyncStarted;

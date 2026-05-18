@@ -114,18 +114,25 @@ public partial class SalesReconciliationsWorkspaceView : UserControl
         var dateFrom = DateFromPicker.SelectedDate;
         var dateTo = DateToPicker.SelectedDate;
 
-        var rows = _records
+        // Release 1.0.133: cap 100.
+        const int displayCap = 100;
+        var matched = _records
             .Where(r => counterparty == AllCounterpartiesFilter || r.CounterpartyName.Equals(counterparty, StringComparison.OrdinalIgnoreCase))
             .Where(r => organization == AllOrganizationsFilter || r.Organization.Equals(organization, StringComparison.OrdinalIgnoreCase))
             .Where(r => status == "Все" || r.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
             .Where(r => !dateFrom.HasValue || (r.PeriodTo.HasValue && r.PeriodTo.Value.Date >= dateFrom.Value.Date))
             .Where(r => !dateTo.HasValue || (r.PeriodFrom.HasValue && r.PeriodFrom.Value.Date <= dateTo.Value.Date))
-            .Where(r => string.IsNullOrEmpty(query) || MatchesQuery(r, query))
+            .Where(r => string.IsNullOrEmpty(query) || MatchesQuery(r, query));
+        var totalMatched = matched.Count();
+        var rows = matched
+            .Take(displayCap)
             .Select(ReconciliationRowViewModel.Create)
             .ToArray();
 
         ReconciliationsGrid.ItemsSource = rows;
-        RecordsCountText.Text = $"Всего: {rows.Length:N0}";
+        RecordsCountText.Text = totalMatched > displayCap
+            ? $"Показано {rows.Length:N0} из {totalMatched:N0} — уточните фильтр"
+            : $"Всего: {rows.Length:N0}";
 
         if (rows.Length > 0)
         {
