@@ -625,7 +625,8 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
                 SetGridHeaders("Время", "Объект", "Номер", "Действие", "Результат", "Пользователь", "Комментарий", "Ответственный", "Статус", "Источник");
                 break;
             default:
-                SetGridHeaders("Номер", "Поставщик", "Дата заказа", "Плановая поставка", "Склад", "Сумма", "Оплачено", "Остаток", "Статус", "Ответственный");
+                // 1С УНФ-layout «Заказы поставщикам»: Дата | Номер | Состояние | Поставщик | Сумма | Дата поступления | Договор | ... | Статус оригинала договора | Ответственный.
+                SetGridHeaders("Дата", "Номер", "Состояние", "Поставщик", "Сумма", "Дата поступления", "Договор", "Склад", "Статус", "Ответственный");
                 break;
         }
     }
@@ -765,6 +766,9 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         var balance = Math.Max(order.TotalAmount - paid, 0m);
         var responsible = ResolveResponsible(order.DocumentType, order.Id);
 
+        // Release 1.0.109: порядок колонок 1в1 как в 1С УНФ «Заказы поставщикам».
+        // col1=Дата, col2=Номер, col3=Состояние, col4=Поставщик, col5=Сумма,
+        // col6=Дата поступления, col7=Договор, col8=Склад, status=Статус оригинала, col9=Ответственный.
         return CreateRow(
             OrdersSection,
             order.Id,
@@ -772,14 +776,14 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
             order.DocumentType,
             order.SupplierName,
             order.Warehouse,
-            order.Number,
-            order.SupplierName,
             order.DocumentDate.ToString("dd.MM.yyyy", RuCulture),
-            plannedDate?.ToString("dd.MM.yyyy", RuCulture) ?? "-",
-            order.Warehouse,
+            order.Number,
+            order.Status,
+            order.SupplierName,
             FormatMoney(order.TotalAmount),
-            FormatMoney(paid),
-            FormatMoney(balance),
+            plannedDate?.ToString("dd.MM.yyyy", RuCulture) ?? "-",
+            string.IsNullOrWhiteSpace(order.Contract) ? "-" : order.Contract,
+            order.Warehouse,
             order.Status,
             responsible,
             order.Status,

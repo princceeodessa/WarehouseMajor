@@ -173,17 +173,23 @@
         </Style>
 
         <Style x:Key="GridRowStyle" TargetType="DataGridRow">
+            <!-- 1С УНФ-layout, синяя палитра: белая строка, светлая зебра-альтернация,
+                 насыщенный синий для selected, как в Products-вкладке. -->
             <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="BorderBrush" Value="#EEF2FA" />
+            <Setter Property="BorderBrush" Value="#EEF2F8" />
             <Setter Property="BorderThickness" Value="0,0,0,1" />
             <Setter Property="Foreground" Value="#1B2440" />
             <Setter Property="FontSize" Value="12.5" />
             <Style.Triggers>
+                <Trigger Property="AlternationIndex" Value="1">
+                    <Setter Property="Background" Value="#F7F9FD" />
+                </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FAFBFF" />
+                    <Setter Property="Background" Value="#EEF2FA" />
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#F2F5FF" />
+                    <Setter Property="Background" Value="#DDE4FF" />
+                    <Setter Property="BorderBrush" Value="#4F5BFF" />
                 </Trigger>
                 <DataTrigger Binding="{Binding IsDisabled}" Value="True">
                     <Setter Property="Opacity" Value="0.48" />
@@ -486,6 +492,7 @@
                             <Grid Grid.Row="0" MinHeight="520">
                                 <DataGrid x:Name="PurchasingGrid"
                                           Style="{StaticResource PurchasingGridStyle}"
+                                          AlternationCount="2"
                                           SelectionChanged="HandleGridSelectionChanged"
                                           MouseDoubleClick="HandleGridDoubleClick"
                                           CellEditEnding="HandleGridCellEditEnding"
