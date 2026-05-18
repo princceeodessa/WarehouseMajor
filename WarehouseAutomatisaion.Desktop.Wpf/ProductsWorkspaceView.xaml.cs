@@ -246,30 +246,91 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private void HandleSalesWorkspaceChanged(object? sender, EventArgs e)
     {
-        Dispatcher.BeginInvoke(RefreshAll, System.Windows.Threading.DispatcherPriority.Background);
+        ScheduleRefresh();
     }
 
     private void HandleCatalogWorkspaceChanged(object? sender, EventArgs e)
     {
-        Dispatcher.BeginInvoke(() =>
-        {
-            TryPersistCatalog();
-            RefreshAll();
-        }, System.Windows.Threading.DispatcherPriority.Background);
+        ScheduleRefresh(persist: true);
     }
 
-    private void RefreshAll()
+    // Дебаунс: HandleCatalog/SalesWorkspaceChanged могут срабатывать пачкой
+    // (при ReplaceFrom — по одному событию на каждый изменённый набор), поэтому
+    // объединяем серию в один Refresh после короткой паузы.
+    private System.Windows.Threading.DispatcherTimer? _refreshDebounceTimer;
+    private bool _refreshPendingPersist;
+    private void ScheduleRefresh(bool persist = false)
     {
-        _warehouseWorkspace = WarehouseWorkspace.Create(_salesWorkspace);
-        _cellStorageSnapshot = BuildCellStorageSnapshot();
-        _allProducts = BuildProducts();
+        if (persist)
+        {
+            _refreshPendingPersist = true;
+        }
 
-        RefreshMetrics();
-        RefreshFilterOptions();
-        ApplyFilters(keepSelected: true);
-        ApplySection(_activeSection);
-        UpdateResponsiveLayout();
+        if (_refreshDebounceTimer is null)
+        {
+            _refreshDebounceTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(150)
+            };
+            _refreshDebounceTimer.Tick += async (_, _) =>
+            {
+                _refreshDebounceTimer!.Stop();
+                if (_refreshPendingPersist)
+                {
+                    _refreshPendingPersist = false;
+                    TryPersistCatalog();
+                }
+                await RefreshAllAsync();
+            };
+        }
+
+        _refreshDebounceTimer.Stop();
+        _refreshDebounceTimer.Start();
     }
+
+    private bool _refreshing;
+    private bool _refreshQueued;
+    private async Task RefreshAllAsync()
+    {
+        if (_refreshing)
+        {
+            _refreshQueued = true;
+            return;
+        }
+
+        _refreshing = true;
+        try
+        {
+            // Лёгкая часть на UI-потоке.
+            _warehouseWorkspace = WarehouseWorkspace.Create(_salesWorkspace);
+
+            // Тяжёлая часть — на фоновом потоке: 2 ремоут-запроса в Backplane
+            // (warehouse + purchasing) для cell storage snapshot и сборка
+            // 8 898 view-моделей с лукапами. UI остаётся отзывчивым.
+            var snapshot = await Task.Run(BuildCellStorageSnapshot);
+            _cellStorageSnapshot = snapshot;
+
+            var products = await Task.Run(BuildProducts);
+            _allProducts = products;
+
+            RefreshMetrics();
+            RefreshFilterOptions();
+            ApplyFilters(keepSelected: true);
+            ApplySection(_activeSection);
+            UpdateResponsiveLayout();
+        }
+        finally
+        {
+            _refreshing = false;
+            if (_refreshQueued)
+            {
+                _refreshQueued = false;
+                _ = RefreshAllAsync();
+            }
+        }
+    }
+
+    private void RefreshAll() => _ = RefreshAllAsync();
 
     private WarehouseCellStorageSnapshot BuildCellStorageSnapshot()
     {
