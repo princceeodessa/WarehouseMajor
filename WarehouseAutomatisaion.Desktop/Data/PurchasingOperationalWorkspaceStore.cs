@@ -223,6 +223,8 @@ public sealed class PurchasingOperationalWorkspaceStore
         RepairSupplierLinks(snapshot);
         if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
         {
+            // Release 1.0.129: после сохранения сбрасываем in-memory cache.
+            InvalidateCache();
             return;
         }
 
@@ -232,6 +234,7 @@ public sealed class PurchasingOperationalWorkspaceStore
         }
 
         WriteSnapshot(snapshot);
+        InvalidateCache();
     }
 
     private bool TryPromoteLocalSnapshotIfNewer(

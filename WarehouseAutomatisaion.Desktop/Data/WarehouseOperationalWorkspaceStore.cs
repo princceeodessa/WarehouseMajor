@@ -193,6 +193,8 @@ public sealed class WarehouseOperationalWorkspaceStore
         var snapshot = WarehouseWorkspaceSnapshot.FromWorkspace(workspace);
         if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
         {
+            // Release 1.0.129: после сохранения сбрасываем in-memory cache.
+            InvalidateCache();
             return;
         }
 

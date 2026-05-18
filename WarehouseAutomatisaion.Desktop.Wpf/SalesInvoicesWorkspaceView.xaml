@@ -24,6 +24,12 @@
             <Setter Property="IsReadOnly" Value="True" />
             <Setter Property="RowHeaderWidth" Value="0" />
             <Setter Property="EnableRowVirtualization" Value="True" />
+            <!-- Release 1.0.129: добавили recycling — без него каждый scroll пересоздавал rows. -->
+            <Setter Property="EnableColumnVirtualization" Value="True" />
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+            <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
             <Setter Property="FontSize" Value="12.5" />

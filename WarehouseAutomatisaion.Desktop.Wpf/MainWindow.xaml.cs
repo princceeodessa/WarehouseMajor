@@ -741,6 +741,7 @@ public partial class MainWindow : Window
         // не было 5-15 сек спиннера. Загрузка идёт через те же CreateDefault().LoadOrCreate,
         // которые после 1.0.127 кладут результат в static-кэш. Ошибки не блокируют
         // UI — пользователь просто увидит спиннер при первом клике, как до фикса.
+        // Release 1.0.129: добавлен Catalog (process cache + lazy item_prices).
         _ = PrewarmOperationalCachesAsync();
 
         await RefreshUpdateStateAsync(showDialogOnNonUpdateResult: false);
@@ -759,6 +760,24 @@ public partial class MainWindow : Window
         {
             await Task.Run(() =>
             {
+                // Release 1.0.129: pool warmup — открываем 3 connection'а
+                // параллельно, чтобы MySqlConnector pool накопил прогретые
+                // TLS-сессии. Первый клик пользователя через ~0.3 сек получит
+                // уже готовое соединение вместо 200 ms TLS-handshake.
+                Parallel.For(0, 3, _ =>
+                {
+                    try
+                    {
+                        using var c = new MySqlConnector.MySqlConnection(
+                            "Server=147.45.108.97;Port=3306;Database=warehouse_automation;User Id=majorwarehause_app;Password=xfn0ZqwGkTzNaX_lqPBjMe178EqxY8G9LcZsE6IWa6Y;ConnectionTimeout=10;Pooling=true;MinimumPoolSize=3;");
+                        c.Open();
+                        using var ping = c.CreateCommand();
+                        ping.CommandText = "SELECT 1";
+                        ping.ExecuteScalar();
+                    }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Prewarm] pool: {ex.Message}"); }
+                });
+
                 try
                 {
                     Data.PurchasingOperationalWorkspaceStore.CreateDefault().LoadOrCreate(op, sales);
@@ -774,6 +793,14 @@ public partial class MainWindow : Window
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"[Prewarm] warehouse: {ex.Message}");
+                }
+                try
+                {
+                    Data.CatalogWorkspaceStore.CreateDefault().LoadOrCreate(op, sales);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Prewarm] catalog: {ex.Message}");
                 }
             });
         }

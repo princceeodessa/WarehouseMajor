@@ -191,8 +191,27 @@ public partial class ProductEditorWindow : Window
         _priceTypesById.Clear();
 
         // Подгружаем существующие цены товара, чтобы заполнить значения.
+        // Release 1.0.129: если в workspace.ItemPrices пусто (мы перестали грузить
+        // 70 591 строк на старте каталога) — lazy-load по item_id через store.
+        // Один SELECT, ~20 строк, незаметная задержка.
         var existing = _workspace.GetPricesForItem(_draft.Id)
             .ToDictionary(price => price.PriceTypeId, price => price);
+        if (existing.Count == 0 && _draft.Id != Guid.Empty)
+        {
+            try
+            {
+                var lazy = WarehouseAutomatisaion.Desktop.Data.CatalogWorkspaceStore.CreateDefault()
+                    .LoadPricesForItem(_draft.Id);
+                foreach (var price in lazy)
+                {
+                    existing[price.PriceTypeId] = price;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ProductEditor] lazy LoadPricesForItem failed: {ex.Message}");
+            }
+        }
 
         // Идём по всем видам цен — даже без значения видим в карточке пустую строку.
         var priceTypes = _workspace.PriceTypes

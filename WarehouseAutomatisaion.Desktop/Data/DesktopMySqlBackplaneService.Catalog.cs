@@ -173,10 +173,60 @@ public sealed partial class DesktopMySqlBackplaneService
             Discounts = LoadCatalogDiscounts(connection),
             PriceRegistrations = LoadCatalogPriceRegistrations(connection),
             OperationLog = LoadCatalogOperationLog(connection),
-            ItemPrices = LoadCatalogItemPrices(connection),
+            // Release 1.0.129: 70k+ item_prices больше не грузим на старте каталога —
+            // экономит ~1.5 сек по сети при первом открытии Товаров. Цены подгружаются
+            // лениво по item_id когда открывается карточка товара (см. LoadPricesForItem).
+            ItemPrices = new List<CatalogItemPriceRecord>(),
             Currencies = LoadCatalogList(connection, "currency"),
             Warehouses = LoadCatalogList(connection, "warehouse")
         };
+    }
+
+    /// <summary>
+    /// Release 1.0.129: lazy-load цен по конкретному товару (для карточки).
+    /// Возвращает обычно ≤20 строк (по числу видов цен) — мгновенный SELECT.
+    /// </summary>
+    internal IReadOnlyList<CatalogItemPriceRecord> LoadPricesForItem(Guid itemId)
+    {
+        if (itemId == Guid.Empty)
+        {
+            return Array.Empty<CatalogItemPriceRecord>();
+        }
+
+        var prices = new List<CatalogItemPriceRecord>();
+        try
+        {
+            using var connection = DesktopMySqlCommandRunner.CreateOpenConnection(
+                _options,
+                useDatabase: true,
+                MysqlConnectTimeoutSeconds,
+                MysqlCatalogCommandTimeoutSeconds);
+            using var command = CreateMySqlCommand(connection, null, """
+                SELECT id, item_id, price_type_id, price_type_name, price_value, currency_code
+                FROM app_catalog_item_prices
+                WHERE item_id = @itemId;
+                """);
+            AddParameter(command, "@itemId", itemId.ToString());
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                prices.Add(new CatalogItemPriceRecord
+                {
+                    Id = ReadGuid(reader, "id"),
+                    ItemId = ReadGuid(reader, "item_id"),
+                    PriceTypeId = ReadGuid(reader, "price_type_id"),
+                    PriceTypeName = ReadString(reader, "price_type_name"),
+                    Price = ReadDecimal(reader, "price_value"),
+                    CurrencyCode = ReadString(reader, "currency_code")
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            TryWriteErrorLog(ex);
+        }
+
+        return prices;
     }
 
     private DesktopModuleSnapshotMetadata? LoadCatalogWorkspaceStateMetadata()

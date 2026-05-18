@@ -21,6 +21,33 @@ public sealed class CatalogWorkspaceStore
     private bool _hasPendingLocalSync;
     private DateTime _lastSyncedLocalSnapshotWriteUtc = DateTime.MinValue;
 
+    // Release 1.0.129: in-memory cache на уровне процесса (НЕ файл-снимок).
+    // БД — единственный источник истины. Кэш — fast-path для повторных открытий
+    // карточки товара / Каталога. Любой Save() сбрасывает кэш через InvalidateCache,
+    // следующий Load перечитает app_catalog_items напрямую.
+    private static CatalogWorkspace? s_cachedWorkspace;
+    private static SalesWorkspace? s_cachedSalesWorkspace;
+    private static readonly object s_cacheLock = new();
+
+    public static void InvalidateCache()
+    {
+        lock (s_cacheLock)
+        {
+            s_cachedWorkspace = null;
+            s_cachedSalesWorkspace = null;
+        }
+    }
+
+    /// <summary>
+    /// Release 1.0.129: lazy-load цен по конкретному товару из Backplane.
+    /// На initial load каталога мы больше не тянем 70 591 строку app_catalog_item_prices —
+    /// карточка товара вызывает этот метод и получает ~20 строк по item_id за один SELECT.
+    /// </summary>
+    public IReadOnlyList<CatalogItemPriceRecord> LoadPricesForItem(Guid itemId)
+    {
+        return TryGetBackplane()?.LoadPricesForItem(itemId) ?? Array.Empty<CatalogItemPriceRecord>();
+    }
+
     public CatalogWorkspaceStore(
         string storagePath,
         DesktopMySqlBackplaneService? backplane = null,
@@ -72,6 +99,29 @@ public sealed class CatalogWorkspaceStore
     }
 
     public CatalogWorkspace LoadOrCreate(string currentOperator, SalesWorkspace salesWorkspace)
+    {
+        // Release 1.0.129: fast-path. Если в этой сессии уже грузили каталог
+        // и тот же sales workspace — возвращаем тот же инстанс. Save() инвалидирует
+        // кэш, так что после правки следующий открыватель прочтёт свежие данные из БД.
+        lock (s_cacheLock)
+        {
+            if (s_cachedWorkspace != null && ReferenceEquals(s_cachedSalesWorkspace, salesWorkspace))
+            {
+                return s_cachedWorkspace;
+            }
+        }
+
+        var result = LoadOrCreateInternal(currentOperator, salesWorkspace);
+
+        lock (s_cacheLock)
+        {
+            s_cachedWorkspace = result;
+            s_cachedSalesWorkspace = salesWorkspace;
+        }
+        return result;
+    }
+
+    private CatalogWorkspace LoadOrCreateInternal(string currentOperator, SalesWorkspace salesWorkspace)
     {
         EnsureBackplaneReady(currentOperator);
         TryGetBackplane()?.TryEnsureUserProfile(currentOperator);
@@ -210,6 +260,10 @@ public sealed class CatalogWorkspaceStore
         if (TrySaveToBackplane(snapshot, workspace.CurrentOperator))
         {
             _lastSavedSnapshotHash = snapshotHash;
+            // Release 1.0.129: после реального сохранения сбрасываем in-memory cache.
+            // Это гарантирует «БД — приоритет»: следующий LoadOrCreate перечитает
+            // app_catalog_items напрямую, а не отдаст устаревший cached workspace.
+            InvalidateCache();
             return;
         }
 
@@ -220,6 +274,7 @@ public sealed class CatalogWorkspaceStore
 
         WriteSnapshot(snapshot);
         _lastSavedSnapshotHash = snapshotHash;
+        InvalidateCache();
     }
 
     public CatalogWorkspace? TrySyncPendingLocalSnapshot(string currentOperator, SalesWorkspace salesWorkspace)
