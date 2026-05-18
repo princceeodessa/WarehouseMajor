@@ -184,11 +184,33 @@
                       SelectionChanged="HandleSelectionChanged"
                       MouseDoubleClick="HandleGridDoubleClick">
                 <DataGrid.Columns>
+                    <!-- Release 1.0.115: первая колонка-индикатор «Проведено» (зелёный квадратик с
+                         галочкой) как в 1С на скрине возвратов. Все записи в этой витрине — уже
+                         зарегистрированные документы (черновики не попадают), поэтому индикатор
+                         всегда зелёный. Когда у нас появятся черновики/Reversed-статусы — этот
+                         элемент перейдёт на binding к Record.Status. -->
+                    <DataGridTemplateColumn Width="28" IsReadOnly="True" CanUserSort="False">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Width="14" Height="14" CornerRadius="2"
+                                        Background="#26A85B"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        ToolTip="Документ проведён">
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE73E;"
+                                               FontSize="9" Foreground="#FFFFFF"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Дата" Binding="{Binding DateDisplay}" Width="100" IsReadOnly="True" />
                     <DataGridTextColumn Header="Номер" Binding="{Binding Number}" Width="130" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Покупатель / Поставщик" Binding="{Binding CustomerName}" Width="*" MinWidth="220" IsReadOnly="True" />
+                    <!-- Release 1.0.115: 1С УНФ называет колонку «Поставщик / Покупатель» — поправлено
+                         (раньше было «Покупатель / Поставщик», 1С ставит Поставщика первым). -->
+                    <DataGridTextColumn Header="Поставщик / Покупатель" Binding="{Binding CustomerName}" Width="*" MinWidth="220" IsReadOnly="True" />
                     <DataGridTextColumn Header="Сумма" Binding="{Binding TotalDisplay}" Width="110" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Склад" Binding="{Binding Warehouse}" Width="200" IsReadOnly="True" />
+                    <!-- Release 1.0.115: «Склад» → «Структурная единица» (терминология 1С УНФ). -->
+                    <DataGridTextColumn Header="Структурная единица" Binding="{Binding Warehouse}" Width="200" IsReadOnly="True" />
                     <DataGridTextColumn Header="Операция" Binding="{Binding Operation}" Width="190" IsReadOnly="True" />
                     <DataGridTemplateColumn Width="36" IsReadOnly="True">
                         <DataGridTemplateColumn.CellTemplate>
