@@ -173,16 +173,23 @@
             </WrapPanel>
         </Border>
 
-        <!-- Grid -->
-        <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#E7ECF7" BorderThickness="1" CornerRadius="12" Padding="0">
-            <DataGrid x:Name="ReturnsGrid"
-                      Style="{StaticResource ReturnsGridStyle}"
-                      ColumnHeaderStyle="{StaticResource ReturnsHeaderStyle}"
-                      RowStyle="{StaticResource ReturnsRowStyle}"
-                      CellStyle="{StaticResource ReturnsCellStyle}"
-                      AlternationCount="2"
-                      SelectionChanged="HandleSelectionChanged"
-                      MouseDoubleClick="HandleGridDoubleClick">
+        <!-- Grid + правая боковая панель (Release 1.0.116: 1С-style filters + Contact info) -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="320" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#E7ECF7" BorderThickness="1" CornerRadius="12" Padding="0">
+                <DataGrid x:Name="ReturnsGrid"
+                          Style="{StaticResource ReturnsGridStyle}"
+                          ColumnHeaderStyle="{StaticResource ReturnsHeaderStyle}"
+                          RowStyle="{StaticResource ReturnsRowStyle}"
+                          CellStyle="{StaticResource ReturnsCellStyle}"
+                          AlternationCount="2"
+                          SelectionChanged="HandleSelectionChanged"
+                          MouseDoubleClick="HandleGridDoubleClick">
                 <DataGrid.Columns>
                     <!-- Release 1.0.115: первая колонка-индикатор «Проведено» (зелёный квадратик с
                          галочкой) как в 1С на скрине возвратов. Все записи в этой витрине — уже
@@ -223,7 +230,110 @@
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
-        </Border>
+            </Border>
+
+            <!-- Release 1.0.116: правая боковая панель 1С УНФ-стиля.
+                 Сверху — те же фильтры что в Popup, но всегда видимые (как в 1С).
+                 Снизу — контактная информация выделенного контрагента (телефон, e-mail,
+                 юр./факт. адрес, ФИО). Обновляется в HandleSelectionChanged. -->
+            <Border Grid.Column="2" Background="#FFFFFF" BorderBrush="#E7ECF7" BorderThickness="1" CornerRadius="12" Padding="14">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <!-- «Период: за всё время» link -->
+                        <TextBlock Margin="0,0,0,10">
+                            <Hyperlink TextDecorations="Underline" Foreground="#4F5BFF" Click="HandleSidebarPeriodClick">
+                                <Run x:Name="SidebarPeriodText" Text="Период: за всё время" />
+                            </Hyperlink>
+                        </TextBlock>
+
+                        <!-- Фильтры (всегда видимые) -->
+                        <ComboBox x:Name="SidebarCustomerCombo" Height="28" Margin="0,0,0,8" IsEditable="True"
+                                  ToolTip="Поставщик / Покупатель / ИНН / телефон"
+                                  SelectionChanged="HandleSidebarFilterChanged" />
+                        <ComboBox x:Name="SidebarWarehouseCombo" Height="28" Margin="0,0,0,8"
+                                  ToolTip="Структурная единица (склад)"
+                                  SelectionChanged="HandleSidebarFilterChanged" />
+                        <ComboBox x:Name="SidebarOperationCombo" Height="28" Margin="0,0,0,8"
+                                  IsEnabled="False"
+                                  ToolTip="Операция (появится позже, пока единственный тип: Возврат от покупателя)" />
+                        <ComboBox x:Name="SidebarManagerCombo" Height="28" Margin="0,0,0,8" IsEditable="True"
+                                  ToolTip="Ответственный"
+                                  SelectionChanged="HandleSidebarFilterChanged" />
+                        <ComboBox x:Name="SidebarOrganizationCombo" Height="28" Margin="0,0,0,8"
+                                  IsEnabled="False"
+                                  ToolTip="Организация (появится после доработки модели)" />
+                        <ComboBox x:Name="SidebarOriginalStatusCombo" Height="28" Margin="0,0,0,10"
+                                  IsEnabled="False"
+                                  ToolTip="Состояние оригинала документа (появится позже)" />
+
+                        <TextBlock Margin="0,0,0,16">
+                            <Hyperlink TextDecorations="Underline" Foreground="#4F5BFF" Click="HandleSidebarMoreFiltersClick">
+                                <Run Text="+ фильтры" />
+                            </Hyperlink>
+                        </TextBlock>
+
+                        <!-- Контактная информация выделенного контрагента -->
+                        <TextBlock Text="Контактная информация"
+                                   Foreground="#26A85B"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,10" />
+
+                        <Grid x:Name="ContactPhoneRow" Visibility="Collapsed" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Background="#FFF9D5" CornerRadius="3" Padding="6,3">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Телефон: " Foreground="#6E7B98" FontSize="12.5" />
+                                    <TextBlock x:Name="ContactPhoneText" Foreground="#17213A" FontSize="12.5" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Grid.Column="1" FontFamily="Segoe Fluent Icons" Text="&#xE71C;" FontSize="11"
+                                       Foreground="#9AA4BC" VerticalAlignment="Center" Margin="6,0,0,0" />
+                        </Grid>
+
+                        <Grid x:Name="ContactEmailRow" Visibility="Collapsed" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="E-mail: " Foreground="#6E7B98" FontSize="12.5" />
+                                <TextBlock x:Name="ContactEmailText" Foreground="#17213A" FontSize="12.5" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" FontFamily="Segoe Fluent Icons" Text="&#xE715;" FontSize="11"
+                                       Foreground="#9AA4BC" VerticalAlignment="Center" Margin="6,0,0,0" />
+                        </Grid>
+
+                        <StackPanel x:Name="ContactLegalAddressRow" Visibility="Collapsed" Margin="0,0,0,6">
+                            <TextBlock Foreground="#6E7B98" FontSize="12" Text="Юр. адрес:" />
+                            <TextBlock x:Name="ContactLegalAddressText" Foreground="#17213A" FontSize="12.5" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="ContactActualAddressRow" Visibility="Collapsed" Margin="0,0,0,8">
+                            <TextBlock Foreground="#6E7B98" FontSize="12" Text="Факт. адрес:" />
+                            <TextBlock x:Name="ContactActualAddressText" Foreground="#17213A" FontSize="12.5" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <TextBlock x:Name="ContactPersonText"
+                                   Visibility="Collapsed"
+                                   FontWeight="SemiBold"
+                                   Foreground="#17213A"
+                                   FontSize="13"
+                                   Margin="0,4,0,0" />
+
+                        <TextBlock x:Name="ContactEmptyHintText"
+                                   Visibility="Visible"
+                                   Foreground="#9AA4BC"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Text="Выделите строку — здесь появится контактная информация контрагента." />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
 
         <!-- Footer -->
         <Grid Grid.Row="3" Margin="0,12,0,0">

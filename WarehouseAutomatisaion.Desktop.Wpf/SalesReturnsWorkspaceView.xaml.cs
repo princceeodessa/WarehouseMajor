@@ -77,6 +77,20 @@ public partial class SalesReturnsWorkspaceView : UserControl
             .ToArray();
         ManagerFilterCombo.SelectedIndex = 0;
 
+        // Release 1.0.116: те же значения в боковой панели.
+        SidebarCustomerCombo.ItemsSource = CustomerFilterCombo.ItemsSource;
+        SidebarCustomerCombo.SelectedIndex = 0;
+        SidebarWarehouseCombo.ItemsSource = WarehouseFilterCombo.ItemsSource;
+        SidebarWarehouseCombo.SelectedIndex = 0;
+        SidebarManagerCombo.ItemsSource = ManagerFilterCombo.ItemsSource;
+        SidebarManagerCombo.SelectedIndex = 0;
+        SidebarOperationCombo.ItemsSource = new[] { "Все операции", "Возврат от покупателя" };
+        SidebarOperationCombo.SelectedIndex = 0;
+        SidebarOrganizationCombo.ItemsSource = new[] { "Все организации" };
+        SidebarOrganizationCombo.SelectedIndex = 0;
+        SidebarOriginalStatusCombo.ItemsSource = new[] { "Все", "Получен", "Не получен", "Неизвестно" };
+        SidebarOriginalStatusCombo.SelectedIndex = 0;
+
         _initializing = false;
     }
 
@@ -163,6 +177,128 @@ public partial class SalesReturnsWorkspaceView : UserControl
     {
         var row = ReturnsGrid.SelectedItem as ReturnRowViewModel;
         UpdateSummary(row?.Record);
+        // Release 1.0.116: правая боковая панель показывает контактную информацию
+        // выделенного контрагента — обновляем её на каждое изменение выделения.
+        RefreshContactPanel(row?.Record);
+    }
+
+    // Release 1.0.116: ищем контрагента по имени из возврата и заполняем правую панель.
+    // Если контрагент не найден или поле пустое — соответствующая строка скрывается.
+    private void RefreshContactPanel(SalesReturnRecord? record)
+    {
+        if (record is null)
+        {
+            ShowContactEmpty("Выделите строку — здесь появится контактная информация контрагента.");
+            return;
+        }
+
+        var customerName = Ui(record.CustomerName);
+        if (string.IsNullOrWhiteSpace(customerName))
+        {
+            ShowContactEmpty("У документа не указан контрагент.");
+            return;
+        }
+
+        var customer = _salesWorkspace.Customers.FirstOrDefault(
+            c => string.Equals(Ui(c.Name), customerName, StringComparison.OrdinalIgnoreCase));
+
+        if (customer is null)
+        {
+            ShowContactEmpty($"Контрагент «{customerName}» не найден в справочнике покупателей.");
+            return;
+        }
+
+        ContactEmptyHintText.Visibility = Visibility.Collapsed;
+
+        SetContactRow(ContactPhoneRow, ContactPhoneText, Ui(customer.Phone));
+        SetContactRow(ContactEmailRow, ContactEmailText, Ui(customer.Email));
+        SetContactStack(ContactLegalAddressRow, ContactLegalAddressText, Ui(customer.LegalAddress));
+        SetContactStack(ContactActualAddressRow, ContactActualAddressText, Ui(customer.ActualAddress));
+
+        // ФИО — берём первый контакт-физлицо, если такой есть в справочнике.
+        var contactName = customer.Contacts?.FirstOrDefault();
+        if (contactName is not null && !string.IsNullOrWhiteSpace(contactName.Name))
+        {
+            ContactPersonText.Text = Ui(contactName.Name);
+            ContactPersonText.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            ContactPersonText.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void ShowContactEmpty(string hint)
+    {
+        ContactEmptyHintText.Text = hint;
+        ContactEmptyHintText.Visibility = Visibility.Visible;
+        ContactPhoneRow.Visibility = Visibility.Collapsed;
+        ContactEmailRow.Visibility = Visibility.Collapsed;
+        ContactLegalAddressRow.Visibility = Visibility.Collapsed;
+        ContactActualAddressRow.Visibility = Visibility.Collapsed;
+        ContactPersonText.Visibility = Visibility.Collapsed;
+    }
+
+    private static void SetContactRow(Grid container, TextBlock target, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            container.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        target.Text = value;
+        container.Visibility = Visibility.Visible;
+    }
+
+    private static void SetContactStack(StackPanel container, TextBlock target, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            container.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        target.Text = value;
+        container.Visibility = Visibility.Visible;
+    }
+
+    // === Sidebar filters (Release 1.0.116) ===
+    // Боковые ComboBox'ы дублируют Popup-фильтры — синхронизируем выбор: при изменении
+    // sidebar-комбо проксируем значение в существующие Popup-комбо и переисчисляем фильтр.
+    private void HandleSidebarFilterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_initializing)
+        {
+            return;
+        }
+
+        _initializing = true;
+        try
+        {
+            CustomerFilterCombo.SelectedItem = SidebarCustomerCombo.SelectedItem;
+            WarehouseFilterCombo.SelectedItem = SidebarWarehouseCombo.SelectedItem;
+            ManagerFilterCombo.SelectedItem = SidebarManagerCombo.SelectedItem;
+        }
+        finally
+        {
+            _initializing = false;
+        }
+
+        ApplyFilters();
+    }
+
+    private void HandleSidebarPeriodClick(object sender, RoutedEventArgs e)
+    {
+        // Заглушка: в 1С эта ссылка открывает выбор периода (день/неделя/месяц/квартал/год).
+        // Сейчас просто фокусируем DateFromPicker в popup-фильтре.
+        DateFromPicker.Focus();
+    }
+
+    private void HandleSidebarMoreFiltersClick(object sender, RoutedEventArgs e)
+    {
+        // «+ фильтры» — открывает старый popup, чтобы добраться до DateFrom/DateTo и Reset.
+        FilterPopup.IsOpen = true;
     }
 
     private void UpdateSummary(SalesReturnRecord? r)
