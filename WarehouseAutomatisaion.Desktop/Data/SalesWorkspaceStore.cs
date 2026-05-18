@@ -1650,10 +1650,13 @@ public sealed class SalesWorkspaceStore
         ICollection<SalesCustomerRecord> target,
         IEnumerable<SalesCustomerRecord> source)
     {
+        // Release 1.0.131: GroupBy.First — толерантно к дубликатам customer-key
+        // (бывают после массовых импортов 1С с разными id но одинаковым code/name).
         var targetByKey = target
             .Select(item => (Key: BuildCustomerKey(item), Item: item))
             .Where(item => !string.IsNullOrWhiteSpace(item.Key))
-            .ToDictionary(item => item.Key, item => item.Item, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Item, StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in source)
         {
