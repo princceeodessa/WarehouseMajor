@@ -238,18 +238,26 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         UpdateResponsiveLayout();
     }
 
+    // Release 1.0.126: флаг от race condition после закрытия вкладки.
+    private bool _isDisposed;
+
     private void HandleUnloaded(object sender, RoutedEventArgs e)
     {
-        TryPersistCatalog();
+        _isDisposed = true;
+        _refreshDebounceTimer?.Stop();
+        try { TryPersistCatalog(); } catch { }
+        UnhookEvents();
     }
 
     private void HandleSalesWorkspaceChanged(object? sender, EventArgs e)
     {
+        if (_isDisposed) return;
         ScheduleRefresh();
     }
 
     private void HandleCatalogWorkspaceChanged(object? sender, EventArgs e)
     {
+        if (_isDisposed) return;
         ScheduleRefresh(persist: true);
     }
 
@@ -274,6 +282,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             _refreshDebounceTimer.Tick += async (_, _) =>
             {
                 _refreshDebounceTimer!.Stop();
+                if (_isDisposed) return;
                 if (_refreshPendingPersist)
                 {
                     _refreshPendingPersist = false;

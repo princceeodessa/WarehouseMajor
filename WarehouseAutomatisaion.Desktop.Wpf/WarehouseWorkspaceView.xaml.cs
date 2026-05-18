@@ -127,9 +127,14 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
         Unloaded -= HandleUnloaded;
     }
 
+    // Release 1.0.126: флаг от race condition после закрытия вкладки.
+    private bool _isDisposed;
+
     private void HandleUnloaded(object sender, RoutedEventArgs e)
     {
-        TryPersistWorkspace();
+        _isDisposed = true;
+        try { TryPersistWorkspace(); } catch { }
+        UnhookEvents();
     }
 
     private void HandleLoaded(object sender, RoutedEventArgs e)
@@ -183,13 +188,20 @@ public partial class WarehouseWorkspaceView : WpfUserControl, IDisposable
 
     private void HandleSalesWorkspaceChanged(object? sender, EventArgs e)
     {
-        Dispatcher.BeginInvoke(RefreshAll, System.Windows.Threading.DispatcherPriority.Background);
+        if (_isDisposed) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_isDisposed) return;
+            RefreshAll();
+        }, System.Windows.Threading.DispatcherPriority.Background);
     }
 
     private void HandleWorkspaceChanged(object? sender, EventArgs e)
     {
+        if (_isDisposed) return;
         Dispatcher.BeginInvoke(() =>
         {
+            if (_isDisposed) return;
             TryPersistWorkspace();
             RefreshAll();
         }, System.Windows.Threading.DispatcherPriority.Background);

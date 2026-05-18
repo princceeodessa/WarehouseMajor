@@ -192,15 +192,26 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         UpdateResponsiveLayout();
     }
 
+    // Release 1.0.126: флаг защищает от race condition после закрытия вкладки.
+    // Раньше HandleUnloaded НЕ отписывался от _salesWorkspace.Changed /
+    // _workspace.Changed → после Unloaded событие срабатывало → Dispatcher.BeginInvoke
+    // RefreshAll работал по выгруженному visual-tree → fatal-краш (часть причины
+    // отката 1.0.117/118).
+    private bool _isDisposed;
+
     private void HandleUnloaded(object sender, RoutedEventArgs e)
     {
-        TryPersistWorkspace();
+        _isDisposed = true;
+        try { TryPersistWorkspace(); } catch { }
+        UnhookEvents();
     }
 
     private void HandleWorkspaceChanged(object? sender, EventArgs e)
     {
+        if (_isDisposed) return;
         Dispatcher.BeginInvoke(() =>
         {
+            if (_isDisposed) return;
             TryPersistWorkspace();
             RefreshAll();
         }, System.Windows.Threading.DispatcherPriority.Background);
@@ -208,8 +219,10 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
 
     private void HandleSalesWorkspaceChanged(object? sender, EventArgs e)
     {
+        if (_isDisposed) return;
         Dispatcher.BeginInvoke(() =>
         {
+            if (_isDisposed) return;
             RefreshAll();
         }, System.Windows.Threading.DispatcherPriority.Background);
     }
