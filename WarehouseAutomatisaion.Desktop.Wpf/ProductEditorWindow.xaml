@@ -67,6 +67,21 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="SnapsToDevicePixels" Value="True" />
+            <!--
+                PERF (release 1.0.105): включаем виртуализацию dropdown'а.
+                Без неё открытие списка категорий/брендов на каталоге 9893+ товара
+                рендерило все элементы разом и блокировало UI на секунды.
+            -->
+            <Setter Property="VirtualizingStackPanel.IsVirtualizing" Value="True" />
+            <Setter Property="VirtualizingStackPanel.VirtualizationMode" Value="Recycling" />
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="FormMultilineTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource FormTextBoxStyle}">
