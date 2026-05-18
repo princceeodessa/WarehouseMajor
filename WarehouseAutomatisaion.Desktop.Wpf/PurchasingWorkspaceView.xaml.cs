@@ -656,7 +656,11 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
                 SetGridHeaders("Номер", "Поставщик", "Дата счета", "Оплатить до", "Сумма", "Склад", "Оплачено", "Основание", "Статус", "Источник");
                 break;
             case ReceiptsSection:
-                SetGridHeaders("Номер", "Поставщик", "Дата приемки", "Основание", "Склад", "Сумма", "Позиций", "Источник", "Статус", "Ответственный");
+                // Release 1.0.119: 1в1 со скрином 4 1С УНФ «Приходные накладные».
+                // Раньше показывались «Основание / Позиций / Источник / Ответственный» —
+                // в 1С их нет на главном виде. Соответственно BuildReceiptRow тоже
+                // переставляет данные в этом порядке.
+                SetGridHeaders("Дата", "Номер", "Поставщик / Покупатель", "Сумма", "Склад", "Операция", "Состояние оригинала", "", "Статус", "");
                 break;
             case PaymentsSection:
                 SetGridHeaders("Платеж", "Поставщик", "Дата счета", "Срок оплаты", "Сумма", "Склад", "Оплачено", "Остаток", "Статус", "Основание");
@@ -993,6 +997,9 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
         var invoice = GetInvoiceForOrder(receipt.RelatedOrderId);
         var paid = invoice is not null && IsInvoicePaid(invoice) ? invoice.TotalAmount : 0m;
         var balance = invoice is null ? 0m : Math.Max(invoice.TotalAmount - paid, 0m);
+        // Release 1.0.119: порядок столбцов для «Приходных накладных» переставлен 1в1 со
+        // скрином 1С УНФ — Дата | Номер | Поставщик/Покупатель | Сумма | Склад | Операция |
+        // Состояние оригинала. Раньше первой шла Номер, а Дата стояла третьей.
         return CreateRow(
             ReceiptsSection,
             receipt.Id,
@@ -1000,16 +1007,18 @@ public partial class PurchasingWorkspaceView : WpfUserControl, IDisposable
             receipt.DocumentType,
             receipt.SupplierName,
             receipt.Warehouse,
-            receipt.Number,
-            receipt.SupplierName,
-            receipt.DocumentDate.ToString("dd.MM.yyyy", RuCulture),
-            EmptyAsDash(receipt.RelatedOrderNumber),
-            receipt.Warehouse,
-            FormatMoney(receipt.TotalAmount),
-            receipt.PositionCount.ToString("N0", RuCulture),
-            EmptyAsDash(receipt.SourceLabel),
+            receipt.DocumentDate.ToString("dd.MM.yyyy", RuCulture),  // Col1: Дата
+            receipt.Number,                                          // Col2: Номер
+            receipt.SupplierName,                                    // Col3: Поставщик / Покупатель
+            FormatMoney(receipt.TotalAmount),                        // Col4: Сумма
+            receipt.Warehouse,                                       // Col5: Склад
+            string.IsNullOrWhiteSpace(receipt.DocumentType)          // Col6: Операция
+                ? "Поступление от поставщика"
+                : receipt.DocumentType,
+            "<Неизвестно>",                                          // Col7: Состояние оригинала (плейсхолдер)
+            string.Empty,                                            // Col8: пусто (в 1С здесь только иконка $)
             receipt.Status,
-            ResolveResponsible(receipt.DocumentType, receipt.Id),
+            string.Empty,                                            // Col9: пусто
             receipt.Status,
             receipt.DocumentDate,
             IsReceiptCompleted(receipt),
