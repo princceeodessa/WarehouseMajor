@@ -127,7 +127,8 @@ public partial class ContractorsWorkspaceView : UserControl
             .Where(c => MatchesQuery(c, query));
         var totalMatched = matched.Count();
         var rows = matched
-            .OrderBy(c => Ui(c.Name), StringComparer.CurrentCultureIgnoreCase)
+            // Release 1.0.134: Ordinal быстрее на 1971 контрагентах.
+            .OrderBy(c => Ui(c.Name), StringComparer.OrdinalIgnoreCase)
             .Take(displayCap)
             .Select(ContractorRowViewModel.Create)
             .ToArray();

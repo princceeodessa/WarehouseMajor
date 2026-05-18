@@ -112,7 +112,10 @@ public partial class MainWindow : Window
         _salesWorkspaceAutosaveTimer.Tick += HandleSalesWorkspaceAutosaveTimerTick;
         _remoteSalesRefreshTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(15)
+            // Release 1.0.134: 15s → 60s. Раньше каждые 15 сек тянулись 2000 заказов
+            // (после 1.0.132) — ~700 ms сети. За час: 240 × 700ms = 168 секунд занятого сокета.
+            // Реальные правки контрагентами происходят редко, 1 минута между refresh — норма.
+            Interval = TimeSpan.FromSeconds(60)
         };
         _remoteSalesRefreshTimer.Tick += HandleRemoteSalesRefreshTimerTick;
 
