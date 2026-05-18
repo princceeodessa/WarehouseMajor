@@ -148,8 +148,11 @@
             <Setter Property="VerticalGridLinesBrush" Value="#EEF2FA" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="RowHeight" Value="54" />
-            <Setter Property="ColumnHeaderHeight" Value="42" />
+            <!-- Release 1.0.113: уплотнены строки и шапка под 1С УНФ. Раньше: 54/42 px
+                 (просторно, как в SaaS-таблицах). 1С даёт ~24/26 px — переходим к 28/30,
+                 чтобы помещалось столько же строк на экран. -->
+            <Setter Property="RowHeight" Value="28" />
+            <Setter Property="ColumnHeaderHeight" Value="30" />
             <Setter Property="SelectionMode" Value="Single" />
             <Setter Property="SelectionUnit" Value="FullRow" />
             <Setter Property="IsReadOnly" Value="False" />
@@ -563,7 +566,10 @@
                                         <StaticResource ResourceKey="GridHeaderStyle" />
                                     </DataGrid.ColumnHeaderStyle>
                                     <DataGrid.Columns>
-                                        <DataGridCheckBoxColumn x:Name="SelectionColumn" Binding="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="44" />
+                                        <!-- Release 1.0.113: чекбокс множественного выбора скрыт — в 1С УНФ его нет
+                                             (выделение строк делается обычным кликом + Shift/Ctrl). Колонка оставлена в
+                                             разметке на случай bulk-операций в будущем, но Width=0 убирает её визуально. -->
+                                        <DataGridCheckBoxColumn x:Name="SelectionColumn" Binding="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="0" />
                                         <!-- 1С УНФ-style: 2 индикатора-кружка статуса. Левый = доставка/проведение,
                                              правый = оплата. Цвет берётся из StatusDot1Color / StatusDot2Color на строке. -->
                                         <DataGridTemplateColumn x:Name="StatusDotColumn1" Width="32" IsReadOnly="True">
