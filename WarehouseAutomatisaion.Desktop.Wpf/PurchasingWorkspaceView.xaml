@@ -436,7 +436,13 @@
                         </Button>
                     </UniformGrid>
 
-                    <WrapPanel x:Name="SectionTabsPanel" Margin="0,0,0,12">
+                    <!-- Release 1.0.124: дублирующий ряд вкладок убран по запросу пользователя.
+                         Та же навигация (Заказы / Поставщики / Счета / Приемки / Оплаты /
+                         Расхождения / Журнал) доступна из витрины «Закупки» в сайдбаре,
+                         каждая команда вызывает ActivateSubSection. Кнопки оставлены в
+                         дереве (Visibility=Collapsed), чтобы ApplySectionButtons и
+                         HandleTabClick продолжали работать. -->
+                    <WrapPanel x:Name="SectionTabsPanel" Margin="0,0,0,12" Visibility="Collapsed">
                         <Button x:Name="OrdersTabButton" Content="Заказы" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="orders" />
                         <Button x:Name="SuppliersTabButton" Content="Поставщики" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="suppliers" />
                         <Button x:Name="InvoicesTabButton" Content="Счета" Style="{StaticResource SectionTabStyle}" Click="HandleTabClick" Tag="invoices" />

@@ -456,7 +456,11 @@
                 </Border>
             </WrapPanel>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,18">
+            <!-- Release 1.0.124: дублирующий ряд вкладок Склада убран, навигация
+                 идёт через витрину «Склад» в сайдбаре. Кнопки оставлены в дереве
+                 (Visibility=Collapsed) — HandleSectionTabClick / ApplyActiveSection
+                 продолжают работать. -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,18" Visibility="Collapsed">
                 <Button x:Name="StockTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="stock" Content="Остатки" />
                 <Button x:Name="TransfersTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="transfers" Content="Перемещения" />
                 <Button x:Name="ReservationsTabButton" Style="{StaticResource SectionTabStyle}" Click="HandleSectionTabClick" Tag="reservations" Content="Резервы" />
