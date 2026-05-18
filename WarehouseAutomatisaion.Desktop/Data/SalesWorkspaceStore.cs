@@ -1736,9 +1736,16 @@ public sealed class SalesWorkspaceStore
         IEnumerable<SalesOrderRecord> source,
         IReadOnlySet<Guid> knownCustomerIds)
     {
+        // Release 1.0.130: GroupBy.First вместо ToDictionary — толерантно к дубликатам
+        // номеров заказов в Backplane (бывают после массовых импортов из 1С).
+        // Раньше каждые 15 сек RefreshSalesWorkspaceFromServer падал на
+        // ArgumentException «An item with the same key has already been added.
+        // Key: ИПНФ-000068» → UnobservedTaskException → fatal-краш при возврате
+        // на вкладку.
         var targetByNumber = target
             .Where(item => !string.IsNullOrWhiteSpace(item.Number))
-            .ToDictionary(item => item.Number, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(item => item.Number, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in source)
         {
@@ -1764,9 +1771,11 @@ public sealed class SalesWorkspaceStore
         IEnumerable<SalesInvoiceRecord> source,
         IReadOnlySet<Guid> knownCustomerIds)
     {
+        // Release 1.0.130: толерантны к дубликатам номеров (см. MergeOrders).
         var targetByNumber = target
             .Where(item => !string.IsNullOrWhiteSpace(item.Number))
-            .ToDictionary(item => item.Number, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(item => item.Number, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in source)
         {
@@ -1792,9 +1801,11 @@ public sealed class SalesWorkspaceStore
         IEnumerable<SalesShipmentRecord> source,
         IReadOnlySet<Guid> knownCustomerIds)
     {
+        // Release 1.0.130: толерантны к дубликатам номеров (см. MergeOrders).
         var targetByNumber = target
             .Where(item => !string.IsNullOrWhiteSpace(item.Number))
-            .ToDictionary(item => item.Number, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(item => item.Number, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in source)
         {
@@ -1820,9 +1831,11 @@ public sealed class SalesWorkspaceStore
         IEnumerable<SalesReturnRecord> source,
         IReadOnlySet<Guid> knownCustomerIds)
     {
+        // Release 1.0.130: толерантны к дубликатам номеров (см. MergeOrders).
         var targetByNumber = target
             .Where(item => !string.IsNullOrWhiteSpace(item.Number))
-            .ToDictionary(item => item.Number, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(item => item.Number, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in source)
         {
@@ -1848,9 +1861,11 @@ public sealed class SalesWorkspaceStore
         IEnumerable<SalesCashReceiptRecord> source,
         IReadOnlySet<Guid> knownCustomerIds)
     {
+        // Release 1.0.130: толерантны к дубликатам номеров (см. MergeOrders).
         var targetByNumber = target
             .Where(item => !string.IsNullOrWhiteSpace(item.Number))
-            .ToDictionary(item => item.Number, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(item => item.Number, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in source)
         {
