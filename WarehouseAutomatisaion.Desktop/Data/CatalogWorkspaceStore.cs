@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using WarehouseAutomatisaion.Desktop.Text;
 using WarehouseAutomatisaion.Infrastructure.Importing;
@@ -134,6 +135,31 @@ public sealed class CatalogWorkspaceStore
 
         if (_serverModeEnabled)
         {
+            // Release 1.0.137 ETag-кэш: сначала запрашиваем только метаданные
+            // (1 row, ~80 байт) и сравниваем PayloadHash с локальным дисковым
+            // кэшем. Если совпало — Catalog уже не менялся, тяжёлый snapshot
+            // SELECT с 6.2k items + 99k price_registration_lines + lookups
+            // пропускается. На холодном старте после перезапуска приложения
+            // даёт +5..15 сек экономии открытия Товаров. Файл-кэш живёт в
+            // app_data/catalog-snapshot-cache.json; перетирается при apply
+            // нового snapshot из Backplane.
+            var serverMetadata = TryGetBackplane()?.TryLoadCatalogWorkspaceSnapshotMetadata();
+            if (serverMetadata is not null
+                && TryLoadCachedSnapshot() is { } cachedRecord
+                && !string.IsNullOrWhiteSpace(cachedRecord.Metadata.PayloadHash)
+                && string.Equals(cachedRecord.Metadata.PayloadHash, serverMetadata.PayloadHash, StringComparison.Ordinal))
+            {
+                _remoteMetadata = serverMetadata;
+                _hasPendingLocalSync = false;
+                NormalizeSnapshot(cachedRecord.Snapshot);
+                workspace.ReplaceFrom(cachedRecord.Snapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
+                var loadedFromCache = CatalogWorkspaceSnapshot.FromWorkspace(workspace);
+                NormalizeSnapshot(loadedFromCache);
+                ReconcileSnapshot(loadedFromCache, new CatalogWorkspaceSeed());
+                _lastSavedSnapshotHash = ComputeSnapshotHash(loadedFromCache);
+                return workspace;
+            }
+
             var backplaneRecord = TryGetBackplane()?.TryLoadCatalogWorkspaceSnapshotRecord();
             if (backplaneRecord is not null)
             {
@@ -156,6 +182,10 @@ public sealed class CatalogWorkspaceStore
                 NormalizeSnapshot(loadedSnapshot);
                 ReconcileSnapshot(loadedSnapshot, new CatalogWorkspaceSeed());
                 _lastSavedSnapshotHash = ComputeSnapshotHash(loadedSnapshot);
+
+                // Release 1.0.137: сохраняем свежий snapshot + PayloadHash в файл-кэш.
+                // Следующий запуск приложения сразу пойдёт по ETag-пути выше.
+                TrySaveSnapshotCache(backplaneSnapshot, backplaneRecord.Metadata);
             }
             return workspace;
         }
@@ -266,7 +296,14 @@ public sealed class CatalogWorkspaceStore
             return;
         }
 
-        throw CreateRemoteSaveException("каталога");
+        if (_serverModeEnabled)
+        {
+            throw CreateRemoteSaveException("каталога");
+        }
+
+        WriteSnapshot(snapshot);
+        _lastSavedSnapshotHash = snapshotHash;
+        InvalidateCache();
     }
 
     public CatalogWorkspace? TrySyncPendingLocalSnapshot(string currentOperator, SalesWorkspace salesWorkspace)
@@ -442,6 +479,114 @@ public sealed class CatalogWorkspaceStore
     {
         var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
+    }
+
+    // Release 1.0.137: файл-кэш snapshot + PayloadHash для ETag-пути загрузки.
+    // Лежит рядом со StoragePath (app_data/catalog-snapshot-cache.json), при
+    // удалении файла просто перейдём на обычный полный SELECT — данные не теряются.
+    private string GetSnapshotCachePath()
+    {
+        var directory = Path.GetDirectoryName(StoragePath);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            directory = Path.GetTempPath();
+        }
+
+        return Path.Combine(directory, "catalog-snapshot-cache.json");
+    }
+
+    private CachedCatalogSnapshot? TryLoadCachedSnapshot()
+    {
+        try
+        {
+            var path = GetSnapshotCachePath();
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            var json = File.ReadAllText(path, Encoding.UTF8);
+            return JsonSerializer.Deserialize<CachedCatalogSnapshot>(json, SerializerOptions);
+        }
+        catch
+        {
+            // Битый кэш — игнорируем и идём на полный SELECT, который перезапишет файл.
+            return null;
+        }
+    }
+
+    private void TrySaveSnapshotCache(CatalogWorkspaceSnapshot snapshot, DesktopModuleSnapshotMetadata metadata)
+    {
+        try
+        {
+            var path = GetSnapshotCachePath();
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var payload = new CachedCatalogSnapshot(snapshot, metadata);
+            // Атомарная запись через временный файл — чтобы не оставить полу-битый JSON
+            // если процесс упадёт в момент сериализации 6.2k items + 99k price lines.
+            var tempPath = path + ".tmp";
+            File.WriteAllText(tempPath, JsonSerializer.Serialize(payload, SerializerOptions), Encoding.UTF8);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            File.Move(tempPath, path);
+        }
+        catch
+        {
+            // Best-effort. Если кэш не сохранился — следующий старт просто пойдёт
+            // обычным путём, без ETag-fast-path.
+        }
+    }
+
+    private sealed record CachedCatalogSnapshot(
+        CatalogWorkspaceSnapshot Snapshot,
+        DesktopModuleSnapshotMetadata Metadata);
+
+    private void WriteSnapshot(CatalogWorkspaceSnapshot snapshot)
+    {
+        var directory = Path.GetDirectoryName(StoragePath);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            throw new InvalidOperationException("Storage directory is not configured.");
+        }
+
+        Directory.CreateDirectory(directory);
+        var tempPath = $"{StoragePath}.tmp";
+        var stopwatch = Stopwatch.StartNew();
+        using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024))
+        {
+            JsonSerializer.Serialize(stream, snapshot, SerializerOptions);
+        }
+
+        File.Move(tempPath, StoragePath, true);
+        stopwatch.Stop();
+        TryWritePerformanceLog(directory, snapshot, stopwatch.Elapsed);
+    }
+
+    private void TryWritePerformanceLog(string directory, CatalogWorkspaceSnapshot snapshot, TimeSpan elapsed)
+    {
+        try
+        {
+            var fileSize = File.Exists(StoragePath) ? new FileInfo(StoragePath).Length : 0;
+            if (elapsed.TotalMilliseconds < 500 && fileSize < 10 * 1024 * 1024)
+            {
+                return;
+            }
+
+            var logPath = Path.Combine(directory, "catalog-workspace-performance.log");
+            var message =
+                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}; save={elapsed.TotalMilliseconds:N0}ms; size={fileSize / 1024d / 1024d:N2}MB; items={snapshot.Items.Count}; priceTypes={snapshot.PriceTypes.Count}; itemPrices={snapshot.ItemPrices.Count}; discounts={snapshot.Discounts.Count}; registrations={snapshot.PriceRegistrations.Count}; log={snapshot.OperationLog.Count}{Environment.NewLine}";
+            File.AppendAllText(logPath, message, Encoding.UTF8);
+        }
+        catch
+        {
+        }
     }
 
     private void EnsureBackplaneReady(string currentOperator)

@@ -96,6 +96,17 @@ public sealed partial class DesktopMySqlBackplaneService
         EnsureDatabaseAndSchema();
     }
 
+    /// <summary>
+    /// Release 1.0.137: лёгкий round-trip, чтобы материализовать TCP+TLS+auth
+    /// в пуле MySqlConnector. Используется в App.OnStartup для прогрева
+    /// MinimumPoolSize=2 соединений пока юзер вводит логин. Сам SELECT 1
+    /// не трогает данные и не требует database.
+    /// </summary>
+    public void PingBackplane()
+    {
+        ExecuteSqlNonQuery("SELECT 1;", useDatabase: false);
+    }
+
     public DesktopAppUserProfile? TryEnsureUserProfile(string actorName)
     {
         try

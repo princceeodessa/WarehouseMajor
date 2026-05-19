@@ -72,7 +72,23 @@ internal static class DesktopMySqlCommandRunner
             ConnectionTimeout = (uint)Math.Max(1, connectTimeoutSeconds),
             DefaultCommandTimeout = (uint)Math.Max(1, commandTimeoutSeconds),
             SslMode = MySqlSslMode.Preferred,
-            AllowUserVariables = true
+            AllowUserVariables = true,
+            // Release 1.0.137: пулинг физических TCP+TLS+auth — самое дорогое
+            // при холодном открытии вкладки (5 SELECT'ов в LoadCatalogSnapshot,
+            // 2 в Purchasing, 2 в Warehouse). С пустым пулом каждый платит
+            // ~100-300мс на handshake. MinimumPoolSize=2 держит 2 соединения
+            // прогретыми после первого использования; их хватает для serial
+            // SELECT'ов внутри одного snapshot-load. MaxPoolSize ограничен,
+            // чтобы не уйти за лимит max_connections на VPS-MySQL.
+            Pooling = true,
+            MinimumPoolSize = 2,
+            MaximumPoolSize = 16,
+            ConnectionIdleTimeout = 300,
+            // Release 1.0.137: VPS-MySQL → клиент через интернет. Сжатие
+            // на проводе экономит 30-50% времени передачи при загрузке
+            // больших snapshot'ов (Catalog ~6MB, Purchasing ~3-5MB).
+            // Поддерживается всеми MySQL 5.5+ и MariaDB.
+            UseCompression = true
         };
 
         return new MySqlConnection(builder.ConnectionString);
