@@ -171,12 +171,19 @@ public sealed partial class DesktopMySqlBackplaneService
             Items = LoadCatalogItems(connection),
             PriceTypes = LoadCatalogPriceTypes(connection),
             Discounts = LoadCatalogDiscounts(connection),
+            // Release 1.0.138: только заголовки документов установки цен (683 строки).
+            // Строки документов больше НЕ грузятся — заменены агрегатами ниже.
             PriceRegistrations = LoadCatalogPriceRegistrations(connection),
             OperationLog = LoadCatalogOperationLog(connection),
             // Release 1.0.129: 70k+ item_prices больше не грузим на старте каталога —
             // экономит ~1.5 сек по сети при первом открытии Товаров. Цены подгружаются
             // лениво по item_id когда открывается карточка товара (см. LoadPricesForItem).
             ItemPrices = new List<CatalogItemPriceRecord>(),
+            // Release 1.0.138: вместо 99k строк PriceRegistration.Lines — два
+            // server-side aggregate'а, итого ~6-30k строк. Покрывают всю
+            // потребность ProductsView (display price + price types per item).
+            LatestPrices = LoadCatalogLatestPrices(connection),
+            ItemPriceTypes = LoadCatalogItemPriceTypes(connection),
             Currencies = LoadCatalogList(connection, "currency"),
             Warehouses = LoadCatalogList(connection, "warehouse")
         };
@@ -658,8 +665,17 @@ public sealed partial class DesktopMySqlBackplaneService
 
     private static List<CatalogPriceRegistrationRecord> LoadCatalogPriceRegistrations(MySqlConnection connection)
     {
+        // Release 1.0.138: грузим ТОЛЬКО заголовки документов (683 строки).
+        // Строки документов (99k штук) теперь НЕ грузим вообще — они нужны были
+        // только для in-memory расчёта «последней цены per item» в ProductsView.
+        // Эту работу делает SQL aggregate (см. LoadCatalogLatestPrices /
+        // LoadCatalogItemPriceTypes), результат — ~6-12k строк per aggregate.
+        // Вкладка «Установка цен» (PriceRegistrationsWorkspaceView) использует
+        // только Date/Number/PriceTypes/Comment из заголовка — Lines ей не нужны.
+        // Если в будущем понадобится drill-down по строкам конкретного документа,
+        // делать его lazy-load'ом по document_id через отдельный SELECT.
         var registrations = new List<CatalogPriceRegistrationRecord>();
-        using (var command = CreateMySqlCommand(connection, null, """
+        using var command = CreateMySqlCommand(connection, null, """
             SELECT
                 id,
                 number,
@@ -670,61 +686,107 @@ public sealed partial class DesktopMySqlBackplaneService
                 comment_text
             FROM app_catalog_price_registrations
             ORDER BY document_date DESC, number DESC;
-            """))
-        using (var reader = command.ExecuteReader())
+            """);
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
         {
-            while (reader.Read())
+            registrations.Add(new CatalogPriceRegistrationRecord
             {
-                registrations.Add(new CatalogPriceRegistrationRecord
-                {
-                    Id = ReadGuid(reader, "id"),
-                    Number = ReadString(reader, "number"),
-                    DocumentDate = ReadDateTime(reader, "document_date"),
-                    PriceTypeName = ReadString(reader, "price_type_name"),
-                    CurrencyCode = ReadString(reader, "currency_code"),
-                    Status = ReadString(reader, "status_text"),
-                    Comment = ReadString(reader, "comment_text"),
-                    Lines = []
-                });
-            }
-        }
-
-        var byId = registrations.ToDictionary(item => item.Id);
-        using (var command = CreateMySqlCommand(connection, null, """
-            SELECT
-                registration_id,
-                id,
-                item_code,
-                item_name,
-                unit_name,
-                previous_price,
-                new_price
-            FROM app_catalog_price_registration_lines
-            ORDER BY registration_id, line_no;
-            """))
-        using (var reader = command.ExecuteReader())
-        {
-            while (reader.Read())
-            {
-                var registrationId = ReadGuid(reader, "registration_id");
-                if (!byId.TryGetValue(registrationId, out var document))
-                {
-                    continue;
-                }
-
-                document.Lines.Add(new CatalogPriceRegistrationLineRecord
-                {
-                    Id = ReadGuid(reader, "id"),
-                    ItemCode = ReadString(reader, "item_code"),
-                    ItemName = ReadString(reader, "item_name"),
-                    Unit = ReadString(reader, "unit_name"),
-                    PreviousPrice = ReadDecimal(reader, "previous_price"),
-                    NewPrice = ReadDecimal(reader, "new_price")
-                });
-            }
+                Id = ReadGuid(reader, "id"),
+                Number = ReadString(reader, "number"),
+                DocumentDate = ReadDateTime(reader, "document_date"),
+                PriceTypeName = ReadString(reader, "price_type_name"),
+                CurrencyCode = ReadString(reader, "currency_code"),
+                Status = ReadString(reader, "status_text"),
+                Comment = ReadString(reader, "comment_text"),
+                Lines = []
+            });
         }
 
         return registrations;
+    }
+
+    /// <summary>
+    /// Release 1.0.138: SQL aggregate «лучшая цена per item». Заменяет проход
+    /// ProductsView по 99k строкам PriceRegistration.Lines с приоритезацией
+    /// (Розничная > прочие) и поиском последней даты. Возвращает ~6-12k строк.
+    /// </summary>
+    private static List<CatalogLatestPriceRecord> LoadCatalogLatestPrices(MySqlConnection connection)
+    {
+        var result = new List<CatalogLatestPriceRecord>();
+        using var command = CreateMySqlCommand(connection, null, """
+            SELECT
+                l.item_code,
+                l.item_name,
+                d.price_type_name,
+                l.new_price,
+                d.document_date
+            FROM (
+                SELECT
+                    l.id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY
+                            COALESCE(NULLIF(TRIM(l.item_code), ''), CONCAT('@name=', COALESCE(NULLIF(TRIM(l.item_name), ''), ''))),
+                            COALESCE(NULLIF(TRIM(l.item_name), ''), '')
+                        ORDER BY
+                            CASE WHEN d.price_type_name LIKE '%озничн%' THEN 2 ELSE 1 END DESC,
+                            d.document_date DESC,
+                            d.id DESC
+                    ) AS rn
+                FROM app_catalog_price_registration_lines l
+                JOIN app_catalog_price_registrations d ON d.id = l.registration_id
+                WHERE l.new_price > 0
+            ) ranked
+            JOIN app_catalog_price_registration_lines l ON l.id = ranked.id
+            JOIN app_catalog_price_registrations d ON d.id = l.registration_id
+            WHERE ranked.rn = 1;
+            """);
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new CatalogLatestPriceRecord
+            {
+                ItemCode = ReadString(reader, "item_code"),
+                ItemName = ReadString(reader, "item_name"),
+                PriceTypeName = ReadString(reader, "price_type_name"),
+                Price = ReadDecimal(reader, "new_price"),
+                DocumentDate = ReadDateTime(reader, "document_date")
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Release 1.0.138: distinct-комбинации (item, price_type). Используется
+    /// для filter-combo «Виды цен» во вкладке Товары. Возвращает ≤ items × priceTypes.
+    /// </summary>
+    private static List<CatalogItemPriceTypeRecord> LoadCatalogItemPriceTypes(MySqlConnection connection)
+    {
+        var result = new List<CatalogItemPriceTypeRecord>();
+        using var command = CreateMySqlCommand(connection, null, """
+            SELECT DISTINCT
+                l.item_code,
+                l.item_name,
+                d.price_type_name
+            FROM app_catalog_price_registration_lines l
+            JOIN app_catalog_price_registrations d ON d.id = l.registration_id
+            WHERE l.new_price > 0
+                AND d.price_type_name IS NOT NULL
+                AND d.price_type_name <> '';
+            """);
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new CatalogItemPriceTypeRecord
+            {
+                ItemCode = ReadString(reader, "item_code"),
+                ItemName = ReadString(reader, "item_name"),
+                PriceTypeName = ReadString(reader, "price_type_name")
+            });
+        }
+
+        return result;
     }
 
     private static List<CatalogOperationLogEntry> LoadCatalogOperationLog(MySqlConnection connection)

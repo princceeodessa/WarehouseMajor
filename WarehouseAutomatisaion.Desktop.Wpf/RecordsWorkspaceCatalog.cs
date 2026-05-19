@@ -676,7 +676,11 @@ internal static class RecordsWorkspaceCatalog
             MigrationReference("Склад", "Document.СписаниеЗапасов", "Списания", 162, warehouseWorkspace?.WriteOffs.Count ?? 0),
             MigrationReference("Склад", "Document.ОприходованиеЗапасов", "Оприходования", 158, 0),
             MigrationReference("Цены", "Document.УстановкаЦенНоменклатуры", "Установки цен", 683, catalogWorkspace.PriceRegistrations.Count),
-            MigrationReference("Цены", "Document.УстановкаЦенНоменклатуры.Запасы", "Строки установки цен", 99_026, catalogWorkspace.PriceRegistrations.Sum(item => item.Lines.Count)),
+            // Release 1.0.138: строки документов установки цен больше не грузятся
+            // в snapshot (заменены SQL aggregate'ами). Вместо raw-счётчика показываем
+            // LatestPrices — товаров с актуальной ценой, это покрывает 1С-объект
+            // «УстановкаЦенНоменклатуры.Запасы» функционально без 99k-row выгрузки.
+            MigrationReference("Цены", "Document.УстановкаЦенНоменклатуры.Запасы", "Товаров с актуальной ценой", 99_026, catalogWorkspace.LatestPrices.Count),
             MigrationReference("Деньги", "Document.ПоступлениеВКассу", "Поступления в кассу", 4_605, salesWorkspace.CashReceipts.Count),
             MigrationReference("Деньги", "Document.ПоступлениеНаСчет", "Банковские поступления", 3_421, 0),
             MigrationReference("Деньги", "Document.РасходИзКассы", "Расходы из кассы", 855, 0),

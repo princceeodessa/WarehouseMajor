@@ -55,6 +55,14 @@ public sealed class CatalogWorkspace
 
     public IReadOnlyList<string> Warehouses { get; internal set; }
 
+    // Release 1.0.138: pre-aggregated lookups, заменяют in-memory обход 99k строк
+    // PriceRegistrations.Lines в ProductsWorkspaceView. LatestPrices — одна запись
+    // на (item × лучший вид цены), ItemPriceTypes — distinct (item, priceType)
+    // для filter-combo. Грузятся отдельными SQL aggregates в Backplane.
+    public IReadOnlyList<CatalogLatestPriceRecord> LatestPrices { get; internal set; } = Array.Empty<CatalogLatestPriceRecord>();
+
+    public IReadOnlyList<CatalogItemPriceTypeRecord> ItemPriceTypes { get; internal set; } = Array.Empty<CatalogItemPriceTypeRecord>();
+
     public string CurrentOperator { get; internal set; } = string.Empty;
 
     public event EventHandler? Changed;
@@ -108,6 +116,11 @@ public sealed class CatalogWorkspace
             workspace.ItemPrices.Add(price.Clone());
         }
 
+        // Release 1.0.138: derived aggregates из Backplane. Не мутируем после
+        // создания (нет UI-редактора) — присваиваем как готовый массив.
+        workspace.LatestPrices = seed.LatestPrices.Select(item => item.Clone()).ToArray();
+        workspace.ItemPriceTypes = seed.ItemPriceTypes.Select(item => item.Clone()).ToArray();
+
         return workspace;
     }
 
@@ -136,6 +149,9 @@ public sealed class CatalogWorkspace
         CurrentOperator = source.CurrentOperator;
         Currencies = source.Currencies.ToArray();
         Warehouses = source.Warehouses.ToArray();
+        // Release 1.0.138: derived aggregates перезаписываем массивом — они read-only.
+        LatestPrices = source.LatestPrices.Select(item => item.Clone()).ToArray();
+        ItemPriceTypes = source.ItemPriceTypes.Select(item => item.Clone()).ToArray();
         OnChanged();
     }
 
@@ -650,6 +666,11 @@ public sealed class CatalogWorkspaceSeed
 
     public IReadOnlyList<CatalogItemPriceRecord> ItemPrices { get; init; } = Array.Empty<CatalogItemPriceRecord>();
 
+    // Release 1.0.138: см. CatalogLatestPriceRecord / CatalogItemPriceTypeRecord.
+    public IReadOnlyList<CatalogLatestPriceRecord> LatestPrices { get; init; } = Array.Empty<CatalogLatestPriceRecord>();
+
+    public IReadOnlyList<CatalogItemPriceTypeRecord> ItemPriceTypes { get; init; } = Array.Empty<CatalogItemPriceTypeRecord>();
+
     public IReadOnlyList<string> Currencies { get; init; } = Array.Empty<string>();
 
     public IReadOnlyList<string> Warehouses { get; init; } = Array.Empty<string>();
@@ -942,6 +963,58 @@ public sealed class CatalogPriceRegistrationLineRecord
             Unit = Unit,
             PreviousPrice = PreviousPrice,
             NewPrice = NewPrice
+        };
+    }
+}
+
+// Release 1.0.138: pre-aggregated «лучшая цена per item» из всех документов
+// установки цен. Раньше ProductsWorkspaceView собирал это in-memory из 99k
+// строк PriceRegistration.Lines. Теперь Backplane возвращает готовый агрегат
+// (~6-12k строк) — сетевая нагрузка и CPU обработка уменьшились в 10×+.
+// Приоритет: «розничная» цена выше прочих; затем самая свежая дата.
+public sealed class CatalogLatestPriceRecord
+{
+    public string ItemCode { get; set; } = string.Empty;
+
+    public string ItemName { get; set; } = string.Empty;
+
+    public string PriceTypeName { get; set; } = string.Empty;
+
+    public decimal Price { get; set; }
+
+    public DateTime DocumentDate { get; set; }
+
+    public CatalogLatestPriceRecord Clone()
+    {
+        return new CatalogLatestPriceRecord
+        {
+            ItemCode = ItemCode,
+            ItemName = ItemName,
+            PriceTypeName = PriceTypeName,
+            Price = Price,
+            DocumentDate = DocumentDate
+        };
+    }
+}
+
+// Release 1.0.138: distinct-список видов цен, в которых товар фигурировал
+// хоть в одном документе установки цен. Используется для filter-combo
+// «Виды цен» во вкладке Товары — раньше собиралось из 99k строк.
+public sealed class CatalogItemPriceTypeRecord
+{
+    public string ItemCode { get; set; } = string.Empty;
+
+    public string ItemName { get; set; } = string.Empty;
+
+    public string PriceTypeName { get; set; } = string.Empty;
+
+    public CatalogItemPriceTypeRecord Clone()
+    {
+        return new CatalogItemPriceTypeRecord
+        {
+            ItemCode = ItemCode,
+            ItemName = ItemName,
+            PriceTypeName = PriceTypeName
         };
     }
 }
