@@ -53,6 +53,14 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     private CatalogWorkspace _catalogWorkspace;
     private WarehouseWorkspace _warehouseWorkspace;
     private WarehouseCellStorageSnapshot _cellStorageSnapshot = WarehouseCellStorageSnapshot.Empty;
+    // Release 1.0.136: кэшируем lookup'ы цен между двумя последовательными
+    // BuildProducts() внутри одного RefreshAllAsync (первый — без cellStorage,
+    // второй — обогащённый им). Цены зависят только от _catalogWorkspace,
+    // не от cellStorage — обработка 99k строк PriceRegistrations не должна
+    // повторяться. Инвалидируется в HandleCatalogWorkspaceChanged и
+    // LoadCatalogWorkspaceAsync.
+    private Dictionary<string, decimal>? _displayPriceCache;
+    private Dictionary<string, SortedSet<string>>? _priceTypesCache;
     private IReadOnlyList<ProductRowViewModel> _allProducts = Array.Empty<ProductRowViewModel>();
     private IReadOnlyList<ProductRowViewModel> _filteredProducts = Array.Empty<ProductRowViewModel>();
     private string _activeSection = ProductsSection;
@@ -174,6 +182,9 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
             _catalogWorkspace.Changed -= HandleCatalogWorkspaceChanged;
             _catalogWorkspace = loadedWorkspace;
             _catalogWorkspace.Changed += HandleCatalogWorkspaceChanged;
+            // Release 1.0.136: новый _catalogWorkspace → старый pricing-кэш невалиден.
+            _displayPriceCache = null;
+            _priceTypesCache = null;
             _catalogWorkspaceLoaded = true;
 
             RefreshAll();
@@ -260,6 +271,10 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     private void HandleCatalogWorkspaceChanged(object? sender, EventArgs e)
     {
         if (_isDisposed) return;
+        // Release 1.0.136: PriceRegistrations / DefaultPriceType могли измениться —
+        // pricing-кэш больше не валиден, пересчитаем при следующем BuildProducts.
+        _displayPriceCache = null;
+        _priceTypesCache = null;
         ScheduleRefresh(persist: true);
     }
 
@@ -311,23 +326,33 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         _refreshing = true;
         try
         {
-            // Лёгкая часть на UI-потоке.
             _warehouseWorkspace = WarehouseWorkspace.Create(_salesWorkspace);
 
-            // Тяжёлая часть — на фоновом потоке: 2 ремоут-запроса в Backplane
-            // (warehouse + purchasing) для cell storage snapshot и сборка
-            // 8 898 view-моделей с лукапами. UI остаётся отзывчивым.
-            var snapshot = await Task.Run(BuildCellStorageSnapshot);
-            _cellStorageSnapshot = snapshot;
+            // Release 1.0.136: раньше CellStorage (2 сетевых SELECT'а в warehouse
+            // + purchasing snapshots, на медленной сети — десятки секунд) шёл
+            // ПЕРЕД BuildProducts последовательно, и грид «Товары» оставался
+            // пустым всё это время. Теперь — параллельно: BuildProducts
+            // отрабатывает на _cellStorageSnapshot.Empty и грид появляется
+            // сразу после in-memory обработки каталога. Когда сетевой snapshot
+            // готов — пересобираем строки с правильными cell balances. Pricing-
+            // lookups закэшированы (_displayPriceCache / _priceTypesCache),
+            // второй проход BuildProducts не повторяет 99k строк PriceRegistrations.
+            var snapshotTask = Task.Run(BuildCellStorageSnapshot);
+            var initialProductsTask = Task.Run(BuildProducts);
 
-            var products = await Task.Run(BuildProducts);
-            _allProducts = products;
-
+            _allProducts = await initialProductsTask;
             RefreshMetrics();
             RefreshFilterOptions();
             ApplyFilters(keepSelected: true);
             ApplySection(_activeSection);
             UpdateResponsiveLayout();
+
+            _cellStorageSnapshot = await snapshotTask;
+            var enrichedProducts = await Task.Run(BuildProducts);
+            _allProducts = enrichedProducts;
+            RefreshMetrics();
+            ApplyFilters(keepSelected: true);
+            ApplySection(_activeSection);
         }
         finally
         {
@@ -382,7 +407,14 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
     private IReadOnlyList<ProductRowViewModel> BuildProducts()
     {
-        var stockByCode = _warehouseWorkspace.StockBalances
+        // Release 1.0.136: 4 lookup'а собираются параллельно на ThreadPool. Особенно
+        // важны pricing-проходы: BuildPriceTypesByItemKey и BuildDisplayPriceByItem
+        // оба гонят по всем 99k строкам PriceRegistrations — на одном ядре это
+        // последовательно, что и было видно как часть «2 минуты на открытии».
+        // Stock-группировки тоже не маленькие при 8898 балансах. Кэш priceCache /
+        // priceTypesCache переиспользуется во втором прогоне внутри RefreshAllAsync
+        // (после прихода cellStorage) — это нулевая стоимость.
+        var stockByCodeTask = Task.Run(() => _warehouseWorkspace.StockBalances
             .GroupBy(item => Ui(item.ItemCode), StringComparer.OrdinalIgnoreCase)
             .Where(group => !string.IsNullOrWhiteSpace(group.Key))
             .ToDictionary(
@@ -391,10 +423,10 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                     .OrderByDescending(item => item.FreeQuantity + item.ReservedQuantity + item.ShippedQuantity)
                     .ThenBy(item => Ui(item.Warehouse), StringComparer.OrdinalIgnoreCase)
                     .First(),
-                StringComparer.OrdinalIgnoreCase);
+                StringComparer.OrdinalIgnoreCase));
 
         // Fallback: остатки по имени для случаев, когда код в balance отличается от код в каталоге
-        var stockByName = _warehouseWorkspace.StockBalances
+        var stockByNameTask = Task.Run(() => _warehouseWorkspace.StockBalances
             .Where(item => !string.IsNullOrWhiteSpace(Ui(item.ItemName)))
             .GroupBy(item => Ui(item.ItemName), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
@@ -402,10 +434,23 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                 group => group
                     .OrderByDescending(item => item.FreeQuantity + item.ReservedQuantity + item.ShippedQuantity)
                     .First(),
-                StringComparer.OrdinalIgnoreCase);
+                StringComparer.OrdinalIgnoreCase));
 
-        var priceTypesByItem = BuildPriceTypesByItemKey();
-        var priceByItem = BuildDisplayPriceByItem();
+        var priceTypesTask = _priceTypesCache is { } cachedTypes
+            ? Task.FromResult(cachedTypes)
+            : Task.Run(BuildPriceTypesByItemKey);
+        var priceByItemTask = _displayPriceCache is { } cachedPrices
+            ? Task.FromResult(cachedPrices)
+            : Task.Run(BuildDisplayPriceByItem);
+
+        Task.WaitAll(stockByCodeTask, stockByNameTask, priceTypesTask, priceByItemTask);
+
+        var stockByCode = stockByCodeTask.Result;
+        var stockByName = stockByNameTask.Result;
+        var priceTypesByItem = priceTypesTask.Result;
+        var priceByItem = priceByItemTask.Result;
+        _priceTypesCache = priceTypesByItem;
+        _displayPriceCache = priceByItem;
 
         return BuildVisibleCatalogItems()
             // Release 1.0.134: Ordinal-сортировка вместо Cultural — ×5 быстрее на 8898
