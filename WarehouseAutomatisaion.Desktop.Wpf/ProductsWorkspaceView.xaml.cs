@@ -477,38 +477,35 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
     }
 
     /// <summary>
-    /// Строит lookup лучшей цены для отображения. Источник — последние проведённые
-    /// документы установки цен из <see cref="CatalogWorkspace.PriceRegistrations"/>.
-    /// Приоритет — «Розничная …» виды цены; при их отсутствии — любая последняя цена.
+    /// Release 1.0.138: источник — server-side aggregate <see cref="CatalogWorkspace.LatestPrices"/>
+    /// (1 строка на товар, MySQL уже отбросил всё лишнее window-функцией). Раньше тут
+    /// был in-memory обход 99k строк PriceRegistration.Lines с приоритезацией и
+    /// поиском last-date. Теперь оба шага сделаны в SQL: BackPlane возвращает ~6-12k
+    /// готовых записей, BuildDisplayPriceByItem остаётся только распакать их в
+    /// dictionary по двум возможным ключам (code и name).
     /// </summary>
     private Dictionary<string, decimal> BuildDisplayPriceByItem()
     {
-        var byKey = new Dictionary<string, (DateTime Date, decimal Price, int Priority)>(StringComparer.OrdinalIgnoreCase);
+        var byKey = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var document in _catalogWorkspace.PriceRegistrations.OrderBy(item => item.DocumentDate))
+        foreach (var record in _catalogWorkspace.LatestPrices)
         {
-            var priceType = Ui(document.PriceTypeName);
-            var priority = priceType.Contains("розничн", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
-            foreach (var line in document.Lines)
+            if (record.Price <= 0m)
             {
-                if (line.NewPrice <= 0m)
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                foreach (var key in EnumerateItemKeys(line.ItemCode, line.ItemName))
-                {
-                    if (!byKey.TryGetValue(key, out var existing)
-                        || priority > existing.Priority
-                        || (priority == existing.Priority && document.DocumentDate >= existing.Date))
-                    {
-                        byKey[key] = (document.DocumentDate, line.NewPrice, priority);
-                    }
-                }
+            foreach (var key in EnumerateItemKeys(record.ItemCode, record.ItemName))
+            {
+                // SQL уже выбрал ОДНУ запись per item — конфликтов между code-key и
+                // name-key для разных item'ов быть не должно, но если оба ключа
+                // совпали с разными item'ами, оставляем первого (LatestPrices
+                // упорядочен SQL'ом по приоритету).
+                byKey.TryAdd(key, record.Price);
             }
         }
 
-        return byKey.ToDictionary(entry => entry.Key, entry => entry.Value.Price, StringComparer.OrdinalIgnoreCase);
+        return byKey;
     }
 
     private static decimal ResolveDisplayPrice(CatalogItemRecord item, IReadOnlyDictionary<string, decimal> priceByItem)
@@ -539,22 +536,26 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         }
     }
 
+    /// <summary>
+    /// Release 1.0.138: источник — server-side aggregate
+    /// <see cref="CatalogWorkspace.ItemPriceTypes"/> (DISTINCT по (item, price_type)).
+    /// Раньше собирали in-memory обходом 99k строк PriceRegistration.Lines с
+    /// деduplication через SortedSet. Теперь SQL уже отдаёт уникальные пары —
+    /// просто раскладываем по словарю.
+    /// </summary>
     private Dictionary<string, SortedSet<string>> BuildPriceTypesByItemKey()
     {
         var result = new Dictionary<string, SortedSet<string>>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var document in _catalogWorkspace.PriceRegistrations)
+        foreach (var record in _catalogWorkspace.ItemPriceTypes)
         {
-            var priceType = Ui(document.PriceTypeName);
+            var priceType = Ui(record.PriceTypeName);
             if (string.IsNullOrWhiteSpace(priceType))
             {
                 continue;
             }
 
-            foreach (var line in document.Lines)
-            {
-                AddPriceType(BuildCatalogItemKey(line.ItemCode, line.ItemName), priceType);
-            }
+            AddPriceType(BuildCatalogItemKey(record.ItemCode, record.ItemName), priceType);
         }
 
         var defaultPriceType = Ui(_catalogWorkspace.GetDefaultPriceTypeName());

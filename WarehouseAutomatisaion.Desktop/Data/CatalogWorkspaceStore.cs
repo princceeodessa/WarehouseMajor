@@ -1381,6 +1381,13 @@ public sealed class CatalogWorkspaceStore
 
         public List<string> Warehouses { get; set; } = [];
 
+        // Release 1.0.138: aggregate-lookups для ProductsWorkspaceView.
+        // Сериализуются в дисковом ETag-кэше (catalog-snapshot-cache.json),
+        // чтобы повторное открытие тоже работало по fast-path.
+        public List<CatalogLatestPriceRecord> LatestPrices { get; set; } = [];
+
+        public List<CatalogItemPriceTypeRecord> ItemPriceTypes { get; set; } = [];
+
         public static CatalogWorkspaceSnapshot FromWorkspace(CatalogWorkspace workspace)
         {
             return new CatalogWorkspaceSnapshot
@@ -1393,7 +1400,9 @@ public sealed class CatalogWorkspaceStore
                 OperationLog = workspace.OperationLog.Select(item => item.Clone()).ToList(),
                 ItemPrices = workspace.ItemPrices.Select(item => item.Clone()).ToList(),
                 Currencies = workspace.Currencies.ToList(),
-                Warehouses = workspace.Warehouses.ToList()
+                Warehouses = workspace.Warehouses.ToList(),
+                LatestPrices = workspace.LatestPrices.Select(item => item.Clone()).ToList(),
+                ItemPriceTypes = workspace.ItemPriceTypes.Select(item => item.Clone()).ToList()
             };
         }
 
@@ -1413,7 +1422,9 @@ public sealed class CatalogWorkspaceStore
                     OperationLog = OperationLog.Select(item => item.Clone()).ToArray(),
                     ItemPrices = ItemPrices.Select(item => item.Clone()).ToArray(),
                     Currencies = Currencies.Count > 0 ? Currencies.ToArray() : fallbackCurrencies ?? Array.Empty<string>(),
-                    Warehouses = Warehouses.Count > 0 ? Warehouses.ToArray() : fallbackWarehouses ?? Array.Empty<string>()
+                    Warehouses = Warehouses.Count > 0 ? Warehouses.ToArray() : fallbackWarehouses ?? Array.Empty<string>(),
+                    LatestPrices = LatestPrices.Select(item => item.Clone()).ToArray(),
+                    ItemPriceTypes = ItemPriceTypes.Select(item => item.Clone()).ToArray()
                 });
         }
     }
