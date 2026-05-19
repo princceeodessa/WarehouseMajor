@@ -1,10 +1,13 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using Microsoft.Win32;
 using WarehouseAutomatisaion.Desktop.Data;
@@ -69,7 +72,7 @@ public partial class SalesCustomerEditorWindow : Window
         WpfTextNormalizer.NormalizeTree(this);
 
         Title = customer is null ? Ui("Новый клиент") : Ui($"Клиент {_draft.Code}");
-        HeaderTitleText.Text = customer is null ? Ui("Новый клиент") : Ui("Карточка клиента");
+        UpdateHeaderTextsFromDraft();
 
         CounterpartyTypeComboBox.ItemsSource = CounterpartyTypes.Select(Ui).ToArray();
         StatusComboBox.ItemsSource = workspace.CustomerStatuses.Select(Ui).ToArray();
@@ -79,6 +82,7 @@ public partial class SalesCustomerEditorWindow : Window
         ResponsibleComboBox.ItemsSource = workspace.Managers.Select(Ui).ToArray();
         ContactsGrid.ItemsSource = _contacts;
         DocumentsGrid.ItemsSource = _documents;
+        CollectionViewSource.GetDefaultView(_documents).Filter = MatchesDocumentFilter;
         FilesGrid.ItemsSource = _files;
         EventsItems.ItemsSource = _events;
         PersonalDataItems.ItemsSource = _personalData;
@@ -95,8 +99,58 @@ public partial class SalesCustomerEditorWindow : Window
         ApplyCounterpartyTypeLayout();
 
         ContractTextBox.TextChanged += (_, _) => RenderContractTab();
-        BankAccountTextBox.TextChanged += (_, _) => RenderBankAccountTab();
+        BankAccountTextBox.TextChanged += (_, _) =>
+        {
+            RenderBankAccountTab();
+            UpdateBankAccountLinkText();
+        };
+        InnTextBox.TextChanged += (_, _) => UpdateLegalDataLinkText();
+        NameTextBox.TextChanged += (_, _) => UpdateHeaderTextsFromDraft();
+        BuyerCheckBox.Checked += (_, _) => UpdateHeaderTextsFromDraft();
+        BuyerCheckBox.Unchecked += (_, _) => UpdateHeaderTextsFromDraft();
+        SupplierCheckBox.Checked += (_, _) => UpdateHeaderTextsFromDraft();
+        SupplierCheckBox.Unchecked += (_, _) => UpdateHeaderTextsFromDraft();
+        OtherRoleCheckBox.Checked += (_, _) => UpdateHeaderTextsFromDraft();
+        OtherRoleCheckBox.Unchecked += (_, _) => UpdateHeaderTextsFromDraft();
         _contacts.CollectionChanged += HandleContactsCollectionChanged;
+
+        UpdateLegalDataLinkText();
+        UpdateBankAccountLinkText();
+    }
+
+    private void UpdateHeaderTextsFromDraft()
+    {
+        if (HeaderTitleText is null)
+        {
+            return;
+        }
+
+        var name = NameTextBox?.Text?.Trim() ?? string.Empty;
+        HeaderTitleText.Text = string.IsNullOrWhiteSpace(name)
+            ? Ui("Новый клиент")
+            : Ui($"\"{name}\"");
+
+        if (HeaderSubtitleText is null)
+        {
+            return;
+        }
+
+        var roles = new List<string>(3);
+        if (BuyerCheckBox?.IsChecked == true)
+        {
+            roles.Add("Покупатель");
+        }
+        if (SupplierCheckBox?.IsChecked == true)
+        {
+            roles.Add("Поставщик");
+        }
+        if (OtherRoleCheckBox?.IsChecked == true)
+        {
+            roles.Add("Прочие");
+        }
+
+        var roleText = roles.Count == 0 ? "Покупатель" : string.Join(", ", roles);
+        HeaderSubtitleText.Text = Ui($" (Контрагент: {roleText})");
     }
 
     private void HandleContactsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -194,32 +248,151 @@ public partial class SalesCustomerEditorWindow : Window
 
         foreach (var order in _workspace.Orders.Where(item => item.CustomerId == _draft.Id).OrderByDescending(item => item.OrderDate))
         {
-            _documents.Add(new CustomerDocumentRelationRow("Заказ", order.Number, order.OrderDate.ToString("dd.MM.yyyy", RuCulture), order.Status, FormatMoney(order.TotalAmount, order.CurrencyCode)));
+            _documents.Add(BuildDocumentRow("order", order.Number, order.OrderDate, order.Status, order.TotalAmount, order.CurrencyCode));
         }
 
         foreach (var invoice in _workspace.Invoices.Where(item => item.CustomerId == _draft.Id).OrderByDescending(item => item.InvoiceDate))
         {
-            _documents.Add(new CustomerDocumentRelationRow("Счет", invoice.Number, invoice.InvoiceDate.ToString("dd.MM.yyyy", RuCulture), invoice.Status, FormatMoney(invoice.TotalAmount, invoice.CurrencyCode)));
+            _documents.Add(BuildDocumentRow("invoice", invoice.Number, invoice.InvoiceDate, invoice.Status, invoice.TotalAmount, invoice.CurrencyCode));
         }
 
         foreach (var shipment in _workspace.Shipments.Where(item => item.CustomerId == _draft.Id).OrderByDescending(item => item.ShipmentDate))
         {
-            _documents.Add(new CustomerDocumentRelationRow("Расходная накладная", shipment.Number, shipment.ShipmentDate.ToString("dd.MM.yyyy", RuCulture), shipment.Status, FormatMoney(shipment.TotalAmount, shipment.CurrencyCode)));
+            _documents.Add(BuildDocumentRow("shipment", shipment.Number, shipment.ShipmentDate, shipment.Status, shipment.TotalAmount, shipment.CurrencyCode));
         }
 
         foreach (var returnDocument in _workspace.Returns.Where(item => item.CustomerId == _draft.Id).OrderByDescending(item => item.ReturnDate))
         {
-            _documents.Add(new CustomerDocumentRelationRow("Приходная накладная (возврат)", returnDocument.Number, returnDocument.ReturnDate.ToString("dd.MM.yyyy", RuCulture), returnDocument.Status, FormatMoney(returnDocument.TotalAmount, returnDocument.CurrencyCode)));
+            _documents.Add(BuildDocumentRow("return", returnDocument.Number, returnDocument.ReturnDate, returnDocument.Status, returnDocument.TotalAmount, returnDocument.CurrencyCode));
         }
 
         foreach (var cashReceipt in _workspace.CashReceipts.Where(item => item.CustomerId == _draft.Id).OrderByDescending(item => item.ReceiptDate))
         {
-            _documents.Add(new CustomerDocumentRelationRow("Поступление в кассу", cashReceipt.Number, cashReceipt.ReceiptDate.ToString("dd.MM.yyyy", RuCulture), cashReceipt.Status, FormatMoney(cashReceipt.Amount, cashReceipt.CurrencyCode)));
+            _documents.Add(BuildDocumentRow("cash", cashReceipt.Number, cashReceipt.ReceiptDate, cashReceipt.Status, cashReceipt.Amount, cashReceipt.CurrencyCode));
         }
 
-        DocumentsSummaryText.Text = _documents.Count == 0
-            ? "По этому клиенту пока нет заказов, счетов, расходных или возвратных документов."
-            : $"Связанные документы клиента: {_documents.Count:N0}. Показаны заказы, счета, расходные накладные, возвраты и поступления в кассу.";
+        UpdateDocumentsCountText();
+    }
+
+    private CustomerDocumentRelationRow BuildDocumentRow(string kind, string number, DateTime date, string status, decimal amount, string currencyCode)
+    {
+        var (section, operation, icon, brush) = kind switch
+        {
+            "order" => ("Заказ покупателя", "Заказ на продажу", "", "#4F5BFF"),
+            "invoice" => ("Счёт на оплату", "Счёт на оплату", "", "#FF9F1A"),
+            "shipment" => ("Расходная накладная", "Продажа покупателю", "", "#1AA65F"),
+            "return" => ("Приходная накладная (возврат)", "Возврат от покупателя", "", "#FF3045"),
+            "cash" => ("Поступление в кассу", "От покупателя", "", "#7C3AED"),
+            _ => ("Документ", "Операция", "", "#5F7DA8")
+        };
+
+        var orgName = string.IsNullOrWhiteSpace(_draft.Manager) ? "ИП" : Ui(_draft.Manager);
+
+        return new CustomerDocumentRelationRow
+        {
+            Section = section,
+            Number = Ui(number),
+            Date = date.ToString("dd.MM.yyyy", RuCulture),
+            Status = Ui(status),
+            Amount = FormatMoney(amount, currencyCode),
+            Operation = operation,
+            Organization = orgName,
+            KindIcon = icon,
+            KindIconBrush = brush,
+            Kind = kind
+        };
+    }
+
+    private void UpdateDocumentsCountText()
+    {
+        if (DocumentsSummaryText is null)
+        {
+            return;
+        }
+
+        if (_documents.Count == 0)
+        {
+            DocumentsSummaryText.Text = "По этому клиенту пока нет заказов, счетов, расходных или возвратных документов.";
+            return;
+        }
+
+        var view = CollectionViewSource.GetDefaultView(_documents);
+        var visible = view?.Cast<object>().Count() ?? _documents.Count;
+        DocumentsSummaryText.Text = visible == _documents.Count
+            ? $"Связанные документы клиента: {_documents.Count:N0}"
+            : $"Показано: {visible:N0} из {_documents.Count:N0}";
+    }
+
+    private bool MatchesDocumentFilter(object item)
+    {
+        if (item is not CustomerDocumentRelationRow row)
+        {
+            return false;
+        }
+
+        if (!MatchesDocumentSearch(row))
+        {
+            return false;
+        }
+
+        return MatchesDocumentKindFilter(row);
+    }
+
+    private bool MatchesDocumentSearch(CustomerDocumentRelationRow row)
+    {
+        var query = DocSearchBox?.Text?.Trim();
+        if (string.IsNullOrEmpty(query))
+        {
+            return true;
+        }
+
+        return row.Number.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+            || row.Section.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+            || row.Operation.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+            || row.Amount.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+            || row.Date.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+            || row.Organization.Contains(query, StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    private bool MatchesDocumentKindFilter(CustomerDocumentRelationRow row)
+    {
+        var anyFilter = (DocFilterOrdersInvoicesCheckBox?.IsChecked == true)
+            || (DocFilterShipmentsCheckBox?.IsChecked == true)
+            || (DocFilterCashCheckBox?.IsChecked == true)
+            || (DocFilterEventsCheckBox?.IsChecked == true)
+            || (DocFilterOtherCheckBox?.IsChecked == true);
+
+        if (!anyFilter)
+        {
+            return true;
+        }
+
+        return row.Kind switch
+        {
+            "order" or "invoice" => DocFilterOrdersInvoicesCheckBox?.IsChecked == true,
+            "shipment" or "return" => DocFilterShipmentsCheckBox?.IsChecked == true,
+            "cash" => DocFilterCashCheckBox?.IsChecked == true,
+            _ => DocFilterOtherCheckBox?.IsChecked == true
+        };
+    }
+
+    private void HandleDocFilterChanged(object sender, RoutedEventArgs e)
+    {
+        CollectionViewSource.GetDefaultView(_documents)?.Refresh();
+        UpdateDocumentsCountText();
+    }
+
+    private void HandleDocSearchChanged(object sender, TextChangedEventArgs e)
+    {
+        if (DocSearchPlaceholder is not null && DocSearchBox is not null)
+        {
+            DocSearchPlaceholder.Visibility = string.IsNullOrEmpty(DocSearchBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        CollectionViewSource.GetDefaultView(_documents)?.Refresh();
+        UpdateDocumentsCountText();
     }
 
     private void RenderFiles()
@@ -716,6 +889,39 @@ public partial class SalesCustomerEditorWindow : Window
         CompleteEditing(success: false);
     }
 
+    private void HandleToggleLegalDataClick(object sender, RoutedEventArgs e)
+    {
+        LegalDataExpander.Visibility = LegalDataExpander.Visibility == Visibility.Collapsed
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        UpdateLegalDataLinkText();
+    }
+
+    private void HandleToggleBankAccountClick(object sender, RoutedEventArgs e)
+    {
+        BankAccountExpander.Visibility = BankAccountExpander.Visibility == Visibility.Collapsed
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        UpdateBankAccountLinkText();
+    }
+
+    private void UpdateLegalDataLinkText()
+    {
+        var inn = InnTextBox.Text?.Trim() ?? string.Empty;
+        var hasInn = !string.IsNullOrWhiteSpace(inn);
+        LegalDataLinkButton.Content = hasInn
+            ? $"ИНН {inn}"
+            : "<ИНН> / <Документ>";
+    }
+
+    private void UpdateBankAccountLinkText()
+    {
+        var account = BankAccountTextBox.Text?.Trim() ?? string.Empty;
+        BankAccountLinkButton.Content = string.IsNullOrWhiteSpace(account)
+            ? "<не указан>"
+            : FormatAccountNumber(account);
+    }
+
     private void CompleteEditing(bool success)
     {
         if (_hostedInWorkspace)
@@ -821,12 +1027,41 @@ public sealed class SalesCustomerContactEditorRow
     }
 }
 
-public sealed record CustomerDocumentRelationRow(
-    string Section,
-    string Number,
-    string Date,
-    string Status,
-    string Amount);
+public sealed class CustomerDocumentRelationRow
+{
+    public string Section { get; set; } = string.Empty;
+
+    public string Number { get; set; } = string.Empty;
+
+    public string Date { get; set; } = string.Empty;
+
+    public string Status { get; set; } = string.Empty;
+
+    public string Amount { get; set; } = string.Empty;
+
+    public string Operation { get; set; } = string.Empty;
+
+    public string Organization { get; set; } = "ИП";
+
+    public string KindIcon { get; set; } = "";
+
+    public string KindIconBrush { get; set; } = "#5F7DA8";
+
+    public string Kind { get; set; } = string.Empty;
+
+    public CustomerDocumentRelationRow()
+    {
+    }
+
+    public CustomerDocumentRelationRow(string section, string number, string date, string status, string amount)
+    {
+        Section = section;
+        Number = number;
+        Date = date;
+        Status = status;
+        Amount = amount;
+    }
+}
 
 public sealed class SalesCustomerFileEditorRow
 {

@@ -143,297 +143,980 @@
             <Setter Property="CanUserDeleteRows" Value="False" />
         </Style>
         <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DialogDataGridHeaderStyle}" />
+
+        <!-- ===== 1С-style: палитра и компактные контролы для главной вкладки ===== -->
+        <SolidColorBrush x:Key="OneCSectionGreen" Color="#3E8B33" />
+        <SolidColorBrush x:Key="OneCLinkBlue" Color="#1C5C9A" />
+        <SolidColorBrush x:Key="OneCLinkBlueHover" Color="#0F3C70" />
+        <SolidColorBrush x:Key="OneCFieldLabelMuted" Color="#5A6680" />
+        <SolidColorBrush x:Key="OneCInputBorder" Color="#C9D5E6" />
+        <SolidColorBrush x:Key="OneCInputBg" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="OneCFieldPlaceholder" Color="#9AA4BC" />
+        <SolidColorBrush x:Key="OneCStatusStripBg" Color="#FFFCE5" />
+        <SolidColorBrush x:Key="OneCStatusStripBorder" Color="#F0E4A8" />
+
+        <Style x:Key="OneCSectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource OneCSectionGreen}" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+
+        <Style x:Key="OneCFieldLabelInlineStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{StaticResource OneCFieldLabelMuted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
+
+        <Style x:Key="OneCFlatInputBoxStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Background" Value="{StaticResource OneCInputBg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource OneCInputBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+        </Style>
+
+        <Style x:Key="OneCFlatComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Background" Value="{StaticResource OneCInputBg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource OneCInputBorder}" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="8,0,4,0" />
+        </Style>
+
+        <Style x:Key="OneCFlatMultilineBoxStyle" TargetType="TextBox" BasedOn="{StaticResource OneCFlatInputBoxStyle}">
+            <Setter Property="Height" Value="76" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+        </Style>
+
+        <Style x:Key="OneCEllipsisButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="MinWidth" Value="22" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="{StaticResource OneCInputBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#7280A0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F2F5FF" />
+                    <Setter Property="BorderBrush" Value="#9AAEDC" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="OneCInlineIconButtonStyle" TargetType="Button" BasedOn="{StaticResource OneCEllipsisButtonStyle}">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+
+        <Style x:Key="OneCLinkButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource OneCLinkBlue}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <TextBlock Text="{TemplateBinding Content}"
+                                   Foreground="{TemplateBinding Foreground}"
+                                   FontSize="{TemplateBinding FontSize}"
+                                   FontWeight="{TemplateBinding FontWeight}"
+                                   TextDecorations="Underline" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource OneCLinkBlueHover}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="OneCStatusValueButtonStyle" TargetType="Button" BasedOn="{StaticResource OneCLinkButtonStyle}">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style x:Key="OneCStatusValueTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource OneCLinkBlue}" />
+            <Setter Property="TextDecorations" Value="Underline" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style x:Key="OneCStatusLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#5A6680" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+        </Style>
+
+        <Style x:Key="OneCRoleCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,18,0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style x:Key="OneCWindowToolbarBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource OneCToolbarBg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource OneCToolbarBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="6,5" />
+        </Style>
+
+        <Style x:Key="OneCNavTabItemStyle" TargetType="TabItem">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource OneCLinkBlue}" />
+            <Setter Property="Padding" Value="0,4" />
+            <Setter Property="Margin" Value="0,0,20,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <StackPanel>
+                            <ContentPresenter x:Name="HeaderPresenter" ContentSource="Header" VerticalAlignment="Center" />
+                            <Border x:Name="Underline" Height="2" Margin="0,4,0,0" Background="Transparent" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Underline" Property="Background" Value="{StaticResource OneCLinkBlue}" />
+                                <Setter Property="Foreground" Value="#17213A" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource OneCLinkBlueHover}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="OneCWindowHeaderIconButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinWidth" Value="28" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Foreground" Value="#7280A0" />
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF" />
+                    <Setter Property="Foreground" Value="#4F5BFF" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="OneCWindowTitleTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style x:Key="OneCWindowSubtitleTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="#7280A0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+
+        <Style x:Key="OneCStatusStripBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource OneCStatusStripBg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource OneCStatusStripBorder}" />
+            <Setter Property="BorderThickness" Value="0,1,0,1" />
+            <Setter Property="Padding" Value="12,7" />
+        </Style>
+
+        <Style x:Key="OneCStatusStripSeparatorStyle" TargetType="TextBlock">
+            <Setter Property="Text" Value="·" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="#B7A862" />
+            <Setter Property="Margin" Value="14,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="OneCInactiveCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#5A6680" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="24">
+    <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Margin="0,0,0,16">
-            <TextBlock x:Name="HeaderTitleText"
-                       Text="Новый клиент"
-                       FontSize="28"
-                       FontWeight="SemiBold"
-                       Foreground="#17213A" />
-            <TextBlock x:Name="HeaderSubtitleText"
-                       Text="Карточка контрагента: реквизиты, контакты, классификация и документы."
-                       Margin="0,6,0,0"
-                       FontSize="13.5"
-                       Foreground="#6E7B98" />
-        </StackPanel>
-
-        <Border Grid.Row="1"
-                Style="{StaticResource DialogCardStyle}"
-                Padding="18">
+        <!-- ===== Header окна: ← → ⭐ + название + меню + тулбар ===== -->
+        <Border Grid.Row="0"
+                Background="#FFFFFF"
+                BorderBrush="#E1E8F4"
+                BorderThickness="0,0,0,1"
+                Padding="14,8,14,8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <WrapPanel Margin="0,0,0,14">
-                    <Border Style="{StaticResource SummaryCardStyle}">
-                        <StackPanel>
-                            <TextBlock Text="Мы должны" Style="{StaticResource SectionHintStyle}" />
-                            <TextBlock x:Name="CustomerDebtText" Margin="0,7,0,0" FontSize="20" FontWeight="SemiBold" Foreground="#17213A" />
-                        </StackPanel>
-                    </Border>
-                    <Border Style="{StaticResource SummaryCardStyle}">
-                        <StackPanel>
-                            <TextBlock Text="Продажи" Style="{StaticResource SectionHintStyle}" />
-                            <TextBlock x:Name="CustomerSalesText" Margin="0,7,0,0" FontSize="20" FontWeight="SemiBold" Foreground="#17213A" />
-                        </StackPanel>
-                    </Border>
-                    <Border Style="{StaticResource SummaryCardStyle}">
-                        <StackPanel>
-                            <TextBlock Text="Последняя продажа" Style="{StaticResource SectionHintStyle}" />
-                            <TextBlock x:Name="CustomerLastSaleText" Margin="0,7,0,0" FontSize="20" FontWeight="SemiBold" Foreground="#17213A" />
-                        </StackPanel>
-                    </Border>
-                </WrapPanel>
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <TabControl Grid.Row="1">
-                    <TabItem Header="Основное">
-                        <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled">
-                            <Grid Margin="0,16,0,0">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource OneCWindowHeaderIconButtonStyle}" Content="&#xE76B;" ToolTip="Назад" />
+                        <Button Style="{StaticResource OneCWindowHeaderIconButtonStyle}" Content="&#xE76C;" ToolTip="Вперёд" Margin="2,0,8,0" />
+                        <Button Style="{StaticResource OneCWindowHeaderIconButtonStyle}" Content="&#xE734;" ToolTip="В избранное" Foreground="#E0BE16" />
+                        <TextBlock x:Name="HeaderTitleText" Style="{StaticResource OneCWindowTitleTextStyle}" Margin="6,0,0,0" Text="Новый клиент" />
+                        <TextBlock x:Name="HeaderSubtitleText" Style="{StaticResource OneCWindowSubtitleTextStyle}" Text=" (Контрагент: Покупатель)" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource OneCWindowHeaderIconButtonStyle}" Content="&#xE71B;" ToolTip="Скопировать ссылку" />
+                        <Button Style="{StaticResource OneCWindowHeaderIconButtonStyle}" Content="&#xE712;" ToolTip="Меню" Margin="4,0,0,0" />
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="1" Style="{StaticResource OneCWindowToolbarBorderStyle}">
+                    <WrapPanel>
+                        <Button Content="Save and close" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Background="#FFCC00" BorderBrush="#E5B900" Foreground="#1B2440" Margin="0,0,4,0" Click="HandleSaveClick" ToolTip="Сохранить и закрыть" />
+                        <Button Content="Save" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,8,0" Click="HandleSaveClick" ToolTip="Сохранить (сейчас работает как Save and close)" />
+                        <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,2,0" ToolTip="Создать на основании">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8A5;" FontSize="12" />
+                        </Button>
+                        <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,2,0" ToolTip="Действия">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" FontSize="13" />
+                        </Button>
+                        <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0" ToolTip="Печать">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
+                        </Button>
+                        <Button Content="Заполнить по ИНН или наименованию" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" ToolTip="Загрузить реквизиты по ИНН (в разработке)" />
+                        <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0" ToolTip="Открыть файл реквизитов (в разработке)">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8E5;" FontSize="13" />
+                        </Button>
+                        <Button Content="Проверка контрагента" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" ToolTip="Валидация ИНН (в разработке)" />
+                        <Button Content="1СПАРК Риски ▾" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,10,0" ToolTip="Интеграция СПАРК (в разработке)" />
+                        <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Настройки">
+                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" FontSize="13" />
+                        </Button>
+                        <Button Content="More actions" Style="{StaticResource OneCToolbarButtonStyle}" />
+                    </WrapPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ===== Статус-строка: Должен нам / Продажи на / Последняя продажа / Последнее событие ===== -->
+        <Border Grid.Row="1" Style="{StaticResource OneCStatusStripBorderStyle}">
+            <WrapPanel>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Должен нам " Style="{StaticResource OneCStatusLabelStyle}" />
+                    <TextBlock x:Name="CustomerDebtText" Style="{StaticResource OneCStatusValueTextStyle}" Text="—" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource OneCStatusStripSeparatorStyle}" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Продажи на " Style="{StaticResource OneCStatusLabelStyle}" />
+                    <TextBlock x:Name="CustomerSalesText" Style="{StaticResource OneCStatusValueTextStyle}" Text="—" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource OneCStatusStripSeparatorStyle}" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Последняя продажа " Style="{StaticResource OneCStatusLabelStyle}" />
+                    <TextBlock x:Name="CustomerLastSaleText" Style="{StaticResource OneCStatusValueTextStyle}" Text="—" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource OneCStatusStripSeparatorStyle}" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Последнее событие " Style="{StaticResource OneCStatusLabelStyle}" />
+                    <TextBlock Text="&lt;нет&gt;" Style="{StaticResource OneCStatusValueTextStyle}" />
+                </StackPanel>
+            </WrapPanel>
+        </Border>
+
+        <!-- ===== Контент: горизонтальные табы + содержимое ===== -->
+        <Border Grid.Row="2" Background="#FFFFFF" Padding="20,12,20,14">
+            <TabControl Background="Transparent" BorderThickness="0" Padding="0">
+                <TabControl.Resources>
+                    <Style TargetType="TabItem" BasedOn="{StaticResource OneCNavTabItemStyle}" />
+                </TabControl.Resources>
+                    <TabItem Header="Main">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <Grid Margin="0,14,0,0">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.08*" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="1*" />
+                                    <ColumnDefinition Width="1.15*" MinWidth="520" />
+                                    <ColumnDefinition Width="36" />
+                                    <ColumnDefinition Width="*" MinWidth="360" />
                                 </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
 
-                                <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource DialogCardStyle}" Padding="16" Margin="0,0,0,16">
-                                    <StackPanel>
-                                        <TextBlock Text="О контрагенте" Style="{StaticResource SectionTitleStyle}" />
-                                        <TextBlock Text="Тип и роли влияют на набор реквизитов и отчетность." Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
+                                <!-- ===== ЛЕВАЯ КОЛОНКА: О контрагенте / Адреса, телефоны / Контакты ===== -->
+                                <StackPanel Grid.Column="0">
 
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="14" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-
-                                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
-                                                <TextBlock Text="Внутренний код" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="CodeTextBox"
-                                                         Style="{StaticResource InputStyle}"
-                                                         IsReadOnly="True"
-                                                         ToolTip="Служебный код карточки контрагента." />
-                                            </StackPanel>
-                                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
-                                                <TextBlock Text="Тип контрагента" Style="{StaticResource FieldLabelStyle}" />
-                                                <ComboBox x:Name="CounterpartyTypeComboBox" Style="{StaticResource InputStyle}" SelectionChanged="HandleCounterpartyTypeChanged" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,12">
-                                                <TextBlock Text="Название" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="NameTextBox" Style="{StaticResource InputStyle}" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                                                <TextBlock Text="Роли" Style="{StaticResource FieldLabelStyle}" />
-                                                <WrapPanel Margin="0,4,0,0">
-                                                    <CheckBox x:Name="BuyerCheckBox" Content="Покупатель" Margin="0,0,16,8" />
-                                                    <CheckBox x:Name="SupplierCheckBox" Content="Поставщик" Margin="0,0,16,8" />
-                                                    <CheckBox x:Name="OtherRoleCheckBox" Content="Прочие" Margin="0,0,16,8" />
-                                                </WrapPanel>
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,4,0,0">
-                                                <TextBlock Text="Статус" Style="{StaticResource FieldLabelStyle}" />
-                                                <ComboBox x:Name="StatusComboBox" Style="{StaticResource InputStyle}" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Row="3" Grid.Column="2" Margin="0,4,0,0">
-                                                <TextBlock Text="Валюта" Style="{StaticResource FieldLabelStyle}" />
-                                                <ComboBox x:Name="CurrencyComboBox" Style="{StaticResource InputStyle}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource DialogCardStyle}" Padding="16" Margin="0,0,0,16">
-                                    <StackPanel>
-                                        <TextBlock Text="Классификация" Style="{StaticResource SectionTitleStyle}" />
-                                        <TextBlock Text="Регион и город работают как будущая структура папок покупателей." Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
-
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="14" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-
-                                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
-                                                <TextBlock Text="Регион / республика / край" Style="{StaticResource FieldLabelStyle}" />
-                                                <ComboBox x:Name="RegionComboBox" Style="{StaticResource InputStyle}" IsEditable="True" SelectionChanged="HandleRegionChanged" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
-                                                <TextBlock Text="Город" Style="{StaticResource FieldLabelStyle}" />
-                                                <ComboBox x:Name="CityComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,12">
-                                                <TextBlock Text="Источник" Style="{StaticResource FieldLabelStyle}" />
-                                                <ComboBox x:Name="SourceComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,12">
-                                                <TextBlock Text="Ответственный" Style="{StaticResource FieldLabelStyle}" />
-                                                <ComboBox x:Name="ResponsibleComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                                                <TextBlock Text="Теги" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="TagsTextBox" Style="{StaticResource InputStyle}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource DialogCardStyle}" Padding="16" Margin="0,0,0,16">
-                                    <StackPanel>
-                                        <TextBlock x:Name="LegalDetailsTitleText" Text="Юридические данные" Style="{StaticResource SectionTitleStyle}" />
-                                        <TextBlock Text="Набор полей меняется от типа контрагента." Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
-
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="14" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-
-                                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,12">
-                                                <TextBlock Text="ИНН" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="InnTextBox" Style="{StaticResource InputStyle}" />
-                                            </StackPanel>
-                                            <StackPanel x:Name="KppPanel" Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
-                                                <TextBlock Text="КПП" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="KppTextBox" Style="{StaticResource InputStyle}" />
-                                            </StackPanel>
-
-                                            <StackPanel x:Name="OgrnPanel" Grid.Row="1" Grid.Column="0" Margin="0,0,0,12">
-                                                <TextBlock x:Name="OgrnLabelText" Text="ОГРН" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="OgrnTextBox" Style="{StaticResource InputStyle}" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,12">
-                                                <TextBlock Text="Договор" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="ContractTextBox" Style="{StaticResource InputStyle}" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
-                                                <TextBlock Text="Юр. адрес" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="LegalAddressTextBox" Style="{StaticResource InputStyle}" Margin="0,0,0,10" />
-                                                <TextBlock Text="Факт. адрес" Style="{StaticResource FieldLabelStyle}" />
-                                                <TextBox x:Name="ActualAddressTextBox" Style="{StaticResource InputStyle}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource DialogCardStyle}" Padding="16" Margin="0,0,0,16">
-                                    <Grid>
+                                    <!-- О контрагенте -->
+                                    <TextBlock Text="О контрагенте" Style="{StaticResource OneCSectionHeaderStyle}" />
+                                    <Grid Margin="0,0,0,22">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
-                                        <Grid Margin="0,0,0,12">
-                                            <StackPanel>
-                                                <TextBlock Text="Контакты" Style="{StaticResource SectionTitleStyle}" />
-                                                <TextBlock Text="Можно вести несколько телефонов, e-mail и контактных лиц." Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" />
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                <Button Content="+ контакт" Style="{StaticResource DialogSecondaryButtonStyle}" Width="108" Margin="0,0,8,0" Click="HandleAddContactClick" />
-                                                <Button Content="Удалить" Style="{StaticResource DialogSecondaryButtonStyle}" Width="98" Click="HandleRemoveContactClick" />
+
+                                        <!-- Тип контрагента + чекбоксы ролей -->
+                                        <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="220" />
+                                                <ColumnDefinition Width="16" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox x:Name="CounterpartyTypeComboBox"
+                                                      Grid.Column="0"
+                                                      Style="{StaticResource OneCFlatComboBoxStyle}"
+                                                      SelectionChanged="HandleCounterpartyTypeChanged" />
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <CheckBox x:Name="BuyerCheckBox" Content="Покупатель" Style="{StaticResource OneCRoleCheckBoxStyle}" />
+                                                <CheckBox x:Name="SupplierCheckBox" Content="Поставщик" Style="{StaticResource OneCRoleCheckBoxStyle}" />
+                                                <CheckBox x:Name="OtherRoleCheckBox" Content="Прочие" Style="{StaticResource OneCRoleCheckBoxStyle}" />
                                             </StackPanel>
                                         </Grid>
 
-                                        <DataGrid x:Name="ContactsGrid"
-                                                  Grid.Row="1"
-                                                  MinHeight="220"
-                                                  IsReadOnly="False"
-                                                  CanUserAddRows="False"
-                                                  ScrollViewer.VerticalScrollBarVisibility="Hidden">
-                                            <DataGrid.Columns>
-                                                <DataGridTextColumn Header="Имя" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="1.2*" />
-                                                <DataGridTextColumn Header="Роль" Binding="{Binding Role, UpdateSourceTrigger=PropertyChanged}" Width="1*" />
-                                                <DataGridTextColumn Header="Телефон" Binding="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" Width="1*" />
-                                                <DataGridTextColumn Header="E-mail" Binding="{Binding Email, UpdateSourceTrigger=PropertyChanged}" Width="1.2*" />
-                                            </DataGrid.Columns>
-                                        </DataGrid>
-                                    </Grid>
-                                </Border>
+                                        <!-- Имя -->
+                                        <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="NameTextBox"
+                                                     Grid.Column="0"
+                                                     Style="{StaticResource OneCFlatInputBoxStyle}"
+                                                     Height="34"
+                                                     FontSize="14"
+                                                     Padding="10,0"
+                                                     VerticalContentAlignment="Center" />
+                                            <Button Grid.Column="1"
+                                                    Style="{StaticResource OneCInlineIconButtonStyle}"
+                                                    Height="34"
+                                                    Width="30"
+                                                    Margin="-1,0,0,0"
+                                                    ToolTip="История изменений (в разработке)">
+                                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE823;" FontSize="13" />
+                                            </Button>
+                                        </Grid>
 
-                                <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Style="{StaticResource DialogCardStyle}" Padding="16">
+                                        <!-- В программе -->
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="В программе:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" />
+                                        <Grid Grid.Row="2" Grid.Column="1" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0"
+                                                     Style="{StaticResource OneCFlatInputBoxStyle}"
+                                                     IsReadOnly="True"
+                                                     Background="#FAFBFD"
+                                                     Text="{Binding ElementName=NameTextBox, Path=Text, Mode=OneWay}"
+                                                     ToolTip="Отображаемое имя контрагента в программе" />
+                                            <Button Grid.Column="1" Style="{StaticResource OneCEllipsisButtonStyle}" Content="..." ToolTip="Изменить (в разработке)" />
+                                        </Grid>
+
+                                        <!-- Юр. данные: -->
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Юр. данные:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,2,8,8" />
+                                        <Button x:Name="LegalDataLinkButton"
+                                                Grid.Row="3" Grid.Column="1"
+                                                Content="&lt;ИНН&gt; / &lt;Документ&gt;"
+                                                Style="{StaticResource OneCLinkButtonStyle}"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,2,0,8"
+                                                Click="HandleToggleLegalDataClick" />
+
+                                        <!-- Юр.данные expander -->
+                                        <Border x:Name="LegalDataExpander"
+                                                Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                                                Visibility="Collapsed"
+                                                Background="#FAFBFD"
+                                                BorderBrush="#E1E8F4"
+                                                BorderThickness="1"
+                                                CornerRadius="6"
+                                                Padding="12"
+                                                Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <TextBlock x:Name="LegalDetailsTitleText"
+                                                           Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                                                           Text="Юридические данные"
+                                                           Foreground="{StaticResource OneCSectionGreen}"
+                                                           FontWeight="SemiBold"
+                                                           FontSize="12.5"
+                                                           Margin="0,0,0,8" />
+
+                                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,8">
+                                                    <TextBlock Text="ИНН" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,0,0,4" />
+                                                    <TextBox x:Name="InnTextBox" Style="{StaticResource OneCFlatInputBoxStyle}" />
+                                                </StackPanel>
+                                                <StackPanel x:Name="KppPanel" Grid.Row="1" Grid.Column="2" Margin="0,0,0,8">
+                                                    <TextBlock Text="КПП" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,0,0,4" />
+                                                    <TextBox x:Name="KppTextBox" Style="{StaticResource OneCFlatInputBoxStyle}" />
+                                                </StackPanel>
+
+                                                <StackPanel x:Name="OgrnPanel" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3">
+                                                    <TextBlock x:Name="OgrnLabelText" Text="ОГРН" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,0,0,4" />
+                                                    <TextBox x:Name="OgrnTextBox" Style="{StaticResource OneCFlatInputBoxStyle}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Банк. счет: -->
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Банк. счет:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,2,8,8" />
+                                        <Button x:Name="BankAccountLinkButton"
+                                                Grid.Row="5" Grid.Column="1"
+                                                Content="&lt;не указан&gt;"
+                                                Style="{StaticResource OneCLinkButtonStyle}"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,2,0,8"
+                                                Click="HandleToggleBankAccountClick" />
+
+                                        <!-- Банк.счет expander -->
+                                        <Border x:Name="BankAccountExpander"
+                                                Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+                                                Visibility="Collapsed"
+                                                Background="#FAFBFD"
+                                                BorderBrush="#E1E8F4"
+                                                BorderThickness="1"
+                                                CornerRadius="6"
+                                                Padding="12">
+                                            <StackPanel>
+                                                <TextBlock Text="Номер расчётного счёта" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,0,0,4" />
+                                                <TextBox x:Name="BankAccountTextBox" Style="{StaticResource OneCFlatInputBoxStyle}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Адреса, телефоны -->
+                                    <TextBlock Text="Адреса, телефоны" Style="{StaticResource OneCSectionHeaderStyle}" />
+                                    <Grid Margin="0,0,0,22">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Телефон -->
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Телефон:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" />
+                                        <Grid Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="1.4*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="1.6*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="PhoneTextBox" Grid.Column="0" Style="{StaticResource OneCFlatInputBoxStyle}" />
+                                            <Button Grid.Column="1" Style="{StaticResource OneCEllipsisButtonStyle}" Content="..." ToolTip="Выбрать тип номера" />
+                                            <TextBox Grid.Column="3" Style="{StaticResource OneCFlatInputBoxStyle}" Foreground="{StaticResource OneCFieldPlaceholder}" Text="Примечание" />
+                                            <Button Grid.Column="4" Style="{StaticResource OneCInlineIconButtonStyle}" Margin="-1,0,0,0" ToolTip="Действия">
+                                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" FontSize="11" />
+                                            </Button>
+                                        </Grid>
+
+                                        <!-- E-mail -->
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="E-mail:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" />
+                                        <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="1.4*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="1.6*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="EmailTextBox" Grid.Column="0" Style="{StaticResource OneCFlatInputBoxStyle}" />
+                                            <Button Grid.Column="1" Style="{StaticResource OneCEllipsisButtonStyle}" Content="..." ToolTip="Выбрать тип e-mail" />
+                                            <TextBox Grid.Column="3" Style="{StaticResource OneCFlatInputBoxStyle}" Foreground="{StaticResource OneCFieldPlaceholder}" Text="Примечание" />
+                                            <Button Grid.Column="4" Style="{StaticResource OneCInlineIconButtonStyle}" Margin="-1,0,0,0" ToolTip="Отправить">
+                                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE715;" FontSize="11" />
+                                            </Button>
+                                        </Grid>
+
+                                        <!-- Юр. адрес -->
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Юр. адрес:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" />
+                                        <Grid Grid.Row="2" Grid.Column="1" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="LegalAddressTextBox" Grid.Column="0" Style="{StaticResource OneCFlatInputBoxStyle}" />
+                                            <Button Grid.Column="1" Style="{StaticResource OneCEllipsisButtonStyle}" Content="..." ToolTip="Выбрать адрес из справочника" />
+                                            <Button Grid.Column="2" Style="{StaticResource OneCInlineIconButtonStyle}" Margin="-1,0,0,0" ToolTip="Действия">
+                                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" FontSize="11" />
+                                            </Button>
+                                        </Grid>
+
+                                        <!-- Факт. адрес -->
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Факт. адрес:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" />
+                                        <Grid Grid.Row="3" Grid.Column="1" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="ActualAddressTextBox" Grid.Column="0" Style="{StaticResource OneCFlatInputBoxStyle}" />
+                                            <Button Grid.Column="1" Style="{StaticResource OneCEllipsisButtonStyle}" Content="..." ToolTip="Выбрать адрес из справочника" />
+                                            <Button Grid.Column="2" Style="{StaticResource OneCInlineIconButtonStyle}" Margin="-1,0,0,0" ToolTip="Действия">
+                                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" FontSize="11" />
+                                            </Button>
+                                        </Grid>
+
+                                        <!-- + Телефон, адрес -->
+                                        <Button Grid.Row="4" Grid.Column="1"
+                                                Content="+ Телефон, адрес"
+                                                Style="{StaticResource OneCLinkButtonStyle}"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,4,30,0"
+                                                ToolTip="Добавить ещё одно поле (в разработке)" />
+                                    </Grid>
+
+                                    <!-- Контакты -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Контакты" Style="{StaticResource OneCSectionHeaderStyle}" Margin="0" />
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <Button Content="+ контакт" Style="{StaticResource OneCLinkButtonStyle}" Margin="0,0,16,0" Click="HandleAddContactClick" />
+                                            <Button Content="Удалить" Style="{StaticResource OneCLinkButtonStyle}" Click="HandleRemoveContactClick" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock x:Name="NoContactsHintText"
+                                               Text="Пока нет связанных контактов"
+                                               FontSize="12.5"
+                                               Foreground="{StaticResource OneCFieldPlaceholder}"
+                                               Margin="0,0,0,8" />
+                                    <DataGrid x:Name="ContactsGrid"
+                                              Style="{x:Null}"
+                                              Background="#FFFFFF"
+                                              BorderBrush="{StaticResource OneCInputBorder}"
+                                              BorderThickness="1"
+                                              MinHeight="0"
+                                              MaxHeight="220"
+                                              IsReadOnly="False"
+                                              CanUserAddRows="False"
+                                              CanUserDeleteRows="False"
+                                              HeadersVisibility="Column"
+                                              GridLinesVisibility="None"
+                                              RowHeight="26"
+                                              ColumnHeaderHeight="28"
+                                              FontSize="12.5"
+                                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Имя" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="1.2*" />
+                                            <DataGridTextColumn Header="Роль" Binding="{Binding Role, UpdateSourceTrigger=PropertyChanged}" Width="1*" />
+                                            <DataGridTextColumn Header="Телефон" Binding="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" Width="1*" />
+                                            <DataGridTextColumn Header="E-mail" Binding="{Binding Email, UpdateSourceTrigger=PropertyChanged}" Width="1.2*" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </StackPanel>
+
+                                <!-- ===== ПРАВАЯ КОЛОНКА: Классификация / Детали ===== -->
+                                <StackPanel Grid.Column="2">
+
+                                    <!-- Классификация -->
+                                    <TextBlock Text="Классификация" Style="{StaticResource OneCSectionHeaderStyle}" />
+                                    <Grid Margin="0,0,0,22">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="В группе:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" />
+                                        <ComboBox x:Name="RegionComboBox"
+                                                  Grid.Row="0" Grid.Column="1"
+                                                  Style="{StaticResource OneCFlatComboBoxStyle}"
+                                                  IsEditable="True"
+                                                  Margin="0,0,0,8"
+                                                  SelectionChanged="HandleRegionChanged" />
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="# Теги:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,0" />
+                                        <Grid Grid.Row="1" Grid.Column="1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="TagsTextBox"
+                                                     Grid.Column="0"
+                                                     Style="{StaticResource OneCFlatInputBoxStyle}"
+                                                     ToolTip="Прикрепить тег (25 символов)" />
+                                            <Button Grid.Column="1" Style="{StaticResource OneCEllipsisButtonStyle}" Content="..." ToolTip="Выбрать тег из справочника" />
+                                        </Grid>
+                                    </Grid>
+
+                                    <!-- Детали -->
+                                    <TextBlock Text="Детали" Style="{StaticResource OneCSectionHeaderStyle}" />
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="1*" />
-                                            <ColumnDefinition Width="16" />
-                                            <ColumnDefinition Width="1*" />
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
 
-                                        <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Основные контакты" Style="{StaticResource SectionTitleStyle}" />
-                                            <TextBlock Text="Эти поля остаются для быстрых списков и старой совместимости." Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
-                                            <TextBlock Text="Телефон" Style="{StaticResource FieldLabelStyle}" />
-                                            <TextBox x:Name="PhoneTextBox" Style="{StaticResource InputStyle}" Margin="0,0,0,10" />
-                                            <TextBlock Text="E-mail" Style="{StaticResource FieldLabelStyle}" />
-                                            <TextBox x:Name="EmailTextBox" Style="{StaticResource InputStyle}" />
-                                        </StackPanel>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Источник:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" />
+                                        <ComboBox x:Name="SourceComboBox"
+                                                  Grid.Row="0" Grid.Column="1"
+                                                  Style="{StaticResource OneCFlatComboBoxStyle}"
+                                                  IsEditable="True"
+                                                  Margin="0,0,0,8"
+                                                  ToolTip="Источник привлечения покупателя" />
 
-                                        <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Заметка о клиенте" Style="{StaticResource SectionTitleStyle}" />
-                                            <TextBlock Text="Источник, теги и заметка помогают быстро понять историю отношений." Margin="0,4,0,14" Style="{StaticResource SectionHintStyle}" />
-                                            <TextBox x:Name="NotesTextBox"
-                                                     Style="{StaticResource DialogMultilineTextBoxStyle}"
-                                                     Height="126"
-                                                     VerticalScrollBarVisibility="Hidden" />
-                                        </StackPanel>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Заметки:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" VerticalAlignment="Top" />
+                                        <TextBox x:Name="NotesTextBox"
+                                                 Grid.Row="1" Grid.Column="1"
+                                                 Style="{StaticResource OneCFlatMultilineBoxStyle}"
+                                                 Margin="0,0,0,8"
+                                                 ToolTip="Любая дополнительная информация" />
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ответственный:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" />
+                                        <ComboBox x:Name="ResponsibleComboBox"
+                                                  Grid.Row="2" Grid.Column="1"
+                                                  Style="{StaticResource OneCFlatComboBoxStyle}"
+                                                  IsEditable="True"
+                                                  Margin="0,0,0,8" />
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Статья:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" />
+                                        <ComboBox Grid.Row="3" Grid.Column="1"
+                                                  Style="{StaticResource OneCFlatComboBoxStyle}"
+                                                  IsEditable="False"
+                                                  Margin="0,0,0,8"
+                                                  ToolTip="Статья доходов/расходов (в разработке)">
+                                            <ComboBoxItem Content="Оплата от покупателей" IsSelected="True" />
+                                        </ComboBox>
+
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Взаиморасчеты:" Style="{StaticResource OneCFieldLabelInlineStyle}" Margin="0,4,8,8" />
+                                        <Button Grid.Row="4" Grid.Column="1"
+                                                Content="включена вся аналитика"
+                                                Style="{StaticResource OneCLinkButtonStyle}"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,4,0,8"
+                                                ToolTip="Настройки аналитики взаиморасчётов (в разработке)" />
+
+                                        <Button Grid.Row="5" Grid.Column="1"
+                                                Content="+ Свой реквизит"
+                                                Style="{StaticResource OneCLinkButtonStyle}"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,4,0,0"
+                                                ToolTip="Добавить пользовательский реквизит (в разработке)" />
                                     </Grid>
-                                </Border>
+                                </StackPanel>
+
+                                <!-- Скрытые поля для совместимости c code-behind (Status/Currency/Contract/City/Code) -->
+                                <StackPanel Grid.Column="0" Visibility="Collapsed">
+                                    <TextBox x:Name="CodeTextBox" IsReadOnly="True" />
+                                    <ComboBox x:Name="StatusComboBox" />
+                                    <ComboBox x:Name="CurrencyComboBox" />
+                                    <ComboBox x:Name="CityComboBox" IsEditable="True" />
+                                    <TextBox x:Name="ContractTextBox" />
+                                </StackPanel>
                             </Grid>
                         </ScrollViewer>
                     </TabItem>
 
                     <TabItem Header="Документы">
-                        <Grid Margin="0,16,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <TextBlock x:Name="DocumentsSummaryText" Style="{StaticResource SectionHintStyle}" Margin="4,0,0,12" />
-                            <DataGrid x:Name="DocumentsGrid" Grid.Row="1" IsReadOnly="True" MinHeight="360">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Раздел" Binding="{Binding Section}" Width="1*" />
-                                    <DataGridTextColumn Header="Документ" Binding="{Binding Number}" Width="1.1*" />
-                                    <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="0.8*" />
-                                    <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="1*" />
-                                    <DataGridTextColumn Header="Сумма" Binding="{Binding Amount}" Width="1*" />
-                                </DataGrid.Columns>
-                            </DataGrid>
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="24" />
+                                <ColumnDefinition Width="220" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Левая часть: title + фильтры + тулбар + таблица -->
+                            <Grid Grid.Column="0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Документы по контрагенту" Style="{StaticResource OneCSectionHeaderStyle}" />
+
+                                <!-- Фильтры-чекбоксы -->
+                                <WrapPanel Grid.Row="1" Margin="0,0,0,10">
+                                    <CheckBox x:Name="DocFilterOrdersInvoicesCheckBox" Content="Заказы и счета" Style="{StaticResource OneCFilterCheckBoxStyle}" Margin="0,0,18,0" Checked="HandleDocFilterChanged" Unchecked="HandleDocFilterChanged" />
+                                    <CheckBox x:Name="DocFilterShipmentsCheckBox" Content="Накладные" Style="{StaticResource OneCFilterCheckBoxStyle}" Margin="0,0,18,0" Checked="HandleDocFilterChanged" Unchecked="HandleDocFilterChanged" />
+                                    <CheckBox x:Name="DocFilterCashCheckBox" Content="Оплаты" Style="{StaticResource OneCFilterCheckBoxStyle}" Margin="0,0,18,0" Checked="HandleDocFilterChanged" Unchecked="HandleDocFilterChanged" />
+                                    <CheckBox x:Name="DocFilterEventsCheckBox" Content="События" Style="{StaticResource OneCFilterCheckBoxStyle}" Margin="0,0,18,0" Checked="HandleDocFilterChanged" Unchecked="HandleDocFilterChanged" />
+                                    <CheckBox x:Name="DocFilterOtherCheckBox" Content="Другие виды" Style="{StaticResource OneCFilterCheckBoxStyle}" Margin="0,0,18,0" Checked="HandleDocFilterChanged" Unchecked="HandleDocFilterChanged" />
+                                    <Button Content="Состав документов" Style="{StaticResource OneCToolbarButtonStyle}" IsEnabled="False" Margin="6,0,0,0" ToolTip="Настройка состава (в разработке)" />
+                                </WrapPanel>
+
+                                <!-- 1С-тулбар -->
+                                <Border Grid.Row="2" Style="{StaticResource OneCWindowToolbarBorderStyle}" Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <WrapPanel Grid.Column="0">
+                                            <Button Content="Создать" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Margin="0,0,6,0" ToolTip="Создать документ (в разработке)" />
+                                            <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,2,0" ToolTip="Быстро добавить">
+                                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
+                                            </Button>
+                                            <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0" ToolTip="Обновить">
+                                                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE72C;" FontSize="12" />
+                                            </Button>
+                                            <Button Content="Продать ▾" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" ToolTip="Создать продажу (в разработке)" />
+                                            <Button Content="Купить ▾" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" ToolTip="Создать закупку (в разработке)" />
+                                            <Button Content="События ▾" Style="{StaticResource OneCToolbarButtonStyle}" ToolTip="Журнал событий (в разработке)" />
+                                        </WrapPanel>
+
+                                        <Border Grid.Column="2"
+                                                Width="280"
+                                                Height="26"
+                                                Background="#FFFFFF"
+                                                BorderBrush="#D7DEEC"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Margin="10,0,6,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="28" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox x:Name="DocSearchBox" Grid.Column="0" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" Padding="10,0" FontSize="12.5" TextChanged="HandleDocSearchChanged" />
+                                                <TextBlock x:Name="DocSearchPlaceholder" Grid.Column="0" Text="Search (Ctrl+F)" IsHitTestVisible="False" Foreground="#9AA4BC" VerticalAlignment="Center" Margin="12,0" FontSize="12.5" />
+                                                <TextBlock Grid.Column="1" FontFamily="Segoe Fluent Icons" Text="&#xE721;" Foreground="#9AA4BC" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="12" />
+                                            </Grid>
+                                        </Border>
+
+                                        <Button Grid.Column="3" Style="{StaticResource OneCToolbarIconButtonStyle}" ToolTip="More actions">
+                                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" FontSize="13" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
+
+                                <TextBlock x:Name="DocumentsSummaryText"
+                                           Grid.Row="3"
+                                           Margin="2,0,0,8"
+                                           FontSize="12"
+                                           Foreground="#7280A0" />
+
+                                <Border Grid.Row="4"
+                                        Background="#FFFFFF"
+                                        BorderBrush="#D7DEEC"
+                                        BorderThickness="1"
+                                        CornerRadius="6">
+                                    <DataGrid x:Name="DocumentsGrid"
+                                              Style="{x:Null}"
+                                              Background="#FFFFFF"
+                                              BorderThickness="0"
+                                              AutoGenerateColumns="False"
+                                              CanUserAddRows="False"
+                                              CanUserDeleteRows="False"
+                                              CanUserResizeRows="False"
+                                              CanUserResizeColumns="True"
+                                              HeadersVisibility="Column"
+                                              GridLinesVisibility="None"
+                                              RowHeight="26"
+                                              ColumnHeaderHeight="28"
+                                              SelectionMode="Single"
+                                              SelectionUnit="FullRow"
+                                              IsReadOnly="True"
+                                              RowHeaderWidth="0"
+                                              FontSize="12.5"
+                                              AlternationCount="2"
+                                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                                        <DataGrid.ColumnHeaderStyle>
+                                            <Style TargetType="DataGridColumnHeader">
+                                                <Setter Property="Background" Value="#F0F4F9" />
+                                                <Setter Property="BorderBrush" Value="#D7DEEC" />
+                                                <Setter Property="BorderThickness" Value="0,0,1,1" />
+                                                <Setter Property="Foreground" Value="#3A4868" />
+                                                <Setter Property="FontSize" Value="12" />
+                                                <Setter Property="Padding" Value="8,0" />
+                                                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                                            </Style>
+                                        </DataGrid.ColumnHeaderStyle>
+                                        <DataGrid.RowStyle>
+                                            <Style TargetType="DataGridRow">
+                                                <Setter Property="Background" Value="#FFFFFF" />
+                                                <Setter Property="BorderBrush" Value="#EEF2FA" />
+                                                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                                <Setter Property="Foreground" Value="#17213A" />
+                                                <Style.Triggers>
+                                                    <Trigger Property="AlternationIndex" Value="1">
+                                                        <Setter Property="Background" Value="#FAFBFF" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#EEF2FF" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="#DBE3FF" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGrid.RowStyle>
+                                        <DataGrid.CellStyle>
+                                            <Style TargetType="DataGridCell">
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Setter Property="Padding" Value="8,0" />
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="DataGridCell">
+                                                            <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                                <ContentPresenter VerticalAlignment="Center" />
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="Foreground" Value="#17213A" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGrid.CellStyle>
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Width="28" IsReadOnly="True">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="{Binding KindIcon}" Foreground="{Binding KindIconBrush}" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="Номер" Binding="{Binding Number}" Width="120" />
+                                            <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="100" />
+                                            <DataGridTextColumn Header="Документ" Binding="{Binding Section}" Width="220" />
+                                            <DataGridTextColumn Header="Сумма" Binding="{Binding Amount}" Width="120" />
+                                            <DataGridTextColumn Header="Операция" Binding="{Binding Operation}" Width="*" />
+                                            <DataGridTextColumn Header="Организация" Binding="{Binding Organization}" Width="110" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
+                            </Grid>
+
+                            <!-- Правый сайдбар: Период / Организация / Договор -->
+                            <StackPanel Grid.Column="2" Margin="0,32,0,0">
+                                <Button Content="Период: за все время"
+                                        Style="{StaticResource OneCLinkButtonStyle}"
+                                        FontWeight="SemiBold"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,0,0,16"
+                                        ToolTip="Изменить период (в разработке)" />
+                                <ComboBox x:Name="DocOrgFilterComboBox"
+                                          Style="{StaticResource OneCFlatComboBoxStyle}"
+                                          IsEditable="True"
+                                          Margin="0,0,0,10"
+                                          ToolTip="Организация">
+                                    <ComboBox.Text>Организация</ComboBox.Text>
+                                </ComboBox>
+                                <ComboBox x:Name="DocContractFilterComboBox"
+                                          Style="{StaticResource OneCFlatComboBoxStyle}"
+                                          IsEditable="True"
+                                          ToolTip="Договор">
+                                    <ComboBox.Text>Договор</ComboBox.Text>
+                                </ComboBox>
+                            </StackPanel>
                         </Grid>
                     </TabItem>
 
@@ -482,7 +1165,7 @@
                                     <StackPanel Grid.Column="1">
                                         <TextBlock Text="Расчётный счёт" Style="{StaticResource SectionHintStyle}" />
                                         <TextBlock x:Name="BankAccountFormattedText" Margin="0,4,0,10" Style="{StaticResource MonoAccountStyle}" />
-                                        <TextBlock Text="Используется в платёжных документах. Редактирование — в поле ниже." Style="{StaticResource SectionHintStyle}" />
+                                        <TextBlock Text="Используется в платёжных документах. Редактирование — на вкладке «Main» → «Банк. счёт»." Style="{StaticResource SectionHintStyle}" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -493,12 +1176,9 @@
                                         <TextBlock Text="&#xE8C7;" Style="{StaticResource TableEmptyIconTextStyle}" />
                                     </Border>
                                     <TextBlock Text="Счёт не указан" Style="{StaticResource TableEmptyTitleStyle}" />
-                                    <TextBlock Text="Введите номер расчётного счёта в поле ниже — он появится отформатированным." Style="{StaticResource TableEmptyHintStyle}" />
+                                    <TextBlock Text="Откройте вкладку «Main» и кликните «Банк. счёт» — введите номер расчётного счёта там." Style="{StaticResource TableEmptyHintStyle}" />
                                 </StackPanel>
                             </Border>
-
-                            <TextBlock Text="Номер счёта" Style="{StaticResource FieldLabelStyle}" />
-                            <TextBox x:Name="BankAccountTextBox" Style="{StaticResource InputStyle}" MaxWidth="640" HorizontalAlignment="Left" />
                         </StackPanel>
                     </TabItem>
 
@@ -738,24 +1418,19 @@
                         </Grid>
                     </TabItem>
                 </TabControl>
-            </Grid>
         </Border>
 
-        <Grid Grid.Row="2" Margin="0,18,0,0">
-            <TextBlock x:Name="ValidationText"
-                       Foreground="#D92D20"
-                       VerticalAlignment="Center" />
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Отмена"
-                        Style="{StaticResource DialogSecondaryButtonStyle}"
-                        Width="120"
-                        Margin="0,0,10,0"
-                        Click="HandleCancelClick" />
-                <Button Content="Сохранить"
-                        Style="{StaticResource DialogPrimaryButtonStyle}"
-                        Width="150"
-                        Click="HandleSaveClick" />
-            </StackPanel>
-        </Grid>
+        <Border Grid.Row="3" Background="#FFFFFF" BorderBrush="#E1E8F4" BorderThickness="0,1,0,0" Padding="20,10">
+            <Grid>
+                <TextBlock x:Name="ValidationText"
+                           Foreground="#D92D20"
+                           VerticalAlignment="Center"
+                           FontSize="12.5" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <CheckBox x:Name="InactiveCheckBox" Content="Недействителен" Style="{StaticResource OneCInactiveCheckBoxStyle}" />
+                    <TextBlock Text="?" Margin="6,0,0,0" Foreground="#7280A0" FontSize="12.5" ToolTip="Контрагент помечается как недействительный — не будет показываться при выборе" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
