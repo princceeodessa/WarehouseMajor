@@ -724,30 +724,36 @@ public sealed partial class DesktopMySqlBackplaneService
     {
         var lineLookup = new Dictionary<Guid, List<SalesOrderLineRecord>>();
         using var command = CreateMySqlCommand(connection, null, """
+            -- Release 1.0.139: было IN (SELECT ... LIMIT 2000) — это вылетает
+            -- на MySQL до 8.0.14 c "This version of MySQL doesn't yet support
+            -- 'LIMIT & IN/ALL/ANY/SOME subquery'". JOIN на derived table эквивалентен
+            -- семантически и работает на всех версиях MySQL 5.7+. Это и было
+            -- главной причиной 10-секундного таймаута Sales workspace на старте
+            -- (см. desktop-mysql-backplane-error.log в production).
             SELECT
-                document_id,
-                line_id,
-                item_code,
-                item_name,
-                unit_name,
-                quantity,
-                price,
-                discount_auto_percent,
-                discount_auto_amount,
-                discount_manual_percent,
-                discount_manual_amount,
-                vat_percent,
-                vat_amount
-            FROM app_sales_document_lines
+                l.document_id,
+                l.line_id,
+                l.item_code,
+                l.item_name,
+                l.unit_name,
+                l.quantity,
+                l.price,
+                l.discount_auto_percent,
+                l.discount_auto_amount,
+                l.discount_manual_percent,
+                l.discount_manual_amount,
+                l.vat_percent,
+                l.vat_amount
+            FROM app_sales_document_lines l
             -- Release 1.0.132: только строки документов которые мы загрузили
             -- (2000 самых свежих, см. LoadSnapshotDocumentsAsync LIMIT). Линии
             -- "осиротевших" документов не нужны и не отображаются.
-            WHERE document_id IN (
+            JOIN (
                 SELECT id FROM app_sales_documents
                 ORDER BY document_date DESC, number DESC
                 LIMIT 2000
-            )
-            ORDER BY document_id, line_no;
+            ) recent ON recent.id = l.document_id
+            ORDER BY l.document_id, l.line_no;
             """);
         using var reader = command.ExecuteReader();
         while (reader.Read())
