@@ -135,6 +135,31 @@ public sealed class CatalogWorkspaceStore
 
         if (_serverModeEnabled)
         {
+            // Release 1.0.137 ETag-кэш: сначала запрашиваем только метаданные
+            // (1 row, ~80 байт) и сравниваем PayloadHash с локальным дисковым
+            // кэшем. Если совпало — Catalog уже не менялся, тяжёлый snapshot
+            // SELECT с 6.2k items + 99k price_registration_lines + lookups
+            // пропускается. На холодном старте после перезапуска приложения
+            // даёт +5..15 сек экономии открытия Товаров. Файл-кэш живёт в
+            // app_data/catalog-snapshot-cache.json; перетирается при apply
+            // нового snapshot из Backplane.
+            var serverMetadata = TryGetBackplane()?.TryLoadCatalogWorkspaceSnapshotMetadata();
+            if (serverMetadata is not null
+                && TryLoadCachedSnapshot() is { } cachedRecord
+                && !string.IsNullOrWhiteSpace(cachedRecord.Metadata.PayloadHash)
+                && string.Equals(cachedRecord.Metadata.PayloadHash, serverMetadata.PayloadHash, StringComparison.Ordinal))
+            {
+                _remoteMetadata = serverMetadata;
+                _hasPendingLocalSync = false;
+                NormalizeSnapshot(cachedRecord.Snapshot);
+                workspace.ReplaceFrom(cachedRecord.Snapshot.ToWorkspace(currentOperator, salesWorkspace.Currencies, salesWorkspace.Warehouses));
+                var loadedFromCache = CatalogWorkspaceSnapshot.FromWorkspace(workspace);
+                NormalizeSnapshot(loadedFromCache);
+                ReconcileSnapshot(loadedFromCache, new CatalogWorkspaceSeed());
+                _lastSavedSnapshotHash = ComputeSnapshotHash(loadedFromCache);
+                return workspace;
+            }
+
             var backplaneRecord = TryGetBackplane()?.TryLoadCatalogWorkspaceSnapshotRecord();
             if (backplaneRecord is not null)
             {
@@ -157,6 +182,10 @@ public sealed class CatalogWorkspaceStore
                 NormalizeSnapshot(loadedSnapshot);
                 ReconcileSnapshot(loadedSnapshot, new CatalogWorkspaceSeed());
                 _lastSavedSnapshotHash = ComputeSnapshotHash(loadedSnapshot);
+
+                // Release 1.0.137: сохраняем свежий snapshot + PayloadHash в файл-кэш.
+                // Следующий запуск приложения сразу пойдёт по ETag-пути выше.
+                TrySaveSnapshotCache(backplaneSnapshot, backplaneRecord.Metadata);
             }
             return workspace;
         }
@@ -451,6 +480,73 @@ public sealed class CatalogWorkspaceStore
         var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
     }
+
+    // Release 1.0.137: файл-кэш snapshot + PayloadHash для ETag-пути загрузки.
+    // Лежит рядом со StoragePath (app_data/catalog-snapshot-cache.json), при
+    // удалении файла просто перейдём на обычный полный SELECT — данные не теряются.
+    private string GetSnapshotCachePath()
+    {
+        var directory = Path.GetDirectoryName(StoragePath);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            directory = Path.GetTempPath();
+        }
+
+        return Path.Combine(directory, "catalog-snapshot-cache.json");
+    }
+
+    private CachedCatalogSnapshot? TryLoadCachedSnapshot()
+    {
+        try
+        {
+            var path = GetSnapshotCachePath();
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            var json = File.ReadAllText(path, Encoding.UTF8);
+            return JsonSerializer.Deserialize<CachedCatalogSnapshot>(json, SerializerOptions);
+        }
+        catch
+        {
+            // Битый кэш — игнорируем и идём на полный SELECT, который перезапишет файл.
+            return null;
+        }
+    }
+
+    private void TrySaveSnapshotCache(CatalogWorkspaceSnapshot snapshot, DesktopModuleSnapshotMetadata metadata)
+    {
+        try
+        {
+            var path = GetSnapshotCachePath();
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var payload = new CachedCatalogSnapshot(snapshot, metadata);
+            // Атомарная запись через временный файл — чтобы не оставить полу-битый JSON
+            // если процесс упадёт в момент сериализации 6.2k items + 99k price lines.
+            var tempPath = path + ".tmp";
+            File.WriteAllText(tempPath, JsonSerializer.Serialize(payload, SerializerOptions), Encoding.UTF8);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            File.Move(tempPath, path);
+        }
+        catch
+        {
+            // Best-effort. Если кэш не сохранился — следующий старт просто пойдёт
+            // обычным путём, без ETag-fast-path.
+        }
+    }
+
+    private sealed record CachedCatalogSnapshot(
+        CatalogWorkspaceSnapshot Snapshot,
+        DesktopModuleSnapshotMetadata Metadata);
 
     private void WriteSnapshot(CatalogWorkspaceSnapshot snapshot)
     {

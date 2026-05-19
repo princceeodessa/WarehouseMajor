@@ -46,6 +46,16 @@ public partial class App : System.Windows.Application
                 return;
             }
 
+            // Release 1.0.137: пока юзер вводит логин/пароль, фоном дёргаем
+            // 2 SELECT 1 — это материализует ровно MinimumPoolSize=2 физических
+            // соединений в пуле MySqlConnector (TCP+TLS+auth). К моменту, когда
+            // юзер нажимает «Войти», эти соединения уже прогреты — первые
+            // запросы Catalog/Purchasing/Warehouse не платят за handshake.
+            // Если соединение не удалось — это OK, ValidateInfrastructure
+            // выше уже подтвердил доступность, повторный fail в фоне просто
+            // оставит пул пустым и всё пойдёт «как раньше».
+            _ = Task.Run(WarmupMySqlPool);
+
             var loginWindow = new LoginWindow();
             var loginResult = loginWindow.ShowDialog();
             if (loginResult != true || loginWindow.StartupStatus is null)
@@ -100,6 +110,29 @@ public partial class App : System.Windows.Application
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown(-1);
+        }
+    }
+
+    private static void WarmupMySqlPool()
+    {
+        try
+        {
+            var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
+            if (backplane is null)
+            {
+                return;
+            }
+
+            // Параллельно открываем 2 соединения = MinimumPoolSize.
+            // ExecutePing — самый дешёвый и безопасный round-trip.
+            Parallel.For(0, 2, _ =>
+            {
+                try { backplane.PingBackplane(); } catch { /* fallback to lazy pool fill */ }
+            });
+        }
+        catch
+        {
+            // Прогрев — best-effort. Нет повода падать в startup.
         }
     }
 
