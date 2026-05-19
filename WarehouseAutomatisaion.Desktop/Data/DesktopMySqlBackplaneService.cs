@@ -1774,6 +1774,25 @@ public sealed partial class DesktopMySqlBackplaneService
                 AND COLUMN_NAME = 'is_inactive');
         SET @warehouse_ddl = IF(@warehouse_column_missing, 'ALTER TABLE app_catalog_items ADD COLUMN is_inactive TINYINT(1) NOT NULL DEFAULT 0', 'DO 0');
         PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        -- Release 1.0.136: индексы для горячих SELECT'ов закупочного контура.
+        -- LoadPurchasingDocuments фильтрует по document_kind и сортирует
+        -- ORDER BY document_date DESC, number DESC LIMIT 2000 — без индекса
+        -- идёт full scan + filesort. С индексом 5×+ быстрее при ~2.4k+ строк
+        -- по kind. LoadLines делает WHERE document_kind=? — тоже нужен индекс.
+        SET @warehouse_index_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_purchasing_documents'
+                AND INDEX_NAME = 'ix_purchasing_docs_kind_date');
+        SET @warehouse_ddl = IF(@warehouse_index_missing, 'CREATE INDEX ix_purchasing_docs_kind_date ON app_purchasing_documents (document_kind, document_date DESC, number DESC)', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        SET @warehouse_index_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_purchasing_document_lines'
+                AND INDEX_NAME = 'ix_purchasing_lines_kind_doc');
+        SET @warehouse_ddl = IF(@warehouse_index_missing, 'CREATE INDEX ix_purchasing_lines_kind_doc ON app_purchasing_document_lines (document_kind, document_id)', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
         """;
 }
 
