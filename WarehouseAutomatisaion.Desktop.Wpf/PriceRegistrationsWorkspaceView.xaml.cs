@@ -211,9 +211,6 @@ public partial class PriceRegistrationsWorkspaceView : UserControl
         }
     }
 
-    private void HandleFilterPopupToggle(object sender, RoutedEventArgs e) => FilterPopup.IsOpen = !FilterPopup.IsOpen;
-    private void HandleFilterPopupClose(object sender, RoutedEventArgs e) => FilterPopup.IsOpen = false;
-
     private void HandlePrintClick(object sender, RoutedEventArgs e) => ShowInfo("Печать", "Печать документа установки цен в разработке.");
     private void HandleStructureClick(object sender, RoutedEventArgs e) => ShowInfo("Структура подчинённости", "Связанные документы доступны внутри карточки.");
     private void HandleMoreClick(object sender, RoutedEventArgs e) => ShowInfo("Дополнительные действия", "Дополнительные действия появятся позже.");

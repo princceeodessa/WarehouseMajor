@@ -205,9 +205,9 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Background="{StaticResource PageBrush}" Margin="28,24,28,28">
+    <Grid Background="{StaticResource PageBrush}" Margin="16,8,16,12">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="0" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -217,14 +217,13 @@
                 <RowDefinition Height="*" MinHeight="360" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid Grid.Row="0" Margin="0,0,0,8" Visibility="Collapsed">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- 1С УНФ-стиль: маленький заголовок с ⭐, без подзаголовка и больших бейджей. -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="FavoriteToggleButton"
                             Background="Transparent"
@@ -246,7 +245,6 @@
                                VerticalAlignment="Center" />
                 </StackPanel>
 
-                <!-- Компактный inline-статус справа от заголовка. Видим только когда есть что показать. -->
                 <Border x:Name="CatalogSyncStatusBadge"
                         Grid.Column="1"
                         Visibility="Collapsed"

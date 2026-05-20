@@ -413,36 +413,78 @@ public partial class SalesCustomerEditorWindow : Window
             : $"Файлов в карточке: {_files.Count:N0}.";
     }
 
+    private void HandleContractsGridDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        var contract = Ui(ContractTextBox.Text);
+        if (string.IsNullOrWhiteSpace(contract))
+        {
+            return;
+        }
+
+        var counterpartyName = Ui(NameTextBox.Text);
+        var counterpartyKind = BuyerCheckBox.IsChecked == true
+            ? "Покупатель"
+            : SupplierCheckBox.IsChecked == true
+                ? "Поставщик"
+                : "Прочие";
+
+        var editor = new ContractEditorWindow(counterpartyName, counterpartyKind, contract)
+        {
+            Owner = this,
+        };
+        editor.ShowDialog();
+    }
+
     private void RenderContractTab()
     {
         var contract = ContractTextBox.Text?.Trim() ?? string.Empty;
+        var customerName = Ui(NameTextBox.Text);
+        ContractsSubtitleText.Text = string.IsNullOrEmpty(customerName) ? "Договоры с" : $"Договоры с \"{customerName}\"";
+
         if (string.IsNullOrWhiteSpace(contract))
         {
-            ContractFilledPanel.Visibility = Visibility.Collapsed;
-            ContractEmptyPanel.Visibility = Visibility.Visible;
+            ContractsGrid.ItemsSource = System.Array.Empty<object>();
+            return;
         }
-        else
+
+        ContractsGrid.ItemsSource = new[]
         {
-            ContractValueText.Text = Ui(contract);
-            ContractFilledPanel.Visibility = Visibility.Visible;
-            ContractEmptyPanel.Visibility = Visibility.Collapsed;
-        }
+            new
+            {
+                Name = Ui(contract),
+                Organization = "ИП",
+                Debt = string.Empty,
+                Kind = "С покупателем",
+                Status = "Действует",
+                Comment = string.Empty,
+            },
+        };
     }
 
     private void RenderBankAccountTab()
     {
         var account = BankAccountTextBox.Text?.Trim() ?? string.Empty;
+        var customerName = Ui(NameTextBox.Text);
+        BankAccountsSubtitleText.Text = string.IsNullOrEmpty(customerName) ? "Банковские счета" : $"Банковские счета \"{customerName}\"";
+
         if (string.IsNullOrWhiteSpace(account))
         {
-            BankAccountFilledPanel.Visibility = Visibility.Collapsed;
-            BankAccountEmptyPanel.Visibility = Visibility.Visible;
+            BankAccountsGrid.ItemsSource = System.Array.Empty<object>();
+            return;
         }
-        else
+
+        BankAccountsGrid.ItemsSource = new[]
         {
-            BankAccountFormattedText.Text = FormatAccountNumber(account);
-            BankAccountFilledPanel.Visibility = Visibility.Visible;
-            BankAccountEmptyPanel.Visibility = Visibility.Collapsed;
-        }
+            new
+            {
+                Display = FormatAccountNumber(account),
+                AccountKind = "Расчётный",
+                Bank = string.Empty,
+                AccountNumber = FormatAccountNumber(account),
+                OpenedAt = string.Empty,
+                ClosedAt = string.Empty,
+            },
+        };
     }
 
     private static string FormatAccountNumber(string raw)

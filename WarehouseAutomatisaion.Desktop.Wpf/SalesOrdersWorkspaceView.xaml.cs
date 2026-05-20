@@ -231,9 +231,6 @@ public partial class SalesOrdersWorkspaceView : UserControl
         return item;
     }
 
-    private void HandleFilterPopupToggle(object sender, RoutedEventArgs e) => FilterPopup.IsOpen = !FilterPopup.IsOpen;
-    private void HandleFilterPopupClose(object sender, RoutedEventArgs e) => FilterPopup.IsOpen = false;
-
     private void HandlePrintClick(object sender, RoutedEventArgs e)
     {
         if (OrdersGrid.SelectedItem is OrderRowViewModel row)

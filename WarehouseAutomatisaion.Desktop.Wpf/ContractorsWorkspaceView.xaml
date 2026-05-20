@@ -88,47 +88,16 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="28,18,28,18">
+    <Grid Margin="16,8,16,12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MinHeight="320" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Header: ⭐ + breadcrumbs + close -->
-        <Grid Grid.Row="0" Margin="0,0,0,14">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock FontFamily="Segoe Fluent Icons"
-                           Text="&#xE735;"
-                           Foreground="#4F5BFF"
-                           FontSize="18"
-                           VerticalAlignment="Center"
-                           Margin="0,0,12,0" />
-                <TextBlock x:Name="HeaderTitleText"
-                           Text="Контрагенты: Покупатели"
-                           FontSize="22"
-                           FontWeight="SemiBold"
-                           Foreground="#17213A"
-                           VerticalAlignment="Center" />
-            </StackPanel>
-            <TextBlock x:Name="HeaderSubtitleText"
-                       Grid.Column="1"
-                       Margin="14,0,0,0"
-                       Text="База клиентов, поставщиков и прочих контрагентов."
-                       FontSize="12.5"
-                       Foreground="#7280A0"
-                       VerticalAlignment="Center" />
-        </Grid>
-
-        <!-- Type filters + search -->
-        <Grid Grid.Row="1" Margin="0,0,0,10">
+        <!-- Type filters + search (1С: сразу под глобальным nav toolbar, без своего header) -->
+        <Grid Grid.Row="0" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -158,7 +127,7 @@
         </Grid>
 
         <!-- 1С-style toolbar -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="1"
                 Background="{StaticResource OneCToolbarBg}"
                 BorderBrush="{StaticResource OneCToolbarBorder}"
                 BorderThickness="1"
@@ -173,62 +142,9 @@
                 <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Действия с выделенным" Click="HandleRowActionsClick">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" FontSize="13" />
                 </Button>
-                <Button x:Name="FilterToggleButton"
-                        Style="{StaticResource OneCToolbarIconButtonStyle}"
-                        Margin="0,0,4,0"
-                        ToolTip="Фильтры (Тег, Сегмент, Источник, Контакт, Ответственный, Иерархия)"
-                        Click="HandleFilterPopupToggle">
+                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Фильтр">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE71C;" FontSize="13" />
                 </Button>
-                <Popup x:Name="FilterPopup"
-                       PlacementTarget="{Binding ElementName=FilterToggleButton}"
-                       Placement="Bottom"
-                       VerticalOffset="6"
-                       StaysOpen="False"
-                       AllowsTransparency="True">
-                    <Border Width="320"
-                            Background="#FFFFFF"
-                            BorderBrush="#D7DEEC"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Padding="16">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="16" ShadowDepth="2" Direction="270" Opacity="0.12" Color="#1B2440" />
-                        </Border.Effect>
-                        <StackPanel>
-                            <Grid Margin="0,0,0,12">
-                                <TextBlock Text="Период: за все время" Foreground="#4F5BFF" FontSize="13" FontWeight="SemiBold" />
-                                <Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Cursor="Hand" Width="22" Height="22" Padding="0" Click="HandleFilterPopupClose">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE894;" FontSize="11" Foreground="#9AA4BC" />
-                                </Button>
-                            </Grid>
-                            <TextBlock Text="Тег" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
-                            <Border Height="30" Background="#F7F9FD" BorderBrush="#E1E8F4" BorderThickness="1" CornerRadius="6" Margin="0,0,0,10">
-                                <TextBlock x:Name="TagText" VerticalAlignment="Center" Padding="10,0" Foreground="#9AA4BC" FontSize="12" Text="—" />
-                            </Border>
-                            <TextBlock Text="Сегмент" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
-                            <Border Height="30" Background="#F7F9FD" BorderBrush="#E1E8F4" BorderThickness="1" CornerRadius="6" Margin="0,0,0,10">
-                                <TextBlock x:Name="SegmentText" VerticalAlignment="Center" Padding="10,0" Foreground="#9AA4BC" FontSize="12" Text="—" />
-                            </Border>
-                            <TextBlock Text="Источник привлечения" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
-                            <Border Height="30" Background="#F7F9FD" BorderBrush="#E1E8F4" BorderThickness="1" CornerRadius="6" Margin="0,0,0,10">
-                                <TextBlock x:Name="SourceText" VerticalAlignment="Center" Padding="10,0" Foreground="#9AA4BC" FontSize="12" Text="—" />
-                            </Border>
-                            <TextBlock Text="Контакт" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
-                            <Border Height="30" Background="#F7F9FD" BorderBrush="#E1E8F4" BorderThickness="1" CornerRadius="6" Margin="0,0,0,10">
-                                <TextBlock x:Name="ContactText" VerticalAlignment="Center" Padding="10,0" Foreground="#9AA4BC" FontSize="12" Text="—" />
-                            </Border>
-                            <TextBlock Text="Ответственный" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
-                            <Border Height="30" Background="#F7F9FD" BorderBrush="#E1E8F4" BorderThickness="1" CornerRadius="6" Margin="0,0,0,12">
-                                <TextBlock x:Name="ResponsibleText" VerticalAlignment="Center" Padding="10,0" Foreground="#9AA4BC" FontSize="12" Text="—" />
-                            </Border>
-                            <TextBlock Text="+ фильтры" Foreground="#4F5BFF" FontSize="12" Margin="0,0,0,14" Cursor="Hand" />
-                            <Border Height="1" Background="#EEF2FA" Margin="0,0,0,12" />
-                            <TextBlock Text="▸ Иерархия (группы)" Foreground="#4F5BFF" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6" />
-                            <TextBlock Text="Сегментация по группам появится позже." Foreground="#9AA4BC" FontSize="11.5" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-                </Popup>
                 <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0" ToolTip="Печать">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
                 </Button>
@@ -243,9 +159,14 @@
             </WrapPanel>
         </Border>
 
-        <!-- Main content: full-width grid -->
-        <Grid Grid.Row="3">
-            <Border Background="#FFFFFF" BorderBrush="#E7ECF7" BorderThickness="1" CornerRadius="12" Padding="0">
+        <!-- Main content: grid + right panel (1С) -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="280" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#E7ECF7" BorderThickness="1" CornerRadius="0" Padding="0" Margin="0,0,12,0">
                 <DataGrid x:Name="ContractorsGrid"
                           Style="{StaticResource ContractorsGridStyle}"
                           ColumnHeaderStyle="{StaticResource ContractorsHeaderStyle}"
@@ -269,14 +190,14 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Основной контакт" Width="260" IsReadOnly="True" SortMemberPath="MainContact">
+                        <DataGridTemplateColumn Header="Основной контакт" Width="220" IsReadOnly="True" SortMemberPath="MainContact">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding MainContact}" VerticalAlignment="Center" Foreground="#5F6F95" TextTrimming="CharacterEllipsis" ToolTip="{Binding MainContact}" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="Долг" Binding="{Binding DebtDisplay}" Width="110" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Долг (+ нам, - мы)" Binding="{Binding DebtDisplay}" Width="140" IsReadOnly="True" />
                         <DataGridTextColumn Header="ЭДО" Binding="{Binding EdoStatus}" Width="100" IsReadOnly="True" />
                         <DataGridTemplateColumn Width="36" IsReadOnly="True">
                             <DataGridTemplateColumn.CellTemplate>
@@ -290,46 +211,113 @@
                     </DataGrid.Columns>
                 </DataGrid>
             </Border>
+
+            <!-- Right side panel (1С): Период, Тег, Сегмент, Источник, Контакт, Ответственный, +фильтры, Иерархия, Контактная информация -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <TextBlock Text="Период: за все время" Foreground="#4F5BFF" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10" Cursor="Hand" />
+
+                    <TextBlock Text="Тег" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <Border Height="28" Background="#FFFFFF" BorderBrush="#D7DEEC" BorderThickness="1" CornerRadius="3" Margin="0,0,0,8">
+                        <Grid>
+                            <TextBlock x:Name="TagText" VerticalAlignment="Center" Padding="8,0" Foreground="#1B2440" FontSize="12" Text="" />
+                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="10" Foreground="#9AA4BC" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="Сегмент" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <Border Height="28" Background="#FFFFFF" BorderBrush="#D7DEEC" BorderThickness="1" CornerRadius="3" Margin="0,0,0,8">
+                        <Grid>
+                            <TextBlock x:Name="SegmentText" VerticalAlignment="Center" Padding="8,0" Foreground="#1B2440" FontSize="12" Text="" />
+                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="10" Foreground="#9AA4BC" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="Источник привлечения" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <Border Height="28" Background="#FFFFFF" BorderBrush="#D7DEEC" BorderThickness="1" CornerRadius="3" Margin="0,0,0,8">
+                        <Grid>
+                            <TextBlock x:Name="SourceText" VerticalAlignment="Center" Padding="8,0" Foreground="#1B2440" FontSize="12" Text="" />
+                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="10" Foreground="#9AA4BC" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="Контакт" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <Border Height="28" Background="#FFFFFF" BorderBrush="#D7DEEC" BorderThickness="1" CornerRadius="3" Margin="0,0,0,8">
+                        <Grid>
+                            <TextBlock x:Name="ContactText" VerticalAlignment="Center" Padding="8,0" Foreground="#1B2440" FontSize="12" Text="" />
+                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="10" Foreground="#9AA4BC" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="Ответственный" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <Border Height="28" Background="#FFFFFF" BorderBrush="#D7DEEC" BorderThickness="1" CornerRadius="3" Margin="0,0,0,10">
+                        <Grid>
+                            <TextBlock x:Name="ResponsibleText" VerticalAlignment="Center" Padding="8,0" Foreground="#1B2440" FontSize="12" Text="" />
+                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="10" Foreground="#9AA4BC" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="+ фильтры" Foreground="#4F5BFF" FontSize="12" Margin="0,0,0,14" Cursor="Hand" HorizontalAlignment="Right" />
+
+                    <TextBlock Margin="0,0,0,4">
+                        <Run Text="▸ " Foreground="#1FA45F" FontSize="13" />
+                        <Run Text="Иерархия (группы)" Foreground="#1FA45F" FontSize="13" />
+                    </TextBlock>
+
+                    <TextBlock x:Name="SelectedContactHeader"
+                               Text="Контактная информация"
+                               Foreground="#1FA45F"
+                               FontSize="13"
+                               Margin="0,14,0,6"
+                               Visibility="Collapsed" />
+                    <Border x:Name="SelectedContactInfo"
+                            Background="#FFF8C7"
+                            BorderBrush="#F0E2A3"
+                            BorderThickness="1"
+                            CornerRadius="2"
+                            Padding="8,5"
+                            Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock x:Name="DetailPhoneText" Text="—" Foreground="#1B2440" FontSize="12" />
+                                <TextBlock x:Name="DetailEmailText" Text="" Foreground="#5F6F95" FontSize="11.5" Margin="0,2,0,0" />
+                                <TextBlock x:Name="DetailAddressText" Text="" Foreground="#5F6F95" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" FontFamily="Segoe Fluent Icons" Text="&#xE700;" FontSize="11" Foreground="#9AA4BC" VerticalAlignment="Top" />
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
 
-        <!-- Footer: count + pagination + selected contact info -->
-        <Grid Grid.Row="4" Margin="0,12,0,0">
+        <!-- Footer: count + pagination (1С) -->
+        <Grid Grid.Row="3" Margin="0,6,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock x:Name="ContractorsCountText" Text="Всего: 0" Foreground="#5F6F95" FontSize="12" VerticalAlignment="Center" Margin="0,0,14,0" />
-                <Border x:Name="SelectedContactInfo"
-                        Background="#EEF2FF"
-                        BorderBrush="#C8D1FF"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="10,4"
-                        Visibility="Collapsed">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8EA;" FontSize="11" Foreground="#4F5BFF" VerticalAlignment="Center" />
-                        <TextBlock x:Name="DetailPhoneText" Text="—" Foreground="#1B2440" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="6,0,0,0" />
-                        <TextBlock x:Name="DetailEmailText" Text="" Foreground="#5F6F95" FontSize="11.5" VerticalAlignment="Center" Margin="10,0,0,0" />
-                        <TextBlock x:Name="DetailAddressText" Text="" Foreground="#5F6F95" FontSize="11.5" VerticalAlignment="Center" Margin="10,0,0,0" />
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="28" Height="28" Margin="0,0,4,0" ToolTip="К началу">
+            <TextBlock x:Name="ContractorsCountText" Grid.Column="0" Text="Всего: 0" Foreground="#5F6F95" FontSize="12" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,18,0">
+                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="26" Height="24" Margin="0,0,2,0" ToolTip="К началу">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE892;" FontSize="11" />
                 </Button>
-                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="28" Height="28" Margin="0,0,4,0" ToolTip="Предыдущая">
-                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76B;" FontSize="11" />
+                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="26" Height="24" Margin="0,0,2,0" ToolTip="Предыдущая">
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70E;" FontSize="11" />
                 </Button>
-                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="28" Height="28" Margin="0,0,4,0" ToolTip="Следующая">
-                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76C;" FontSize="11" />
+                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="26" Height="24" Margin="0,0,2,0" ToolTip="Следующая">
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="11" />
                 </Button>
-                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="28" Height="28" ToolTip="В конец">
+                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="26" Height="24" ToolTip="В конец">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE893;" FontSize="11" />
                 </Button>
             </StackPanel>
+            <TextBlock Grid.Column="3" Text="свернуть" Foreground="#4F5BFF" FontSize="12" VerticalAlignment="Center" Cursor="Hand" />
         </Grid>
     </Grid>
 </UserControl>
