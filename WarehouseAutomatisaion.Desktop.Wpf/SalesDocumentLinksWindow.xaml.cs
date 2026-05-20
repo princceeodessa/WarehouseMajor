@@ -257,13 +257,17 @@ public partial class SalesDocumentLinksWindow : Window
             ? $"{sourceCaption}: основание не найдено."
             : $"{sourceCaption}: цепочка по заказу {orderNumber}.";
 
+        // Старые summary cards — для обратной совместимости (hidden в UI, но поля заполняем).
         OrderSummaryValueText.Text = order is null
             ? (string.IsNullOrWhiteSpace(orderNumber) ? "Не найден" : orderNumber)
             : Clean(order.Number);
         OrderSummaryHintText.Text = order is null ? "Заказ-основание не найден" : Clean(order.Status);
 
-        var customerName = Clean(order?.CustomerName)
-            ?? Clean(_salesWorkspace.Customers.FirstOrDefault(item => item.Id == customerId)?.Name);
+        var customerName = Clean(order?.CustomerName);
+        if (string.IsNullOrWhiteSpace(customerName))
+        {
+            customerName = Clean(_salesWorkspace.Customers.FirstOrDefault(item => item.Id == customerId)?.Name);
+        }
         if (string.IsNullOrWhiteSpace(customerName))
         {
             customerName = rows.Select(item => Clean(item.CustomerName)).FirstOrDefault(item => !string.IsNullOrWhiteSpace(item)) ?? "Не указан";
@@ -289,6 +293,34 @@ public partial class SalesDocumentLinksWindow : Window
         CashSummaryHintText.Text = cashRows.Length == 0
             ? "Поступлений не найдено"
             : $"Поступлений: {cashRows.Length:N0}";
+
+        // ===== 1С-style sidebar: контактная инфо клиента + аналитика основного документа. =====
+        var customer = _salesWorkspace.Customers.FirstOrDefault(item => item.Id == customerId);
+        CustomerFilterText.Text = string.IsNullOrWhiteSpace(customerName) ? "Контрагент" : customerName;
+        ContactPhoneText.Text = string.IsNullOrWhiteSpace(Clean(customer?.Phone)) ? "—" : Clean(customer!.Phone);
+        ContactLegalAddressText.Text = string.IsNullOrWhiteSpace(Clean(customer?.LegalAddress)) ? "—" : Clean(customer!.LegalAddress);
+        ContactActualAddressText.Text = string.IsNullOrWhiteSpace(Clean(customer?.ActualAddress)) ? "—" : Clean(customer!.ActualAddress);
+        ContactExtraAddressText.Text = string.IsNullOrWhiteSpace(Clean(customer?.City)) ? string.Empty : Clean(customer!.City);
+
+        var primaryRow = rows.FirstOrDefault();
+        var customerResponsible = Clean(customer?.Responsible);
+        AnalyticsAuthorText.Text = string.IsNullOrWhiteSpace(Clean(primaryRow?.Author)) ? "—" : Clean(primaryRow!.Author);
+        AnalyticsResponsibleText.Text = string.IsNullOrWhiteSpace(customerResponsible)
+            ? (string.IsNullOrWhiteSpace(Clean(primaryRow?.Responsible)) ? "—" : Clean(primaryRow!.Responsible))
+            : customerResponsible;
+        AnalyticsStatusText.Text = string.IsNullOrWhiteSpace(Clean(primaryRow?.Status)) ? "—" : Clean(primaryRow!.Status);
+        AnalyticsOperationText.Text = string.IsNullOrWhiteSpace(Clean(primaryRow?.Operation)) ? "—" : Clean(primaryRow!.Operation);
+        var primaryComment = Clean(primaryRow?.Comment);
+        if (string.IsNullOrWhiteSpace(primaryComment))
+        {
+            AnalyticsCommentText.Text = "<не заполнено>";
+            AnalyticsCommentText.Foreground = new SolidColorBrush(Color.FromRgb(0x9A, 0xA4, 0xBC));
+        }
+        else
+        {
+            AnalyticsCommentText.Text = primaryComment;
+            AnalyticsCommentText.Foreground = new SolidColorBrush(Color.FromRgb(0x17, 0x21, 0x3A));
+        }
     }
 
     private void HandleCopyClick(object sender, RoutedEventArgs e)
@@ -395,17 +427,21 @@ public partial class SalesDocumentLinksWindow : Window
         {
             Id = order.Id,
             Category = "order",
-            Kind = "Заказ",
+            Kind = "Заказ покупателя",
             Number = Clean(order.Number),
             DateValue = order.OrderDate,
             DateText = FormatDate(order.OrderDate),
             CustomerName = Clean(order.CustomerName),
+            Organization = Clean(order.Organization),
             Amount = order.TotalAmount,
             CurrencyCode = Clean(order.CurrencyCode),
             AmountText = FormatMoney(order.TotalAmount, order.CurrencyCode),
             Status = Clean(order.Status),
             Relation = relation,
             Comment = Clean(order.Comment),
+            Author = Clean(order.Manager),
+            Responsible = Clean(order.Manager),
+            Operation = "Заказ на продажу",
             SortOrder = 10
         };
     }
@@ -416,17 +452,21 @@ public partial class SalesDocumentLinksWindow : Window
         {
             Id = invoice.Id,
             Category = "invoice",
-            Kind = "Счет",
+            Kind = "Счет на оплату",
             Number = Clean(invoice.Number),
             DateValue = invoice.InvoiceDate,
             DateText = FormatDate(invoice.InvoiceDate),
             CustomerName = Clean(invoice.CustomerName),
+            Organization = Clean(invoice.Organization),
             Amount = invoice.TotalAmount,
             CurrencyCode = Clean(invoice.CurrencyCode),
             AmountText = FormatMoney(invoice.TotalAmount, invoice.CurrencyCode),
             Status = Clean(invoice.Status),
             Relation = relation,
             Comment = Clean(invoice.Comment),
+            Author = Clean(invoice.Manager),
+            Responsible = Clean(invoice.Manager),
+            Operation = "Счет на оплату",
             SortOrder = 20
         };
     }
@@ -437,17 +477,21 @@ public partial class SalesDocumentLinksWindow : Window
         {
             Id = shipment.Id,
             Category = "shipment",
-            Kind = "Отгрузка",
+            Kind = "Расходная накладная",
             Number = Clean(shipment.Number),
             DateValue = shipment.ShipmentDate,
             DateText = FormatDate(shipment.ShipmentDate),
             CustomerName = Clean(shipment.CustomerName),
+            Organization = string.Empty,
             Amount = shipment.TotalAmount,
             CurrencyCode = Clean(shipment.CurrencyCode),
             AmountText = FormatMoney(shipment.TotalAmount, shipment.CurrencyCode),
             Status = Clean(shipment.Status),
             Relation = relation,
             Comment = Clean(shipment.Comment),
+            Author = Clean(shipment.Manager),
+            Responsible = Clean(shipment.Manager),
+            Operation = "Расходная накладная",
             SortOrder = 30
         };
     }
@@ -458,17 +502,21 @@ public partial class SalesDocumentLinksWindow : Window
         {
             Id = returnDocument.Id,
             Category = "return",
-            Kind = "Возврат",
+            Kind = "Возврат покупателя",
             Number = Clean(returnDocument.Number),
             DateValue = returnDocument.ReturnDate,
             DateText = FormatDate(returnDocument.ReturnDate),
             CustomerName = Clean(returnDocument.CustomerName),
+            Organization = string.Empty,
             Amount = returnDocument.TotalAmount,
             CurrencyCode = Clean(returnDocument.CurrencyCode),
             AmountText = FormatMoney(returnDocument.TotalAmount, returnDocument.CurrencyCode),
             Status = Clean(returnDocument.Status),
             Relation = "Возврат по заказу",
             Comment = string.IsNullOrWhiteSpace(Clean(returnDocument.Comment)) ? Clean(returnDocument.Reason) : Clean(returnDocument.Comment),
+            Author = Clean(returnDocument.Manager),
+            Responsible = Clean(returnDocument.Manager),
+            Operation = "Возврат покупателя",
             SortOrder = 40
         };
     }
@@ -484,12 +532,16 @@ public partial class SalesDocumentLinksWindow : Window
             DateValue = receipt.ReceiptDate,
             DateText = FormatDate(receipt.ReceiptDate),
             CustomerName = Clean(receipt.CustomerName),
+            Organization = string.Empty,
             Amount = receipt.Amount,
             CurrencyCode = Clean(receipt.CurrencyCode),
             AmountText = FormatMoney(receipt.Amount, receipt.CurrencyCode),
             Status = Clean(receipt.Status),
             Relation = "Оплата по заказу",
             Comment = Clean(receipt.CashBox),
+            Author = Clean(receipt.Manager),
+            Responsible = Clean(receipt.Manager),
+            Operation = "Поступление в кассу",
             SortOrder = 50
         };
     }
@@ -628,6 +680,8 @@ public partial class SalesDocumentLinksWindow : Window
 
         public string CustomerName { get; init; } = string.Empty;
 
+        public string Organization { get; init; } = string.Empty;
+
         public decimal Amount { get; init; }
 
         public string CurrencyCode { get; init; } = string.Empty;
@@ -639,6 +693,12 @@ public partial class SalesDocumentLinksWindow : Window
         public string Relation { get; init; } = string.Empty;
 
         public string Comment { get; init; } = string.Empty;
+
+        public string Author { get; init; } = string.Empty;
+
+        public string Responsible { get; init; } = string.Empty;
+
+        public string Operation { get; init; } = string.Empty;
 
         public int SortOrder { get; init; }
 

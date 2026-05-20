@@ -1,206 +1,367 @@
 <Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.SalesDocumentLinksWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="1080"
-        Height="720"
-        MinWidth="920"
-        MinHeight="620"
+        Title="Связанные документы"
+        Width="1100"
+        Height="640"
+        MinWidth="900"
+        MinHeight="520"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
-        Title="Связанные документы"
         Background="#F7F9FD">
     <Window.Resources>
-        <Style TargetType="DataGrid" BasedOn="{StaticResource DialogDataGridStyle}">
-            <Setter Property="IsReadOnly" Value="True" />
-            <Setter Property="RowHeight" Value="44" />
-            <Setter Property="CanUserSortColumns" Value="True" />
-        </Style>
-        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DialogDataGridHeaderStyle}" />
+        <!-- 1С-style stripped: палитра + flat-стили. -->
+        <SolidColorBrush x:Key="OneCSectionGreen" Color="#3E8B33" />
+        <SolidColorBrush x:Key="OneCLinkBlue" Color="#1C5C9A" />
+        <SolidColorBrush x:Key="OneCFieldLabelMuted" Color="#5A6680" />
+        <SolidColorBrush x:Key="OneCInputBorderLocal" Color="#C9D5E6" />
 
-        <Style x:Key="SummaryCardStyle" TargetType="Border" BasedOn="{StaticResource DialogCardStyle}">
-            <Setter Property="Padding" Value="18,14" />
-            <Setter Property="MinHeight" Value="104" />
-        </Style>
-
-        <Style x:Key="SummaryLabelStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#6E7B98" />
-            <Setter Property="FontSize" Value="12.5" />
-        </Style>
-
-        <Style x:Key="SummaryValueStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#07142F" />
-            <Setter Property="FontSize" Value="20" />
+        <Style x:Key="OneCSectionHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,6,0,0" />
+            <Setter Property="Foreground" Value="{StaticResource OneCSectionGreen}" />
+            <Setter Property="Margin" Value="0,4,0,8" />
+        </Style>
+
+        <Style x:Key="OneCFieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{StaticResource OneCFieldLabelMuted}" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0,0,8,6" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
+
+        <Style x:Key="OneCFieldValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0,0,0,6" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
-        <Style x:Key="SummaryHintStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#7180A0" />
+        <Style x:Key="OneCFieldLinkValueStyle" TargetType="TextBlock" BasedOn="{StaticResource OneCFieldValueStyle}">
+            <Setter Property="Foreground" Value="{StaticResource OneCLinkBlue}" />
+            <Setter Property="TextDecorations" Value="Underline" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style x:Key="OneCLinkButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource OneCLinkBlue}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <TextBlock Text="{TemplateBinding Content}"
+                                   Foreground="{TemplateBinding Foreground}"
+                                   FontSize="{TemplateBinding FontSize}"
+                                   TextDecorations="Underline" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="OneCHeaderIconButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Foreground" Value="#7280A0" />
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Margin" Value="0,5,0,0" />
-            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#EEF2FF" />
+                    <Setter Property="Foreground" Value="#4F5BFF" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
 
-    <Grid Margin="24">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="18" />
-            <RowDefinition Height="188" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <StackPanel>
-                <TextBlock x:Name="HeaderTitleText"
-                           FontSize="27"
-                           FontWeight="SemiBold"
-                           Foreground="#07142F" />
-                <TextBlock x:Name="HeaderSubtitleText"
-                           Margin="0,6,0,0"
-                           FontSize="13.5"
-                           Foreground="#6E7B98"
-                           TextWrapping="Wrap" />
-            </StackPanel>
-
-            <StackPanel Grid.Column="1"
-                        Orientation="Horizontal"
-                        Margin="18,2,0,0"
-                        VerticalAlignment="Top">
-                <Button Content="Открыть"
-                        Style="{StaticResource DialogSecondaryButtonStyle}"
-                        Margin="0,0,10,0"
-                        Click="HandleOpenClick" />
-                <Button Content="Копировать список"
-                        Style="{StaticResource DialogSecondaryButtonStyle}"
-                        Click="HandleCopyClick" />
-            </StackPanel>
-        </Grid>
-
-        <Grid Grid.Row="1" Margin="0,20,0,18">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Column="0" Style="{StaticResource SummaryCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="Заказ" Style="{StaticResource SummaryLabelStyle}" />
-                    <TextBlock x:Name="OrderSummaryValueText" Style="{StaticResource SummaryValueStyle}" />
-                    <TextBlock x:Name="OrderSummaryHintText" Style="{StaticResource SummaryHintStyle}" />
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="2" Style="{StaticResource SummaryCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="Клиент" Style="{StaticResource SummaryLabelStyle}" />
-                    <TextBlock x:Name="CustomerSummaryValueText" Style="{StaticResource SummaryValueStyle}" />
-                    <TextBlock x:Name="CustomerSummaryHintText" Style="{StaticResource SummaryHintStyle}" />
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="4" Style="{StaticResource SummaryCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="Документы" Style="{StaticResource SummaryLabelStyle}" />
-                    <TextBlock x:Name="DocumentSummaryValueText" Style="{StaticResource SummaryValueStyle}" />
-                    <TextBlock x:Name="DocumentSummaryHintText" Style="{StaticResource SummaryHintStyle}" />
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="6" Style="{StaticResource SummaryCardStyle}">
-                <StackPanel>
-                    <TextBlock Text="Оплата в кассу" Style="{StaticResource SummaryLabelStyle}" />
-                    <TextBlock x:Name="CashSummaryValueText" Style="{StaticResource SummaryValueStyle}" />
-                    <TextBlock x:Name="CashSummaryHintText" Style="{StaticResource SummaryHintStyle}" />
-                </StackPanel>
-            </Border>
-        </Grid>
-
-        <Border Grid.Row="2"
-                Style="{StaticResource DialogCardStyle}"
-                Padding="0">
-            <DataGrid x:Name="DocumentsGrid"
-                      AlternatingRowBackground="#F8FAFF"
-                      MouseDoubleClick="HandleDocumentsGridDoubleClick">
-                <DataGrid.Columns>
-                    <DataGridTemplateColumn Width="34">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Grid Width="18"
-                                      Height="18"
-                                      HorizontalAlignment="Center"
-                                      VerticalAlignment="Center"
-                                      ToolTip="{Binding IndicatorText}">
-                                    <Ellipse Stroke="{Binding IndicatorBrush}"
-                                             StrokeThickness="2"
-                                             Fill="Transparent" />
-                                    <Ellipse Margin="4"
-                                             Fill="{Binding IndicatorBrush}"
-                                             Visibility="{Binding IndicatorFillVisibility}" />
-                                </Grid>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Документ" Binding="{Binding Kind}" Width="150" />
-                    <DataGridTextColumn Header="Номер" Binding="{Binding Number}" Width="145" />
-                    <DataGridTextColumn Header="Дата" Binding="{Binding DateText}" Width="110" />
-                    <DataGridTextColumn Header="Клиент" Binding="{Binding CustomerName}" Width="1.35*" />
-                    <DataGridTextColumn Header="Сумма" Binding="{Binding AmountText}" Width="130" />
-                    <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="130" />
-                    <DataGridTextColumn Header="Связь" Binding="{Binding Relation}" Width="165" />
-                    <DataGridTextColumn Header="Комментарий" Binding="{Binding Comment}" Width="1.45*" />
-                </DataGrid.Columns>
-            </DataGrid>
-        </Border>
-
-        <Border Grid.Row="4"
-                Style="{StaticResource DialogCardStyle}"
-                Padding="0">
+        <!-- ===== Тулбар: ← → Открыть + иконки + Поиск + More act… ===== -->
+        <Border Grid.Row="0"
+                Background="#FFFFFF"
+                BorderBrush="#E1E8F4"
+                BorderThickness="0,0,0,1"
+                Padding="12,8,12,8">
             <Grid>
-                <DataGrid x:Name="OperationLogGrid"
-                          AlternatingRowBackground="#F8FAFF">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Дата" Binding="{Binding DateText}" Width="140" />
-                        <DataGridTextColumn Header="Документ" Binding="{Binding Entity}" Width="165" />
-                        <DataGridTextColumn Header="Действие" Binding="{Binding Action}" Width="175" />
-                        <DataGridTextColumn Header="Результат" Binding="{Binding Result}" Width="115" />
-                        <DataGridTextColumn Header="Сообщение" Binding="{Binding Message}" Width="2*" />
-                        <DataGridTextColumn Header="Пользователь" Binding="{Binding Actor}" Width="140" />
-                    </DataGrid.Columns>
-                </DataGrid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                <TextBlock x:Name="EmptyLogText"
-                           Text="По этой цепочке пока нет записей журнала."
-                           Foreground="#6E7B98"
-                           FontSize="14"
-                           FontWeight="SemiBold"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           Visibility="Collapsed" />
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <Button Style="{StaticResource OneCHeaderIconButtonStyle}" Content="&#xE76B;" ToolTip="Назад" />
+                    <Button Style="{StaticResource OneCHeaderIconButtonStyle}" Content="&#xE76C;" ToolTip="Вперёд" Margin="2,0,0,0" />
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="Открыть"
+                        Style="{StaticResource OneCToolbarButtonStyle}"
+                        Margin="6,0,12,0"
+                        Click="HandleOpenClick"
+                        ToolTip="Открыть выбранный документ" />
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource OneCHeaderIconButtonStyle}" Content="&#xE752;" ToolTip="Развернуть всё" Margin="0,0,2,0" />
+                    <Button Style="{StaticResource OneCHeaderIconButtonStyle}" Content="&#xE753;" ToolTip="Свернуть всё" Margin="0,0,8,0" />
+                    <Button Style="{StaticResource OneCHeaderIconButtonStyle}" Content="&#xE72C;" ToolTip="Обновить" Margin="0,0,8,0" />
+
+                    <TextBlock Text="Связанные документы"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="#17213A"
+                               VerticalAlignment="Center"
+                               Margin="20,0,0,0" />
+                </StackPanel>
+
+                <!-- Поле поиска -->
+                <Border Grid.Column="3"
+                        Width="270"
+                        Height="26"
+                        Background="#FFFFFF"
+                        BorderBrush="#D7DEEC"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Margin="10,0,6,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="22" />
+                            <ColumnDefinition Width="22" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="SearchBox" Grid.Column="0" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" Padding="10,0" FontSize="12.5" />
+                        <TextBlock Grid.Column="0" x:Name="SearchPlaceholder" Text="Поиск..." IsHitTestVisible="False" Foreground="#9AA4BC" VerticalAlignment="Center" Margin="12,0" FontSize="12.5" />
+                        <Button Grid.Column="1" Style="{StaticResource OneCHeaderIconButtonStyle}" Content="&#xE894;" ToolTip="Очистить" />
+                        <Button Grid.Column="2" Style="{StaticResource OneCHeaderIconButtonStyle}" Content="&#xE721;" />
+                    </Grid>
+                </Border>
+
+                <Button Grid.Column="4" Content="More act..." Style="{StaticResource OneCToolbarButtonStyle}" />
             </Grid>
         </Border>
 
-        <StackPanel Grid.Row="5"
-                    Margin="0,18,0,0"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right">
-            <Button Content="Закрыть"
-                    Style="{StaticResource DialogPrimaryButtonStyle}"
-                    Width="128"
-                    Click="HandleCloseClick" />
-        </StackPanel>
+        <!-- ===== Основной контент: слева таблица, справа сайдбар ===== -->
+        <Grid Grid.Row="1" Margin="14,12,14,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="14" />
+                <ColumnDefinition Width="320" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Левая таблица «Документ / Сумма / Контрагент / Организация» -->
+            <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="{StaticResource OneCInputBorderLocal}" BorderThickness="1" CornerRadius="6">
+                <DataGrid x:Name="DocumentsGrid"
+                          Style="{x:Null}"
+                          Background="#FFFFFF"
+                          BorderThickness="0"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="None"
+                          RowHeight="26"
+                          ColumnHeaderHeight="28"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          AlternationCount="2"
+                          FontSize="12.5"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          MouseDoubleClick="HandleDocumentsGridDoubleClick">
+                    <DataGrid.ColumnHeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="Background" Value="#F0F4F9" />
+                            <Setter Property="BorderBrush" Value="#D7DEEC" />
+                            <Setter Property="BorderThickness" Value="0,0,1,1" />
+                            <Setter Property="Foreground" Value="#3A4868" />
+                            <Setter Property="FontSize" Value="12" />
+                            <Setter Property="Padding" Value="8,0" />
+                            <Setter Property="HorizontalContentAlignment" Value="Left" />
+                        </Style>
+                    </DataGrid.ColumnHeaderStyle>
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Setter Property="Background" Value="#FFFFFF" />
+                            <Setter Property="BorderBrush" Value="#EEF2FA" />
+                            <Setter Property="BorderThickness" Value="0,0,0,1" />
+                            <Setter Property="Foreground" Value="#17213A" />
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#EEF2FF" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#FFFCD5" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.CellStyle>
+                        <Style TargetType="DataGridCell">
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Padding" Value="8,0" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="DataGridCell">
+                                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter VerticalAlignment="Center" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="Foreground" Value="#17213A" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.CellStyle>
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Width="24" IsReadOnly="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8A5;" FontSize="11" Foreground="#7280A0" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Документ" Width="2.0*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Kind}" Margin="0,0,6,0" />
+                                        <TextBlock Text="{Binding Number}" FontWeight="SemiBold" />
+                                        <TextBlock Text=" от " Margin="2,0,0,0" Foreground="#7280A0" />
+                                        <TextBlock Text="{Binding DateText}" Foreground="#7280A0" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Сумма" Binding="{Binding AmountText}" Width="1.0*">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="TextAlignment" Value="Right" />
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="Контрагент" Binding="{Binding CustomerName}" Width="2.0*" />
+                        <DataGridTextColumn Header="Организация" Binding="{Binding Organization}" Width="1.5*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <!-- Правый сайдбар: Контрагент-фильтр + Контактная информация + Текущая аналитика -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <!-- Фильтр Контрагент сверху -->
+                    <Border Background="#FFFFFF" BorderBrush="{StaticResource OneCInputBorderLocal}" BorderThickness="1" CornerRadius="4" Padding="10,4" Margin="0,0,0,12">
+                        <TextBlock x:Name="CustomerFilterText" Text="Контрагент" Foreground="#9AA4BC" FontSize="12.5" />
+                    </Border>
+
+                    <!-- Контактная информация -->
+                    <TextBlock Text="Контактная информация" Style="{StaticResource OneCSectionHeaderStyle}" />
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="86" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Телефон:" Style="{StaticResource OneCFieldLabelStyle}" />
+                        <TextBlock x:Name="ContactPhoneText" Grid.Row="0" Grid.Column="1" Style="{StaticResource OneCFieldLinkValueStyle}" Text="—" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Юр. адрес:" Style="{StaticResource OneCFieldLabelStyle}" />
+                        <TextBlock x:Name="ContactLegalAddressText" Grid.Row="1" Grid.Column="1" Style="{StaticResource OneCFieldValueStyle}" Text="—" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Факт. адрес:" Style="{StaticResource OneCFieldLabelStyle}" />
+                        <TextBlock x:Name="ContactActualAddressText" Grid.Row="2" Grid.Column="1" Style="{StaticResource OneCFieldValueStyle}" Text="—" />
+
+                        <TextBlock x:Name="ContactExtraAddressText" Grid.Row="3" Grid.ColumnSpan="2" Style="{StaticResource OneCFieldValueStyle}" FontWeight="SemiBold" />
+                    </Grid>
+
+                    <!-- Текущая аналитика -->
+                    <TextBlock Text="Текущая аналитика" Style="{StaticResource OneCSectionHeaderStyle}" />
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="118" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Автор:" Style="{StaticResource OneCFieldLabelStyle}" />
+                        <TextBlock x:Name="AnalyticsAuthorText" Grid.Row="0" Grid.Column="1" Style="{StaticResource OneCFieldLinkValueStyle}" Text="—" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ответственный:" Style="{StaticResource OneCFieldLabelStyle}" />
+                        <TextBlock x:Name="AnalyticsResponsibleText" Grid.Row="1" Grid.Column="1" Style="{StaticResource OneCFieldLinkValueStyle}" Text="—" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Состояние:" Style="{StaticResource OneCFieldLabelStyle}" />
+                        <TextBlock x:Name="AnalyticsStatusText" Grid.Row="2" Grid.Column="1" Style="{StaticResource OneCFieldValueStyle}" Text="—" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Операция:" Style="{StaticResource OneCFieldLabelStyle}" />
+                        <TextBlock x:Name="AnalyticsOperationText" Grid.Row="3" Grid.Column="1" Style="{StaticResource OneCFieldValueStyle}" Text="—" />
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Комментарий:" Style="{StaticResource OneCFieldLabelStyle}" />
+                        <TextBlock x:Name="AnalyticsCommentText" Grid.Row="4" Grid.Column="1" Style="{StaticResource OneCFieldValueStyle}" Text="&lt;не заполнено&gt;" Foreground="#9AA4BC" />
+                    </Grid>
+
+                    <Button Content="свернуть" Style="{StaticResource OneCLinkButtonStyle}" HorizontalAlignment="Right" Margin="0,8,0,0" Click="HandleCloseClick" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- ===== Скрытые элементы — для совместимости с code-behind ===== -->
+        <Grid Visibility="Collapsed">
+            <TextBlock x:Name="HeaderTitleText" />
+            <TextBlock x:Name="HeaderSubtitleText" />
+            <TextBlock x:Name="OrderSummaryValueText" />
+            <TextBlock x:Name="OrderSummaryHintText" />
+            <TextBlock x:Name="CustomerSummaryValueText" />
+            <TextBlock x:Name="CustomerSummaryHintText" />
+            <TextBlock x:Name="DocumentSummaryValueText" />
+            <TextBlock x:Name="DocumentSummaryHintText" />
+            <TextBlock x:Name="CashSummaryValueText" />
+            <TextBlock x:Name="CashSummaryHintText" />
+            <TextBlock x:Name="EmptyLogText" />
+            <DataGrid x:Name="OperationLogGrid" />
+        </Grid>
     </Grid>
 </Window>

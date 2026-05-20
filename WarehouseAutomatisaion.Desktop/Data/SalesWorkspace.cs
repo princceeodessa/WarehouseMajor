@@ -1935,6 +1935,32 @@ public sealed class SalesOrderRecord
 
     public decimal ManualDiscountAmount { get; set; }
 
+    public bool IsPhoneInstall { get; set; }
+
+    public bool IsAirConditioner { get; set; }
+
+    public bool IsYekaterinburg { get; set; }
+
+    public bool VatEnabled { get; set; }
+
+    public bool VatInclusive { get; set; }
+
+    public string EasyCeilingOrderNumber { get; set; } = string.Empty;
+
+    public DateTime? ShippingDate { get; set; }
+
+    public string SurveyorName { get; set; } = string.Empty;
+
+    public string ActNumber { get; set; } = string.Empty;
+
+    public DateTime? ActDate { get; set; }
+
+    public decimal ComplexityScore { get; set; }
+
+    public decimal ComplexityDiscountAmount { get; set; }
+
+    public decimal ComplexityDiscountPercent { get; set; }
+
     public BindingList<SalesOrderLineRecord> Lines { get; set; } = new();
 
     public int PositionCount => Lines.Count;
@@ -1944,6 +1970,8 @@ public sealed class SalesOrderRecord
     public decimal EffectiveDiscountAmount => SalesDocumentTotals.CalculateDiscount(SubtotalAmount, ManualDiscountPercent, ManualDiscountAmount);
 
     public decimal TotalAmount => SalesDocumentTotals.CalculateTotal(SubtotalAmount, EffectiveDiscountAmount);
+
+    public decimal VatAmount => Math.Round(Lines.Sum(line => line.VatAmount), 2, MidpointRounding.AwayFromZero);
 
     public SalesOrderRecord Clone()
     {
@@ -1964,6 +1992,19 @@ public sealed class SalesOrderRecord
             Comment = Comment,
             ManualDiscountPercent = ManualDiscountPercent,
             ManualDiscountAmount = ManualDiscountAmount,
+            IsPhoneInstall = IsPhoneInstall,
+            IsAirConditioner = IsAirConditioner,
+            IsYekaterinburg = IsYekaterinburg,
+            VatEnabled = VatEnabled,
+            VatInclusive = VatInclusive,
+            EasyCeilingOrderNumber = EasyCeilingOrderNumber,
+            ShippingDate = ShippingDate,
+            SurveyorName = SurveyorName,
+            ActNumber = ActNumber,
+            ActDate = ActDate,
+            ComplexityScore = ComplexityScore,
+            ComplexityDiscountAmount = ComplexityDiscountAmount,
+            ComplexityDiscountPercent = ComplexityDiscountPercent,
             Lines = CloneLines(Lines)
         };
     }
@@ -1984,6 +2025,19 @@ public sealed class SalesOrderRecord
         Comment = source.Comment;
         ManualDiscountPercent = source.ManualDiscountPercent;
         ManualDiscountAmount = source.ManualDiscountAmount;
+        IsPhoneInstall = source.IsPhoneInstall;
+        IsAirConditioner = source.IsAirConditioner;
+        IsYekaterinburg = source.IsYekaterinburg;
+        VatEnabled = source.VatEnabled;
+        VatInclusive = source.VatInclusive;
+        EasyCeilingOrderNumber = source.EasyCeilingOrderNumber;
+        ShippingDate = source.ShippingDate;
+        SurveyorName = source.SurveyorName;
+        ActNumber = source.ActNumber;
+        ActDate = source.ActDate;
+        ComplexityScore = source.ComplexityScore;
+        ComplexityDiscountAmount = source.ComplexityDiscountAmount;
+        ComplexityDiscountPercent = source.ComplexityDiscountPercent;
         Lines = CloneLines(source.Lines);
     }
 
@@ -2382,7 +2436,21 @@ public sealed class SalesOrderLineRecord
 
     public decimal Price { get; set; }
 
-    public decimal Amount => Math.Round(Quantity * Price, 2, MidpointRounding.AwayFromZero);
+    public decimal DiscountAutoPercent { get; set; }
+
+    public decimal DiscountAutoAmount { get; set; }
+
+    public decimal DiscountManualPercent { get; set; }
+
+    public decimal DiscountManualAmount { get; set; }
+
+    public decimal VatPercent { get; set; }
+
+    public decimal VatAmount { get; set; }
+
+    public decimal Amount => Math.Round(Quantity * Price - DiscountManualAmount - DiscountAutoAmount, 2, MidpointRounding.AwayFromZero);
+
+    public decimal LineTotalAmount => Math.Round(Amount + VatAmount, 2, MidpointRounding.AwayFromZero);
 
     public SalesOrderLineRecord Clone()
     {
@@ -2393,7 +2461,13 @@ public sealed class SalesOrderLineRecord
             ItemName = ItemName,
             Unit = Unit,
             Quantity = Quantity,
-            Price = Price
+            Price = Price,
+            DiscountAutoPercent = DiscountAutoPercent,
+            DiscountAutoAmount = DiscountAutoAmount,
+            DiscountManualPercent = DiscountManualPercent,
+            DiscountManualAmount = DiscountManualAmount,
+            VatPercent = VatPercent,
+            VatAmount = VatAmount
         };
     }
 }
