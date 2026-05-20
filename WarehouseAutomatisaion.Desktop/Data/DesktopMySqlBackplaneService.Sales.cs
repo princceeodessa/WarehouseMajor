@@ -581,7 +581,20 @@ public sealed partial class DesktopMySqlBackplaneService
                 reason_text,
                 comment_text,
                 manual_discount_percent,
-                manual_discount_amount
+                manual_discount_amount,
+                is_phone_install,
+                is_air_conditioner,
+                is_yekaterinburg,
+                vat_enabled,
+                vat_inclusive,
+                easy_ceiling_order_number,
+                shipping_date,
+                surveyor_name,
+                act_number,
+                act_date,
+                complexity_score,
+                complexity_discount_amount,
+                complexity_discount_percent
             FROM app_sales_documents
             ORDER BY document_date DESC, number DESC
             -- Release 1.0.132: жёсткий лимит 2000 самых свежих документов на каждый
@@ -617,6 +630,19 @@ public sealed partial class DesktopMySqlBackplaneService
                         Comment = ReadString(reader, "comment_text"),
                         ManualDiscountPercent = ReadDecimal(reader, "manual_discount_percent"),
                         ManualDiscountAmount = ReadDecimal(reader, "manual_discount_amount"),
+                        IsPhoneInstall = ReadBoolean(reader, "is_phone_install"),
+                        IsAirConditioner = ReadBoolean(reader, "is_air_conditioner"),
+                        IsYekaterinburg = ReadBoolean(reader, "is_yekaterinburg"),
+                        VatEnabled = ReadBoolean(reader, "vat_enabled"),
+                        VatInclusive = ReadBoolean(reader, "vat_inclusive"),
+                        EasyCeilingOrderNumber = ReadString(reader, "easy_ceiling_order_number"),
+                        ShippingDate = ReadNullableDateTime(reader, "shipping_date"),
+                        SurveyorName = ReadString(reader, "surveyor_name"),
+                        ActNumber = ReadString(reader, "act_number"),
+                        ActDate = ReadNullableDateTime(reader, "act_date"),
+                        ComplexityScore = ReadDecimal(reader, "complexity_score"),
+                        ComplexityDiscountAmount = ReadDecimal(reader, "complexity_discount_amount"),
+                        ComplexityDiscountPercent = ReadDecimal(reader, "complexity_discount_percent"),
                         Lines = lines
                     });
                     break;
@@ -705,7 +731,13 @@ public sealed partial class DesktopMySqlBackplaneService
                 item_name,
                 unit_name,
                 quantity,
-                price
+                price,
+                discount_auto_percent,
+                discount_auto_amount,
+                discount_manual_percent,
+                discount_manual_amount,
+                vat_percent,
+                vat_amount
             FROM app_sales_document_lines
             -- Release 1.0.132: только строки документов которые мы загрузили
             -- (2000 самых свежих, см. LoadSnapshotDocumentsAsync LIMIT). Линии
@@ -734,7 +766,13 @@ public sealed partial class DesktopMySqlBackplaneService
                 ItemName = ReadString(reader, "item_name"),
                 Unit = ReadString(reader, "unit_name"),
                 Quantity = ReadDecimal(reader, "quantity"),
-                Price = ReadDecimal(reader, "price")
+                Price = ReadDecimal(reader, "price"),
+                DiscountAutoPercent = ReadDecimal(reader, "discount_auto_percent"),
+                DiscountAutoAmount = ReadDecimal(reader, "discount_auto_amount"),
+                DiscountManualPercent = ReadDecimal(reader, "discount_manual_percent"),
+                DiscountManualAmount = ReadDecimal(reader, "discount_manual_amount"),
+                VatPercent = ReadDecimal(reader, "vat_percent"),
+                VatAmount = ReadDecimal(reader, "vat_amount")
             });
         }
 
@@ -1035,7 +1073,8 @@ public sealed partial class DesktopMySqlBackplaneService
                 order.Comment,
                 order.ManualDiscountPercent,
                 order.ManualDiscountAmount,
-                order.Lines ?? []);
+                order.Lines ?? [],
+                order);
         }
 
         foreach (var invoice in invoices)
@@ -1286,7 +1325,20 @@ public sealed partial class DesktopMySqlBackplaneService
                 reason_text,
                 comment_text,
                 manual_discount_percent,
-                manual_discount_amount
+                manual_discount_amount,
+                is_phone_install,
+                is_air_conditioner,
+                is_yekaterinburg,
+                vat_enabled,
+                vat_inclusive,
+                easy_ceiling_order_number,
+                shipping_date,
+                surveyor_name,
+                act_number,
+                act_date,
+                complexity_score,
+                complexity_discount_amount,
+                complexity_discount_percent
             )
             VALUES (
                 @id,
@@ -1309,7 +1361,20 @@ public sealed partial class DesktopMySqlBackplaneService
                 @reason_text,
                 @comment_text,
                 @manual_discount_percent,
-                @manual_discount_amount
+                @manual_discount_amount,
+                @is_phone_install,
+                @is_air_conditioner,
+                @is_yekaterinburg,
+                @vat_enabled,
+                @vat_inclusive,
+                @easy_ceiling_order_number,
+                @shipping_date,
+                @surveyor_name,
+                @act_number,
+                @act_date,
+                @complexity_score,
+                @complexity_discount_amount,
+                @complexity_discount_percent
             )
             ON DUPLICATE KEY UPDATE
                 document_kind = VALUES(document_kind),
@@ -1331,7 +1396,20 @@ public sealed partial class DesktopMySqlBackplaneService
                 reason_text = VALUES(reason_text),
                 comment_text = VALUES(comment_text),
                 manual_discount_percent = VALUES(manual_discount_percent),
-                manual_discount_amount = VALUES(manual_discount_amount);
+                manual_discount_amount = VALUES(manual_discount_amount),
+                is_phone_install = VALUES(is_phone_install),
+                is_air_conditioner = VALUES(is_air_conditioner),
+                is_yekaterinburg = VALUES(is_yekaterinburg),
+                vat_enabled = VALUES(vat_enabled),
+                vat_inclusive = VALUES(vat_inclusive),
+                easy_ceiling_order_number = VALUES(easy_ceiling_order_number),
+                shipping_date = VALUES(shipping_date),
+                surveyor_name = VALUES(surveyor_name),
+                act_number = VALUES(act_number),
+                act_date = VALUES(act_date),
+                complexity_score = VALUES(complexity_score),
+                complexity_discount_amount = VALUES(complexity_discount_amount),
+                complexity_discount_percent = VALUES(complexity_discount_percent);
             """);
         foreach (var name in new[]
                  {
@@ -1355,7 +1433,20 @@ public sealed partial class DesktopMySqlBackplaneService
                      "@reason_text",
                      "@comment_text",
                      "@manual_discount_percent",
-                     "@manual_discount_amount"
+                     "@manual_discount_amount",
+                     "@is_phone_install",
+                     "@is_air_conditioner",
+                     "@is_yekaterinburg",
+                     "@vat_enabled",
+                     "@vat_inclusive",
+                     "@easy_ceiling_order_number",
+                     "@shipping_date",
+                     "@surveyor_name",
+                     "@act_number",
+                     "@act_date",
+                     "@complexity_score",
+                     "@complexity_discount_amount",
+                     "@complexity_discount_percent"
                  })
         {
             AddParameter(command, name);
@@ -1379,7 +1470,14 @@ public sealed partial class DesktopMySqlBackplaneService
                 unit_name,
                 quantity,
                 price,
-                amount
+                amount,
+                discount_auto_percent,
+                discount_auto_amount,
+                discount_manual_percent,
+                discount_manual_amount,
+                vat_percent,
+                vat_amount,
+                line_total_amount
             )
             VALUES (
                 @id,
@@ -1391,7 +1489,14 @@ public sealed partial class DesktopMySqlBackplaneService
                 @unit_name,
                 @quantity,
                 @price,
-                @amount
+                @amount,
+                @discount_auto_percent,
+                @discount_auto_amount,
+                @discount_manual_percent,
+                @discount_manual_amount,
+                @vat_percent,
+                @vat_amount,
+                @line_total_amount
             )
             ON DUPLICATE KEY UPDATE
                 document_id = VALUES(document_id),
@@ -1402,7 +1507,14 @@ public sealed partial class DesktopMySqlBackplaneService
                 unit_name = VALUES(unit_name),
                 quantity = VALUES(quantity),
                 price = VALUES(price),
-                amount = VALUES(amount);
+                amount = VALUES(amount),
+                discount_auto_percent = VALUES(discount_auto_percent),
+                discount_auto_amount = VALUES(discount_auto_amount),
+                discount_manual_percent = VALUES(discount_manual_percent),
+                discount_manual_amount = VALUES(discount_manual_amount),
+                vat_percent = VALUES(vat_percent),
+                vat_amount = VALUES(vat_amount),
+                line_total_amount = VALUES(line_total_amount);
             """);
         foreach (var name in new[]
                  {
@@ -1415,7 +1527,14 @@ public sealed partial class DesktopMySqlBackplaneService
                      "@unit_name",
                      "@quantity",
                      "@price",
-                     "@amount"
+                     "@amount",
+                     "@discount_auto_percent",
+                     "@discount_auto_amount",
+                     "@discount_manual_percent",
+                     "@discount_manual_amount",
+                     "@vat_percent",
+                     "@vat_amount",
+                     "@line_total_amount"
                  })
         {
             AddParameter(command, name);
@@ -1448,7 +1567,8 @@ public sealed partial class DesktopMySqlBackplaneService
         string comment,
         decimal manualDiscountPercent,
         decimal manualDiscountAmount,
-        IEnumerable<SalesOrderLineRecord> lines)
+        IEnumerable<SalesOrderLineRecord> lines,
+        SalesOrderRecord? orderExtras = null)
     {
         var ensuredDocumentId = EnsureId(documentId, $"{documentKind}|{number}");
         SetParameter(documentCommand, "@id", ensuredDocumentId.ToString());
@@ -1472,6 +1592,19 @@ public sealed partial class DesktopMySqlBackplaneService
         SetParameter(documentCommand, "@comment_text", comment);
         SetParameter(documentCommand, "@manual_discount_percent", manualDiscountPercent);
         SetParameter(documentCommand, "@manual_discount_amount", manualDiscountAmount);
+        SetParameter(documentCommand, "@is_phone_install", orderExtras?.IsPhoneInstall == true ? 1 : 0);
+        SetParameter(documentCommand, "@is_air_conditioner", orderExtras?.IsAirConditioner == true ? 1 : 0);
+        SetParameter(documentCommand, "@is_yekaterinburg", orderExtras?.IsYekaterinburg == true ? 1 : 0);
+        SetParameter(documentCommand, "@vat_enabled", orderExtras?.VatEnabled == true ? 1 : 0);
+        SetParameter(documentCommand, "@vat_inclusive", orderExtras?.VatInclusive == true ? 1 : 0);
+        SetParameter(documentCommand, "@easy_ceiling_order_number", orderExtras?.EasyCeilingOrderNumber ?? string.Empty);
+        SetParameter(documentCommand, "@shipping_date", orderExtras?.ShippingDate);
+        SetParameter(documentCommand, "@surveyor_name", orderExtras?.SurveyorName ?? string.Empty);
+        SetParameter(documentCommand, "@act_number", orderExtras?.ActNumber ?? string.Empty);
+        SetParameter(documentCommand, "@act_date", orderExtras?.ActDate);
+        SetParameter(documentCommand, "@complexity_score", orderExtras?.ComplexityScore ?? 0m);
+        SetParameter(documentCommand, "@complexity_discount_amount", orderExtras?.ComplexityDiscountAmount ?? 0m);
+        SetParameter(documentCommand, "@complexity_discount_percent", orderExtras?.ComplexityDiscountPercent ?? 0m);
         documentCommand.ExecuteNonQuery();
 
         var lineNo = 1;
@@ -1488,6 +1621,13 @@ public sealed partial class DesktopMySqlBackplaneService
             SetParameter(lineCommand, "@quantity", line.Quantity);
             SetParameter(lineCommand, "@price", line.Price);
             SetParameter(lineCommand, "@amount", line.Amount);
+            SetParameter(lineCommand, "@discount_auto_percent", line.DiscountAutoPercent);
+            SetParameter(lineCommand, "@discount_auto_amount", line.DiscountAutoAmount);
+            SetParameter(lineCommand, "@discount_manual_percent", line.DiscountManualPercent);
+            SetParameter(lineCommand, "@discount_manual_amount", line.DiscountManualAmount);
+            SetParameter(lineCommand, "@vat_percent", line.VatPercent);
+            SetParameter(lineCommand, "@vat_amount", line.VatAmount);
+            SetParameter(lineCommand, "@line_total_amount", line.LineTotalAmount);
             lineCommand.ExecuteNonQuery();
         }
     }
@@ -1927,6 +2067,19 @@ public sealed partial class DesktopMySqlBackplaneService
             comment_text TEXT NULL,
             manual_discount_percent DECIMAL(9, 4) NOT NULL DEFAULT 0,
             manual_discount_amount DECIMAL(18, 4) NOT NULL DEFAULT 0,
+            is_phone_install TINYINT(1) NOT NULL DEFAULT 0,
+            is_air_conditioner TINYINT(1) NOT NULL DEFAULT 0,
+            is_yekaterinburg TINYINT(1) NOT NULL DEFAULT 0,
+            vat_enabled TINYINT(1) NOT NULL DEFAULT 0,
+            vat_inclusive TINYINT(1) NOT NULL DEFAULT 0,
+            easy_ceiling_order_number VARCHAR(64) NULL,
+            shipping_date DATETIME(6) NULL,
+            surveyor_name VARCHAR(256) NULL,
+            act_number VARCHAR(64) NULL,
+            act_date DATE NULL,
+            complexity_score DECIMAL(18, 2) NOT NULL DEFAULT 0,
+            complexity_discount_amount DECIMAL(18, 2) NOT NULL DEFAULT 0,
+            complexity_discount_percent DECIMAL(9, 4) NOT NULL DEFAULT 0,
             created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
             updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
             CONSTRAINT pk_app_sales_documents PRIMARY KEY (id)
@@ -1943,6 +2096,13 @@ public sealed partial class DesktopMySqlBackplaneService
             quantity DECIMAL(18, 4) NOT NULL DEFAULT 0,
             price DECIMAL(18, 4) NOT NULL DEFAULT 0,
             amount DECIMAL(18, 4) NOT NULL DEFAULT 0,
+            discount_auto_percent DECIMAL(9, 4) NOT NULL DEFAULT 0,
+            discount_auto_amount DECIMAL(18, 4) NOT NULL DEFAULT 0,
+            discount_manual_percent DECIMAL(9, 4) NOT NULL DEFAULT 0,
+            discount_manual_amount DECIMAL(18, 4) NOT NULL DEFAULT 0,
+            vat_percent DECIMAL(9, 4) NOT NULL DEFAULT 0,
+            vat_amount DECIMAL(18, 4) NOT NULL DEFAULT 0,
+            line_total_amount DECIMAL(18, 4) NOT NULL DEFAULT 0,
             CONSTRAINT pk_app_sales_document_lines PRIMARY KEY (id),
             CONSTRAINT uq_app_sales_document_lines_line UNIQUE (document_id, line_no),
             CONSTRAINT fk_app_sales_document_lines_document FOREIGN KEY (document_id) REFERENCES app_sales_documents (id) ON DELETE CASCADE

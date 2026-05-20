@@ -101,7 +101,6 @@ public partial class SalesDocumentEditorWindow : Window
         InitializeComponent();
         WpfTextNormalizer.NormalizeTree(this);
 
-        ConfigureLineGridBindings();
         CustomerComboBox.AddHandler(TextBoxBase.TextChangedEvent, new TextChangedEventHandler(HandleCustomerLookupTextChanged));
         LinesGrid.ItemsSource = _lines;
         RelatedDocumentsGrid.ItemsSource = _relatedDocuments;
@@ -130,23 +129,6 @@ public partial class SalesDocumentEditorWindow : Window
     }
 
     private static string Ui(string? value) => TextMojibakeFixer.NormalizeText(value);
-
-    private void ConfigureLineGridBindings()
-    {
-        SetTextColumnBinding(0, nameof(SalesLineEditorRow.ItemCode));
-        SetTextColumnBinding(2, nameof(SalesLineEditorRow.Unit));
-        SetTextColumnBinding(3, nameof(SalesLineEditorRow.QuantityDisplay));
-        SetTextColumnBinding(4, nameof(SalesLineEditorRow.PriceDisplay));
-        SetTextColumnBinding(5, nameof(SalesLineEditorRow.AmountDisplay));
-    }
-
-    private void SetTextColumnBinding(int columnIndex, string path)
-    {
-        if (LinesGrid.Columns.ElementAtOrDefault(columnIndex) is DataGridTextColumn column)
-        {
-            column.Binding = new Binding(path) { Mode = BindingMode.OneWay };
-        }
-    }
 
     private void LoadOptionSources()
     {
@@ -181,54 +163,59 @@ public partial class SalesDocumentEditorWindow : Window
         switch (_mode)
         {
             case SalesDocumentEditorMode.Order:
-                Title = "Новый заказ";
+                Title = "Заказ покупателя";
                 HeaderTitleText.Text = "Новый заказ";
-                HeaderSubtitleText.Text = "Создание заказа покупателя с клиентом, складом и позициями.";
-                DocumentDateLabelText.Text = "Дата заказа";
-                LinesHintText.Text = "Добавьте позиции, которые нужно обработать дальше: резерв, счет, отгрузка.";
+                HeaderSubtitleText.Text = " (Заказ покупателя)";
+                DocumentDateLabelText.Text = "от:";
                 StatusComboBox.ItemsSource = _workspace.OrderStatuses.Select(Ui).ToArray();
                 OrderPanel.Visibility = Visibility.Collapsed;
+                OrderPanelLabel.Visibility = Visibility.Collapsed;
                 CustomerPanel.Visibility = Visibility.Visible;
                 SecondaryDatePanel.Visibility = Visibility.Collapsed;
+                SecondaryDateLabelText.Visibility = Visibility.Collapsed;
                 OrganizationPanel.Visibility = Visibility.Visible;
-                WarehousePanel.Visibility = Visibility.Visible;
-                CurrencyPanel.Visibility = Visibility.Visible;
-                CarrierPanel.Visibility = Visibility.Collapsed;
+                // 1С-поля: видимы только в режиме Order.
+                OrderFlagsPanel.Visibility = Visibility.Visible;
+                ActSectionPanel.Visibility = Visibility.Visible;
+                EasyCeilingLabel.Visibility = Visibility.Visible;
+                EasyCeilingOrderNumberTextBox.Visibility = Visibility.Visible;
                 break;
             case SalesDocumentEditorMode.Invoice:
-                Title = "Новый счет";
+                Title = "Счет покупателю";
                 HeaderTitleText.Text = "Новый счет";
-                HeaderSubtitleText.Text = "Счет создается на основании заказа и наследует его позиции.";
-                DocumentDateLabelText.Text = "Дата счета";
-                SecondaryDateLabelText.Text = "Срок оплаты";
-                LinesHintText.Text = "Позиции подтягиваются из заказа. При необходимости их можно уточнить.";
+                HeaderSubtitleText.Text = " (Счет покупателю)";
+                DocumentDateLabelText.Text = "от:";
+                SecondaryDateLabelText.Text = "Срок оплаты:";
                 StatusComboBox.ItemsSource = _workspace.InvoiceStatuses.Select(Ui).ToArray();
-                // Клиент скрыт — его имя уже отображается в OrderComboBox (Основание/заказ).
                 CustomerPanel.Visibility = Visibility.Collapsed;
                 CustomerComboBox.IsEnabled = false;
                 OrderPanel.Visibility = Visibility.Visible;
+                OrderPanelLabel.Visibility = Visibility.Visible;
                 SecondaryDatePanel.Visibility = Visibility.Visible;
+                SecondaryDateLabelText.Visibility = Visibility.Visible;
                 OrganizationPanel.Visibility = Visibility.Collapsed;
-                WarehousePanel.Visibility = Visibility.Collapsed;
-                CurrencyPanel.Visibility = Visibility.Visible;
-                CarrierPanel.Visibility = Visibility.Collapsed;
+                OrderFlagsPanel.Visibility = Visibility.Collapsed;
+                ActSectionPanel.Visibility = Visibility.Collapsed;
+                EasyCeilingLabel.Visibility = Visibility.Collapsed;
+                EasyCeilingOrderNumberTextBox.Visibility = Visibility.Collapsed;
                 break;
             case SalesDocumentEditorMode.Shipment:
-                Title = "Новая отгрузка";
+                Title = "Расходная накладная";
                 HeaderTitleText.Text = "Новая отгрузка";
-                HeaderSubtitleText.Text = "Отгрузка создается на основании заказа и фиксирует склад исполнения.";
-                DocumentDateLabelText.Text = "Дата отгрузки";
-                LinesHintText.Text = "Позиции подтягиваются из заказа. Проведение отгрузки выполняется отдельным действием.";
+                HeaderSubtitleText.Text = " (Расходная накладная)";
+                DocumentDateLabelText.Text = "от:";
                 StatusComboBox.ItemsSource = _workspace.ShipmentStatuses.Select(Ui).ToArray();
-                // Клиент скрыт — его имя уже отображается в OrderComboBox (Основание/заказ).
                 CustomerPanel.Visibility = Visibility.Collapsed;
                 CustomerComboBox.IsEnabled = false;
                 OrderPanel.Visibility = Visibility.Visible;
+                OrderPanelLabel.Visibility = Visibility.Visible;
                 SecondaryDatePanel.Visibility = Visibility.Collapsed;
+                SecondaryDateLabelText.Visibility = Visibility.Collapsed;
                 OrganizationPanel.Visibility = Visibility.Collapsed;
-                WarehousePanel.Visibility = Visibility.Visible;
-                CurrencyPanel.Visibility = Visibility.Collapsed;
-                CarrierPanel.Visibility = Visibility.Visible;
+                OrderFlagsPanel.Visibility = Visibility.Collapsed;
+                ActSectionPanel.Visibility = Visibility.Collapsed;
+                EasyCeilingLabel.Visibility = Visibility.Collapsed;
+                EasyCeilingOrderNumberTextBox.Visibility = Visibility.Collapsed;
                 break;
         }
 
@@ -320,6 +307,20 @@ public partial class SalesDocumentEditorWindow : Window
         SelectComboValue(CurrencyComboBox, Ui(order.CurrencyCode));
         CommentTextBox.Text = Ui(order.Comment);
         LoadDiscount(order.ManualDiscountPercent, order.ManualDiscountAmount);
+        // 1С-поля: флажки + блок «Акт» + Розничная цена УДМ / EasyCeiling / Отгрузка.
+        ContractComboBox.Text = Ui(order.ContractNumber);
+        IsPhoneInstallCheckBox.IsChecked = order.IsPhoneInstall;
+        IsAirConditionerCheckBox.IsChecked = order.IsAirConditioner;
+        IsYekaterinburgCheckBox.IsChecked = order.IsYekaterinburg;
+        VatEnabledCheckBox.IsChecked = order.VatEnabled;
+        EasyCeilingOrderNumberTextBox.Text = Ui(order.EasyCeilingOrderNumber);
+        ShippingDatePicker.SelectedDate = order.ShippingDate ?? (order.OrderDate == default ? DateTime.Today : order.OrderDate);
+        SurveyorComboBox.Text = Ui(order.SurveyorName);
+        ActNumberTextBox.Text = Ui(order.ActNumber);
+        ActDatePicker.SelectedDate = order.ActDate;
+        ComplexityScoreTextBox.Text = order.ComplexityScore == 0m ? string.Empty : order.ComplexityScore.ToString("N2", RuCulture);
+        ComplexityDiscountAmountTextBox.Text = order.ComplexityDiscountAmount == 0m ? string.Empty : order.ComplexityDiscountAmount.ToString("N2", RuCulture);
+        ComplexityDiscountPercentTextBox.Text = order.ComplexityDiscountPercent == 0m ? "0,00" : order.ComplexityDiscountPercent.ToString("N2", RuCulture);
         ReplaceLines(order.Lines);
     }
 
@@ -548,9 +549,22 @@ public partial class SalesDocumentEditorWindow : Window
                 Ui(line.ItemName),
                 NormalizeUnit(line.Unit, line.ItemName),
                 line.Quantity,
-                line.Price));
+                line.Price,
+                LineNo: _lines.Count + 1));
         }
+        RenumberLines();
         RefreshTotal();
+    }
+
+    private void RenumberLines()
+    {
+        for (var i = 0; i < _lines.Count; i++)
+        {
+            if (_lines[i].LineNo != i + 1)
+            {
+                _lines[i] = _lines[i] with { LineNo = i + 1 };
+            }
+        }
     }
 
     private void HandleEditLineClick(object sender, RoutedEventArgs e)
@@ -1019,6 +1033,7 @@ public partial class SalesDocumentEditorWindow : Window
         order.Comment = CommentTextBox.Text.Trim();
         order.ManualDiscountPercent = _discountPercentMode ? _manualDiscountPercent : 0m;
         order.ManualDiscountAmount = _discountPercentMode ? 0m : _manualDiscountAmount;
+        ApplyOrderExtrasFromUi(order);
         order.Lines = ToSalesLines();
         return order;
     }
@@ -1134,10 +1149,33 @@ public partial class SalesDocumentEditorWindow : Window
         order.Comment = CommentTextBox.Text.Trim();
         order.ManualDiscountPercent = _discountPercentMode ? _manualDiscountPercent : 0m;
         order.ManualDiscountAmount = _discountPercentMode ? 0m : _manualDiscountAmount;
+        ApplyOrderExtrasFromUi(order);
         order.Lines = ToSalesLines();
 
         ResultOrder = order;
         CompleteEditing(success: true);
+    }
+
+    private void ApplyOrderExtrasFromUi(SalesOrderRecord order)
+    {
+        // 1С-поля: флажки шапки + Акт + EasyCeiling + Отгрузка + Договор.
+        var contract = ContractComboBox.Text?.Trim() ?? string.Empty;
+        if (!string.IsNullOrEmpty(contract))
+        {
+            order.ContractNumber = contract;
+        }
+        order.IsPhoneInstall = IsPhoneInstallCheckBox.IsChecked == true;
+        order.IsAirConditioner = IsAirConditionerCheckBox.IsChecked == true;
+        order.IsYekaterinburg = IsYekaterinburgCheckBox.IsChecked == true;
+        order.VatEnabled = VatEnabledCheckBox.IsChecked == true;
+        order.EasyCeilingOrderNumber = EasyCeilingOrderNumberTextBox.Text?.Trim() ?? string.Empty;
+        order.ShippingDate = ShippingDatePicker.SelectedDate?.Date;
+        order.SurveyorName = SurveyorComboBox.Text?.Trim() ?? string.Empty;
+        order.ActNumber = ActNumberTextBox.Text?.Trim() ?? string.Empty;
+        order.ActDate = ActDatePicker.SelectedDate?.Date;
+        order.ComplexityScore = TryParseDecimal(ComplexityScoreTextBox.Text, out var complexityScore) ? complexityScore : 0m;
+        order.ComplexityDiscountAmount = TryParseDecimal(ComplexityDiscountAmountTextBox.Text, out var complexityAmount) ? complexityAmount : 0m;
+        order.ComplexityDiscountPercent = TryParseDecimal(ComplexityDiscountPercentTextBox.Text, out var complexityPercent) ? complexityPercent : 0m;
     }
 
     private void SaveInvoice()
@@ -1793,6 +1831,7 @@ public partial class SalesDocumentEditorWindow : Window
     private void ReplaceLines(IEnumerable<SalesOrderLineRecord> lines)
     {
         _lines.Clear();
+        var no = 1;
         foreach (var line in lines)
         {
             _lines.Add(new SalesLineEditorRow(
@@ -1800,7 +1839,14 @@ public partial class SalesDocumentEditorWindow : Window
                 Ui(line.ItemName),
                 NormalizeUnit(line.Unit, line.ItemName),
                 line.Quantity,
-                line.Price));
+                line.Price,
+                line.DiscountAutoPercent,
+                line.DiscountAutoAmount,
+                line.DiscountManualPercent,
+                line.DiscountManualAmount,
+                line.VatPercent,
+                line.VatAmount,
+                no++));
         }
     }
 
@@ -1825,7 +1871,13 @@ public partial class SalesDocumentEditorWindow : Window
             ItemName = line.ItemName,
             Unit = NormalizeUnit(line.Unit, line.ItemName),
             Quantity = line.Quantity,
-            Price = line.Price
+            Price = line.Price,
+            DiscountAutoPercent = line.DiscountAutoPercent,
+            DiscountAutoAmount = line.DiscountAutoAmount,
+            DiscountManualPercent = line.DiscountManualPercent,
+            DiscountManualAmount = line.DiscountManualAmount,
+            VatPercent = line.VatPercent,
+            VatAmount = line.VatAmount
         }).ToList());
     }
 
@@ -2381,15 +2433,38 @@ public partial class SalesDocumentEditorWindow : Window
         string ItemName,
         string Unit,
         decimal Quantity,
-        decimal Price)
+        decimal Price,
+        decimal DiscountAutoPercent = 0m,
+        decimal DiscountAutoAmount = 0m,
+        decimal DiscountManualPercent = 0m,
+        decimal DiscountManualAmount = 0m,
+        decimal VatPercent = 0m,
+        decimal VatAmount = 0m,
+        int LineNo = 0)
     {
-        public decimal Amount => Math.Round(Quantity * Price, 2, MidpointRounding.AwayFromZero);
+        public decimal Amount => Math.Round(Quantity * Price - DiscountManualAmount - DiscountAutoAmount, 2, MidpointRounding.AwayFromZero);
 
-        public string QuantityDisplay => Quantity.ToString("N2", RuCulture);
+        public decimal LineTotalAmount => Math.Round(Amount + VatAmount, 2, MidpointRounding.AwayFromZero);
 
-        public string PriceDisplay => $"{Price:N2} ₽";
+        public string QuantityDisplay => Quantity.ToString("N3", RuCulture);
 
-        public string AmountDisplay => $"{Amount:N2} ₽";
+        public string PriceDisplay => Price.ToString("N2", RuCulture);
+
+        public string AmountDisplay => Amount.ToString("N2", RuCulture);
+
+        public string DiscountAutoPercentDisplay => DiscountAutoPercent > 0m ? DiscountAutoPercent.ToString("N2", RuCulture) : string.Empty;
+
+        public string DiscountAutoAmountDisplay => DiscountAutoAmount > 0m ? DiscountAutoAmount.ToString("N2", RuCulture) : string.Empty;
+
+        public string DiscountManualPercentDisplay => DiscountManualPercent > 0m ? DiscountManualPercent.ToString("N2", RuCulture) : string.Empty;
+
+        public string DiscountManualAmountDisplay => DiscountManualAmount > 0m ? DiscountManualAmount.ToString("N2", RuCulture) : string.Empty;
+
+        public string VatPercentDisplay => VatPercent > 0m ? $"{VatPercent:N0}%" : string.Empty;
+
+        public string VatAmountDisplay => VatAmount > 0m ? VatAmount.ToString("N2", RuCulture) : string.Empty;
+
+        public string LineTotalAmountDisplay => LineTotalAmount.ToString("N2", RuCulture);
     }
 
     private sealed record SalesRelatedDocumentRow(
