@@ -254,8 +254,9 @@
                                   ToolTip="Структурная единица (склад)"
                                   SelectionChanged="HandleSidebarFilterChanged" />
                         <ComboBox x:Name="SidebarOperationCombo" Height="28" Margin="0,0,0,8"
-                                  IsEnabled="False"
-                                  ToolTip="Операция (появится позже, пока единственный тип: Возврат от покупателя)" />
+                                  ToolTip="Операция">
+                            <ComboBoxItem Content="Возврат от покупателя" IsSelected="True" />
+                        </ComboBox>
                         <ComboBox x:Name="SidebarManagerCombo" Height="28" Margin="0,0,0,8" IsEditable="True"
                                   ToolTip="Ответственный"
                                   SelectionChanged="HandleSidebarFilterChanged" />

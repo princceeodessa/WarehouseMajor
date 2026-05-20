@@ -586,7 +586,6 @@
                                         ToolTip="Выбрать категорию из справочника (появится позже)" />
                                 <Button Grid.Column="2" Style="{StaticResource FieldHelpButtonStyle}" Content="?"
                                         Margin="4,0,0,0"
-                                        IsEnabled="False"
                                         ToolTip="Категория используется для группировки в магазине и отчётах" />
                             </Grid>
 
@@ -603,7 +602,6 @@
                                           Style="{StaticResource FormComboBoxStyle}" />
                                 <Button Grid.Column="1" Style="{StaticResource FieldHelpButtonStyle}" Content="?"
                                         Margin="6,0,0,0"
-                                        IsEnabled="False"
                                         ToolTip="Тип номенклатуры (Запас, Услуга, Работа, Набор)" />
                             </Grid>
 
@@ -738,7 +736,6 @@
                                           Style="{StaticResource CompactCheckBoxStyle}" />
                                 <Button Grid.Column="1" Style="{StaticResource FieldHelpButtonStyle}" Content="?"
                                         Margin="8,0,0,0"
-                                        IsEnabled="False"
                                         ToolTip="При подборе товара нельзя будет ввести 0.5, 1.25 и т. п." />
                             </Grid>
 
@@ -875,7 +872,6 @@
                                     <TextBlock Grid.Column="0" Text="Цены" Style="{StaticResource SectionTitleStyle}" />
                                     <Button Grid.Column="1" Style="{StaticResource FieldHelpButtonStyle}" Content="?"
                                             Margin="6,0,0,0"
-                                            IsEnabled="False"
                                             ToolTip="Цены товара по различным видам цен (РРЦ, Дилер, Оптовая и т. д.)" />
                                 </Grid>
 

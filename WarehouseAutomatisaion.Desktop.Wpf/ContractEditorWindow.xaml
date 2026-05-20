@@ -118,10 +118,10 @@
         <!-- ROW 0: header (← → ⭐ title) -->
         <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#E4EAF5" BorderThickness="0,0,0,1" Padding="16,8">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Width="28" Height="24" Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="0,0,2,0" ToolTip="Назад" IsEnabled="False">
-                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE72B;" FontSize="14" Foreground="#9CADD4" />
+                <Button Width="28" Height="24" Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="0,0,2,0" ToolTip="Назад (закрыть карточку)" Click="HandleHeaderBackClick">
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE72B;" FontSize="14" Foreground="#5A7AAE" />
                 </Button>
-                <Button Width="28" Height="24" Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0" ToolTip="Вперёд" IsEnabled="False">
+                <Button Width="28" Height="24" Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0" ToolTip="Вперёд (журнал договоров появится позже)" IsEnabled="False">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE72A;" FontSize="14" Foreground="#9CADD4" />
                 </Button>
                 <Button Width="22" Height="22" Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="0,0,10,0" ToolTip="В избранное">

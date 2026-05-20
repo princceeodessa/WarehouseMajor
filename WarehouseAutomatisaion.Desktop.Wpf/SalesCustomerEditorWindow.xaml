@@ -1151,7 +1151,7 @@
                                     <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0" ToolTip="Печать">
                                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
                                     </Button>
-                                    <Button Content="Generate ▾" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" />
+                                    <Button Content="Создать ▾" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" ToolTip="Создать договор/банк.счёт (в разработке)" />
                                     <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Использовать как основной" IsEnabled="False">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE73E;" FontSize="12" Foreground="#1FA45F" Margin="0,0,4,0" />

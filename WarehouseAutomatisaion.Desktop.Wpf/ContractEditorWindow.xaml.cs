@@ -32,4 +32,14 @@ public partial class ContractEditorWindow : Window
         DialogResult = true;
         Close();
     }
+
+    /// <summary>
+    /// Кнопка «Назад» в хедере — закрываем карточку без сохранения, как это делает 1С УНФ.
+    /// До появления журнала договоров стрелка «Вперёд» делает то же самое.
+    /// </summary>
+    private void HandleHeaderBackClick(object sender, RoutedEventArgs e)
+    {
+        DialogResult = false;
+        Close();
+    }
 }
