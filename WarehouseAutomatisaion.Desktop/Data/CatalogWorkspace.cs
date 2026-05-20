@@ -1077,3 +1077,24 @@ public sealed class ProductBarcodeRecord
 
     public DateTime CreatedAtUtc { get; set; }
 }
+
+/// <summary>
+/// Запись истории цены товара из таблицы app_product_price_history.
+/// Источник данных — 1С УНФ (документы «Установка цен номенклатуры»).
+/// </summary>
+public sealed class ProductPriceHistoryRecord
+{
+    public long Id { get; set; }
+
+    public DateTime Period { get; set; }
+
+    public string ItemCode { get; set; } = string.Empty;
+
+    public string PriceType { get; set; } = string.Empty;
+
+    public decimal PriceValue { get; set; }
+
+    public string CurrencyCode { get; set; } = "RUB";
+
+    public string UnitName { get; set; } = string.Empty;
+}

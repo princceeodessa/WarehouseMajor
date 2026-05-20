@@ -1428,6 +1428,21 @@ public sealed partial class DesktopMySqlBackplaneService
             INDEX ix_app_product_barcodes_value (barcode_value)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+        CREATE TABLE IF NOT EXISTS app_product_price_history (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            period DATETIME(6) NOT NULL,
+            item_code VARCHAR(128) NOT NULL,
+            price_type VARCHAR(128) NOT NULL,
+            price_value DECIMAL(18, 4) NOT NULL DEFAULT 0,
+            currency_code VARCHAR(16) NOT NULL DEFAULT 'RUB',
+            unit_name VARCHAR(64) NULL,
+            created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+            CONSTRAINT pk_app_product_price_history PRIMARY KEY (id),
+            CONSTRAINT uq_app_product_price_history UNIQUE KEY (item_code, price_type, period),
+            INDEX ix_app_product_price_history_item_code (item_code),
+            INDEX ix_app_product_price_history_period (period)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
         CREATE TABLE IF NOT EXISTS app_catalog_item_prices (
             id CHAR(36) NOT NULL,
             item_id CHAR(36) NOT NULL,
@@ -1595,5 +1610,57 @@ public sealed partial class DesktopMySqlBackplaneService
     {
         var ordinal = reader.GetOrdinal(column);
         return reader.IsDBNull(ordinal) ? 0L : reader.GetInt64(ordinal);
+    }
+
+    /// <summary>
+    /// Загружает историю цен товара по коду (item_code). Сортировка: тип цены, потом период убыванию (свежие сверху).
+    /// При ошибке БД возвращает пустой список.
+    /// </summary>
+    public IReadOnlyList<ProductPriceHistoryRecord> TryLoadPriceHistory(string itemCode)
+    {
+        if (string.IsNullOrWhiteSpace(itemCode))
+        {
+            return Array.Empty<ProductPriceHistoryRecord>();
+        }
+
+        try
+        {
+            EnsureDatabaseAndSchema();
+            using var connection = DesktopMySqlCommandRunner.CreateOpenConnection(
+                _options,
+                useDatabase: true,
+                MysqlConnectTimeoutSeconds,
+                MysqlCatalogCommandTimeoutSeconds);
+
+            var rows = new List<ProductPriceHistoryRecord>();
+            using var command = CreateMySqlCommand(connection, null, """
+                SELECT id, period, item_code, price_type, price_value, currency_code, unit_name
+                FROM app_product_price_history
+                WHERE item_code = @code
+                ORDER BY price_type, period DESC;
+                """);
+            SetParameter(command, "@code", itemCode);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                rows.Add(new ProductPriceHistoryRecord
+                {
+                    Id = ReadInt64(reader, "id"),
+                    Period = ReadDateTime(reader, "period"),
+                    ItemCode = ReadString(reader, "item_code"),
+                    PriceType = ReadString(reader, "price_type"),
+                    PriceValue = ReadDecimal(reader, "price_value"),
+                    CurrencyCode = ReadString(reader, "currency_code"),
+                    UnitName = ReadString(reader, "unit_name")
+                });
+            }
+
+            return rows;
+        }
+        catch (Exception exception)
+        {
+            TryWriteErrorLog(exception);
+            return Array.Empty<ProductPriceHistoryRecord>();
+        }
     }
 }

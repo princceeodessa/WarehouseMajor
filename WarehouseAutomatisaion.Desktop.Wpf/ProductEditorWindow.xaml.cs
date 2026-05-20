@@ -540,6 +540,21 @@ public partial class ProductEditorWindow : Window
         window.ShowDialog();
     }
 
+    /// <summary>
+    /// Клик по вкладке «Цены» открывает окно истории цен из app_product_price_history.
+    /// Данные подтягиваются скриптом scripts/Import-UnfPriceHistoryToMySql.ps1 из 1С УНФ.
+    /// </summary>
+    private void HandlePricesTabClick(object sender, RoutedEventArgs e)
+    {
+        var itemCode = _draft is null ? string.Empty : Ui(_draft.Code);
+        var itemName = _draft is null ? string.Empty : Ui(_draft.Name);
+        var window = new ProductPriceHistoryWindow(itemCode, itemName)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
     private void CompleteEditing(bool success)
     {
         if (_hostedInWorkspace)

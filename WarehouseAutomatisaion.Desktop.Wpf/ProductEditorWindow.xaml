@@ -376,8 +376,8 @@
                                 ToolTip="Все штрихкоды товара (основной + дополнительные из 1С УНФ)" />
                         <Button Content="Цены"
                                 Style="{StaticResource HeaderTabButtonStyle}"
-                                IsEnabled="False"
-                                ToolTip="Цены товара показаны на основной странице справа" />
+                                Click="HandlePricesTabClick"
+                                ToolTip="История цен товара по всем видам цен (из 1С УНФ)" />
                         <Button Content="Документы"
                                 Style="{StaticResource HeaderTabButtonStyle}"
                                 IsEnabled="False"
