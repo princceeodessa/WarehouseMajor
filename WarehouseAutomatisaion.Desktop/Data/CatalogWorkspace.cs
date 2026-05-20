@@ -1055,3 +1055,25 @@ public sealed class CatalogOperationLogEntry
         };
     }
 }
+
+/// <summary>
+/// Запись штрихкода товара из таблицы app_product_barcodes.
+/// Один товар может иметь несколько штрихкодов (Основной + дополнительные регистры).
+/// Источник данных — 1С УНФ (поля CardBarcode и RegisterBarcodes из карточки номенклатуры).
+/// </summary>
+public sealed class ProductBarcodeRecord
+{
+    public long Id { get; set; }
+
+    public string ItemCode { get; set; } = string.Empty;
+
+    public string BarcodeValue { get; set; } = string.Empty;
+
+    /// <summary>«Основной» или «Дополнительный».</summary>
+    public string BarcodeKind { get; set; } = "Основной";
+
+    /// <summary>NoBarcode / Card / Register — пометка откуда пришёл штрихкод в 1С.</summary>
+    public string BarcodeSource { get; set; } = string.Empty;
+
+    public DateTime CreatedAtUtc { get; set; }
+}

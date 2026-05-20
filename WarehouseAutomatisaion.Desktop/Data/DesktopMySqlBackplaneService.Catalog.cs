@@ -1415,6 +1415,19 @@ public sealed partial class DesktopMySqlBackplaneService
             CONSTRAINT pk_app_catalog_items PRIMARY KEY (id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+        CREATE TABLE IF NOT EXISTS app_product_barcodes (
+            id BIGINT NOT NULL AUTO_INCREMENT,
+            item_code VARCHAR(128) NOT NULL,
+            barcode_value VARCHAR(256) NOT NULL,
+            barcode_kind VARCHAR(32) NOT NULL DEFAULT 'Основной',
+            barcode_source VARCHAR(64) NULL,
+            created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+            CONSTRAINT pk_app_product_barcodes PRIMARY KEY (id),
+            CONSTRAINT uq_app_product_barcodes UNIQUE KEY (item_code, barcode_value),
+            INDEX ix_app_product_barcodes_item_code (item_code),
+            INDEX ix_app_product_barcodes_value (barcode_value)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
         CREATE TABLE IF NOT EXISTS app_catalog_item_prices (
             id CHAR(36) NOT NULL,
             item_id CHAR(36) NOT NULL,
@@ -1499,4 +1512,88 @@ public sealed partial class DesktopMySqlBackplaneService
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
         """;
+
+    /// <summary>
+    /// Загружает все штрихкоды по коду товара (item_code = НФ-XXXXXXXX).
+    /// Если в новой таблице пусто, но в app_catalog_items есть barcode_value — возвращает один основной штрихкод как fallback.
+    /// При ошибке БД пишет error.log и возвращает пустой список.
+    /// </summary>
+    internal IReadOnlyList<ProductBarcodeRecord> TryLoadProductBarcodes(string itemCode)
+    {
+        if (string.IsNullOrWhiteSpace(itemCode))
+        {
+            return Array.Empty<ProductBarcodeRecord>();
+        }
+
+        try
+        {
+            EnsureDatabaseAndSchema();
+            using var connection = DesktopMySqlCommandRunner.CreateOpenConnection(
+                _options,
+                useDatabase: true,
+                MysqlConnectTimeoutSeconds,
+                MysqlCatalogCommandTimeoutSeconds);
+
+            var rows = new List<ProductBarcodeRecord>();
+            using (var command = CreateMySqlCommand(connection, null, """
+                SELECT id, item_code, barcode_value, barcode_kind, barcode_source, created_at_utc
+                FROM app_product_barcodes
+                WHERE item_code = @code
+                ORDER BY CASE WHEN barcode_kind = 'Основной' THEN 0 ELSE 1 END, id;
+                """))
+            {
+                SetParameter(command, "@code", itemCode);
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    rows.Add(new ProductBarcodeRecord
+                    {
+                        Id = ReadInt64(reader, "id"),
+                        ItemCode = ReadString(reader, "item_code"),
+                        BarcodeValue = ReadString(reader, "barcode_value"),
+                        BarcodeKind = ReadString(reader, "barcode_kind"),
+                        BarcodeSource = ReadString(reader, "barcode_source"),
+                        CreatedAtUtc = ReadDateTime(reader, "created_at_utc")
+                    });
+                }
+            }
+
+            if (rows.Count == 0)
+            {
+                // Fallback: единственный штрихкод из app_catalog_items.barcode_value
+                using var command = CreateMySqlCommand(connection, null, """
+                    SELECT barcode_value, barcode_format
+                    FROM app_catalog_items
+                    WHERE code = @code AND barcode_value IS NOT NULL AND barcode_value <> ''
+                    LIMIT 1;
+                    """);
+                SetParameter(command, "@code", itemCode);
+                using var reader = command.ExecuteReader();
+                if (reader.Read())
+                {
+                    rows.Add(new ProductBarcodeRecord
+                    {
+                        ItemCode = itemCode,
+                        BarcodeValue = ReadString(reader, "barcode_value"),
+                        BarcodeKind = "Основной",
+                        BarcodeSource = ReadString(reader, "barcode_format"),
+                        CreatedAtUtc = DateTime.UtcNow
+                    });
+                }
+            }
+
+            return rows;
+        }
+        catch (Exception exception)
+        {
+            TryWriteErrorLog(exception);
+            return Array.Empty<ProductBarcodeRecord>();
+        }
+    }
+
+    private static long ReadInt64(MySqlDataReader reader, string column)
+    {
+        var ordinal = reader.GetOrdinal(column);
+        return reader.IsDBNull(ordinal) ? 0L : reader.GetInt64(ordinal);
+    }
 }
