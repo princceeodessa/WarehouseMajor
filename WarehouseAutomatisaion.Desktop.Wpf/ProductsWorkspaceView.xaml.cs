@@ -1796,6 +1796,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
         {
             Owner = Window.GetWindow(this)
         };
+        dialog.AttachDocumentActions(_salesWorkspace, TryCreatePurchasingWorkspaceForCardActions);
 
         if (dialog.ShowDialog() != true || dialog.ResultItem is null)
         {
@@ -1804,6 +1805,29 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
 
         _catalogWorkspace.UpsertItem(dialog.ResultItem);
         TryPersistCatalog();
+    }
+
+    /// <summary>
+    /// Лениво создаёт OperationalPurchasingWorkspace для кнопки «Купить» в карточке товара.
+    /// Возвращает null, если хранилище недоступно — кнопки в карточке корректно покажут предупреждение.
+    /// </summary>
+    private OperationalPurchasingWorkspace? TryCreatePurchasingWorkspaceForCardActions()
+    {
+        try
+        {
+            var currentOperator = string.IsNullOrWhiteSpace(_salesWorkspace.CurrentOperator)
+                ? Environment.UserName
+                : _salesWorkspace.CurrentOperator;
+            return _purchasingStore.TryLoadExisting(
+                       currentOperator,
+                       _salesWorkspace.CatalogItems,
+                       _salesWorkspace.Warehouses)
+                   ?? OperationalPurchasingWorkspace.Create(currentOperator, _salesWorkspace);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private bool TryOpenProductEditorInTab(MainWindow mainWindow, CatalogItemRecord? item)
@@ -1821,6 +1845,7 @@ public partial class ProductsWorkspaceView : WpfUserControl, INotifyPropertyChan
                 _catalogWorkspace,
                 item,
                 item is null ? Array.Empty<WarehouseCellBalanceRecord>() : ResolveProductCellBalances(item));
+            editor.AttachDocumentActions(_salesWorkspace, TryCreatePurchasingWorkspaceForCardActions);
 
             editor.HostedSaved += (_, _) =>
             {

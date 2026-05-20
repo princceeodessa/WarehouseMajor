@@ -36,6 +36,11 @@ public partial class ProductEditorWindow : Window
     private readonly Dictionary<Guid, CatalogPriceTypeRecord> _priceTypesById = new();
     private bool _hostedInWorkspace;
 
+    // Опциональные интеграции с другими модулями — если переданы,
+    // активируют кнопки тулбара «Продать»/«Купить».
+    private SalesWorkspace? _salesWorkspaceForActions;
+    private Func<OperationalPurchasingWorkspace?>? _purchasingFactoryForActions;
+
     public ProductEditorWindow(
         CatalogWorkspace workspace,
         CatalogItemRecord? item = null,
@@ -56,6 +61,40 @@ public partial class ProductEditorWindow : Window
         LoadPricesPanel();
         LoadCellBalances();
         HookVolumeRecalculation();
+    }
+
+    /// <summary>
+    /// Опционально подключает кнопки «Продать»/«Купить» к рабочим окнам Продаж и Закупок.
+    /// Если оставить null — кнопки остаются неактивными.
+    /// </summary>
+    public void AttachDocumentActions(
+        SalesWorkspace? salesWorkspace,
+        Func<OperationalPurchasingWorkspace?>? purchasingFactory)
+    {
+        _salesWorkspaceForActions = salesWorkspace;
+        _purchasingFactoryForActions = purchasingFactory;
+        ApplyDocumentActionsState();
+    }
+
+    private void ApplyDocumentActionsState()
+    {
+        if (SellSplitButton is not null)
+        {
+            SellSplitButton.IsEnabled = _salesWorkspaceForActions is not null;
+            if (_salesWorkspaceForActions is not null)
+            {
+                SellSplitButton.ToolTip = "Создать документ продажи на основе этого товара";
+            }
+        }
+
+        if (BuySplitButton is not null)
+        {
+            BuySplitButton.IsEnabled = _purchasingFactoryForActions is not null;
+            if (_purchasingFactoryForActions is not null)
+            {
+                BuySplitButton.ToolTip = "Создать документ закупки на основе этого товара";
+            }
+        }
     }
 
     public CatalogItemRecord? ResultItem { get; private set; }
@@ -568,6 +607,138 @@ public partial class ProductEditorWindow : Window
             Owner = this
         };
         window.ShowDialog();
+    }
+
+    // ===== «Продать» / «Купить» — открытие редактора нужного документа =====
+    // Клик по самой кнопке (не пункту меню) раскрывает прикреплённый ContextMenu —
+    // пользователь видит варианты, как в split-button 1С.
+
+    private void HandleSellClick(object sender, RoutedEventArgs e)
+    {
+        OpenAttachedContextMenu(sender);
+    }
+
+    private void HandleBuyClick(object sender, RoutedEventArgs e)
+    {
+        OpenAttachedContextMenu(sender);
+    }
+
+    private static void OpenAttachedContextMenu(object sender)
+    {
+        if (sender is Button button && button.ContextMenu is not null)
+        {
+            button.ContextMenu.PlacementTarget = button;
+            button.ContextMenu.IsOpen = true;
+        }
+    }
+
+    private void HandleSellOrderClick(object sender, RoutedEventArgs e)
+    {
+        OpenSalesEditor(SalesDocumentEditorMode.Order, "Заказ покупателя");
+    }
+
+    private void HandleSellInvoiceClick(object sender, RoutedEventArgs e)
+    {
+        OpenSalesEditor(SalesDocumentEditorMode.Invoice, "Счёт на оплату");
+    }
+
+    private void HandleSellShipmentClick(object sender, RoutedEventArgs e)
+    {
+        OpenSalesEditor(SalesDocumentEditorMode.Shipment, "Расходная накладная");
+    }
+
+    private void HandleBuyOrderClick(object sender, RoutedEventArgs e)
+    {
+        OpenPurchasingEditor(PurchasingDocumentEditorMode.PurchaseOrder, "Заказ поставщику");
+    }
+
+    private void HandleBuyReceiptClick(object sender, RoutedEventArgs e)
+    {
+        OpenPurchasingEditor(PurchasingDocumentEditorMode.PurchaseReceipt, "Приходная накладная");
+    }
+
+    private void OpenSalesEditor(SalesDocumentEditorMode mode, string kindCaption)
+    {
+        if (_salesWorkspaceForActions is null)
+        {
+            MessageBox.Show(
+                this,
+                "Откройте раздел «Продажи» и попробуйте ещё раз — рабочая область не подключена.",
+                kindCaption,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            var dialog = new SalesDocumentEditorWindow(_salesWorkspaceForActions, mode)
+            {
+                Owner = this
+            };
+            ShowPreselectionHint(kindCaption);
+            dialog.ShowDialog();
+        }
+        catch (Exception exception)
+        {
+            App.WriteClientErrorLog(exception, $"ProductEditorWindow.OpenSalesEditor({mode})");
+            MessageBox.Show(
+                this,
+                $"Не удалось открыть документ «{kindCaption}»: {exception.Message}",
+                kindCaption,
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void OpenPurchasingEditor(PurchasingDocumentEditorMode mode, string kindCaption)
+    {
+        var purchasing = _purchasingFactoryForActions?.Invoke();
+        if (purchasing is null)
+        {
+            MessageBox.Show(
+                this,
+                "Откройте раздел «Закупки» и попробуйте ещё раз — рабочая область не подключена.",
+                kindCaption,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            var dialog = new PurchasingDocumentEditorWindow(purchasing, mode)
+            {
+                Owner = this
+            };
+            ShowPreselectionHint(kindCaption);
+            dialog.ShowDialog();
+        }
+        catch (Exception exception)
+        {
+            App.WriteClientErrorLog(exception, $"ProductEditorWindow.OpenPurchasingEditor({mode})");
+            MessageBox.Show(
+                this,
+                $"Не удалось открыть документ «{kindCaption}»: {exception.Message}",
+                kindCaption,
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    /// <summary>
+    /// Подсказка для пользователя: после открытия редактора нужно вручную добавить товар через «Подобрать».
+    /// Автозаполнение строки появится в следующих релизах.
+    /// </summary>
+    private void ShowPreselectionHint(string kindCaption)
+    {
+        var code = Ui(_draft.Code);
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return;
+        }
+        // Заголовок окна — единственный «тостер» который у нас есть в текущей архитектуре.
+        Title = $"{Title} → добавьте {code} в {kindCaption}";
     }
 
     private void CompleteEditing(bool success)

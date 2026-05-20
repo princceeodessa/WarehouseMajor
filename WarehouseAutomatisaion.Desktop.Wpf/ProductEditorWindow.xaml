@@ -438,20 +438,38 @@
 
                     <Border Width="1" Background="{StaticResource DividerSoft}" Margin="14,4" />
 
-                    <!-- Действия «Продать» / «Купить» — заглушки с тултипами, чтобы было видно,
-                         что в этом месте 1С обычно открывает мастер документа. -->
-                    <Button Style="{StaticResource ToolbarButtonStyle}"
+                    <!-- Действия «Продать» / «Купить» — открывают редактор соответствующего документа.
+                         IsEnabled включается, когда вызывающий код передал salesWorkspace/purchasingFactory
+                         через AttachDocumentActions(...). -->
+                    <Button x:Name="SellSplitButton"
+                            Style="{StaticResource ToolbarButtonStyle}"
                             IsEnabled="False"
-                            ToolTip="Создать документ продажи на основе товара (появится позже)">
+                            Click="HandleSellClick"
+                            ToolTip="Создать документ продажи на основе товара">
+                        <Button.ContextMenu>
+                            <ContextMenu Placement="Bottom">
+                                <MenuItem Header="Заказ покупателя" Click="HandleSellOrderClick" />
+                                <MenuItem Header="Счёт на оплату"   Click="HandleSellInvoiceClick" />
+                                <MenuItem Header="Расходная накладная" Click="HandleSellShipmentClick" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Продать" VerticalAlignment="Center" />
                             <TextBlock Text="▼" Margin="8,0,0,0" FontSize="9" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolbarButtonStyle}"
+                    <Button x:Name="BuySplitButton"
+                            Style="{StaticResource ToolbarButtonStyle}"
                             Margin="8,0,0,0"
                             IsEnabled="False"
-                            ToolTip="Создать документ закупки на основе товара (появится позже)">
+                            Click="HandleBuyClick"
+                            ToolTip="Создать документ закупки на основе товара">
+                        <Button.ContextMenu>
+                            <ContextMenu Placement="Bottom">
+                                <MenuItem Header="Заказ поставщику" Click="HandleBuyOrderClick" />
+                                <MenuItem Header="Приходная накладная" Click="HandleBuyReceiptClick" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Купить" VerticalAlignment="Center" />
                             <TextBlock Text="▼" Margin="8,0,0,0" FontSize="9" VerticalAlignment="Center" />
