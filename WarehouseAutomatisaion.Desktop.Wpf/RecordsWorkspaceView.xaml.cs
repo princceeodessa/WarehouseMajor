@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -14,16 +16,20 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 public partial class RecordsWorkspaceView : UserControl, IDisposable
 {
     private const int PageSize = 10;
+    private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
 
     private readonly RecordsWorkspaceDefinition _definition;
     private readonly ObservableCollection<WorkspaceMetricCardViewModel> _metrics = [];
     private readonly ObservableCollection<RecordsGroupNodeViewModel> _groupNodes = [];
+    private readonly Dictionary<DataGridColumn, RecordsGridColumnDefinition> _gridColumnDefinitions = new();
     private readonly System.Windows.Threading.DispatcherTimer _searchDebounceTimer;
     private readonly System.Windows.Threading.DispatcherTimer _workspaceChangeDebounceTimer;
     private IReadOnlyList<RecordsGridItem> _allRows = Array.Empty<RecordsGridItem>();
     private IReadOnlyList<RecordsGridItem> _filteredRows = Array.Empty<RecordsGridItem>();
     private string _selectedGroupPath = string.Empty;
     private int _currentPage = 1;
+    private RecordsGridColumnDefinition? _sortColumn;
+    private ListSortDirection _sortDirection = ListSortDirection.Ascending;
     private bool _disposed;
 
     public RecordsWorkspaceView(RecordsWorkspaceDefinition definition)
@@ -67,7 +73,6 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         GroupTreePanel.Visibility = definition.GroupTreeFactory is null ? Visibility.Collapsed : Visibility.Visible;
         GroupTreeSpacer.Visibility = GroupTreePanel.Visibility;
 
-        MetricsItemsControl.ItemsSource = _metrics;
         PrimaryFilterCombo.ItemsSource = definition.PrimaryFilterOptions.Select(Clean).ToArray();
         PrimaryFilterCombo.SelectedIndex = 0;
 
@@ -91,6 +96,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         RecordsGrid.MouseDoubleClick += HandleRecordsGridMouseDoubleClick;
         RecordsGrid.MouseLeftButtonUp += HandleRecordsGridMouseLeftButtonUp;
         RecordsGrid.KeyDown += HandleRecordsGridKeyDown;
+        RecordsGrid.Sorting += HandleRecordsGridSorting;
 
         BuildColumns();
         Loaded += HandleLoaded;
@@ -125,6 +131,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         RecordsGrid.MouseDoubleClick -= HandleRecordsGridMouseDoubleClick;
         RecordsGrid.MouseLeftButtonUp -= HandleRecordsGridMouseLeftButtonUp;
         RecordsGrid.KeyDown -= HandleRecordsGridKeyDown;
+        RecordsGrid.Sorting -= HandleRecordsGridSorting;
         _definition.UnsubscribeFromChanges?.Invoke(HandleWorkspaceChanged);
     }
 
@@ -178,7 +185,6 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
             _definition.RefreshAction?.Invoke();
         }
 
-        RenderMetrics();
         _allRows = _definition.RowsFactory();
         RenderGroupTree();
         ApplyFilters(resetPage: true);
@@ -202,7 +208,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
             Grid.SetColumnSpan(HeaderActionsPanel, 2);
             HeaderActionsPanel.Margin = new Thickness(0, 16, 0, 0);
             HeaderActionsPanel.HorizontalAlignment = HorizontalAlignment.Stretch;
-            HeaderSearchBorder.Width = 260;
+            SetFilterPanelWidth(204);
         }
         else
         {
@@ -211,8 +217,19 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
             Grid.SetColumnSpan(HeaderActionsPanel, 1);
             HeaderActionsPanel.Margin = new Thickness(0);
             HeaderActionsPanel.HorizontalAlignment = HorizontalAlignment.Right;
-            HeaderSearchBorder.Width = 320;
+            SetFilterPanelWidth(238);
         }
+    }
+
+    private void SetFilterPanelWidth(double fieldWidth)
+    {
+        FilterPanelColumn.Width = new GridLength(fieldWidth + 34);
+        FilterFieldsPanel.Width = fieldWidth;
+        HeaderSearchBorder.Width = fieldWidth;
+        PrimaryFilterCombo.Width = fieldWidth;
+        SecondaryFilterCombo.Width = fieldWidth;
+        StartDatePicker.Width = fieldWidth;
+        EndDatePicker.Width = fieldWidth;
     }
 
     private void RenderMetrics()
@@ -235,6 +252,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
     private void BuildColumns()
     {
         RecordsGrid.Columns.Clear();
+        _gridColumnDefinitions.Clear();
 
         foreach (var column in _definition.Columns)
         {
@@ -247,6 +265,10 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
                 _ => CreateTextColumn(column)
             };
 
+            built.SortMemberPath = $"Cells[{column.CellIndex}].Text";
+            built.CanUserSort = column.Kind is not RecordsColumnKind.Action and not RecordsColumnKind.Indicator;
+            built.SortDirection = _sortColumn?.CellIndex == column.CellIndex ? _sortDirection : null;
+            _gridColumnDefinitions[built] = column;
             RecordsGrid.Columns.Add(built);
         }
     }
@@ -511,6 +533,65 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         return null;
     }
 
+    private void HandleRecordsGridSorting(object sender, DataGridSortingEventArgs e)
+    {
+        if (!_gridColumnDefinitions.TryGetValue(e.Column, out var column) || e.Column.CanUserSort != true)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        _sortDirection = _sortColumn?.CellIndex == column.CellIndex && _sortDirection == ListSortDirection.Ascending
+            ? ListSortDirection.Descending
+            : ListSortDirection.Ascending;
+        _sortColumn = column;
+        UpdateRecordsSortIndicators();
+        ApplyFilters(resetPage: true);
+    }
+
+    private void UpdateRecordsSortIndicators()
+    {
+        foreach (var column in RecordsGrid.Columns)
+        {
+            column.SortDirection = _gridColumnDefinitions.TryGetValue(column, out var definition)
+                                   && _sortColumn?.CellIndex == definition.CellIndex
+                ? _sortDirection
+                : null;
+        }
+    }
+
+    private static object ResolveSortValue(RecordsGridItem row, int cellIndex)
+    {
+        if (cellIndex < 0 || cellIndex >= row.Cells.Count)
+        {
+            return string.Empty;
+        }
+
+        var text = Clean(row.Cells[cellIndex].Text).Trim();
+        if (string.IsNullOrWhiteSpace(text) || text == "-" || text == "—")
+        {
+            return string.Empty;
+        }
+
+        if (DateTime.TryParseExact(text, "dd.MM.yyyy", RuCulture, DateTimeStyles.None, out var date))
+        {
+            return date;
+        }
+
+        var numericText = text
+            .Replace("\u00A0", " ", StringComparison.Ordinal)
+            .Replace("₽", string.Empty, StringComparison.Ordinal)
+            .Replace("руб.", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Trim();
+        if (decimal.TryParse(numericText, NumberStyles.Any, RuCulture, out var decimalValue)
+            || decimal.TryParse(numericText, NumberStyles.Any, CultureInfo.InvariantCulture, out decimalValue))
+        {
+            return decimalValue;
+        }
+
+        return text;
+    }
+
     private void ApplyFilters(bool resetPage = false)
     {
         var search = Clean(HeaderSearchBox.Text).Trim();
@@ -564,7 +645,7 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
             return true;
         }).ToArray();
 
-        _filteredRows = rows;
+        _filteredRows = ApplySorting(rows);
 
         if (resetPage)
         {
@@ -574,6 +655,18 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         var totalPages = Math.Max(1, (int)Math.Ceiling(_filteredRows.Count / (double)PageSize));
         _currentPage = Math.Max(1, Math.Min(_currentPage, totalPages));
         RenderCurrentPage(totalPages);
+    }
+
+    private IReadOnlyList<RecordsGridItem> ApplySorting(IReadOnlyList<RecordsGridItem> rows)
+    {
+        if (_sortColumn is null)
+        {
+            return rows;
+        }
+
+        return _sortDirection == ListSortDirection.Ascending
+            ? rows.OrderBy(row => ResolveSortValue(row, _sortColumn.CellIndex), RecordsSortValueComparer.Instance).ToArray()
+            : rows.OrderByDescending(row => ResolveSortValue(row, _sortColumn.CellIndex), RecordsSortValueComparer.Instance).ToArray();
     }
 
     private void RenderCurrentPage(int totalPages)
@@ -747,6 +840,11 @@ public partial class RecordsWorkspaceView : UserControl, IDisposable
         resetItem.Click += (_, _) =>
         {
             PrimaryFilterCombo.SelectedIndex = 0;
+            if (SecondaryFilterCombo.Items.Count > 0)
+            {
+                SecondaryFilterCombo.SelectedIndex = 0;
+            }
+
             StartDatePicker.SelectedDate = null;
             EndDatePicker.SelectedDate = null;
             HeaderSearchBox.Clear();
@@ -976,6 +1074,39 @@ public sealed record RecordsGridCellDefinition(
     public Brush BackgroundBrush => BrushPalette.FromHex(BackgroundHex);
 
     public FontWeight Weight => SemiBold ? FontWeights.SemiBold : FontWeights.Normal;
+}
+
+internal sealed class RecordsSortValueComparer : IComparer<object>
+{
+    public static RecordsSortValueComparer Instance { get; } = new();
+
+    public int Compare(object? x, object? y)
+    {
+        if (ReferenceEquals(x, y))
+        {
+            return 0;
+        }
+
+        if (x is null)
+        {
+            return -1;
+        }
+
+        if (y is null)
+        {
+            return 1;
+        }
+
+        if (x.GetType() == y.GetType() && x is IComparable comparable)
+        {
+            return comparable.CompareTo(y);
+        }
+
+        return string.Compare(
+            TextMojibakeFixer.NormalizeText(x.ToString()),
+            TextMojibakeFixer.NormalizeText(y.ToString()),
+            StringComparison.CurrentCultureIgnoreCase);
+    }
 }
 
 internal static class BrushPalette

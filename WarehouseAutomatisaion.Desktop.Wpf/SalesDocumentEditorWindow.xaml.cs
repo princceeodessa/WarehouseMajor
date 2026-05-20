@@ -57,6 +57,8 @@ public partial class SalesDocumentEditorWindow : Window
     private bool _updatingCustomerLookup;
     private bool _updatingDiscountFields;
     private bool _discountPercentMode;
+    private bool _syncingStatusSelection;
+    private string? _selectedStatusValue;
     private decimal _manualDiscountPercent;
     private decimal _manualDiscountAmount;
     private SalesOrderRecord? _orderDraft;
@@ -300,7 +302,7 @@ public partial class SalesDocumentEditorWindow : Window
         NumberTextBox.Text = Ui(order.Number);
         DocumentDatePicker.SelectedDate = order.OrderDate == default ? DateTime.Today : order.OrderDate;
         SelectComboValue(CustomerComboBox, BuildCustomerOption(order));
-        SelectComboValue(StatusComboBox, _workspace.NormalizeOrderStatus(order.Status));
+        SetStatusComboValue(_workspace.NormalizeOrderStatus(order.Status));
         SelectComboValue(WarehouseComboBox, Ui(order.Warehouse));
         SelectComboValue(OrganizationComboBox, _workspace.NormalizeOrganization(order.Organization));
         SelectComboValue(ManagerComboBox, SalesManagerDisplayResolver.Resolve(order.Manager));
@@ -330,7 +332,7 @@ public partial class SalesDocumentEditorWindow : Window
         DocumentDatePicker.SelectedDate = invoice.InvoiceDate == default ? DateTime.Today : invoice.InvoiceDate;
         SecondaryDatePicker.SelectedDate = invoice.DueDate == default ? DateTime.Today.AddDays(3) : invoice.DueDate;
         SelectComboValue(CustomerComboBox, BuildCustomerOption(invoice));
-        SelectComboValue(StatusComboBox, Ui(invoice.Status));
+        SetStatusComboValue(Ui(invoice.Status));
         SelectComboValue(ManagerComboBox, SalesManagerDisplayResolver.Resolve(invoice.Manager));
         SelectComboValue(CurrencyComboBox, Ui(invoice.CurrencyCode));
         CommentTextBox.Text = Ui(invoice.Comment);
@@ -343,7 +345,7 @@ public partial class SalesDocumentEditorWindow : Window
         NumberTextBox.Text = Ui(shipment.Number);
         DocumentDatePicker.SelectedDate = shipment.ShipmentDate == default ? DateTime.Today : shipment.ShipmentDate;
         SelectComboValue(CustomerComboBox, BuildCustomerOption(shipment));
-        SelectComboValue(StatusComboBox, Ui(shipment.Status));
+        SetStatusComboValue(Ui(shipment.Status));
         SelectComboValue(WarehouseComboBox, Ui(shipment.Warehouse));
         SelectComboValue(ManagerComboBox, SalesManagerDisplayResolver.Resolve(shipment.Manager));
         CarrierTextBox.Text = Ui(shipment.Carrier);
@@ -481,29 +483,73 @@ public partial class SalesDocumentEditorWindow : Window
 
     private void HandleStatusSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_loading)
+        if (_loading || _syncingStatusSelection)
         {
             return;
         }
 
-        ApplySelectedStatusToDraft();
-        // RenderRelatedDocuments сюда вызывать НЕ нужно — статус не влияет на цепочку.
-        // Раньше вызов RenderRelatedDocuments через ResolveRelatedOrder() мог в редких случаях
-        // переинициализировать ComboBox.SelectedItem и сбрасывать визуальный выбор на «Не обработан».
+        var selectedStatus = ResolveStatusSelection(e);
+        if (string.IsNullOrWhiteSpace(selectedStatus))
+        {
+            return;
+        }
 
-        // Гарантируем что combo показывает реально выбранный элемент даже если что-то
-        // в дочерних handler'ах попыталось сбросить визуал.
+        _selectedStatusValue = NormalizeStatusForMode(selectedStatus);
+        ApplySelectedStatusToDraft();
+        // RenderRelatedDocuments сюда вызывать не нужно: статус не влияет на цепочку документов.
         if (sender is ComboBox combo && combo.SelectedItem is not null)
         {
-            var picked = combo.SelectedItem;
+            var picked = _selectedStatusValue;
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                if (!ReferenceEquals(combo.SelectedItem, picked))
+                if (!string.IsNullOrWhiteSpace(picked)
+                    && !Ui(combo.SelectedItem?.ToString()).Equals(picked, StringComparison.OrdinalIgnoreCase))
                 {
-                    combo.SelectedItem = picked;
+                    SetStatusComboValue(picked);
                 }
             }));
         }
+    }
+
+    private string ResolveStatusSelection(SelectionChangedEventArgs e)
+    {
+        return Ui(e.AddedItems.OfType<object>().FirstOrDefault()?.ToString()
+                  ?? StatusComboBox.SelectedItem?.ToString()
+                  ?? StatusComboBox.Text);
+    }
+
+    private string NormalizeStatusForMode(string status)
+    {
+        return _mode == SalesDocumentEditorMode.Order
+            ? _workspace.NormalizeOrderStatus(status)
+            : Ui(status).Trim();
+    }
+
+    private void SetStatusComboValue(string status)
+    {
+        var normalized = NormalizeStatusForMode(status);
+        _selectedStatusValue = normalized;
+
+        _syncingStatusSelection = true;
+        try
+        {
+            SelectComboValue(StatusComboBox, normalized);
+        }
+        finally
+        {
+            _syncingStatusSelection = false;
+        }
+    }
+
+    private string GetSelectedStatus()
+    {
+        var status = _selectedStatusValue;
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            status = StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text;
+        }
+
+        return NormalizeStatusForMode(status ?? string.Empty);
     }
 
     private void LoadFromBaseOrder(SalesOrderRecord order)
@@ -1027,7 +1073,7 @@ public partial class SalesDocumentEditorWindow : Window
 
         order.Warehouse = WarehouseComboBox.Text.Trim();
         order.Organization = OrganizationComboBox.Text.Trim();
-        order.Status = _workspace.NormalizeOrderStatus(StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim());
+        order.Status = GetSelectedStatus();
         order.Manager = ManagerComboBox.Text.Trim();
         order.CurrencyCode = CurrencyComboBox.SelectedItem?.ToString() ?? CurrencyComboBox.Text.Trim();
         order.Comment = CommentTextBox.Text.Trim();
@@ -1061,7 +1107,7 @@ public partial class SalesDocumentEditorWindow : Window
         invoice.Number = NumberTextBox.Text.Trim();
         invoice.InvoiceDate = DocumentDatePicker.SelectedDate?.Date ?? DateTime.Today;
         invoice.DueDate = SecondaryDatePicker.SelectedDate?.Date ?? DateTime.Today.AddDays(3);
-        invoice.Status = StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim();
+        invoice.Status = GetSelectedStatus();
         invoice.Manager = ManagerComboBox.Text.Trim();
         invoice.CurrencyCode = CurrencyComboBox.SelectedItem?.ToString() ?? CurrencyComboBox.Text.Trim();
         invoice.Comment = CommentTextBox.Text.Trim();
@@ -1094,7 +1140,7 @@ public partial class SalesDocumentEditorWindow : Window
         shipment.Number = NumberTextBox.Text.Trim();
         shipment.ShipmentDate = DocumentDatePicker.SelectedDate?.Date ?? DateTime.Today;
         shipment.Warehouse = WarehouseComboBox.Text.Trim();
-        shipment.Status = StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim();
+        shipment.Status = GetSelectedStatus();
         shipment.Carrier = CarrierTextBox.Text.Trim();
         shipment.Manager = ManagerComboBox.Text.Trim();
         shipment.Comment = CommentTextBox.Text.Trim();
@@ -1143,7 +1189,7 @@ public partial class SalesDocumentEditorWindow : Window
         ApplyCustomer(order, customer);
         order.Warehouse = WarehouseComboBox.Text.Trim();
         order.Organization = OrganizationComboBox.Text.Trim();
-        order.Status = _workspace.NormalizeOrderStatus(StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim());
+        order.Status = GetSelectedStatus();
         order.Manager = ManagerComboBox.Text.Trim();
         order.CurrencyCode = CurrencyComboBox.SelectedItem?.ToString() ?? CurrencyComboBox.Text.Trim();
         order.Comment = CommentTextBox.Text.Trim();
@@ -1214,7 +1260,7 @@ public partial class SalesDocumentEditorWindow : Window
         invoice.Number = NumberTextBox.Text.Trim();
         invoice.InvoiceDate = DocumentDatePicker.SelectedDate!.Value.Date;
         invoice.DueDate = SecondaryDatePicker.SelectedDate.Value.Date;
-        invoice.Status = StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim();
+        invoice.Status = GetSelectedStatus();
         invoice.Manager = ManagerComboBox.Text.Trim();
         invoice.CurrencyCode = CurrencyComboBox.SelectedItem?.ToString() ?? CurrencyComboBox.Text.Trim();
         invoice.Comment = CommentTextBox.Text.Trim();
@@ -1256,7 +1302,7 @@ public partial class SalesDocumentEditorWindow : Window
         shipment.Number = NumberTextBox.Text.Trim();
         shipment.ShipmentDate = DocumentDatePicker.SelectedDate!.Value.Date;
         shipment.Warehouse = WarehouseComboBox.Text.Trim();
-        shipment.Status = StatusComboBox.SelectedItem?.ToString() ?? StatusComboBox.Text.Trim();
+        shipment.Status = GetSelectedStatus();
         shipment.Carrier = CarrierTextBox.Text.Trim();
         shipment.Manager = ManagerComboBox.Text.Trim();
         shipment.Comment = CommentTextBox.Text.Trim();
@@ -2209,7 +2255,7 @@ public partial class SalesDocumentEditorWindow : Window
 
     private void ApplySelectedStatusToDraft()
     {
-        var selectedStatus = StatusComboBox.SelectedItem?.ToString();
+        var selectedStatus = GetSelectedStatus();
         if (string.IsNullOrWhiteSpace(selectedStatus))
         {
             return;
@@ -2218,7 +2264,7 @@ public partial class SalesDocumentEditorWindow : Window
         switch (_mode)
         {
             case SalesDocumentEditorMode.Order when _orderDraft is not null:
-                _orderDraft.Status = _workspace.NormalizeOrderStatus(selectedStatus);
+                _orderDraft.Status = selectedStatus;
                 break;
             case SalesDocumentEditorMode.Invoice when _invoiceDraft is not null:
                 _invoiceDraft.Status = selectedStatus;

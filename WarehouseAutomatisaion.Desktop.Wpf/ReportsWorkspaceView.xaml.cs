@@ -44,7 +44,7 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
     private bool _isLoaded;
     private bool _suppressFilterEvents;
     private bool _suppressSelectionEvents;
-    private string _activeTab = "sales";
+    private string _activeTab = "orders";
     private int _page = 1;
     private DateTime _periodFrom = DateTime.Today.AddDays(-60);
     private DateTime _periodTo = DateTime.Today;
@@ -53,11 +53,14 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
     private IReadOnlyList<ReportTrendPointViewModel> _currentTrendPoints = Array.Empty<ReportTrendPointViewModel>();
     private IReadOnlyList<ReportLegendItemViewModel> _currentDonutItems = Array.Empty<ReportLegendItemViewModel>();
     private IReadOnlyList<ReportRegistryRowViewModel> _filteredRegistryRows = Array.Empty<ReportRegistryRowViewModel>();
+    private string? _registrySortMemberPath;
+    private ListSortDirection _registrySortDirection = ListSortDirection.Descending;
 
     public ReportsWorkspaceView(SalesWorkspace salesWorkspace)
     {
         _salesWorkspace = salesWorkspace;
         InitializeComponent();
+        ReportRegistryGrid.Sorting += HandleReportRegistrySorting;
         HookWorkspaceEvents();
         Loaded += HandleLoaded;
         SizeChanged += HandleSizeChanged;
@@ -69,6 +72,7 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
     public void Dispose()
     {
         UnhookWorkspaceEvents();
+        ReportRegistryGrid.Sorting -= HandleReportRegistrySorting;
         Loaded -= HandleLoaded;
         SizeChanged -= HandleSizeChanged;
         Unloaded -= HandleUnloaded;
@@ -440,7 +444,7 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
 
     private void RenderRegistry()
     {
-        _filteredRegistryRows = _currentState.RegistryRows;
+        _filteredRegistryRows = ApplyRegistrySorting(_currentState.RegistryRows);
         var total = _filteredRegistryRows.Count;
         var totalPages = Math.Max(1, (int)Math.Ceiling(total / (double)PageSize));
         _page = Math.Clamp(_page, 1, totalPages);
@@ -463,7 +467,77 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
         RegistryNextPageButton.IsEnabled = _page < totalPages;
         RegistryNextPageButton.Opacity = RegistryNextPageButton.IsEnabled ? 1d : 0.45d;
         RegistrySelectAllCheckBox.IsChecked = pageRows.Length > 0 && pageRows.All(item => item.IsSelected);
+        UpdateRegistrySortIndicators();
         _suppressSelectionEvents = false;
+    }
+
+    private IReadOnlyList<ReportRegistryRowViewModel> ApplyRegistrySorting(IReadOnlyList<ReportRegistryRowViewModel> rows)
+    {
+        if (string.IsNullOrWhiteSpace(_registrySortMemberPath))
+        {
+            return rows;
+        }
+
+        return _registrySortDirection == ListSortDirection.Ascending
+            ? rows.OrderBy(row => ResolveRegistrySortValue(row, _registrySortMemberPath), RecordsSortValueComparer.Instance).ToArray()
+            : rows.OrderByDescending(row => ResolveRegistrySortValue(row, _registrySortMemberPath), RecordsSortValueComparer.Instance).ToArray();
+    }
+
+    private void HandleReportRegistrySorting(object sender, DataGridSortingEventArgs e)
+    {
+        var sortMemberPath = e.Column.SortMemberPath;
+        if (string.IsNullOrWhiteSpace(sortMemberPath) || e.Column.CanUserSort != true)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        _registrySortDirection = string.Equals(_registrySortMemberPath, sortMemberPath, StringComparison.Ordinal)
+                                 && _registrySortDirection == ListSortDirection.Ascending
+            ? ListSortDirection.Descending
+            : ListSortDirection.Ascending;
+        _registrySortMemberPath = sortMemberPath;
+        _page = 1;
+        UpdateRegistrySortIndicators();
+        RenderRegistry();
+    }
+
+    private void UpdateRegistrySortIndicators()
+    {
+        foreach (var column in ReportRegistryGrid.Columns)
+        {
+            column.SortDirection = string.Equals(column.SortMemberPath, _registrySortMemberPath, StringComparison.Ordinal)
+                ? _registrySortDirection
+                : null;
+        }
+    }
+
+    private static object ResolveRegistrySortValue(ReportRegistryRowViewModel row, string sortMemberPath)
+    {
+        return sortMemberPath switch
+        {
+            nameof(ReportRegistryRowViewModel.SortDate) => row.SortDate,
+            nameof(ReportRegistryRowViewModel.DocumentText) => Ui(row.DocumentText),
+            nameof(ReportRegistryRowViewModel.CounterpartyText) => Ui(row.CounterpartyText),
+            nameof(ReportRegistryRowViewModel.ValueText) => ResolveReportNumericValue(row.ValueText),
+            nameof(ReportRegistryRowViewModel.StatusText) => Ui(row.StatusText),
+            nameof(ReportRegistryRowViewModel.OwnerText) => Ui(row.OwnerText),
+            _ => string.Empty
+        };
+    }
+
+    private static object ResolveReportNumericValue(string value)
+    {
+        var text = Ui(value)
+            .Replace("\u00A0", " ", StringComparison.Ordinal)
+            .Replace("₽", string.Empty, StringComparison.Ordinal)
+            .Replace("руб.", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Trim();
+
+        return decimal.TryParse(text, NumberStyles.Any, RuCulture, out var decimalValue)
+               || decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out decimalValue)
+            ? decimalValue
+            : Ui(value);
     }
 
     private ReportDashboardState BuildState(ReportSlice currentSlice, ReportSlice previousSlice)
@@ -592,6 +666,7 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
         var previousReady = previousOrders.Count(item => NormalizeOrderStatus(item.Status) == "На выполнении");
         var currentNew = filteredOrders.Count(item => NormalizeOrderStatus(item.Status) == "Не обработан");
         var previousNew = previousOrders.Count(item => NormalizeOrderStatus(item.Status) == "Не обработан");
+        var currentCompleted = filteredOrders.Count(item => NormalizeOrderStatus(item.Status) == "Завершен");
         var currentAverage = filteredOrders.Length > 0 ? filteredOrders.Average(item => item.TotalAmount) : 0m;
         var previousAverage = previousOrders.Length > 0 ? previousOrders.Average(item => item.TotalAmount) : 0m;
 
@@ -623,12 +698,12 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
             OwnerHeader = "Менеджер",
             Metrics =
             [
-                BuildMetric("Сумма заказов", FormatMoney(currentAmount), currentAmount, previousAmount, "#27AE60", "#EBFBF1", "\uE8A5"),
-                BuildMetric("Заказы", filteredOrders.Length.ToString(CultureInfo.InvariantCulture), filteredOrders.Length, previousOrders.Length, "#4F5BFF", "#EEF2FF", "\uEA14"),
-                BuildMetric("В работе", currentConfirmed.ToString(CultureInfo.InvariantCulture), currentConfirmed, previousConfirmed, "#34B56A", "#EBFBF1", "\uE73E"),
-                BuildMetric("Выставлен счет", currentReserved.ToString(CultureInfo.InvariantCulture), currentReserved, previousReserved, "#FF9B28", "#FFF4E8", "\uE7C7"),
-                BuildMetric("На выполнении", currentReady.ToString(CultureInfo.InvariantCulture), currentReady, previousReady, "#7B68EE", "#F2EEFF", "\uE7BF"),
-                BuildMetric("Не обработан", currentNew.ToString(CultureInfo.InvariantCulture), currentNew, previousNew, "#F45A5A", "#FFF1F1", "\uE710")
+                BuildCurrentMetric("Всего заказов", filteredOrders.Length, "#6C63FF", "#F0EDFF", "\uE14C"),
+                BuildCurrentMetric("Не обработан", currentNew, "#59C36A", "#EBF9EF", "\uE8A5"),
+                BuildCurrentMetric("В работе", currentConfirmed, "#59C36A", "#EBF9EF", "\uE73E"),
+                BuildCurrentMetric("Выставлен счет", currentReserved, "#F29A17", "#FFF4E3", "\uE8C7"),
+                BuildCurrentMetric("На выполнении", currentReady, "#7B68EE", "#F1EEFF", "\uE7C1"),
+                BuildCurrentMetric("Завершен", currentCompleted, "#4F8CFF", "#EEF4FF", "\uEC47")
             ],
             ComparisonItems = comparison,
             SummaryDeltas = comparison.Select(item => new ReportSummaryDeltaViewModel(item.Label, item.DeltaText, item.DeltaBrush)).ToArray(),
@@ -1673,6 +1748,18 @@ public partial class ReportsWorkspaceView : UserControl, IDisposable
             valueText,
             delta.Text,
             delta.Brush,
+            BrushFromHex(accentHex),
+            BrushFromHex(softHex),
+            glyph);
+    }
+
+    private static ReportMetricCardViewModel BuildCurrentMetric(string caption, int value, string accentHex, string softHex, string glyph)
+    {
+        return new ReportMetricCardViewModel(
+            caption,
+            value.ToString(CultureInfo.InvariantCulture),
+            "Актуально",
+            BrushFromHex("#687697"),
             BrushFromHex(accentHex),
             BrushFromHex(softHex),
             glyph);

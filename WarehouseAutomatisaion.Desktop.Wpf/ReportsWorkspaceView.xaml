@@ -625,7 +625,7 @@
                                       RowStyle="{StaticResource GridRowStyle}"
                                       CellStyle="{StaticResource GridCellStyle}">
                                 <DataGrid.Columns>
-                                    <DataGridTemplateColumn Width="42">
+                                    <DataGridTemplateColumn Width="42" CanUserSort="False">
                                         <DataGridTemplateColumn.Header>
                                             <CheckBox x:Name="RegistrySelectAllCheckBox" Checked="HandleSelectAllChecked" Unchecked="HandleSelectAllChecked" />
                                         </DataGridTemplateColumn.Header>
@@ -635,11 +635,11 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn x:Name="DateColumn" Binding="{Binding DateText}" Header="Дата" Width="112" />
-                                    <DataGridTextColumn x:Name="DocumentColumn" Binding="{Binding DocumentText}" Header="Заказ" Width="170" />
-                                    <DataGridTextColumn x:Name="CounterpartyColumn" Binding="{Binding CounterpartyText}" Header="Клиент" Width="*" />
-                                    <DataGridTextColumn x:Name="ValueColumn" Binding="{Binding ValueText}" Header="Выручка" Width="120" />
-                                    <DataGridTemplateColumn x:Name="StatusColumn" Header="Статус" Width="130">
+                                    <DataGridTextColumn x:Name="DateColumn" Binding="{Binding DateText}" Header="Дата" SortMemberPath="SortDate" Width="112" />
+                                    <DataGridTextColumn x:Name="DocumentColumn" Binding="{Binding DocumentText}" Header="Заказ" SortMemberPath="DocumentText" Width="170" />
+                                    <DataGridTextColumn x:Name="CounterpartyColumn" Binding="{Binding CounterpartyText}" Header="Клиент" SortMemberPath="CounterpartyText" Width="*" />
+                                    <DataGridTextColumn x:Name="ValueColumn" Binding="{Binding ValueText}" Header="Выручка" SortMemberPath="ValueText" Width="120" />
+                                    <DataGridTemplateColumn x:Name="StatusColumn" Header="Статус" SortMemberPath="StatusText" Width="130">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Border Background="{Binding StatusBackground}" CornerRadius="10" Padding="8,3" HorizontalAlignment="Left">
@@ -648,8 +648,8 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn x:Name="OwnerColumn" Binding="{Binding OwnerText}" Header="Менеджер" Width="140" />
-                                    <DataGridTemplateColumn Width="46">
+                                    <DataGridTextColumn x:Name="OwnerColumn" Binding="{Binding OwnerText}" Header="Менеджер" SortMemberPath="OwnerText" Width="140" />
+                                    <DataGridTemplateColumn Width="46" CanUserSort="False">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Button Style="{StaticResource TableRowActionButtonStyle}" AutomationProperties.Name="Действия строки отчета" Click="HandleRowActionsClick" Tag="{Binding}">
