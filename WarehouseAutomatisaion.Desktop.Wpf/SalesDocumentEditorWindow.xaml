@@ -32,15 +32,39 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Margin="0,0,0,16">
-            <TextBlock x:Name="HeaderTitleText"
-                       FontSize="22"
-                       FontWeight="SemiBold"
-                       Foreground="#17213A" />
+        <StackPanel Margin="0,0,0,12">
+            <!-- 1С: ← → ⭐ + title (без subtitle) -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Width="28" Height="24" Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="0,0,2,0" ToolTip="Назад" IsEnabled="False">
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE72B;" FontSize="14" Foreground="#9CADD4" />
+                </Button>
+                <Button Width="28" Height="24" Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0" ToolTip="Вперёд" IsEnabled="False">
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE72A;" FontSize="14" Foreground="#9CADD4" />
+                </Button>
+                <Button Width="22" Height="22" Background="Transparent" BorderThickness="0" Cursor="Hand" Margin="0,0,10,0" ToolTip="В избранное">
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE735;" FontSize="14" Foreground="#9CADD4" />
+                </Button>
+                <TextBlock x:Name="HeaderTitleText"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           Foreground="#17213A"
+                           VerticalAlignment="Center" />
+            </StackPanel>
             <TextBlock x:Name="HeaderSubtitleText"
                        Margin="0,4,0,0"
                        FontSize="12.5"
-                       Foreground="#6E7B98" />
+                       Foreground="#6E7B98"
+                       Visibility="Collapsed" />
+
+            <!-- 1С: внутренние вкладки документа (Main активна, остальные декоративно) -->
+            <WrapPanel Margin="0,10,0,0">
+                <Button Content="Main" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="#17213A" Foreground="#17213A" FontWeight="SemiBold" FontSize="13" Padding="0,2,0,4" Margin="0,0,18,0" Cursor="Hand" />
+                <Button Content="События" Background="Transparent" BorderThickness="0" Foreground="#4F5BFF" FontSize="13" Padding="0,2,0,4" Margin="0,0,18,0" Cursor="Hand" />
+                <Button Content="Файлы" Background="Transparent" BorderThickness="0" Foreground="#4F5BFF" FontSize="13" Padding="0,2,0,4" Margin="0,0,18,0" Cursor="Hand" />
+                <Button Content="Отчёты" Background="Transparent" BorderThickness="0" Foreground="#4F5BFF" FontSize="13" Padding="0,2,0,4" Margin="0,0,18,0" Cursor="Hand" />
+                <Button Content="Данные заказов на доставку" Background="Transparent" BorderThickness="0" Foreground="#4F5BFF" FontSize="13" Padding="0,2,0,4" Margin="0,0,18,0" Cursor="Hand" />
+                <Button Content="Заказы покупателей с сайта" Background="Transparent" BorderThickness="0" Foreground="#4F5BFF" FontSize="13" Padding="0,2,0,4" Cursor="Hand" />
+            </WrapPanel>
 
             <!-- 1С-стиль toolbar -->
             <WrapPanel Margin="0,12,0,0" Orientation="Horizontal">

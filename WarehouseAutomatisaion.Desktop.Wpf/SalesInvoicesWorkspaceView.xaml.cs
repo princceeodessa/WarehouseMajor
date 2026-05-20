@@ -258,9 +258,6 @@ public partial class SalesInvoicesWorkspaceView : UserControl
         return item;
     }
 
-    private void HandleFilterPopupToggle(object sender, RoutedEventArgs e) => FilterPopup.IsOpen = !FilterPopup.IsOpen;
-    private void HandleFilterPopupClose(object sender, RoutedEventArgs e) => FilterPopup.IsOpen = false;
-
     private void HandlePrintClick(object sender, RoutedEventArgs e) => ShowInfo("Печать", "Выберите счёт и используйте печать из карточки.");
     private void HandleGenerateClick(object sender, RoutedEventArgs e) => ShowInfo("Сформировать", "Меню «Сформировать» появится в одном из ближайших релизов.");
     private void HandleStructureClick(object sender, RoutedEventArgs e) => ShowInfo("Структура подчинённости", "Связанные документы доступны внутри карточки счёта.");

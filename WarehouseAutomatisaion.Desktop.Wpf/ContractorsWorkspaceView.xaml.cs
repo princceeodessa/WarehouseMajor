@@ -137,7 +137,6 @@ public partial class ContractorsWorkspaceView : UserControl
         ContractorsCountText.Text = totalMatched > displayCap
             ? $"Показано {rows.Length:N0} из {totalMatched:N0} — уточните фильтр"
             : $"Всего: {rows.Length:N0}";
-        HeaderTitleText.Text = $"Контрагенты: {BuildTypeLabel(buyers, suppliers, others)}";
 
         if (rows.Length > 0)
         {
@@ -187,43 +186,35 @@ public partial class ContractorsWorkspaceView : UserControl
     {
         if (customer is null)
         {
-            TagText.Text = "—";
-            SegmentText.Text = "—";
-            SourceText.Text = "—";
-            ContactText.Text = "—";
-            ResponsibleText.Text = "—";
+            TagText.Text = string.Empty;
+            SegmentText.Text = string.Empty;
+            SourceText.Text = string.Empty;
+            ContactText.Text = string.Empty;
+            ResponsibleText.Text = string.Empty;
             DetailPhoneText.Text = "—";
             DetailEmailText.Text = string.Empty;
             DetailAddressText.Text = string.Empty;
+            SelectedContactHeader.Visibility = Visibility.Collapsed;
             SelectedContactInfo.Visibility = Visibility.Collapsed;
             return;
         }
 
-        // Поля Popup-фильтра — отражают выделенный контрагент как контекст
-        TagText.Text = FallbackPlaceholder(customer.Tags);
-        SegmentText.Text = FallbackPlaceholder(customer.CounterpartyType);
-        SourceText.Text = FallbackPlaceholder(customer.Source);
-        ContactText.Text = FallbackPlaceholder(customer.Contacts.FirstOrDefault()?.Name ?? customer.Phone);
-        ResponsibleText.Text = FallbackPlaceholder(customer.Responsible.Length > 0 ? customer.Responsible : customer.Manager);
+        // Right panel: отражают выделенный контрагент как контекст
+        TagText.Text = Ui(customer.Tags);
+        SegmentText.Text = Ui(customer.CounterpartyType);
+        SourceText.Text = Ui(customer.Source);
+        ContactText.Text = Ui(customer.Contacts.FirstOrDefault()?.Name ?? customer.Phone);
+        ResponsibleText.Text = Ui(customer.Responsible.Length > 0 ? customer.Responsible : customer.Manager);
 
-        // Компактный inline-бейдж в футере
+        // Жёлтый бейдж "Контактная информация" в правой панели (1С)
         var phone = Ui(customer.Phone);
         var email = Ui(customer.Email);
         var address = FirstNonEmpty(Ui(customer.ActualAddress), Ui(customer.LegalAddress));
-        DetailPhoneText.Text = string.IsNullOrWhiteSpace(phone) ? "Телефон не указан" : phone;
-        DetailEmailText.Text = string.IsNullOrWhiteSpace(email) ? string.Empty : $"· {email}";
-        DetailAddressText.Text = string.IsNullOrWhiteSpace(address) ? string.Empty : $"· {address}";
+        DetailPhoneText.Text = string.IsNullOrWhiteSpace(phone) ? "Телефон не указан" : $"Телефон: {phone}";
+        DetailEmailText.Text = string.IsNullOrWhiteSpace(email) ? string.Empty : email;
+        DetailAddressText.Text = string.IsNullOrWhiteSpace(address) ? string.Empty : address;
+        SelectedContactHeader.Visibility = Visibility.Visible;
         SelectedContactInfo.Visibility = Visibility.Visible;
-    }
-
-    private void HandleFilterPopupToggle(object sender, RoutedEventArgs e)
-    {
-        FilterPopup.IsOpen = !FilterPopup.IsOpen;
-    }
-
-    private void HandleFilterPopupClose(object sender, RoutedEventArgs e)
-    {
-        FilterPopup.IsOpen = false;
     }
 
     private void HandleCreateClick(object sender, RoutedEventArgs e)

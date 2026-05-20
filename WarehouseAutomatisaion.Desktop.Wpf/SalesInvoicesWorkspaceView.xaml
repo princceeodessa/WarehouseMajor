@@ -85,39 +85,15 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="28,18,28,18">
+    <Grid Margin="16,8,16,12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MinHeight="320" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <Grid Grid.Row="0" Margin="0,0,0,14">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE735;" Foreground="#4F5BFF" FontSize="18" VerticalAlignment="Center" Margin="0,0,12,0" />
-                <TextBlock Text="Счета на оплату" FontSize="22" FontWeight="SemiBold" Foreground="#17213A" VerticalAlignment="Center" />
-            </StackPanel>
-            <Border Grid.Column="1" Width="280" Height="32" Background="#FFFFFF" BorderBrush="#D7DEEC" BorderThickness="1" CornerRadius="6">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="32" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="SearchBox" Grid.Column="0" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" Padding="12,0" FontSize="12.5" TextChanged="HandleSearchChanged" />
-                    <TextBlock x:Name="SearchPlaceholderText" Grid.Column="0" Text="Search (Ctrl+F)" IsHitTestVisible="False" Foreground="#9AA4BC" VerticalAlignment="Center" Margin="14,0" />
-                    <TextBlock Grid.Column="1" FontFamily="Segoe Fluent Icons" Text="&#xE721;" Foreground="#9AA4BC" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="12" />
-                </Grid>
-            </Border>
-        </Grid>
-
-        <!-- Toolbar -->
-        <Border Grid.Row="1"
+        <!-- Toolbar (header в глобальном nav toolbar) -->
+        <Border Grid.Row="0"
                 Background="{StaticResource OneCToolbarBg}"
                 BorderBrush="{StaticResource OneCToolbarBorder}"
                 BorderThickness="1"
@@ -132,51 +108,9 @@
                 <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Действия с выделенным" Click="HandleRowActionsClick">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" FontSize="13" />
                 </Button>
-                <Button x:Name="FilterToggleButton"
-                        Style="{StaticResource OneCToolbarIconButtonStyle}"
-                        Margin="0,0,4,0"
-                        ToolTip="Фильтры"
-                        Click="HandleFilterPopupToggle">
+                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Фильтр">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE71C;" FontSize="13" />
                 </Button>
-                <Popup x:Name="FilterPopup"
-                       PlacementTarget="{Binding ElementName=FilterToggleButton}"
-                       Placement="Bottom"
-                       VerticalOffset="6"
-                       StaysOpen="False"
-                       AllowsTransparency="True">
-                    <Border Width="320" Background="#FFFFFF" BorderBrush="#D7DEEC" BorderThickness="1" CornerRadius="10" Padding="16">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="16" ShadowDepth="2" Direction="270" Opacity="0.12" Color="#1B2440" />
-                        </Border.Effect>
-                        <StackPanel>
-                            <Grid Margin="0,0,0,12">
-                                <TextBlock Text="Фильтры" Foreground="#4F5BFF" FontSize="13" FontWeight="SemiBold" />
-                                <Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Cursor="Hand" Width="22" Height="22" Padding="0" Click="HandleFilterPopupClose">
-                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE894;" FontSize="11" Foreground="#9AA4BC" />
-                                </Button>
-                            </Grid>
-                            <TextBlock Text="Покупатель / ИНН / телефон" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
-                            <ComboBox x:Name="CustomerFilterCombo" Height="30" Margin="0,0,0,10" IsEditable="True" SelectionChanged="HandleFilterChanged" />
-                            <TextBlock Text="Оплата" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
-                            <ComboBox x:Name="PaymentFilterCombo" Height="30" Margin="0,0,0,10" SelectionChanged="HandleFilterChanged">
-                                <ComboBoxItem Content="Все" IsSelected="True" />
-                                <ComboBoxItem Content="Оплачено" />
-                                <ComboBoxItem Content="Не оплачено" />
-                                <ComboBoxItem Content="Частично" />
-                            </ComboBox>
-                            <TextBlock Text="Ответственный" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
-                            <ComboBox x:Name="ManagerFilterCombo" Height="30" Margin="0,0,0,10" IsEditable="True" SelectionChanged="HandleFilterChanged" />
-                            <TextBlock Text="Организация" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
-                            <ComboBox x:Name="OrganizationFilterCombo" Height="30" Margin="0,0,0,10" IsEditable="True" SelectionChanged="HandleFilterChanged" />
-                            <TextBlock Text="Период с" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
-                            <DatePicker x:Name="DateFromPicker" Height="30" Margin="0,0,0,10" SelectedDateChanged="HandleFilterChanged" />
-                            <TextBlock Text="Период по" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,14" />
-                            <DatePicker x:Name="DateToPicker" Height="30" Margin="0,0,0,14" SelectedDateChanged="HandleFilterChanged" />
-                            <Button Content="Сбросить фильтры" Style="{StaticResource OneCToolbarButtonStyle}" HorizontalAlignment="Stretch" Click="HandleResetFiltersClick" />
-                        </StackPanel>
-                    </Border>
-                </Popup>
                 <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0" ToolTip="Печать" Click="HandlePrintClick">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
                 </Button>
@@ -191,8 +125,14 @@
             </WrapPanel>
         </Border>
 
-        <!-- Full-width grid -->
-        <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#E7ECF7" BorderThickness="1" CornerRadius="12" Padding="0">
+        <!-- Grid + right panel (1С) -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="280" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#E7ECF7" BorderThickness="1" CornerRadius="0" Padding="0" Margin="0,8,12,0">
             <DataGrid x:Name="InvoicesGrid"
                       Style="{StaticResource InvoicesGridStyle}"
                       ColumnHeaderStyle="{StaticResource InvoicesHeaderStyle}"
@@ -244,13 +184,61 @@
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
-        </Border>
+            </Border>
+
+            <!-- Right side panel (1С) -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,0">
+                <StackPanel>
+                    <Border Height="28" Background="#FFFFFF" BorderBrush="#D7DEEC" BorderThickness="1" CornerRadius="3" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="28" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="SearchBox" Grid.Column="0" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" Padding="8,0" FontSize="12" TextChanged="HandleSearchChanged" />
+                            <TextBlock x:Name="SearchPlaceholderText" Grid.Column="0" Text="Search (Ctrl+F)" IsHitTestVisible="False" Foreground="#9AA4BC" VerticalAlignment="Center" Margin="10,0" />
+                            <TextBlock Grid.Column="1" FontFamily="Segoe Fluent Icons" Text="&#xE721;" Foreground="#9AA4BC" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="11" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="Период: за все время" Foreground="#4F5BFF" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10" Cursor="Hand" />
+
+                    <TextBlock Text="Покупатель / ИНН / телефон" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <ComboBox x:Name="CustomerFilterCombo" Height="28" Margin="0,0,0,8" IsEditable="True" SelectionChanged="HandleFilterChanged" />
+
+                    <TextBlock Text="Оплата" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <ComboBox x:Name="PaymentFilterCombo" Height="28" Margin="0,0,0,8" SelectionChanged="HandleFilterChanged">
+                        <ComboBoxItem Content="Все" IsSelected="True" />
+                        <ComboBoxItem Content="Оплачено" />
+                        <ComboBoxItem Content="Не оплачено" />
+                        <ComboBoxItem Content="Частично" />
+                    </ComboBox>
+
+                    <TextBlock Text="Ответственный" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <ComboBox x:Name="ManagerFilterCombo" Height="28" Margin="0,0,0,8" IsEditable="True" SelectionChanged="HandleFilterChanged" />
+
+                    <TextBlock Text="Организация" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <ComboBox x:Name="OrganizationFilterCombo" Height="28" Margin="0,0,0,8" IsEditable="True" SelectionChanged="HandleFilterChanged" />
+
+                    <TextBlock Text="Период с" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <DatePicker x:Name="DateFromPicker" Height="28" Margin="0,0,0,8" SelectedDateChanged="HandleFilterChanged" />
+
+                    <TextBlock Text="Период по" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                    <DatePicker x:Name="DateToPicker" Height="28" Margin="0,0,0,10" SelectedDateChanged="HandleFilterChanged" />
+
+                    <Button Content="Сбросить фильтры" Style="{StaticResource OneCToolbarButtonStyle}" HorizontalAlignment="Stretch" Click="HandleResetFiltersClick" Margin="0,0,0,10" />
+
+                    <TextBlock Text="+ фильтры" Foreground="#4F5BFF" FontSize="12" Margin="0,0,0,14" Cursor="Hand" HorizontalAlignment="Right" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
 
         <!-- Footer -->
-        <Grid Grid.Row="3" Margin="0,12,0,0">
+        <Grid Grid.Row="2" Margin="0,6,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
@@ -268,20 +256,21 @@
                     </StackPanel>
                 </Border>
             </StackPanel>
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="28" Height="28" Margin="0,0,4,0" ToolTip="К началу">
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,18,0">
+                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="26" Height="24" Margin="0,0,2,0" ToolTip="К началу">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE892;" FontSize="11" />
                 </Button>
-                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="28" Height="28" Margin="0,0,4,0" ToolTip="Предыдущая">
-                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76B;" FontSize="11" />
+                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="26" Height="24" Margin="0,0,2,0" ToolTip="Предыдущая">
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70E;" FontSize="11" />
                 </Button>
-                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="28" Height="28" Margin="0,0,4,0" ToolTip="Следующая">
-                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE76C;" FontSize="11" />
+                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="26" Height="24" Margin="0,0,2,0" ToolTip="Следующая">
+                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70D;" FontSize="11" />
                 </Button>
-                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="28" Height="28" ToolTip="В конец">
+                <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Width="26" Height="24" ToolTip="В конец">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE893;" FontSize="11" />
                 </Button>
             </StackPanel>
+            <TextBlock Grid.Column="3" Text="свернуть" Foreground="#4F5BFF" FontSize="12" VerticalAlignment="Center" Cursor="Hand" />
         </Grid>
     </Grid>
 </UserControl>

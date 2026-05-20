@@ -1121,65 +1121,179 @@
                     </TabItem>
 
                     <TabItem Header="Договоры">
-                        <Grid Margin="0,16,0,0">
-                            <Border x:Name="ContractFilledPanel" Style="{StaticResource DialogCardStyle}" Padding="20" HorizontalAlignment="Left" MinWidth="480" MaxWidth="640" VerticalAlignment="Top">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Style="{StaticResource TabIconBoxStyle}" Margin="0,0,16,0">
-                                        <TextBlock Text="&#xE8A5;" Style="{StaticResource TabIconGlyphStyle}" />
-                                    </Border>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Основной договор" Style="{StaticResource SectionHintStyle}" />
-                                        <TextBlock x:Name="ContractValueText" Margin="0,4,0,10" Style="{StaticResource HeroValueStyle}" />
-                                        <TextBlock Text="Используется в заказах, счетах и отгрузках. Изменить — на вкладке «Основное» (поле «Договор»)." Style="{StaticResource SectionHintStyle}" />
-                                    </StackPanel>
-                                </Grid>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="260" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Подзаголовок (1С) -->
+                            <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" x:Name="ContractsSubtitleText" Text="Договоры с" Foreground="#9AA4BC" FontSize="13" Margin="0,0,0,8" />
+
+                            <!-- Toolbar (1С) -->
+                            <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource OneCToolbarBg}" BorderBrush="{StaticResource OneCToolbarBorder}" BorderThickness="1" CornerRadius="6" Padding="6,5" Margin="0,0,0,8">
+                                <WrapPanel>
+                                    <Button Content="Create" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Margin="0,0,6,0" />
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Скопировать">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
+                                    </Button>
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Действия">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE712;" FontSize="13" />
+                                    </Button>
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Фильтр">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE71C;" FontSize="13" />
+                                    </Button>
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0" ToolTip="Печать">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
+                                    </Button>
+                                    <Button Content="Generate ▾" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" />
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Использовать как основной" IsEnabled="False">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE73E;" FontSize="12" Foreground="#1FA45F" Margin="0,0,4,0" />
+                                            <TextBlock Text="Использовать как основной" FontSize="12" />
+                                        </StackPanel>
+                                    </Button>
+                                </WrapPanel>
                             </Border>
 
-                            <Border x:Name="ContractEmptyPanel" Style="{StaticResource TableEmptyOverlayStyle}" Visibility="Collapsed">
-                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,40,0,40">
-                                    <Border Style="{StaticResource TableEmptyIconBoxStyle}">
-                                        <TextBlock Text="&#xE7BF;" Style="{StaticResource TableEmptyIconTextStyle}" />
-                                    </Border>
-                                    <TextBlock Text="Договор не указан" Style="{StaticResource TableEmptyTitleStyle}" />
-                                    <TextBlock Text="Заполните поле «Договор» на вкладке Основное — номер появится здесь." Style="{StaticResource TableEmptyHintStyle}" />
-                                </StackPanel>
+                            <!-- Grid -->
+                            <Border Grid.Row="2" Grid.Column="0" Background="#FFFFFF" BorderBrush="#E7ECF7" BorderThickness="1" Margin="0,0,12,0">
+                                <DataGrid x:Name="ContractsGrid"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="None"
+                                          BorderThickness="0"
+                                          RowHeight="26"
+                                          ColumnHeaderHeight="28"
+                                          IsReadOnly="True"
+                                          SelectionMode="Single"
+                                          SelectionUnit="FullRow"
+                                          FontSize="12.5"
+                                          MouseDoubleClick="HandleContractsGridDoubleClick">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Width="28">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE73E;" FontSize="11" Foreground="#1FA45F" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Наименование" Binding="{Binding Name}" Width="*" MinWidth="180" />
+                                        <DataGridTextColumn Header="Организация" Binding="{Binding Organization}" Width="90" />
+                                        <DataGridTextColumn Header="Долг (+ нам, - мы)" Binding="{Binding Debt}" Width="120" />
+                                        <DataGridTextColumn Header="Вид договора" Binding="{Binding Kind}" Width="120" />
+                                        <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="140" />
+                                        <DataGridTextColumn Header="Комментарий" Binding="{Binding Comment}" Width="120" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
                             </Border>
+
+                            <!-- Right panel -->
+                            <ScrollViewer Grid.Row="2" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <TextBlock Text="Организация" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                                    <ComboBox Height="28" Margin="0,0,0,8" />
+
+                                    <TextBlock Text="Вид договора" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                                    <ComboBox Height="28" Margin="0,0,0,8" />
+
+                                    <TextBlock Text="Действует на:" Foreground="#7280A0" FontSize="11.5" Margin="0,0,0,4" />
+                                    <DatePicker Height="28" Margin="0,0,0,8" />
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                        <TextBlock Text="Подписан:" Foreground="#7280A0" FontSize="11.5" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                        <CheckBox VerticalAlignment="Center" />
+                                    </StackPanel>
+
+                                    <TextBlock Text="+ фильтры" Foreground="#4F5BFF" FontSize="12" Margin="0,0,0,12" Cursor="Hand" HorizontalAlignment="Right" />
+
+                                    <TextBlock Margin="0,0,0,4">
+                                        <Run Text="› " Foreground="#1FA45F" FontSize="13" />
+                                        <Run Text="Настройки" Foreground="#1FA45F" FontSize="13" />
+                                    </TextBlock>
+
+                                    <TextBlock Margin="0,8,0,4">
+                                        <Run Text="∨ " Foreground="#1FA45F" FontSize="13" />
+                                        <Run Text="Категории" Foreground="#1FA45F" FontSize="13" />
+                                    </TextBlock>
+                                    <Border Background="#FFFFFF" BorderBrush="#D7DEEC" BorderThickness="1" Padding="6,6">
+                                        <StackPanel>
+                                            <Border Background="#FFF8C7" Padding="4,2" Margin="0,0,0,2">
+                                                <TextBlock Text="&lt;Все категории&gt;" FontSize="12" />
+                                            </Border>
+                                            <TextBlock Text="&lt;Без категории&gt;" FontSize="12" Padding="4,2" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
                         </Grid>
                     </TabItem>
 
                     <TabItem Header="Банковские счета">
-                        <StackPanel Margin="0,16,0,0">
-                            <Border x:Name="BankAccountFilledPanel" Style="{StaticResource DialogCardStyle}" Padding="20" HorizontalAlignment="Left" MinWidth="480" MaxWidth="640" Margin="0,0,0,16">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Style="{StaticResource TabIconBoxStyle}" Margin="0,0,16,0">
-                                        <TextBlock Text="&#xE8C7;" Style="{StaticResource TabIconGlyphStyle}" />
-                                    </Border>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Расчётный счёт" Style="{StaticResource SectionHintStyle}" />
-                                        <TextBlock x:Name="BankAccountFormattedText" Margin="0,4,0,10" Style="{StaticResource MonoAccountStyle}" />
-                                        <TextBlock Text="Используется в платёжных документах. Редактирование — на вкладке «Main» → «Банк. счёт»." Style="{StaticResource SectionHintStyle}" />
-                                    </StackPanel>
-                                </Grid>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" x:Name="BankAccountsSubtitleText" Text="Банковские счета" Foreground="#9AA4BC" FontSize="13" Margin="0,0,0,8" />
+
+                            <!-- Toolbar (1С) -->
+                            <Border Grid.Row="1" Background="{StaticResource OneCToolbarBg}" BorderBrush="{StaticResource OneCToolbarBorder}" BorderThickness="1" CornerRadius="6" Padding="6,5" Margin="0,0,0,8">
+                                <WrapPanel>
+                                    <Button Content="Create" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Margin="0,0,6,0" />
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0" ToolTip="Печать" IsEnabled="False">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
+                                    </Button>
+                                    <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Использовать как основной">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE73E;" FontSize="12" Foreground="#1FA45F" Margin="0,0,4,0" />
+                                            <TextBlock Text="Использовать как основной" FontSize="12" />
+                                        </StackPanel>
+                                    </Button>
+                                </WrapPanel>
                             </Border>
 
-                            <Border x:Name="BankAccountEmptyPanel" Style="{StaticResource TableEmptyOverlayStyle}" Visibility="Collapsed" Margin="0,0,0,16">
-                                <StackPanel HorizontalAlignment="Center" Margin="0,30,0,30">
-                                    <Border Style="{StaticResource TableEmptyIconBoxStyle}">
-                                        <TextBlock Text="&#xE8C7;" Style="{StaticResource TableEmptyIconTextStyle}" />
-                                    </Border>
-                                    <TextBlock Text="Счёт не указан" Style="{StaticResource TableEmptyTitleStyle}" />
-                                    <TextBlock Text="Откройте вкладку «Main» и кликните «Банк. счёт» — введите номер расчётного счёта там." Style="{StaticResource TableEmptyHintStyle}" />
-                                </StackPanel>
+                            <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#E7ECF7" BorderThickness="1">
+                                <DataGrid x:Name="BankAccountsGrid"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="None"
+                                          BorderThickness="0"
+                                          RowHeight="26"
+                                          ColumnHeaderHeight="28"
+                                          IsReadOnly="True"
+                                          SelectionMode="Single"
+                                          SelectionUnit="FullRow"
+                                          FontSize="12.5">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Width="28">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE73E;" FontSize="11" Foreground="#1FA45F" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Представление" Binding="{Binding Display}" Width="*" MinWidth="220" />
+                                        <DataGridTextColumn Header="Вид счета" Binding="{Binding AccountKind}" Width="140" />
+                                        <DataGridTextColumn Header="Банк" Binding="{Binding Bank}" Width="200" />
+                                        <DataGridTextColumn Header="Номер счета" Binding="{Binding AccountNumber}" Width="220" />
+                                        <DataGridTextColumn Header="Открыт" Binding="{Binding OpenedAt}" Width="100" />
+                                        <DataGridTextColumn Header="Закрыт" Binding="{Binding ClosedAt}" Width="100" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
                             </Border>
-                        </StackPanel>
+                        </Grid>
                     </TabItem>
 
                     <TabItem Header="События">
