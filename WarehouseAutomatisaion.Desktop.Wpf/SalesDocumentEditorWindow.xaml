@@ -335,7 +335,7 @@
                         Click="HandleSetPurchaseMinClick"
                         ToolTip="Установить минимальное количество для закупки" />
 
-                <Button Content="More actions" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" />
+                <Button Content="Ещё" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" />
                 <Button Style="{StaticResource OneCToolbarIconButtonStyle}" ToolTip="Справка">
                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE9CE;" FontSize="13" />
                 </Button>
@@ -571,7 +571,7 @@
                         <!-- 1С-тулбар таблицы -->
                         <Border Grid.Row="0" Style="{StaticResource OneCWindowToolbarBorderStyle}" Margin="0,0,0,8">
                             <WrapPanel>
-                                <Button Content="Add" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" Click="HandleAddLineClick" ToolTip="Добавить позицию" />
+                                <Button Content="Добавить" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,4,0" Click="HandleAddLineClick" ToolTip="Добавить позицию" />
                                 <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,2,0" ToolTip="Передвинуть строку вверх">
                                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74A;" FontSize="11" />
                                 </Button>
@@ -618,7 +618,7 @@
                                 <StackPanel x:Name="LinesActionsPanel" Orientation="Horizontal" Visibility="Collapsed">
                                     <Button Content="Удалить" Style="{StaticResource OneCToolbarButtonStyle}" Click="HandleRemoveLineClick" />
                                 </StackPanel>
-                                <Button Content="More actions" Style="{StaticResource OneCToolbarButtonStyle}" HorizontalAlignment="Right" />
+                                <Button Content="Ещё" Style="{StaticResource OneCToolbarButtonStyle}" HorizontalAlignment="Right" />
                             </WrapPanel>
                         </Border>
 

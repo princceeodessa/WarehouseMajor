@@ -189,7 +189,7 @@
                       SelectionChanged="HandleSelectionChanged"
                       MouseDoubleClick="HandleGridDoubleClick">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Number" Binding="{Binding Number}" Width="140" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Номер" Binding="{Binding Number}" Width="140" IsReadOnly="True" />
                     <DataGridTextColumn Header="Организация" Binding="{Binding Organization}" Width="200" IsReadOnly="True" />
                     <DataGridTextColumn Header="Контрагент" Binding="{Binding CounterpartyName}" Width="*" MinWidth="220" IsReadOnly="True" />
                     <!-- Спаренные колонки «Период сверки» (с/по) — 2-строчные заголовки -->

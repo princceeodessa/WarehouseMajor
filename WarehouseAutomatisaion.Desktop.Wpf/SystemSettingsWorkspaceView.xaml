@@ -567,7 +567,7 @@
                                             <DataGridTextColumn Header="Код" Binding="{Binding ObjectCode}" Width="0.95*" />
                                             <DataGridTextColumn Header="Статус" Binding="{Binding RequiredState}" Width="0.9*" />
                                             <DataGridTextColumn Header="Назначение" Binding="{Binding Usage}" Width="1.7*" />
-                                            <DataGridTextColumn Header="Payload" Binding="{Binding Payload}" Width="2.1*" />
+                                            <DataGridTextColumn Header="Содержимое" Binding="{Binding Payload}" Width="2.1*" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Grid>

@@ -361,7 +361,7 @@
                               HorizontalScrollBarVisibility="Hidden"
                               VerticalScrollBarVisibility="Disabled">
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="Main" Style="{StaticResource HeaderTabActiveButtonStyle}" />
+                        <Button Content="Главное" Style="{StaticResource HeaderTabActiveButtonStyle}" />
                         <Button Content="Комплектации"
                                 Style="{StaticResource HeaderTabButtonStyle}"
                                 IsEnabled="False"
@@ -425,7 +425,7 @@
                             ToolTip="Сохранить изменения и закрыть карточку">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74E;" FontSize="11" VerticalAlignment="Center" />
-                            <TextBlock Text="Save and close" Margin="8,0,0,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Записать и закрыть" Margin="8,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <Button x:Name="SaveButton"
@@ -433,7 +433,7 @@
                             Margin="8,0,0,0"
                             Click="HandleSaveClick"
                             ToolTip="Сохранить изменения без закрытия карточки">
-                        <TextBlock Text="Save" />
+                        <TextBlock Text="Записать" />
                     </Button>
 
                     <Border Width="1" Background="{StaticResource DividerSoft}" Margin="14,4" />
@@ -480,7 +480,7 @@
                             IsEnabled="False"
                             ToolTip="Дополнительные действия (появятся позже)">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="More actions" VerticalAlignment="Center" />
+                            <TextBlock Text="Ещё" VerticalAlignment="Center" />
                             <TextBlock Text="▼" Margin="8,0,0,0" FontSize="9" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>

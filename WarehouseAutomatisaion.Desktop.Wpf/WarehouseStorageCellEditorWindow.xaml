@@ -101,7 +101,7 @@
                     <TextBox x:Name="CapacityTextBox" Style="{StaticResource InputStyle}" />
                 </StackPanel>
                 <StackPanel Grid.Row="4" Grid.Column="2" Margin="0,0,0,14">
-                    <TextBlock Text="QR payload" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBlock Text="Содержимое QR" Style="{StaticResource FieldLabelStyle}" />
                     <TextBox x:Name="QrPayloadTextBox" Style="{StaticResource InputStyle}" IsReadOnly="True" />
                 </StackPanel>
 

@@ -444,8 +444,8 @@
 
                 <Border Grid.Row="1" Style="{StaticResource OneCWindowToolbarBorderStyle}">
                     <WrapPanel>
-                        <Button Content="Save and close" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Background="#FFCC00" BorderBrush="#E5B900" Foreground="#1B2440" Margin="0,0,4,0" Click="HandleSaveClick" ToolTip="Сохранить и закрыть" />
-                        <Button Content="Save" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,8,0" Click="HandleSaveClick" ToolTip="Сохранить (сейчас работает как Save and close)" />
+                        <Button Content="Записать и закрыть" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Background="#FFCC00" BorderBrush="#E5B900" Foreground="#1B2440" Margin="0,0,4,0" Click="HandleSaveClick" ToolTip="Записать и закрыть" />
+                        <Button Content="Записать" Style="{StaticResource OneCToolbarButtonStyle}" Margin="0,0,8,0" Click="HandleSaveClick" ToolTip="Записать (сейчас работает как «Записать и закрыть»)" />
                         <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,2,0" ToolTip="Создать на основании">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8A5;" FontSize="12" />
                         </Button>
@@ -464,7 +464,7 @@
                         <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Настройки">
                             <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" FontSize="13" />
                         </Button>
-                        <Button Content="More actions" Style="{StaticResource OneCToolbarButtonStyle}" />
+                        <Button Content="Ещё" Style="{StaticResource OneCToolbarButtonStyle}" />
                     </WrapPanel>
                 </Border>
             </Grid>
@@ -501,7 +501,7 @@
                 <TabControl.Resources>
                     <Style TargetType="TabItem" BasedOn="{StaticResource OneCNavTabItemStyle}" />
                 </TabControl.Resources>
-                    <TabItem Header="Main">
+                    <TabItem Header="Главное">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <Grid Margin="0,14,0,0">
                                 <Grid.ColumnDefinitions>
@@ -1138,7 +1138,7 @@
                             <!-- Toolbar (1С) -->
                             <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource OneCToolbarBg}" BorderBrush="{StaticResource OneCToolbarBorder}" BorderThickness="1" CornerRadius="6" Padding="6,5" Margin="0,0,0,8">
                                 <WrapPanel>
-                                    <Button Content="Create" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Margin="0,0,6,0" />
+                                    <Button Content="Создать" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Margin="0,0,6,0" />
                                     <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,4,0" ToolTip="Скопировать">
                                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
                                     </Button>
@@ -1249,7 +1249,7 @@
                             <!-- Toolbar (1С) -->
                             <Border Grid.Row="1" Background="{StaticResource OneCToolbarBg}" BorderBrush="{StaticResource OneCToolbarBorder}" BorderThickness="1" CornerRadius="6" Padding="6,5" Margin="0,0,0,8">
                                 <WrapPanel>
-                                    <Button Content="Create" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Margin="0,0,6,0" />
+                                    <Button Content="Создать" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Margin="0,0,6,0" />
                                     <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0" ToolTip="Печать" IsEnabled="False">
                                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE749;" FontSize="13" />
                                     </Button>

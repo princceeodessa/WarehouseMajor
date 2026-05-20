@@ -139,7 +139,7 @@
         <!-- ROW 1: tabs -->
         <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#E4EAF5" BorderThickness="0,0,0,1" Padding="16,0">
             <WrapPanel>
-                <Button Content="Main" Style="{StaticResource TabHeaderActiveStyle}" />
+                <Button Content="Главное" Style="{StaticResource TabHeaderActiveStyle}" />
                 <Button Content="События" Style="{StaticResource TabHeaderInactiveStyle}" />
                 <Button Content="Документы" Style="{StaticResource TabHeaderInactiveStyle}" />
                 <Button Content="Отчёты" Style="{StaticResource TabHeaderInactiveStyle}" />
@@ -155,8 +155,8 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <WrapPanel Grid.Column="0">
-                    <Button x:Name="SaveAndCloseButton" Content="Save and close" Style="{StaticResource TopActionPrimaryStyle}" Click="HandleSaveAndCloseClick" />
-                    <Button x:Name="SaveButton" Content="Save" Style="{StaticResource TopActionStyle}" Margin="0,0,10,0" Click="HandleSaveClick" />
+                    <Button x:Name="SaveAndCloseButton" Content="Записать и закрыть" Style="{StaticResource TopActionPrimaryStyle}" Click="HandleSaveAndCloseClick" />
+                    <Button x:Name="SaveButton" Content="Записать" Style="{StaticResource TopActionStyle}" Margin="0,0,10,0" Click="HandleSaveClick" />
                     <Button Style="{StaticResource TopIconStyle}" ToolTip="Скопировать">
                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
                     </Button>

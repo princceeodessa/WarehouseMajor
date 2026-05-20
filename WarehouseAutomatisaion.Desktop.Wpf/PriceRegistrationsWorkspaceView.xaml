@@ -131,8 +131,8 @@
                       SelectionChanged="HandleSelectionChanged"
                       MouseDoubleClick="HandleGridDoubleClick">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Date" Binding="{Binding DateDisplay}" Width="120" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Number" Binding="{Binding Number}" Width="140" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Дата" Binding="{Binding DateDisplay}" Width="120" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Номер" Binding="{Binding Number}" Width="140" IsReadOnly="True" />
                     <DataGridTextColumn Header="Виды цен" Binding="{Binding PriceTypes}" Width="*" MinWidth="260" IsReadOnly="True" />
                     <DataGridTextColumn Header="Комментарий" Binding="{Binding Comment}" Width="260" IsReadOnly="True" />
                     <DataGridTextColumn Header="Автор" Binding="{Binding Author}" Width="180" IsReadOnly="True" />

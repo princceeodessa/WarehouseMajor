@@ -573,7 +573,7 @@
                                 ToolTip="Ещё действия"
                                 Click="HandleActionsClick">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="More actions" VerticalAlignment="Center" />
+                                <TextBlock Text="Ещё" VerticalAlignment="Center" />
                                 <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE70D;" Margin="6,0,0,0" FontSize="9" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>

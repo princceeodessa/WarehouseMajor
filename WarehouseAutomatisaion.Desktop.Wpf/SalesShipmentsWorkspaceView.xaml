@@ -160,7 +160,7 @@
             <Grid>
                 <!-- Toolbar для вкладки «Расходные накладные» -->
                 <WrapPanel x:Name="ShipmentsToolbarPanel">
-                    <Button Content="Create" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Margin="0,0,6,0" Click="HandleCreateClick" />
+                    <Button Content="Создать" Style="{StaticResource OneCPrimaryToolbarButtonStyle}" Margin="0,0,6,0" Click="HandleCreateClick" />
                     <Button Style="{StaticResource OneCToolbarIconButtonStyle}" Margin="0,0,10,0" ToolTip="Быстрое добавление" Click="HandleCreateClick">
                         <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" FontSize="12" />
                     </Button>
