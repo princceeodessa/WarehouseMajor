@@ -572,8 +572,17 @@ public partial class SalesDocumentEditorWindow : Window
         RenderRelatedDocuments();
     }
 
+    private const double CatalogPickerPanelWidth = 640d;
+    private double _widthBeforePicker;
+
     private void HandleAddLineClick(object sender, RoutedEventArgs e)
     {
+        if (CatalogPicker.Visibility == Visibility.Visible)
+        {
+            HideCatalogPicker();
+            return;
+        }
+
         var catalog = GetLineCatalogItems();
         if (catalog.Count == 0)
         {
@@ -581,14 +590,49 @@ public partial class SalesDocumentEditorWindow : Window
             return;
         }
 
-        var dialog = new SalesCatalogPickerWindow(catalog);
-        WpfDialogOwner.TrySetOwner(dialog, ResolvePromptOwner());
-        if (dialog.ShowDialog() != true || dialog.ResultLines.Count == 0)
+        ShowCatalogPicker(catalog);
+    }
+
+    private void ShowCatalogPicker(IReadOnlyList<SalesCatalogItemOption> catalog)
+    {
+        ValidationText.Text = string.Empty;
+        CatalogPicker.LoadCatalog(catalog);
+        CatalogPickerColumn.Width = new GridLength(CatalogPickerPanelWidth);
+        CatalogPicker.Visibility = Visibility.Visible;
+
+        _widthBeforePicker = Width;
+        var screenWidth = SystemParameters.WorkArea.Width;
+        var targetWidth = Math.Min(Width + CatalogPickerPanelWidth, screenWidth);
+        if (targetWidth > Width)
+        {
+            Width = targetWidth;
+            if (Left + Width > screenWidth)
+            {
+                Left = Math.Max(0d, screenWidth - Width);
+            }
+        }
+
+        CatalogPicker.FocusSearch();
+    }
+
+    private void HideCatalogPicker()
+    {
+        CatalogPicker.Visibility = Visibility.Collapsed;
+        CatalogPickerColumn.Width = new GridLength(0);
+        if (_widthBeforePicker > 0d && Math.Abs(Width - _widthBeforePicker) > 1d)
+        {
+            Width = _widthBeforePicker;
+        }
+    }
+
+    private void HandleCatalogPickerLinesTransferred(object? sender, SalesPickerLinesEventArgs e)
+    {
+        if (e.Lines.Count == 0)
         {
             return;
         }
 
-        foreach (var line in dialog.ResultLines)
+        foreach (var line in e.Lines)
         {
             _lines.Add(new SalesLineEditorRow(
                 Ui(line.ItemCode),
@@ -600,6 +644,12 @@ public partial class SalesDocumentEditorWindow : Window
         }
         RenumberLines();
         RefreshTotal();
+        HideCatalogPicker();
+    }
+
+    private void HandleCatalogPickerCloseRequested(object? sender, EventArgs e)
+    {
+        HideCatalogPicker();
     }
 
     private void RenumberLines()
@@ -695,7 +745,7 @@ public partial class SalesDocumentEditorWindow : Window
         if (e.EditAction == DataGridEditAction.Commit
             && e.Row.Item is SalesLineEditorRow row
             && e.EditingElement is TextBox textBox
-            && e.Column.DisplayIndex is >= 0 and <= 4)
+            && e.Column.DisplayIndex is 2 or 3)
         {
             e.Cancel = true;
             var index = _lines.IndexOf(row);
@@ -783,16 +833,7 @@ public partial class SalesDocumentEditorWindow : Window
         updated = row;
         switch (displayIndex)
         {
-            case 0:
-                updated = row with { ItemCode = Ui(value).Trim() };
-                return true;
-            case 1:
-                updated = row with { ItemName = Ui(value).Trim() };
-                return true;
             case 2:
-                updated = row with { Unit = Ui(value).Trim() };
-                return true;
-            case 3:
                 if (!TryParseDecimal(value, out var quantity) || quantity <= 0m)
                 {
                     return false;
@@ -800,7 +841,7 @@ public partial class SalesDocumentEditorWindow : Window
 
                 updated = row with { Quantity = quantity };
                 return true;
-            case 4:
+            case 3:
                 if (!TryParseDecimal(value, out var price) || price < 0m)
                 {
                     return false;
