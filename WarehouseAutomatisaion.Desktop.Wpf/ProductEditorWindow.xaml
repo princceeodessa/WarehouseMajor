@@ -380,8 +380,8 @@
                                 ToolTip="История цен товара по всем видам цен (из 1С УНФ)" />
                         <Button Content="Документы"
                                 Style="{StaticResource HeaderTabButtonStyle}"
-                                IsEnabled="False"
-                                ToolTip="Раздел появится в следующих релизах" />
+                                Click="HandleDocumentsTabClick"
+                                ToolTip="Продажи и закупки этого товара" />
                         <Button Content="Файлы"
                                 Style="{StaticResource HeaderTabButtonStyle}"
                                 IsEnabled="False"

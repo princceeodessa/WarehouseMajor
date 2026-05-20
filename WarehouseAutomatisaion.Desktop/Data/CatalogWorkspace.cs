@@ -1098,3 +1098,32 @@ public sealed class ProductPriceHistoryRecord
 
     public string UnitName { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Документ, в котором участвует товар (продажа или закупка).
+/// Аккумулирует данные из app_sales_documents + app_purchasing_documents через UNION.
+/// </summary>
+public sealed class ProductDocumentRecord
+{
+    /// <summary>«Продажа» или «Закупка».</summary>
+    public string Source { get; set; } = string.Empty;
+
+    /// <summary>document_kind из соответствующей таблицы (Order/Invoice/Shipment/Receipt и т. п.).</summary>
+    public string DocumentKind { get; set; } = string.Empty;
+
+    public string Number { get; set; } = string.Empty;
+
+    public DateTime DocumentDate { get; set; }
+
+    public string CounterpartyName { get; set; } = string.Empty;
+
+    public string Status { get; set; } = string.Empty;
+
+    public decimal Quantity { get; set; }
+
+    public string UnitName { get; set; } = string.Empty;
+
+    public decimal Amount { get; set; }
+
+    public string CurrencyCode { get; set; } = "RUB";
+}

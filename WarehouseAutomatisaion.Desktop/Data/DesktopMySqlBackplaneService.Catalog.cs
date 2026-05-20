@@ -1613,6 +1613,90 @@ public sealed partial class DesktopMySqlBackplaneService
     }
 
     /// <summary>
+    /// Загружает документы, в которых участвует товар: продажи (app_sales_documents + lines) и закупки (app_purchasing_documents + lines).
+    /// Сортировка: дата документа убыванию (свежие сверху). При ошибке БД возвращает пустой список.
+    /// </summary>
+    public IReadOnlyList<ProductDocumentRecord> TryLoadProductDocuments(string itemCode)
+    {
+        if (string.IsNullOrWhiteSpace(itemCode))
+        {
+            return Array.Empty<ProductDocumentRecord>();
+        }
+
+        try
+        {
+            EnsureDatabaseAndSchema();
+            using var connection = DesktopMySqlCommandRunner.CreateOpenConnection(
+                _options,
+                useDatabase: true,
+                MysqlConnectTimeoutSeconds,
+                MysqlCatalogCommandTimeoutSeconds);
+
+            var rows = new List<ProductDocumentRecord>();
+            using var command = CreateMySqlCommand(connection, null, """
+                SELECT
+                    'Продажа' AS source,
+                    s.document_kind,
+                    s.number,
+                    s.document_date,
+                    s.customer_name AS counterparty_name,
+                    s.status_text,
+                    s.currency_code,
+                    l.quantity,
+                    l.unit_name,
+                    l.line_total_amount AS amount
+                FROM app_sales_document_lines l
+                INNER JOIN app_sales_documents s ON s.id = l.document_id
+                WHERE l.item_code = @code
+
+                UNION ALL
+
+                SELECT
+                    'Закупка' AS source,
+                    p.document_kind,
+                    p.number,
+                    p.document_date,
+                    p.supplier_name AS counterparty_name,
+                    p.status_text,
+                    'RUB' AS currency_code,
+                    pl.quantity,
+                    pl.unit_name,
+                    pl.quantity * pl.price AS amount
+                FROM app_purchasing_document_lines pl
+                INNER JOIN app_purchasing_documents p ON p.id = pl.document_id
+                WHERE pl.item_code = @code
+
+                ORDER BY document_date DESC;
+                """);
+            SetParameter(command, "@code", itemCode);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                rows.Add(new ProductDocumentRecord
+                {
+                    Source = ReadString(reader, "source"),
+                    DocumentKind = ReadString(reader, "document_kind"),
+                    Number = ReadString(reader, "number"),
+                    DocumentDate = ReadDateTime(reader, "document_date"),
+                    CounterpartyName = ReadString(reader, "counterparty_name"),
+                    Status = ReadString(reader, "status_text"),
+                    CurrencyCode = ReadString(reader, "currency_code"),
+                    Quantity = ReadDecimal(reader, "quantity"),
+                    UnitName = ReadString(reader, "unit_name"),
+                    Amount = ReadDecimal(reader, "amount")
+                });
+            }
+
+            return rows;
+        }
+        catch (Exception exception)
+        {
+            TryWriteErrorLog(exception);
+            return Array.Empty<ProductDocumentRecord>();
+        }
+    }
+
+    /// <summary>
     /// Загружает историю цен товара по коду (item_code). Сортировка: тип цены, потом период убыванию (свежие сверху).
     /// При ошибке БД возвращает пустой список.
     /// </summary>

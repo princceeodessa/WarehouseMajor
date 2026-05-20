@@ -555,6 +555,21 @@ public partial class ProductEditorWindow : Window
         window.ShowDialog();
     }
 
+    /// <summary>
+    /// Клик по вкладке «Документы» открывает список продаж и закупок этого товара.
+    /// UNION app_sales_documents + app_purchasing_documents через JOIN с lines по item_code.
+    /// </summary>
+    private void HandleDocumentsTabClick(object sender, RoutedEventArgs e)
+    {
+        var itemCode = _draft is null ? string.Empty : Ui(_draft.Code);
+        var itemName = _draft is null ? string.Empty : Ui(_draft.Name);
+        var window = new ProductDocumentsWindow(itemCode, itemName)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
     private void CompleteEditing(bool success)
     {
         if (_hostedInWorkspace)
