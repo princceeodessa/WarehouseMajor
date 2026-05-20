@@ -525,6 +525,21 @@ public partial class ProductEditorWindow : Window
         CompleteEditing(success: false);
     }
 
+    /// <summary>
+    /// Клик по вкладке «Штрихкоды» открывает отдельное окно ProductBarcodesWindow со списком штрихкодов товара.
+    /// Источник данных — таблица app_product_barcodes, заполненная скриптом scripts/Import-UnfBarcodesToMySql.ps1.
+    /// </summary>
+    private void HandleBarcodesTabClick(object sender, RoutedEventArgs e)
+    {
+        var itemCode = _draft is null ? string.Empty : Ui(_draft.Code);
+        var itemName = _draft is null ? string.Empty : Ui(_draft.Name);
+        var window = new ProductBarcodesWindow(itemCode, itemName)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
     private void CompleteEditing(bool success)
     {
         if (_hostedInWorkspace)

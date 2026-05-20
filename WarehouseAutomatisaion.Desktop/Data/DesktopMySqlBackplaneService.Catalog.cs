@@ -1518,7 +1518,7 @@ public sealed partial class DesktopMySqlBackplaneService
     /// Если в новой таблице пусто, но в app_catalog_items есть barcode_value — возвращает один основной штрихкод как fallback.
     /// При ошибке БД пишет error.log и возвращает пустой список.
     /// </summary>
-    internal IReadOnlyList<ProductBarcodeRecord> TryLoadProductBarcodes(string itemCode)
+    public IReadOnlyList<ProductBarcodeRecord> TryLoadProductBarcodes(string itemCode)
     {
         if (string.IsNullOrWhiteSpace(itemCode))
         {

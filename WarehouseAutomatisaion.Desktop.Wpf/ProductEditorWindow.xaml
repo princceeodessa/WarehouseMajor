@@ -372,8 +372,8 @@
                                 ToolTip="Раздел появится в следующих релизах" />
                         <Button Content="Штрихкоды"
                                 Style="{StaticResource HeaderTabButtonStyle}"
-                                IsEnabled="False"
-                                ToolTip="Штрихкод доступен в основной карточке (поле «Код штрихкода»)" />
+                                Click="HandleBarcodesTabClick"
+                                ToolTip="Все штрихкоды товара (основной + дополнительные из 1С УНФ)" />
                         <Button Content="Цены"
                                 Style="{StaticResource HeaderTabButtonStyle}"
                                 IsEnabled="False"
