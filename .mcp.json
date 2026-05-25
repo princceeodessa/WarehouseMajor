@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "mysql-prod": {
+      "command": "npx",
+      "args": ["-y", "@benborla29/mcp-server-mysql"],
+      "env": {
+        "MYSQL_HOST": "147.45.108.97",
+        "MYSQL_PORT": "3306",
+        "MYSQL_DATABASE": "warehouse_automation",
+        "MYSQL_USER": "majorwarehause_app",
+        "MYSQL_PASSWORD": "${MYSQL_PROD_PASSWORD}",
+        "ALLOW_INSERT_OPERATION": "false",
+        "ALLOW_UPDATE_OPERATION": "false",
+        "ALLOW_DELETE_OPERATION": "false"
+      }
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}"
+      }
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "sentry": {
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp"
+    }
+  }
+}
