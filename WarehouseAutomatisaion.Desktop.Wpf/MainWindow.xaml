@@ -296,6 +296,30 @@
                                 </Grid>
                             </Button>
 
+                            <!-- Sprint 1 (WMS остатки): живые остатки из app_warehouse_stock_balances -->
+                            <Button x:Name="NavStockBalancesButton"
+                                    Tag="stock"
+                                    AutomationProperties.Name="Остатки"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE73E;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Остатки"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
                             <!-- Разделитель -->
                             <Border Height="1"
                                     Background="#E1E8F4"

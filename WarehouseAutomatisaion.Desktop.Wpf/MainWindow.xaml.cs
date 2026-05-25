@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         "finance",
         "purchasing",
         "warehouse",
+        "stock",
         "catalog",
         "audit"
     };
@@ -930,6 +931,9 @@ public partial class MainWindow : Window
         _navButtonsByKey[NavigationCommandCatalog.WarehouseSectionKey] = NavWarehouseButton;
         _navButtonsByKey["warehouse"] = NavWarehouseButton;
 
+        // Sprint 1 (WMS остатки): отдельная кнопка для живых остатков (app_warehouse_stock_balances).
+        _navButtonsByKey["stock"] = NavStockBalancesButton;
+
         // catalog (Товары) — общий пункт для всех 3 разделов, без выделения в сайдбаре.
     }
 
@@ -1011,6 +1015,15 @@ public partial class MainWindow : Window
             Subtitle: "Остатки, перемещения, резервы и инвентаризация.",
             Closable: true,
             Factory: () => new WarehouseWorkspaceView(_salesWorkspace));
+
+        // Sprint 1 (WMS остатки): новая витрина живых остатков из app_warehouse_stock_balances.
+        // В Sprint 2 источник заменится на pull через OData из 1С, UI остаётся без изменений.
+        _sections["stock"] = new SectionDefinition(
+            Key: "stock",
+            Caption: "Остатки",
+            Subtitle: "Живые остатки по складам — проекция из stock_balances в app_warehouse_stock_balances.",
+            Closable: true,
+            Factory: () => new StockBalancesWorkspaceView());
 
         _sections["catalog"] = new SectionDefinition(
             Key: "catalog",
