@@ -1,8 +1,10 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using WarehouseAutomatisaion.Application.Abstractions.Ai;
 using WarehouseAutomatisaion.Application.Abstractions.Integrations;
 using WarehouseAutomatisaion.Application.Abstractions.Persistence;
+using WarehouseAutomatisaion.Infrastructure.Ai;
 using WarehouseAutomatisaion.Infrastructure.Integrations;
 using WarehouseAutomatisaion.Infrastructure.Options;
 using WarehouseAutomatisaion.Infrastructure.Persistence;
@@ -17,9 +19,21 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection(OneCIntegrationOptions.SectionName));
 
         // Sprint 5: AI-провайдеры (OpenAI / Anthropic) для vision и других фич.
-        // Конкретные реализации регистрируются позже когда добавятся.
         services.AddOptions<AiProvidersOptions>()
             .Bind(configuration.GetSection(AiProvidersOptions.SectionName));
+
+        // Sprint 5 Task 10: IInvoiceVisionService — переключается по AiProviders:Default.
+        // Сейчас: только OpenAI. Когда добавится Claude — расширим switch.
+        services.AddTransient<IInvoiceVisionService>(serviceProvider =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptionsMonitor<AiProvidersOptions>>();
+            var providerName = options.CurrentValue.Default;
+
+            return providerName.Equals("OpenAI", StringComparison.OrdinalIgnoreCase)
+                ? ActivatorUtilities.CreateInstance<OpenAiInvoiceVisionService>(serviceProvider)
+                : throw new NotSupportedException(
+                    $"AI provider '{providerName}' not yet implemented. Set AiProviders:Default to 'OpenAI'.");
+        });
 
         services.AddSingleton<InMemoryWarehouseDataStore>();
         services.AddSingleton<IProductRepository, InMemoryProductRepository>();

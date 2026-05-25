@@ -18,4 +18,8 @@
     <None Include="Persistence\Sql\*.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="OpenAI" Version="2.10.0" />
+  </ItemGroup>
+
 </Project>
