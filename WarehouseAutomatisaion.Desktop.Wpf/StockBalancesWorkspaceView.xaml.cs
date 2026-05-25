@@ -118,6 +118,23 @@ public partial class StockBalancesWorkspaceView : UserControl
         ReloadStock();
     }
 
+    private void OnRecognizeInvoiceClicked(object sender, RoutedEventArgs e)
+    {
+        var window = new InvoiceRecognitionWindow
+        {
+            Owner = Window.GetWindow(this)
+        };
+        window.ShowDialog();
+
+        // После закрытия окна — обновим остатки (вдруг создан черновик).
+        // В будущем, когда черновик будет проводиться в реальное движение —
+        // это автоматически отразится после Refresh.
+        if (_isInitialized)
+        {
+            ReloadStock();
+        }
+    }
+
     private async void OnRefreshClicked(object sender, RoutedEventArgs e)
     {
         if (_backplane is null)
