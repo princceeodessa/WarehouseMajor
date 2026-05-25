@@ -11,6 +11,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWarehouseTaskService, WarehouseTaskService>();
         services.AddScoped<IOneCExchangeService, OneCExchangeService>();
 
+        // Sprint 5: AI распознавание накладных. Matcher — чистая функция,
+        // безопасно как singleton. Orchestrator зависит от vision + catalog reader +
+        // matcher и регистрируется как transient (для async safety).
+        services.AddSingleton<InvoiceLineMatcher>();
+        services.AddTransient<InvoiceRecognitionService>();
+
         return services;
     }
 }

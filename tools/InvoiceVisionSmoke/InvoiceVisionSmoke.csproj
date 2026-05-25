@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>InvoiceVisionSmoke</RootNamespace>
@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\WarehouseAutomatisaion.Application\WarehouseAutomatisaion.Application.csproj" />
     <ProjectReference Include="..\..\WarehouseAutomatisaion.Infrastructure\WarehouseAutomatisaion.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\WarehouseAutomatisaion.Desktop\WarehouseAutomatisaion.Desktop.csproj" />
   </ItemGroup>
 
   <ItemGroup>

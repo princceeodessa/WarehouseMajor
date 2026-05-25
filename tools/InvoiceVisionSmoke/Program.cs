@@ -1,19 +1,22 @@
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using WarehouseAutomatisaion.Application.Abstractions.Ai;
 using WarehouseAutomatisaion.Application.Contracts.Vision;
+using WarehouseAutomatisaion.Application.Services;
+using WarehouseAutomatisaion.Desktop.Data;
 using WarehouseAutomatisaion.Infrastructure.Ai;
 using WarehouseAutomatisaion.Infrastructure.Options;
 
-// Sprint 5 Task 11: standalone smoke-tool для проверки AI распознавания
-// накладных. Не зависит от MySQL/WPF — только Application + Infrastructure.Ai.
+// Sprint 5 Task 11: end-to-end smoke-tool для backend AI распознавания.
+// Прогоняет полный pipeline: vision → catalog → matcher.
+// Persistence (создание черновика приёмки) — отдельным флагом --save.
 //
 // Usage:
-//   dotnet run --project tools/InvoiceVisionSmoke -- path/to/invoice.jpg
+//   dotnet run --project tools/InvoiceVisionSmoke -- <path-to-image>
+//   dotnet run --project tools/InvoiceVisionSmoke -- <path-to-image> --save
 //
-// Берёт ApiKey из WarehouseAutomatisaion.Desktop.Wpf/appsettings.local.json
-// (или из текущей рабочей директории, если положить туда).
+// Конфиг (appsettings.local.json) ищется в Desktop.Wpf или CWD.
 
 if (args.Length == 0)
 {
@@ -28,81 +31,113 @@ if (!File.Exists(imagePath))
     return 1;
 }
 
+var saveAsDraft = args.Any(a => a.Equals("--save", StringComparison.OrdinalIgnoreCase));
+
 var configPath = FindConfigFile();
 if (configPath is null)
 {
     Console.Error.WriteLine("❌ appsettings.local.json не найден.");
-    Console.Error.WriteLine("   Положи его в текущую папку или убедись что есть в WarehouseAutomatisaion.Desktop.Wpf/.");
     return 1;
 }
 
-Console.WriteLine($"Конфиг:  {configPath}");
-Console.WriteLine($"Файл:    {imagePath}");
+Console.WriteLine($"Конфиг:    {configPath}");
+Console.WriteLine($"Файл:      {imagePath}");
+Console.WriteLine($"Сохранять: {(saveAsDraft ? "ДА — будет создан черновик в app_warehouse_documents" : "нет (--save для сохранения)")}");
 Console.WriteLine();
 
 var config = new ConfigurationBuilder()
     .AddJsonFile(configPath, optional: false)
     .Build();
 
+// 1. AI options
 var aiOptions = new AiProvidersOptions();
 config.GetSection(AiProvidersOptions.SectionName).Bind(aiOptions);
-
 if (string.IsNullOrWhiteSpace(aiOptions.OpenAi.ApiKey)
     || aiOptions.OpenAi.ApiKey.Contains("PLACEHOLDER", StringComparison.OrdinalIgnoreCase))
 {
     Console.Error.WriteLine("❌ OpenAI API key не сконфигурирован.");
-    Console.Error.WriteLine("   Проверь AiProviders:OpenAi:ApiKey в appsettings.local.json.");
     return 1;
 }
 
-using var loggerFactory = LoggerFactory.Create(builder => builder
-    .AddSimpleConsole(opt => opt.TimestampFormat = "HH:mm:ss.fff "));
-var logger = loggerFactory.CreateLogger<OpenAiInvoiceVisionService>();
+// 2. DB options (для catalog reader + опц. для receipt writer)
+var dbOptions = ReadRemoteDatabaseOptions(config);
+if (dbOptions is null)
+{
+    Console.Error.WriteLine("❌ Не удалось прочитать RemoteDatabase из конфига.");
+    return 1;
+}
 
-var monitor = new StaticOptionsMonitor<AiProvidersOptions>(aiOptions);
-var service = new OpenAiInvoiceVisionService(monitor, logger);
+// 3. Wire dependencies manually (без DI container)
+using var loggerFactory = LoggerFactory.Create(b => b
+    .SetMinimumLevel(LogLevel.Information)
+    .AddSimpleConsole(opt =>
+    {
+        opt.TimestampFormat = "HH:mm:ss.fff ";
+        opt.SingleLine = true;
+    }));
 
+var aiMonitor = new StaticOptionsMonitor<AiProvidersOptions>(aiOptions);
+var visionService = new OpenAiInvoiceVisionService(
+    aiMonitor,
+    loggerFactory.CreateLogger<OpenAiInvoiceVisionService>());
+
+var backplane = new DesktopMySqlBackplaneService(dbOptions);
+var catalogReader = new MySqlNomenclatureCatalogReader(backplane);
+var matcher = new InvoiceLineMatcher();
+var orchestrator = new InvoiceRecognitionService(
+    visionService,
+    catalogReader,
+    matcher,
+    loggerFactory.CreateLogger<InvoiceRecognitionService>());
+
+// 4. Load image
 var bytes = await File.ReadAllBytesAsync(imagePath);
 var contentType = ResolveContentType(imagePath);
 var payload = new InvoiceImagePayload(bytes, contentType, Path.GetFileName(imagePath));
 
-Console.WriteLine($"Провайдер:    {service.ProviderName}");
-Console.WriteLine($"Размер файла: {bytes.Length / 1024.0:N1} KB ({contentType})");
+Console.WriteLine($"Провайдер:    OpenAI:{aiOptions.OpenAi.Model}");
+Console.WriteLine($"Размер:       {bytes.Length / 1024.0:N1} KB ({contentType})");
 Console.WriteLine();
-Console.WriteLine("⏳ Распознавание...");
+Console.WriteLine("⏳ Pipeline: распознавание → каталог → matcher...");
 Console.WriteLine();
 
 try
 {
-    var result = await service.RecognizeAsync(payload);
-    PrintResult(result);
+    var result = await orchestrator.RecognizeAndMatchAsync(payload);
+    PrintRecognition(result.Recognition);
+    PrintMatches(result.Matches);
+
+    if (saveAsDraft)
+    {
+        Console.WriteLine();
+        Console.WriteLine("💾 Сохранение черновика приёмки...");
+        var writer = new MySqlReceiptDraftWriter(backplane);
+        var draft = BuildDraft(result, imagePath);
+        var draftId = await writer.CreateDraftAsync(draft);
+        Console.WriteLine($"✅ Создан черновик id={draftId} в app_warehouse_documents (document_kind='receipt').");
+    }
+
     return 0;
 }
-catch (InvoiceVisionException exception)
+catch (Exception exception)
 {
     Console.Error.WriteLine();
-    Console.Error.WriteLine($"❌ Ошибка распознавания [{exception.Kind}]: {exception.Message}");
+    Console.Error.WriteLine($"❌ Ошибка: {exception.GetType().Name}: {exception.Message}");
     if (exception.InnerException is not null)
     {
         Console.Error.WriteLine($"   Inner: {exception.InnerException.Message}");
     }
     return 2;
 }
-catch (Exception exception)
-{
-    Console.Error.WriteLine();
-    Console.Error.WriteLine($"❌ Неожиданная ошибка: {exception}");
-    return 3;
-}
 
 static void PrintUsage()
 {
     Console.WriteLine("Usage:");
     Console.WriteLine("  dotnet run --project tools/InvoiceVisionSmoke -- <path-to-image>");
+    Console.WriteLine("  dotnet run --project tools/InvoiceVisionSmoke -- <path-to-image> --save");
     Console.WriteLine();
-    Console.WriteLine("Examples:");
-    Console.WriteLine("  dotnet run --project tools/InvoiceVisionSmoke -- C:\\Users\\me\\Desktop\\torg12.jpg");
-    Console.WriteLine("  dotnet run --project tools/InvoiceVisionSmoke -- test-data/upd-sample.png");
+    Console.WriteLine("Полный pipeline: vision → catalog → matcher.");
+    Console.WriteLine("С флагом --save: дополнительно создаёт черновик в app_warehouse_documents.");
 }
 
 static string? FindConfigFile()
@@ -143,10 +178,44 @@ static string ResolveContentType(string path)
     };
 }
 
-static void PrintResult(InvoiceRecognitionResult result)
+static OperationalMySqlDesktopOptions? ReadRemoteDatabaseOptions(IConfiguration config)
 {
-    Console.WriteLine("=== Результат распознавания ===");
+    var section = config.GetSection("RemoteDatabase");
+    if (!section.Exists())
+    {
+        return null;
+    }
+
+    var host = section["Host"];
+    var database = section["Database"];
+    var user = section["User"];
+    var password = section["Password"];
+    var portStr = section["Port"];
+    var mysqlPath = section["MysqlExecutablePath"];
+
+    if (string.IsNullOrWhiteSpace(host)
+        || string.IsNullOrWhiteSpace(database)
+        || string.IsNullOrWhiteSpace(user)
+        || string.IsNullOrWhiteSpace(password))
+    {
+        return null;
+    }
+
+    return new OperationalMySqlDesktopOptions
+    {
+        Host = host!,
+        Port = int.TryParse(portStr, out var port) ? port : 3306,
+        DatabaseName = database!,
+        User = user!,
+        Password = password!,
+        MysqlExecutablePath = mysqlPath ?? string.Empty
+    };
+}
+
+static void PrintRecognition(InvoiceRecognitionResult result)
+{
     Console.WriteLine();
+    Console.WriteLine("=== Распознавание ===");
     Console.WriteLine($"Поставщик:    {result.SupplierName ?? "(не распознан)"}");
     Console.WriteLine($"ИНН:          {result.SupplierTaxId ?? "(не распознан)"}");
     Console.WriteLine($"Номер:        {result.InvoiceNumber ?? "(не распознан)"}");
@@ -154,35 +223,82 @@ static void PrintResult(InvoiceRecognitionResult result)
     Console.WriteLine($"Валюта:       {result.Currency ?? "?"}");
     Console.WriteLine($"Итого:        {result.TotalAmount?.ToString("N2") ?? "?"} (НДС: {result.TotalVat?.ToString("N2") ?? "?"})");
     Console.WriteLine($"Строк:        {result.Lines.Count}");
-    Console.WriteLine($"Время:        {result.Duration.TotalMilliseconds:N0} ms");
-    Console.WriteLine();
+    Console.WriteLine($"Время AI:     {result.Duration.TotalMilliseconds:N0} ms");
+}
 
-    if (result.Lines.Count > 0)
+static void PrintMatches(IReadOnlyList<MatchedInvoiceLine> matches)
+{
+    Console.WriteLine();
+    Console.WriteLine("=== Matching с nomenclature_items ===");
+
+    var summary = matches.GroupBy(m => m.Kind).ToDictionary(g => g.Key, g => g.Count());
+    foreach (MatchKind kind in Enum.GetValues<MatchKind>())
     {
-        Console.WriteLine("Строки:");
-        Console.WriteLine($"  {"#",3}  {"SKU",-15}  {"Название",-45}  {"Кол-во",10}  {"Ед",-5}  {"Цена",12}  {"Сумма",14}");
-        Console.WriteLine("  " + new string('-', 110));
-        foreach (var line in result.Lines)
-        {
-            var name = line.Name.Length > 45 ? line.Name[..42] + "..." : line.Name;
-            Console.WriteLine($"  {line.LineNumber,3}  {line.Sku ?? "—",-15}  {name,-45}  {line.Quantity,10:N3}  {line.Unit ?? "—",-5}  {line.UnitPrice?.ToString("N2") ?? "—",12}  {line.Total?.ToString("N2") ?? "—",14}");
-        }
-        Console.WriteLine();
+        var count = summary.GetValueOrDefault(kind, 0);
+        Console.WriteLine($"  {kind,-13} {count,3}");
     }
 
-    Console.WriteLine("=== Raw JSON (для отладки) ===");
-    Console.WriteLine(result.RawResponseJson);
+    Console.WriteLine();
+    Console.WriteLine($"  {"#",3}  {"Распознано",-45}  →  {"Найдено в каталоге",-45}  {"Conf",5}  {"Type",-12}");
+    Console.WriteLine("  " + new string('-', 130));
+
+    foreach (var match in matches)
+    {
+        var src = Truncate(match.Source.Name, 45);
+        var matched = match.BestMatch is null
+            ? "(нет совпадения — ручной выбор)"
+            : Truncate($"{match.BestMatch.Code} · {match.BestMatch.Name}", 45);
+        var confidence = match.Confidence > 0 ? match.Confidence.ToString("P0") : "—";
+        Console.WriteLine($"  {match.Source.LineNumber,3}  {src,-45}  →  {matched,-45}  {confidence,5}  {match.Kind,-12}");
+    }
+}
+
+static string Truncate(string value, int max)
+{
+    if (string.IsNullOrEmpty(value)) return string.Empty;
+    return value.Length > max ? value[..(max - 1)] + "…" : value;
+}
+
+static WarehouseAutomatisaion.Application.Contracts.Receiving.ReceiptDraft BuildDraft(
+    InvoiceRecognitionWithMatches result,
+    string sourceFile)
+{
+    var lines = new List<WarehouseAutomatisaion.Application.Contracts.Receiving.ReceiptDraftLine>();
+    foreach (var match in result.Matches)
+    {
+        var matchedId = match.BestMatch is not null && Guid.TryParse(match.BestMatch.Id, out var g) ? g : (Guid?)null;
+        lines.Add(new WarehouseAutomatisaion.Application.Contracts.Receiving.ReceiptDraftLine(
+            LineNumber: match.Source.LineNumber,
+            MatchedItemId: matchedId,
+            OriginalItemName: match.Source.Name,
+            OriginalSku: match.Source.Sku,
+            Unit: match.Source.Unit,
+            Quantity: match.Source.Quantity,
+            UnitPrice: match.Source.UnitPrice,
+            Vat: match.Source.Vat,
+            Subtotal: match.Source.Subtotal,
+            Total: match.Source.Total));
+    }
+
+    return new WarehouseAutomatisaion.Application.Contracts.Receiving.ReceiptDraft(
+        SupplierName: result.Recognition.SupplierName ?? "(не распознан)",
+        SupplierTaxId: result.Recognition.SupplierTaxId,
+        InvoiceNumber: result.Recognition.InvoiceNumber,
+        InvoiceDate: result.Recognition.InvoiceDate,
+        Currency: result.Recognition.Currency,
+        TotalAmount: result.Recognition.TotalAmount,
+        TotalVat: result.Recognition.TotalVat,
+        Lines: lines,
+        SourceLabel: $"ai:{result.Recognition.ProviderName}:{Path.GetFileName(sourceFile)}",
+        CreatedByActor: Environment.UserName,
+        CommentText: $"Распознано из {Path.GetFileName(sourceFile)} через {result.Recognition.ProviderName}, длительность {result.Recognition.Duration.TotalMilliseconds:N0} ms.");
 }
 
 internal sealed class StaticOptionsMonitor<T> : IOptionsMonitor<T>
 {
     private readonly T _value;
-
     public StaticOptionsMonitor(T value) => _value = value;
-
     public T CurrentValue => _value;
-
     public T Get(string? name) => _value;
-
     public IDisposable? OnChange(Action<T, string?> listener) => null;
 }
