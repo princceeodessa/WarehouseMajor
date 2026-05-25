@@ -16,6 +16,11 @@ public static class ServiceCollectionExtensions
         services.AddOptions<OneCIntegrationOptions>()
             .Bind(configuration.GetSection(OneCIntegrationOptions.SectionName));
 
+        // Sprint 5: AI-провайдеры (OpenAI / Anthropic) для vision и других фич.
+        // Конкретные реализации регистрируются позже когда добавятся.
+        services.AddOptions<AiProvidersOptions>()
+            .Bind(configuration.GetSection(AiProvidersOptions.SectionName));
+
         services.AddSingleton<InMemoryWarehouseDataStore>();
         services.AddSingleton<IProductRepository, InMemoryProductRepository>();
         services.AddSingleton<IStorageCellRepository, InMemoryStorageCellRepository>();
