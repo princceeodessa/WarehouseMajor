@@ -1351,6 +1351,36 @@ CREATE TABLE IF NOT EXISTS app_warehouse_operation_log (
     CONSTRAINT pk_app_warehouse_operation_log PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- app_warehouse_stock_balances:
+-- Проекция остатков для UI. Источник: операционная таблица stock_balances (Sprint 1 — оттуда,
+-- Sprint 2 — через OData из 1С напрямую).
+-- Денормализованные item_name / warehouse_name дают быстрый рендер без JOIN.
+-- Гранулярность: одна строка на (item, warehouse) — без storage_bin/batch разбивки,
+-- т.к. UI на старте показывает суммарный остаток. Детализация добавится при работе с ячейками.
+-- Поля item_external_id / warehouse_external_id зарезервированы под OData GUID из 1С (Sprint 2).
+CREATE TABLE IF NOT EXISTS app_warehouse_stock_balances (
+    id CHAR(36) NOT NULL,
+    item_id CHAR(36) NOT NULL,
+    item_code VARCHAR(128) NULL,
+    item_name VARCHAR(512) NULL,
+    warehouse_node_id CHAR(36) NOT NULL,
+    warehouse_name VARCHAR(256) NULL,
+    quantity DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    reserved_quantity DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    available_quantity DECIMAL(18, 4) AS (quantity - reserved_quantity) STORED,
+    last_movement_at_utc DATETIME(6) NOT NULL,
+    item_external_id VARCHAR(128) NULL,
+    warehouse_external_id VARCHAR(128) NULL,
+    projected_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_warehouse_stock_balances PRIMARY KEY (id),
+    CONSTRAINT uq_app_warehouse_stock_balances_item_wh UNIQUE (item_id, warehouse_node_id),
+    KEY idx_app_warehouse_stock_balances_warehouse (warehouse_node_id, item_id),
+    KEY idx_app_warehouse_stock_balances_item (item_id),
+    KEY idx_app_warehouse_stock_balances_external (item_external_id, warehouse_external_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS app_purchasing_suppliers (
     id CHAR(36) NOT NULL,
     code VARCHAR(128) NOT NULL,
