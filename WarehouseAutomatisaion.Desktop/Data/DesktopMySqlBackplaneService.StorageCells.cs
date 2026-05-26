@@ -3,6 +3,13 @@ using WarehouseAutomatisaion.Application.Contracts.Warehouse;
 
 namespace WarehouseAutomatisaion.Desktop.Data;
 
+// Sprint 3 Task 21: результат массового импорта ячеек.
+public sealed record StorageCellBulkImportResult(
+    int Inserted,
+    int Updated,
+    int Failed,
+    IReadOnlyList<string> Errors);
+
 // Sprint 3: CRUD для app_warehouse_storage_cells.
 // Sql соответствует DDL из mysql-operational-schema.sql (без расширения схемы в этом спринте).
 public sealed partial class DesktopMySqlBackplaneService
@@ -168,6 +175,116 @@ public sealed partial class DesktopMySqlBackplaneService
         command.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
         BindRequestParameters(command, id, request, includeQr: false);
         command.ExecuteNonQuery();
+    }
+
+    public StorageCellBulkImportResult BulkUpsertStorageCells(IReadOnlyList<StorageCellRequest> requests)
+    {
+        if (requests.Count == 0)
+        {
+            return new StorageCellBulkImportResult(0, 0, 0, Array.Empty<string>());
+        }
+
+        EnsureDatabaseAndSchema();
+
+        using var connection = DesktopMySqlCommandRunner.CreateOpenConnection(
+            _options,
+            useDatabase: true,
+            MysqlConnectTimeoutSeconds,
+            MysqlStorageCellsCommandTimeoutSeconds);
+
+        var inserted = 0;
+        var updated = 0;
+        var failed = 0;
+        var errors = new List<string>();
+
+        // Per-row UPSERT по (warehouse_name, code). Без транзакции — частичный успех допустим.
+        // На 200 записей даёт ~5-10s; ускорим UNIQUE constraint'ом если станет узким.
+        const string findSql = """
+            SELECT id FROM app_warehouse_storage_cells
+            WHERE warehouse_name = @warehouse_name AND code = @code
+            LIMIT 1;
+            """;
+
+        const string insertSql = """
+            INSERT INTO app_warehouse_storage_cells (
+                id, warehouse_name, code,
+                zone_code, zone_name,
+                row_no, rack_no, shelf_no, cell_no,
+                cell_type, capacity, status_text,
+                qr_payload, comment_text,
+                created_at_utc, updated_at_utc
+            )
+            VALUES (
+                @id, @warehouse_name, @code,
+                @zone_code, @zone_name,
+                @row_no, @rack_no, @shelf_no, @cell_no,
+                @cell_type, @capacity, @status_text,
+                @qr_payload, @comment_text,
+                UTC_TIMESTAMP(6), UTC_TIMESTAMP(6)
+            );
+            """;
+
+        const string updateSql = """
+            UPDATE app_warehouse_storage_cells
+            SET zone_code = @zone_code,
+                zone_name = @zone_name,
+                row_no = @row_no, rack_no = @rack_no,
+                shelf_no = @shelf_no, cell_no = @cell_no,
+                cell_type = @cell_type,
+                capacity = @capacity,
+                status_text = @status_text,
+                comment_text = @comment_text,
+                updated_at_utc = UTC_TIMESTAMP(6)
+            WHERE id = @id;
+            """;
+
+        for (var rowIndex = 0; rowIndex < requests.Count; rowIndex++)
+        {
+            var request = requests[rowIndex];
+            try
+            {
+                // Find existing
+                Guid? existingId = null;
+                using (var findCommand = connection.CreateCommand())
+                {
+                    findCommand.CommandText = findSql;
+                    findCommand.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
+                    findCommand.Parameters.AddWithValue("@warehouse_name", request.WarehouseName);
+                    findCommand.Parameters.AddWithValue("@code", request.Code);
+                    using var reader = findCommand.ExecuteReader();
+                    if (reader.Read())
+                    {
+                        existingId = Guid.Parse(reader.GetString(0));
+                    }
+                }
+
+                if (existingId.HasValue)
+                {
+                    using var updateCommand = connection.CreateCommand();
+                    updateCommand.CommandText = updateSql;
+                    updateCommand.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
+                    BindRequestParameters(updateCommand, existingId.Value, request, includeQr: false);
+                    updateCommand.ExecuteNonQuery();
+                    updated++;
+                }
+                else
+                {
+                    using var insertCommand = connection.CreateCommand();
+                    insertCommand.CommandText = insertSql;
+                    insertCommand.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
+                    BindRequestParameters(insertCommand, Guid.NewGuid(), request, includeQr: true);
+                    insertCommand.ExecuteNonQuery();
+                    inserted++;
+                }
+            }
+            catch (Exception exception)
+            {
+                failed++;
+                errors.Add($"Строка {rowIndex + 1} (код {request.Code}): {exception.Message}");
+            }
+        }
+
+        return new StorageCellBulkImportResult(inserted, updated, failed, errors);
     }
 
     public void DeleteStorageCell(Guid id)

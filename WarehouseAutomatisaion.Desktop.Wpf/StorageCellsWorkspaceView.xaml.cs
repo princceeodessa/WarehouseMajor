@@ -1,7 +1,10 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Microsoft.Win32;
 using WarehouseAutomatisaion.Application.Contracts.Warehouse;
+using WarehouseAutomatisaion.Application.Services;
 using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
@@ -189,6 +192,135 @@ public partial class StorageCellsWorkspaceView : UserControl
         }
     }
 
+    private void OnPrintLabelsClicked(object sender, RoutedEventArgs e)
+    {
+        var rows = CellsDataGrid.ItemsSource as IEnumerable<CellRowViewModel>;
+        if (rows is null)
+        {
+            return;
+        }
+
+        var cells = rows.Select(r => r.Source).ToList();
+        if (cells.Count == 0)
+        {
+            MessageBox.Show(
+                Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow,
+                "Нет ячеек для печати. Снимите фильтр или импортируйте ячейки.",
+                "QR-этикетки",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var printWindow = new CellLabelPrintWindow(cells)
+        {
+            Owner = Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow
+        };
+        printWindow.ShowDialog();
+    }
+
+    private async void OnImportCsvClicked(object sender, RoutedEventArgs e)
+    {
+        if (_backplane is null)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Выберите CSV-файл со списком ячеек",
+            Filter = "CSV / TSV|*.csv;*.tsv;*.txt|Все файлы|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(System.Windows.Application.Current.MainWindow) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var csvContent = await File.ReadAllTextAsync(dialog.FileName, System.Text.Encoding.UTF8);
+            var importer = new StorageCellCsvImporter();
+            var result = importer.Parse(csvContent);
+
+            var requestsCount = result.Requests.Count;
+            var errorsCount = result.Errors.Count;
+
+            if (requestsCount == 0)
+            {
+                var errorPreview = string.Join("\n", result.Errors.Take(5));
+                MessageBox.Show(
+                    Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow,
+                    $"Из файла не извлечено ни одной строки.\n\nОшибки ({errorsCount}):\n{errorPreview}",
+                    "Импорт ячеек",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            var confirmation = MessageBox.Show(
+                Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow,
+                $"Файл: {Path.GetFileName(dialog.FileName)}\n\n" +
+                $"К импорту: {requestsCount} строк\n" +
+                $"Ошибок в парсинге: {errorsCount}\n\n" +
+                "Существующие ячейки (по сочетанию склад + код) будут обновлены, новые — созданы.\n\n" +
+                "Продолжить?",
+                "Подтверждение импорта",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (confirmation != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            ImportCsvButton.IsEnabled = false;
+            ImportCsvButton.Content = "⏳ Импорт...";
+            StatusText.Text = $"⏳ Импорт {requestsCount} ячеек...";
+
+            var importResult = await Task.Run(() => _backplane.BulkUpsertStorageCells(result.Requests));
+
+            ReloadCells();
+
+            var resultMessage =
+                $"✅ Импорт завершён.\n\n" +
+                $"Добавлено новых: {importResult.Inserted}\n" +
+                $"Обновлено существующих: {importResult.Updated}\n" +
+                $"Ошибок: {importResult.Failed + errorsCount}";
+
+            if (importResult.Errors.Count > 0)
+            {
+                resultMessage += "\n\nПервые ошибки:\n" + string.Join("\n", importResult.Errors.Take(5));
+            }
+
+            MessageBox.Show(
+                Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow,
+                resultMessage,
+                "Импорт ячеек",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            StatusText.Text = $"✅ Импортировано: {importResult.Inserted + importResult.Updated} (новых: {importResult.Inserted}, обновлено: {importResult.Updated})";
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"❌ Ошибка импорта: {exception.Message}";
+            MessageBox.Show(
+                Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow,
+                $"Не удалось импортировать: {exception.Message}",
+                "Ошибка",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            ImportCsvButton.IsEnabled = true;
+            ImportCsvButton.Content = "📤 Импорт CSV";
+        }
+    }
+
     private void OpenEditor(StorageCell? source)
     {
         if (_catalog is null)
@@ -212,6 +344,8 @@ public partial class StorageCellsWorkspaceView : UserControl
         NewCellButton.IsEnabled = false;
         EditCellButton.IsEnabled = false;
         DeleteCellButton.IsEnabled = false;
+        ImportCsvButton.IsEnabled = false;
+        PrintLabelsButton.IsEnabled = false;
         RefreshButton.IsEnabled = false;
     }
 
