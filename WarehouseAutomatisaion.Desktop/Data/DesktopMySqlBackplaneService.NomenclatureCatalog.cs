@@ -41,10 +41,12 @@ public sealed partial class DesktopMySqlBackplaneService
 
             while (reader.Read())
             {
+                // MySqlConnector auto-конвертирует CHAR(36) в Guid когда содержимое — UUID.
+                // GetString тогда бросает InvalidCastException. GetValue+ToString универсально.
                 rows.Add(new NomenclatureRef(
-                    Id: reader.GetString(ordId),
-                    Code: reader.IsDBNull(ordCode) ? string.Empty : reader.GetString(ordCode),
-                    Name: reader.IsDBNull(ordName) ? string.Empty : reader.GetString(ordName)));
+                    Id: reader.GetValue(ordId)?.ToString() ?? string.Empty,
+                    Code: reader.IsDBNull(ordCode) ? string.Empty : reader.GetValue(ordCode)?.ToString() ?? string.Empty,
+                    Name: reader.IsDBNull(ordName) ? string.Empty : reader.GetValue(ordName)?.ToString() ?? string.Empty));
             }
 
             return rows;
