@@ -1038,6 +1038,15 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new StorageCellsWorkspaceView());
 
+        // Sprint 8 (AI loop closure): черновики AI-распознанных накладных,
+        // ожидающие разноски в ячейки склада.
+        _sections["receipt-drafts"] = new SectionDefinition(
+            Key: "receipt-drafts",
+            Caption: "Черновики AI",
+            Subtitle: "Распознанные накладные ждут приёмки. Двойной клик — открыть и принять в ячейку.",
+            Closable: true,
+            Factory: () => new ReceiptDraftsWorkspaceView());
+
         _sections["catalog"] = new SectionDefinition(
             Key: "catalog",
             Caption: "Товары",
