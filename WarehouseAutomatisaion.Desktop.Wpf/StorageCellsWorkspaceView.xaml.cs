@@ -16,6 +16,7 @@ public partial class StorageCellsWorkspaceView : UserControl
 {
     private DesktopMySqlBackplaneService? _backplane;
     private MySqlStorageCellCatalog? _catalog;
+    private MySqlStockLocationRepository? _stockLocations;
     private bool _isInitialized;
     private string? _selectedWarehouseFilter;
 
@@ -40,6 +41,7 @@ public partial class StorageCellsWorkspaceView : UserControl
         }
 
         _catalog = new MySqlStorageCellCatalog(_backplane);
+        _stockLocations = new MySqlStockLocationRepository(_backplane);
         LoadWarehouses();
         _isInitialized = true;
         ReloadCells();
@@ -140,11 +142,34 @@ public partial class StorageCellsWorkspaceView : UserControl
         DeleteCellButton.IsEnabled = hasSelection;
     }
 
-    private void OnCellDoubleClick(object sender, MouseButtonEventArgs e)
+    private async void OnCellDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (CellsDataGrid.SelectedItem is CellRowViewModel selected)
+        if (CellsDataGrid.SelectedItem is not CellRowViewModel selected || _stockLocations is null)
         {
-            OpenEditor(selected.Source);
+            return;
+        }
+
+        // Двойной клик в строке таблицы — показываем что лежит в ячейке (Фаза A).
+        // Чтобы редактировать ячейку — кнопка «✎ Редактировать» в toolbar.
+        try
+        {
+            StatusText.Text = $"⏳ Загрузка содержимого ячейки {selected.Code}...";
+            var locations = await _stockLocations.GetByCellAsync(selected.Source.Id);
+
+            var popup = new StockLocationsPopupWindow(
+                header: $"Содержимое ячейки {selected.Code}",
+                subheader: $"{selected.WarehouseName}   ·   {selected.ZoneLabel}   ·   {selected.AddressLabel}",
+                locations: locations)
+            {
+                Owner = Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow
+            };
+            popup.ShowDialog();
+
+            StatusText.Text = $"Ячейка {selected.Code}: позиций {locations.Count}";
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"❌ Не удалось загрузить содержимое: {exception.Message}";
         }
     }
 

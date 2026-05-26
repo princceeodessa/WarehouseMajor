@@ -1366,6 +1366,35 @@ CREATE TABLE IF NOT EXISTS app_warehouse_storage_cells (
     CONSTRAINT pk_app_warehouse_storage_cells PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- app_warehouse_stock_locations:
+-- Детальная разбивка остатков по ячейкам (item × cell → qty).
+-- Дополняет агрегатную app_warehouse_stock_balances (item × warehouse → qty).
+-- Foundation для WMS-операций: приёмка → запись здесь, перемещение → -src/+dst,
+-- подбор → -src, инвентаризация → сверка с фактом.
+-- UNIQUE (item_id, storage_cell_id) — одна позиция товара на ячейку.
+-- Денормализованные item_code/name + cell_code/warehouse_name для UI без JOIN.
+CREATE TABLE IF NOT EXISTS app_warehouse_stock_locations (
+    id CHAR(36) NOT NULL,
+    item_id CHAR(36) NOT NULL,
+    item_code VARCHAR(128) NULL,
+    item_name VARCHAR(512) NULL,
+    warehouse_node_id CHAR(36) NULL,
+    warehouse_name VARCHAR(256) NOT NULL,
+    storage_cell_id CHAR(36) NOT NULL,
+    storage_cell_code VARCHAR(128) NOT NULL,
+    quantity DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    reserved_quantity DECIMAL(18, 4) NOT NULL DEFAULT 0,
+    available_quantity DECIMAL(18, 4) AS (quantity - reserved_quantity) STORED,
+    last_movement_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_warehouse_stock_locations PRIMARY KEY (id),
+    CONSTRAINT uq_app_warehouse_stock_locations_item_cell UNIQUE (item_id, storage_cell_id),
+    KEY idx_app_warehouse_stock_locations_cell (storage_cell_id),
+    KEY idx_app_warehouse_stock_locations_item (item_id),
+    KEY idx_app_warehouse_stock_locations_warehouse (warehouse_node_id, item_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS app_warehouse_operation_log (
     id CHAR(36) NOT NULL,
     logged_at DATETIME(6) NOT NULL,

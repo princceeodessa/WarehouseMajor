@@ -123,7 +123,8 @@
                       ScrollViewer.VerticalScrollBarVisibility="Auto"
                       VirtualizingPanel.IsVirtualizing="True"
                       VirtualizingPanel.VirtualizationMode="Recycling"
-                      FontSize="12.5">
+                      FontSize="12.5"
+                      MouseDoubleClick="OnStockRowDoubleClick">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Код" Binding="{Binding ItemCode}" Width="120" />
                     <DataGridTextColumn Header="Товар" Binding="{Binding ItemName}" Width="*" />

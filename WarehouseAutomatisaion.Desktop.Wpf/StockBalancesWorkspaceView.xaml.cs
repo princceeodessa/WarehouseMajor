@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 using WarehouseAutomatisaion.Desktop.Data;
 
@@ -11,6 +12,7 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 public partial class StockBalancesWorkspaceView : UserControl
 {
     private DesktopMySqlBackplaneService? _backplane;
+    private MySqlStockLocationRepository? _stockLocations;
     private DispatcherTimer? _searchDebounceTimer;
     private bool _isInitialized;
 
@@ -33,9 +35,45 @@ public partial class StockBalancesWorkspaceView : UserControl
             return;
         }
 
+        _stockLocations = new MySqlStockLocationRepository(_backplane);
         LoadWarehouses();
         _isInitialized = true;
         ReloadStock();
+    }
+
+    private async void OnStockRowDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_stockLocations is null || StockDataGrid.SelectedItem is not WarehouseStockRow selected)
+        {
+            return;
+        }
+
+        if (!Guid.TryParse(selected.ItemId, out var itemGuid))
+        {
+            StatusText.Text = "❌ Не удалось распарсить ItemId для поиска позиций.";
+            return;
+        }
+
+        try
+        {
+            StatusText.Text = $"⏳ Поиск ячеек для «{selected.ItemName}»...";
+            var locations = await _stockLocations.GetByItemAsync(itemGuid);
+
+            var popup = new StockLocationsPopupWindow(
+                header: $"Где лежит: {selected.ItemName}",
+                subheader: $"Код {selected.ItemCode}   ·   общее количество (по складу): {selected.Quantity:N3}",
+                locations: locations)
+            {
+                Owner = Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow
+            };
+            popup.ShowDialog();
+
+            StatusText.Text = $"Товар «{selected.ItemName}»: размещено в {locations.Count} ячейках";
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"❌ Ошибка: {exception.Message}";
+        }
     }
 
     private void LoadWarehouses()
