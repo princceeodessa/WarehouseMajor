@@ -154,6 +154,8 @@ public sealed partial class DesktopMySqlBackplaneService
             MysqlConnectTimeoutSeconds,
             MysqlStorageCellsCommandTimeoutSeconds);
 
+        // QR payload пересобираем при Update — warehouse_name или code могли измениться,
+        // и handheld должен видеть актуальные данные.
         const string sql = """
             UPDATE app_warehouse_storage_cells
             SET warehouse_name = @warehouse_name,
@@ -165,6 +167,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 cell_type = @cell_type,
                 capacity = @capacity,
                 status_text = @status_text,
+                qr_payload = @qr_payload,
                 comment_text = @comment_text,
                 updated_at_utc = UTC_TIMESTAMP(6)
             WHERE id = @id;
@@ -173,7 +176,7 @@ public sealed partial class DesktopMySqlBackplaneService
         using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
-        BindRequestParameters(command, id, request, includeQr: false);
+        BindRequestParameters(command, id, request, includeQr: true);
         command.ExecuteNonQuery();
     }
 
@@ -233,6 +236,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 cell_type = @cell_type,
                 capacity = @capacity,
                 status_text = @status_text,
+                qr_payload = @qr_payload,
                 comment_text = @comment_text,
                 updated_at_utc = UTC_TIMESTAMP(6)
             WHERE id = @id;
@@ -263,7 +267,7 @@ public sealed partial class DesktopMySqlBackplaneService
                     using var updateCommand = connection.CreateCommand();
                     updateCommand.CommandText = updateSql;
                     updateCommand.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
-                    BindRequestParameters(updateCommand, existingId.Value, request, includeQr: false);
+                    BindRequestParameters(updateCommand, existingId.Value, request, includeQr: true);
                     updateCommand.ExecuteNonQuery();
                     updated++;
                 }
@@ -324,11 +328,29 @@ public sealed partial class DesktopMySqlBackplaneService
 
         if (includeQr)
         {
-            // Sprint 3 Task 22 заменит generated payload на полноценный JSON через QRCoder.
-            // Пока: простой text identifier.
-            var qrPayload = $"bin:{id}:{request.Code}";
-            command.Parameters.AddWithValue("@qr_payload", qrPayload);
+            // MWH (MajorWarehouse) формат QR-payload — совместим с TsdScanValueParser в WarehouseAutomatisaion.Tsd.
+            // Формат: MWH|v=1|type=cell|warehouse=<url-encoded>|cell=<url-encoded code>
+            // Pipe-separated key=value, UTF-8 значения URL-encoded для безопасной передачи через QR.
+            command.Parameters.AddWithValue("@qr_payload", BuildMwhCellPayload(request.WarehouseName, request.Code));
         }
+    }
+
+    /// <summary>
+    /// Генерирует QR-payload в формате MWH (MajorWarehouse) для ячейки склада.
+    /// Парсится TsdScanValueParser.TryParseSystemQr — handheld'ы сразу определяют type=cell
+    /// и извлекают warehouse + cell для матча в БД.
+    /// </summary>
+    public static string BuildMwhCellPayload(string warehouseName, string cellCode)
+    {
+        var parts = new[]
+        {
+            "MWH",
+            "v=1",
+            "type=cell",
+            $"warehouse={Uri.EscapeDataString(warehouseName ?? string.Empty)}",
+            $"cell={Uri.EscapeDataString(cellCode ?? string.Empty)}"
+        };
+        return string.Join("|", parts);
     }
 
     private static StorageCell ReadStorageCellRow(MySqlDataReader reader)

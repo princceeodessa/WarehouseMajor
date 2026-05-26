@@ -1,5 +1,4 @@
 using System.IO;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -8,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using QRCoder;
 using WarehouseAutomatisaion.Application.Contracts.Warehouse;
+using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
@@ -183,13 +183,13 @@ public partial class CellLabelPrintWindow : Window
 
     private static Image BuildQrImage(StorageCell cell)
     {
-        // QR payload — стабильный JSON с bin_id для восстановления при сканировании.
-        var payload = JsonSerializer.Serialize(new
-        {
-            bin_id = cell.Id.ToString(),
-            code = cell.Code,
-            warehouse = cell.WarehouseName
-        });
+        // Уважаем формат QR-payload который установлен в проекте (MWH|v=1|type=cell|...).
+        // Если qr_payload в БД пустой (старая ячейка) — генерируем актуальный MWH-payload.
+        // TsdScanValueParser в WarehouseAutomatisaion.Tsd распознаёт префикс MWH и
+        // правильно матчит ячейку при сканировании handheld'ом.
+        var payload = !string.IsNullOrWhiteSpace(cell.QrPayload)
+            ? cell.QrPayload!
+            : DesktopMySqlBackplaneService.BuildMwhCellPayload(cell.WarehouseName, cell.Code);
 
         using var qrGenerator = new QRCodeGenerator();
         using var qrData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.Q);
