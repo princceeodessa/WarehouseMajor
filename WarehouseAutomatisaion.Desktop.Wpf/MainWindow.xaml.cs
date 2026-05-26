@@ -38,6 +38,7 @@ public partial class MainWindow : Window
         "purchasing",
         "warehouse",
         "stock",
+        "cells",
         "catalog",
         "audit"
     };
@@ -934,6 +935,9 @@ public partial class MainWindow : Window
         // Sprint 1 (WMS остатки): отдельная кнопка для живых остатков (app_warehouse_stock_balances).
         _navButtonsByKey["stock"] = NavStockBalancesButton;
 
+        // Sprint 3 (WMS ячейки): кнопка для master-data ячеек склада.
+        _navButtonsByKey["cells"] = NavStorageCellsButton;
+
         // catalog (Товары) — общий пункт для всех 3 разделов, без выделения в сайдбаре.
     }
 
@@ -1024,6 +1028,15 @@ public partial class MainWindow : Window
             Subtitle: "Живые остатки по складам — проекция из stock_balances в app_warehouse_stock_balances.",
             Closable: true,
             Factory: () => new StockBalancesWorkspaceView());
+
+        // Sprint 3 (WMS ячейки): master-data ячеек склада в app_warehouse_storage_cells.
+        // CRUD + (Task 21) импорт CSV + (Task 22) печать QR-этикеток.
+        _sections["cells"] = new SectionDefinition(
+            Key: "cells",
+            Caption: "Ячейки",
+            Subtitle: "Адресное хранение: зоны, ряды, стеллажи, полки, ячейки. QR-этикетки и импорт.",
+            Closable: true,
+            Factory: () => new StorageCellsWorkspaceView());
 
         _sections["catalog"] = new SectionDefinition(
             Key: "catalog",

@@ -320,6 +320,30 @@
                                 </Grid>
                             </Button>
 
+                            <!-- Sprint 3 (WMS ячейки): master-data ячеек склада -->
+                            <Button x:Name="NavStorageCellsButton"
+                                    Tag="cells"
+                                    AutomationProperties.Name="Ячейки"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE71D;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Ячейки"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
                             <!-- Разделитель -->
                             <Border Height="1"
                                     Background="#E1E8F4"
