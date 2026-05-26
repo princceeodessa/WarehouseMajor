@@ -1,0 +1,296 @@
+<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.TransferStockWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Перемещение между ячейками"
+        Height="720" Width="980"
+        WindowStartupLocation="CenterOwner"
+        Background="#F7F9FD"
+        FontFamily="Segoe UI"
+        FontSize="13">
+    <Window.Resources>
+        <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="LineBrush" Color="#E7ECF7" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#4F5BFF" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
+        <SolidColorBrush x:Key="HeadingBrush" Color="#17213A" />
+    </Window.Resources>
+
+    <DockPanel Margin="14" LastChildFill="True">
+
+        <!-- Header -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="16,12" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="🔄 Перемещение между ячейками"
+                           Foreground="{StaticResource HeadingBrush}"
+                           FontSize="16" FontWeight="SemiBold" />
+                <TextBlock Text="Выберите ячейку-источник, позицию из неё, ячейку-приёмник и количество к перемещению."
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="11.5" Margin="0,4,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- Footer -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="14,10" Margin="0,12,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource MutedBrush}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,12,0" />
+                <Button x:Name="CloseButton" Grid.Column="1"
+                        Content="Готово" Height="34" Padding="18,0"
+                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="1" Cursor="Hand" IsCancel="True"
+                        Click="OnCloseClicked" />
+                <Button x:Name="TransferButton" Grid.Column="2"
+                        Content="✓ Переместить"
+                        Height="34" Padding="20,0" Margin="10,0,0,0"
+                        Background="{StaticResource PrimaryBrush}" Foreground="White"
+                        BorderThickness="0" Cursor="Hand"
+                        FontWeight="SemiBold" IsDefault="True" IsEnabled="False"
+                        Click="OnTransferClicked" />
+            </Grid>
+        </Border>
+
+        <!-- History card -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="14,10" Margin="0,12,0,0"
+                MinHeight="100" MaxHeight="160">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top"
+                           Text="История перемещений в сессии"
+                           Foreground="{StaticResource HeadingBrush}"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,6" />
+                <TextBlock x:Name="HistoryEmptyHint"
+                           DockPanel.Dock="Top"
+                           Text="Здесь будут появляться строки после каждой выполненной операции."
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="11.5" />
+                <ListBox x:Name="HistoryListBox"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         FontSize="12"
+                         Visibility="Collapsed"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="58" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding TimeStamp}"
+                                           Foreground="{StaticResource MutedBrush}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Description}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Main content: 2-колоночный layout -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Source -->
+            <Border Grid.Column="0"
+                    Background="{StaticResource CardBrush}"
+                    BorderBrush="{StaticResource LineBrush}"
+                    BorderThickness="1" CornerRadius="10"
+                    Padding="14,12" Margin="0,0,6,0">
+                <DockPanel LastChildFill="True">
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Откуда"
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="11.5" Margin="0,0,0,4" />
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0"
+                                Height="36"
+                                BorderBrush="{StaticResource LineBrush}"
+                                BorderThickness="1" CornerRadius="6"
+                                Background="#FAFBFD"
+                                Padding="10,0">
+                            <TextBlock x:Name="SourceCellText"
+                                       Text="— не выбрана —"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource MutedBrush}" />
+                        </Border>
+                        <Button Grid.Column="1"
+                                x:Name="PickSourceButton"
+                                Content="🔍"
+                                Height="36" Width="36" Margin="6,0,0,0"
+                                Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                                BorderThickness="1" Cursor="Hand"
+                                ToolTip="Выбрать ячейку-источник"
+                                Click="OnPickSourceClicked" />
+                    </Grid>
+
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Содержимое (выберите строку для перемещения):"
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="11.5" Margin="0,0,0,6" />
+
+                    <DataGrid x:Name="SourceContentGrid"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              CanUserSortColumns="True"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="{StaticResource LineBrush}"
+                              BorderThickness="1"
+                              BorderBrush="{StaticResource LineBrush}"
+                              Background="Transparent"
+                              RowHeight="26" ColumnHeaderHeight="30"
+                              SelectionMode="Single" SelectionUnit="FullRow"
+                              EnableRowVirtualization="True"
+                              FontSize="12"
+                              SelectionChanged="OnSourceContentSelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Код" Binding="{Binding ItemCode}" Width="110" />
+                            <DataGridTextColumn Header="Товар" Binding="{Binding ItemName}" Width="*" />
+                            <DataGridTextColumn Header="Кол-во"
+                                                Binding="{Binding Quantity, StringFormat=N3}"
+                                                Width="80">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                        <Setter Property="Padding" Value="0,0,6,0" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+
+            <!-- Target -->
+            <Border Grid.Column="1"
+                    Background="{StaticResource CardBrush}"
+                    BorderBrush="{StaticResource LineBrush}"
+                    BorderThickness="1" CornerRadius="10"
+                    Padding="14,12" Margin="6,0,0,0">
+                <DockPanel LastChildFill="True">
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Куда"
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="11.5" Margin="0,0,0,4" />
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0"
+                                Height="36"
+                                BorderBrush="{StaticResource LineBrush}"
+                                BorderThickness="1" CornerRadius="6"
+                                Background="#FAFBFD"
+                                Padding="10,0">
+                            <TextBlock x:Name="TargetCellText"
+                                       Text="— не выбрана —"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource MutedBrush}" />
+                        </Border>
+                        <Button Grid.Column="1"
+                                x:Name="PickTargetButton"
+                                Content="🔍"
+                                Height="36" Width="36" Margin="6,0,0,0"
+                                Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                                BorderThickness="1" Cursor="Hand"
+                                ToolTip="Выбрать ячейку-приёмник"
+                                Click="OnPickTargetClicked" />
+                    </Grid>
+
+                    <!-- Сводка по выбранному товару -->
+                    <Border DockPanel.Dock="Top"
+                            Background="#F4F7FF"
+                            BorderBrush="#DDE3FF"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="12,10" Margin="0,0,0,14">
+                        <StackPanel>
+                            <TextBlock x:Name="SelectedItemText"
+                                       Text="Выберите позицию в ячейке-источнике слева."
+                                       Foreground="{StaticResource HeadingBrush}"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="SourceQtyHint"
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontSize="11.5"
+                                       Margin="0,4,0,0"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="TargetQtyHint"
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontSize="11.5"
+                                       Margin="0,2,0,0"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Количество к перемещению"
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="11.5" Margin="0,0,0,4" />
+                    <Grid DockPanel.Dock="Top">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="QuantityBox"
+                                 Grid.Column="0"
+                                 Height="36" Padding="10,0"
+                                 VerticalContentAlignment="Center"
+                                 BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                                 FontSize="14" FontWeight="SemiBold"
+                                 TextChanged="OnQuantityChanged" />
+                        <Button Grid.Column="1"
+                                x:Name="MoveAllButton"
+                                Content="↗ Переместить всё"
+                                Height="36" Padding="14,0" Margin="8,0,0,0"
+                                Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                                BorderThickness="1" Cursor="Hand"
+                                IsEnabled="False"
+                                ToolTip="Подставить полное количество из ячейки-источника"
+                                Click="OnMoveAllClicked" />
+                    </Grid>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

@@ -368,6 +368,54 @@
                                 </Grid>
                             </Button>
 
+                            <!-- Sprint 6 (WMS перемещение): между ячейками внутри склада -->
+                            <Button x:Name="NavTransferButton"
+                                    Tag="transfer"
+                                    AutomationProperties.Name="Перемещение"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE8AB;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Перемещение"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
+                            <!-- Sprint 7 (WMS инвентаризация): сверка факт vs система по одной ячейке -->
+                            <Button x:Name="NavStockTakeButton"
+                                    Tag="stocktake"
+                                    AutomationProperties.Name="Инвентаризация"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xF0E3;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Инвентаризация"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
                             <!-- Разделитель -->
                             <Border Height="1"
                                     Background="#E1E8F4"

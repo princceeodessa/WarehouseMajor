@@ -1670,6 +1670,20 @@ public partial class MainWindow : Window
                 return;
             }
 
+            // Sprint 6 (WMS перемещение): тоже модальный диалог.
+            if (string.Equals(sectionKey, "transfer", StringComparison.OrdinalIgnoreCase))
+            {
+                OpenTransferStockDialog();
+                return;
+            }
+
+            // Sprint 7 (WMS инвентаризация): модальный диалог.
+            if (string.Equals(sectionKey, "stocktake", StringComparison.OrdinalIgnoreCase))
+            {
+                OpenStockTakeDialog();
+                return;
+            }
+
             OpenSection(sectionKey);
         }
     }
@@ -1695,6 +1709,56 @@ public partial class MainWindow : Window
         var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
 
         var window = new ReceiveStockWindow(catalogReader, cellCatalog, stockLocations)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
+    // Sprint 6: модальное окно перемещения между ячейками.
+    private void OpenTransferStockDialog()
+    {
+        var backplane = WarehouseAutomatisaion.Desktop.Data.DesktopMySqlBackplaneService.TryCreateDefault();
+        if (backplane is null)
+        {
+            System.Windows.MessageBox.Show(
+                this,
+                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.",
+                "Перемещение между ячейками",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        var cellCatalog = new WarehouseAutomatisaion.Desktop.Data.MySqlStorageCellCatalog(backplane);
+        var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
+
+        var window = new TransferStockWindow(cellCatalog, stockLocations)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
+    // Sprint 7: модальное окно инвентаризации одной ячейки.
+    private void OpenStockTakeDialog()
+    {
+        var backplane = WarehouseAutomatisaion.Desktop.Data.DesktopMySqlBackplaneService.TryCreateDefault();
+        if (backplane is null)
+        {
+            System.Windows.MessageBox.Show(
+                this,
+                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.",
+                "Инвентаризация",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        var cellCatalog = new WarehouseAutomatisaion.Desktop.Data.MySqlStorageCellCatalog(backplane);
+        var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
+
+        var window = new StockTakeWindow(cellCatalog, stockLocations)
         {
             Owner = this
         };

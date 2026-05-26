@@ -1,0 +1,193 @@
+<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.StockTakeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Инвентаризация ячейки"
+        Height="700" Width="940"
+        WindowStartupLocation="CenterOwner"
+        Background="#F7F9FD"
+        FontFamily="Segoe UI"
+        FontSize="13">
+    <Window.Resources>
+        <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="LineBrush" Color="#E7ECF7" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#4F5BFF" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
+        <SolidColorBrush x:Key="HeadingBrush" Color="#17213A" />
+        <SolidColorBrush x:Key="DiffPositiveBrush" Color="#28A745" />
+        <SolidColorBrush x:Key="DiffNegativeBrush" Color="#D9534F" />
+    </Window.Resources>
+
+    <DockPanel Margin="14" LastChildFill="True">
+
+        <!-- Header -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="16,12" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="📋 Инвентаризация ячейки"
+                           Foreground="{StaticResource HeadingBrush}"
+                           FontSize="16" FontWeight="SemiBold" />
+                <TextBlock Text="Выберите ячейку, впишите фактическое количество в колонку «Факт» — система покажет дельту и применит корректировки."
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="11.5" Margin="0,4,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- Toolbar: выбор ячейки -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="14,10" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="Ячейка:"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource MutedBrush}"
+                           Margin="0,0,10,0" />
+                <Border Grid.Column="1"
+                        Height="34"
+                        BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="1" CornerRadius="6"
+                        Background="#FAFBFD"
+                        Padding="10,0">
+                    <TextBlock x:Name="SelectedCellText"
+                               Text="— не выбрана —"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource MutedBrush}" />
+                </Border>
+                <Button Grid.Column="2"
+                        x:Name="PickCellButton"
+                        Content="🔍 Выбрать ячейку"
+                        Height="34" Padding="14,0" Margin="10,0,0,0"
+                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="1" Cursor="Hand"
+                        Click="OnPickCellClicked" />
+            </Grid>
+        </Border>
+
+        <!-- Footer -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="14,10" Margin="0,12,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource MutedBrush}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,12,0" />
+                <Button x:Name="CloseButton" Grid.Column="1"
+                        Content="Готово" Height="34" Padding="18,0"
+                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="1" Cursor="Hand" IsCancel="True"
+                        Click="OnCloseClicked" />
+                <Button x:Name="MatchAllButton" Grid.Column="2"
+                        Content="Факт = система"
+                        Height="34" Padding="14,0" Margin="10,0,0,0"
+                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="1" Cursor="Hand"
+                        IsEnabled="False"
+                        ToolTip="Подставить системные значения как фактические (быстрая отметка «всё сошлось»)"
+                        Click="OnMatchAllClicked" />
+                <Button x:Name="ApplyButton" Grid.Column="3"
+                        Content="✓ Применить факт"
+                        Height="34" Padding="20,0" Margin="10,0,0,0"
+                        Background="{StaticResource PrimaryBrush}" Foreground="White"
+                        BorderThickness="0" Cursor="Hand"
+                        FontWeight="SemiBold" IsDefault="True" IsEnabled="False"
+                        Click="OnApplyClicked" />
+            </Grid>
+        </Border>
+
+        <!-- DataGrid -->
+        <Border Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10">
+            <DataGrid x:Name="InventoryGrid"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      CanUserResizeRows="False"
+                      CanUserSortColumns="True"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="{StaticResource LineBrush}"
+                      BorderThickness="0"
+                      Background="Transparent"
+                      RowHeight="30" ColumnHeaderHeight="32"
+                      SelectionMode="Single" SelectionUnit="Cell"
+                      EnableRowVirtualization="True"
+                      FontSize="12.5">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Код" Binding="{Binding ItemCode}" Width="120" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Товар" Binding="{Binding ItemName}" Width="*" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Система"
+                                        Binding="{Binding SystemQuantity, StringFormat=N3}"
+                                        Width="100" IsReadOnly="True">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                                <Setter Property="Padding" Value="0,0,8,0" />
+                                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Факт"
+                                        Binding="{Binding ActualQuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        Width="110">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                                <Setter Property="Padding" Value="0,0,8,0" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                        <DataGridTextColumn.EditingElementStyle>
+                            <Style TargetType="TextBox">
+                                <Setter Property="HorizontalContentAlignment" Value="Right" />
+                                <Setter Property="Padding" Value="0,0,8,0" />
+                            </Style>
+                        </DataGridTextColumn.EditingElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Δ"
+                                        Binding="{Binding DiffLabel}"
+                                        Width="90" IsReadOnly="True">
+                        <DataGridTextColumn.CellStyle>
+                            <Style TargetType="DataGridCell">
+                                <Setter Property="HorizontalContentAlignment" Value="Right" />
+                                <Setter Property="Padding" Value="0,0,8,0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DiffSign}" Value="positive">
+                                        <Setter Property="Foreground" Value="{StaticResource DiffPositiveBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding DiffSign}" Value="negative">
+                                        <Setter Property="Foreground" Value="{StaticResource DiffNegativeBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridTextColumn.CellStyle>
+                    </DataGridTextColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </DockPanel>
+</Window>
