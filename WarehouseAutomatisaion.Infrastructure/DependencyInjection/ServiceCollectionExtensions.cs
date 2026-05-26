@@ -22,17 +22,20 @@ public static class ServiceCollectionExtensions
         services.AddOptions<AiProvidersOptions>()
             .Bind(configuration.GetSection(AiProvidersOptions.SectionName));
 
-        // Sprint 5 Task 10: IInvoiceVisionService — переключается по AiProviders:Default.
-        // Сейчас: только OpenAI. Когда добавится Claude — расширим switch.
+        // Sprint 5: IInvoiceVisionService — переключается по AiProviders:Default.
+        // Поддерживаются: OpenAI (gpt-4o) и Anthropic (claude-opus-4-7).
         services.AddTransient<IInvoiceVisionService>(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptionsMonitor<AiProvidersOptions>>();
             var providerName = options.CurrentValue.Default;
 
-            return providerName.Equals("OpenAI", StringComparison.OrdinalIgnoreCase)
-                ? ActivatorUtilities.CreateInstance<OpenAiInvoiceVisionService>(serviceProvider)
-                : throw new NotSupportedException(
-                    $"AI provider '{providerName}' not yet implemented. Set AiProviders:Default to 'OpenAI'.");
+            return providerName.ToLowerInvariant() switch
+            {
+                "openai" => ActivatorUtilities.CreateInstance<OpenAiInvoiceVisionService>(serviceProvider),
+                "anthropic" => ActivatorUtilities.CreateInstance<ClaudeInvoiceVisionService>(serviceProvider),
+                _ => throw new NotSupportedException(
+                    $"AI provider '{providerName}' not supported. Use 'OpenAI' or 'Anthropic'.")
+            };
         });
 
         services.AddSingleton<InMemoryWarehouseDataStore>();

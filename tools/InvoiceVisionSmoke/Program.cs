@@ -52,10 +52,18 @@ var config = new ConfigurationBuilder()
 // 1. AI options
 var aiOptions = new AiProvidersOptions();
 config.GetSection(AiProvidersOptions.SectionName).Bind(aiOptions);
-if (string.IsNullOrWhiteSpace(aiOptions.OpenAi.ApiKey)
-    || aiOptions.OpenAi.ApiKey.Contains("PLACEHOLDER", StringComparison.OrdinalIgnoreCase))
+// Проверяем что ключ для выбранного провайдера есть.
+var providerKey = aiOptions.Default.ToLowerInvariant() switch
 {
-    Console.Error.WriteLine("❌ OpenAI API key не сконфигурирован.");
+    "anthropic" => aiOptions.Anthropic.ApiKey,
+    "openai" => aiOptions.OpenAi.ApiKey,
+    _ => string.Empty
+};
+
+if (string.IsNullOrWhiteSpace(providerKey)
+    || providerKey.Contains("PLACEHOLDER", StringComparison.OrdinalIgnoreCase))
+{
+    Console.Error.WriteLine($"❌ {aiOptions.Default} API key не сконфигурирован.");
     return 1;
 }
 
@@ -77,9 +85,19 @@ using var loggerFactory = LoggerFactory.Create(b => b
     }));
 
 var aiMonitor = new StaticOptionsMonitor<AiProvidersOptions>(aiOptions);
-var visionService = new OpenAiInvoiceVisionService(
-    aiMonitor,
-    loggerFactory.CreateLogger<OpenAiInvoiceVisionService>());
+
+WarehouseAutomatisaion.Application.Abstractions.Ai.IInvoiceVisionService visionService =
+    aiOptions.Default.ToLowerInvariant() switch
+    {
+        "anthropic" => new ClaudeInvoiceVisionService(
+            aiMonitor,
+            loggerFactory.CreateLogger<ClaudeInvoiceVisionService>()),
+        "openai" => new OpenAiInvoiceVisionService(
+            aiMonitor,
+            loggerFactory.CreateLogger<OpenAiInvoiceVisionService>()),
+        _ => throw new InvalidOperationException(
+            $"AI provider '{aiOptions.Default}' not supported. Use 'OpenAI' or 'Anthropic'.")
+    };
 
 var backplane = new DesktopMySqlBackplaneService(dbOptions);
 var catalogReader = new MySqlNomenclatureCatalogReader(backplane);
@@ -95,7 +113,7 @@ var bytes = await File.ReadAllBytesAsync(imagePath);
 var contentType = ResolveContentType(imagePath);
 var payload = new InvoiceImagePayload(bytes, contentType, Path.GetFileName(imagePath));
 
-Console.WriteLine($"Провайдер:    OpenAI:{aiOptions.OpenAi.Model}");
+Console.WriteLine($"Провайдер:    {visionService.ProviderName}");
 Console.WriteLine($"Размер:       {bytes.Length / 1024.0:N1} KB ({contentType})");
 Console.WriteLine();
 Console.WriteLine("⏳ Pipeline: распознавание → каталог → matcher...");

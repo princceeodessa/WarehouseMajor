@@ -41,8 +41,8 @@ public sealed class AnthropicProviderOptions
 {
     public string ApiKey { get; init; } = string.Empty;
 
-    /// <summary>Модель Claude. По умолчанию sonnet-4.5 — оптимально по цене/качеству для vision.</summary>
-    public string Model { get; init; } = "claude-sonnet-4-5";
+    /// <summary>Модель Claude. По умолчанию opus-4-7 — лучшее качество vision (high-res images).</summary>
+    public string Model { get; init; } = "claude-opus-4-7";
 
     public int MaxTokens { get; init; } = 4096;
 
