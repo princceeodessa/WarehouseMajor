@@ -77,6 +77,37 @@
             </Grid>
         </Border>
 
+        <!-- Sprint 10 (AI photo inventory): фото полки → автозаполнение Факта -->
+        <Border DockPanel.Dock="Top"
+                Background="#F4F7FF"
+                BorderBrush="#C8D1FF"
+                BorderThickness="1" CornerRadius="10"
+                Padding="14,10" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="✨ AI инвентаризация по фото"
+                               Foreground="{StaticResource HeadingBrush}"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="PhotoHintText"
+                               Text="Сфотографируйте полку — Claude распознает товары и заполнит колонку «Факт»."
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="11.5" Margin="0,3,0,0" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        x:Name="PhotoInventoryButton"
+                        Content="📷 Загрузить фото полки"
+                        Height="34" Padding="14,0"
+                        Background="#FFFFFF" BorderBrush="#C8D1FF"
+                        BorderThickness="1" Cursor="Hand"
+                        IsEnabled="False"
+                        Click="OnPhotoInventoryClicked" />
+            </Grid>
+        </Border>
+
         <!-- Footer -->
         <Border DockPanel.Dock="Bottom"
                 Background="{StaticResource CardBrush}"

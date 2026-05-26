@@ -1,9 +1,13 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using Microsoft.Win32;
+using WarehouseAutomatisaion.Application.Abstractions.Ai;
 using WarehouseAutomatisaion.Application.Abstractions.Persistence;
+using WarehouseAutomatisaion.Application.Contracts.Vision;
 using WarehouseAutomatisaion.Application.Contracts.Warehouse;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
@@ -23,20 +27,31 @@ public partial class StockTakeWindow : Window
 {
     private readonly IStorageCellCatalog _cellCatalog;
     private readonly IStockLocationRepository _stockLocations;
+    private readonly IShelfInventoryVisionService? _shelfVision;
     private IReadOnlyList<StorageCell>? _cellCache;
     private StorageCell? _selectedCell;
     private readonly ObservableCollection<StockTakeRow> _rows = new();
 
     public StockTakeWindow(
         IStorageCellCatalog cellCatalog,
-        IStockLocationRepository stockLocations)
+        IStockLocationRepository stockLocations,
+        IShelfInventoryVisionService? shelfVision = null)
     {
         InitializeComponent();
         _cellCatalog = cellCatalog ?? throw new ArgumentNullException(nameof(cellCatalog));
         _stockLocations = stockLocations ?? throw new ArgumentNullException(nameof(stockLocations));
+        _shelfVision = shelfVision;
 
         InventoryGrid.ItemsSource = _rows;
-        Loaded += (_, _) => StatusText.Text = "Выберите ячейку, чтобы загрузить её содержимое для инвентаризации.";
+        Loaded += (_, _) =>
+        {
+            StatusText.Text = "Выберите ячейку, чтобы загрузить её содержимое для инвентаризации.";
+            if (_shelfVision is null)
+            {
+                PhotoHintText.Text = "Claude API не настроен. Чтобы включить AI инвентаризацию по фото — добавьте Anthropic.ApiKey в appsettings.local.json.";
+                PhotoInventoryButton.IsEnabled = false;
+            }
+        };
     }
 
     private async void OnPickCellClicked(object sender, RoutedEventArgs e)
@@ -220,6 +235,174 @@ public partial class StockTakeWindow : Window
         var hasValidChanges = _rows.Any(r => r.HasValidActual && r.HasDifference);
         ApplyButton.IsEnabled = hasValidChanges;
         MatchAllButton.IsEnabled = hasRows;
+        PhotoInventoryButton.IsEnabled = hasRows && _shelfVision is not null;
+    }
+
+    private async void OnPhotoInventoryClicked(object sender, RoutedEventArgs e)
+    {
+        if (_shelfVision is null || _rows.Count == 0)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Выберите фото полки",
+            Filter = "Изображения|*.jpg;*.jpeg;*.png;*.webp|JPEG|*.jpg;*.jpeg|PNG|*.png|WebP|*.webp",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            PhotoInventoryButton.IsEnabled = false;
+            PhotoInventoryButton.Content = "⏳ Claude распознаёт...";
+            StatusText.Text = "⏳ Отправляю фото в Claude vision...";
+
+            var bytes = await File.ReadAllBytesAsync(dialog.FileName);
+            var contentType = ResolveContentType(dialog.FileName);
+
+            var payload = new InvoiceImagePayload(
+                ImageBytes: bytes,
+                ContentType: contentType,
+                SourceFileName: Path.GetFileName(dialog.FileName));
+
+            var result = await _shelfVision.RecognizeShelfAsync(payload);
+
+            if (result.Items.Count == 0)
+            {
+                StatusText.Text = $"⚠ Claude не нашёл товаров на фото (за {result.Duration.TotalSeconds:F1} с).";
+                return;
+            }
+
+            // Матчим распознанное со строками инвентаря.
+            var matched = 0;
+            var unmatched = new List<string>();
+            foreach (var item in result.Items)
+            {
+                var row = FindMatchingRow(item);
+                if (row is not null)
+                {
+                    row.ActualQuantityText = item.Quantity.ToString("0.###", CultureInfo.InvariantCulture);
+                    matched++;
+                }
+                else
+                {
+                    unmatched.Add($"«{item.Name}» × {item.Quantity:N0}");
+                }
+            }
+
+            UpdateActionButtons();
+
+            var summary = $"✨ Claude распознал {result.Items.Count} позиций за {result.Duration.TotalSeconds:F1} с. " +
+                          $"Сопоставлено с системой: {matched}.";
+            if (unmatched.Count > 0)
+            {
+                summary += $"\n⚠ Не нашёл в этой ячейке: {string.Join(", ", unmatched.Take(3))}" +
+                           (unmatched.Count > 3 ? $" и ещё {unmatched.Count - 3}" : "") +
+                           ". Возможно товары которых нет в системе — добавьте через «Приёмку».";
+            }
+            StatusText.Text = summary;
+        }
+        catch (InvoiceVisionException ex)
+        {
+            StatusText.Text = $"❌ AI vision: {ex.Kind} — {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"❌ Не удалось распознать фото: {ex.Message}";
+        }
+        finally
+        {
+            PhotoInventoryButton.IsEnabled = _rows.Count > 0 && _shelfVision is not null;
+            PhotoInventoryButton.Content = "📷 Загрузить фото полки";
+        }
+    }
+
+    private StockTakeRow? FindMatchingRow(ShelfItem item)
+    {
+        // 1. Exact match по item_code (если у строки есть код и в распознанном есть sku)
+        if (!string.IsNullOrWhiteSpace(item.Sku))
+        {
+            var bySku = _rows.FirstOrDefault(r =>
+                string.Equals(r.ItemCode, item.Sku, StringComparison.OrdinalIgnoreCase));
+            if (bySku is not null)
+            {
+                return bySku;
+            }
+        }
+
+        // 2. Fuzzy match по name — token overlap (lowercase, без знаков препинания)
+        var tokens = TokenizeForMatching(item.Name);
+        if (tokens.Count == 0)
+        {
+            return null;
+        }
+
+        StockTakeRow? best = null;
+        var bestScore = 0.0;
+        foreach (var row in _rows)
+        {
+            var rowTokens = TokenizeForMatching(row.ItemName);
+            if (rowTokens.Count == 0)
+            {
+                continue;
+            }
+
+            var common = tokens.Intersect(rowTokens).Count();
+            var union = tokens.Union(rowTokens).Count();
+            var jaccard = (double)common / union;
+            if (jaccard > bestScore)
+            {
+                bestScore = jaccard;
+                best = row;
+            }
+        }
+
+        // Порог: 0.35 — нестрого, но без явного мусора.
+        return bestScore >= 0.35 ? best : null;
+    }
+
+    private static HashSet<string> TokenizeForMatching(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return new HashSet<string>();
+        }
+        var lower = text.ToLowerInvariant();
+        var clean = new System.Text.StringBuilder(lower.Length);
+        foreach (var ch in lower)
+        {
+            if (char.IsLetterOrDigit(ch) || char.IsWhiteSpace(ch))
+            {
+                clean.Append(ch);
+            }
+            else
+            {
+                clean.Append(' ');
+            }
+        }
+        return clean.ToString()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(t => t.Length >= 3) // отбрасываем шум типа "по", "до"
+            .ToHashSet();
+    }
+
+    private static string ResolveContentType(string filePath)
+    {
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        return ext switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "image/jpeg"
+        };
     }
 
     // Row VM — INotifyPropertyChanged нужен чтобы DataGrid обновлял колонки «Δ» при правке «Факт».

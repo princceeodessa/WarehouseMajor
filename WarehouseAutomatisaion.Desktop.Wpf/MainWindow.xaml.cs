@@ -1750,6 +1750,7 @@ public partial class MainWindow : Window
     }
 
     // Sprint 7: модальное окно инвентаризации одной ячейки.
+    // Sprint 10: + опциональный AI Claude shelf vision для распознавания фото полки.
     private void OpenStockTakeDialog()
     {
         var backplane = WarehouseAutomatisaion.Desktop.Data.DesktopMySqlBackplaneService.TryCreateDefault();
@@ -1767,7 +1768,10 @@ public partial class MainWindow : Window
         var cellCatalog = new WarehouseAutomatisaion.Desktop.Data.MySqlStorageCellCatalog(backplane);
         var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
 
-        var window = new StockTakeWindow(cellCatalog, stockLocations)
+        // Sprint 10: Claude shelf vision (optional — null если ключ не настроен).
+        var shelfVision = WarehouseAutomatisaion.Desktop.Data.ShelfVisionFactory.TryCreate();
+
+        var window = new StockTakeWindow(cellCatalog, stockLocations, shelfVision)
         {
             Owner = this
         };
