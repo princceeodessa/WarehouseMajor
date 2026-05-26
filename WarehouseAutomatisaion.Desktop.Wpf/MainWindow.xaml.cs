@@ -1662,8 +1662,43 @@ public partial class MainWindow : Window
     {
         if (sender is WpfButton button && button.Tag is string sectionKey)
         {
+            // Sprint 4 (WMS приёмка): «Приёмка» — это модальный диалог, а не вкладка.
+            // Открываем его поверх текущего workspace и не пушим в навигационную историю табов.
+            if (string.Equals(sectionKey, "receive", StringComparison.OrdinalIgnoreCase))
+            {
+                OpenReceiveStockDialog();
+                return;
+            }
+
             OpenSection(sectionKey);
         }
+    }
+
+    // Sprint 4: модальное окно приёмки. Строим зависимости через DesktopMySqlBackplaneService напрямую,
+    // потому что окно живёт коротко — не нужно регистрировать в DI как singleton.
+    private void OpenReceiveStockDialog()
+    {
+        var backplane = WarehouseAutomatisaion.Desktop.Data.DesktopMySqlBackplaneService.TryCreateDefault();
+        if (backplane is null)
+        {
+            System.Windows.MessageBox.Show(
+                this,
+                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.",
+                "Приёмка товара",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        var catalogReader = new WarehouseAutomatisaion.Desktop.Data.MySqlNomenclatureCatalogReader(backplane);
+        var cellCatalog = new WarehouseAutomatisaion.Desktop.Data.MySqlStorageCellCatalog(backplane);
+        var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
+
+        var window = new ReceiveStockWindow(catalogReader, cellCatalog, stockLocations)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
     }
 
     private void HandleWorkspaceTabsSelectionChanged(object sender, SelectionChangedEventArgs e)

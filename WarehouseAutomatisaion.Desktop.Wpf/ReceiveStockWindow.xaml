@@ -1,0 +1,226 @@
+<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.ReceiveStockWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Приёмка товара"
+        Height="660" Width="780"
+        WindowStartupLocation="CenterOwner"
+        Background="#F7F9FD"
+        FontFamily="Segoe UI"
+        FontSize="13">
+    <Window.Resources>
+        <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="LineBrush" Color="#E7ECF7" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#4F5BFF" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
+        <SolidColorBrush x:Key="HeadingBrush" Color="#17213A" />
+    </Window.Resources>
+
+    <DockPanel Margin="14" LastChildFill="True">
+
+        <!-- Header -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="16,12" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="📥 Приёмка товара"
+                           Foreground="{StaticResource HeadingBrush}"
+                           FontSize="16" FontWeight="SemiBold" />
+                <TextBlock Text="Выберите товар, ячейку склада и укажите количество. После «Принять» позиция запишется в stock_locations."
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="11.5" Margin="0,4,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- Footer (buttons + status) -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="14,10" Margin="0,12,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource MutedBrush}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,12,0" />
+                <Button x:Name="CloseButton" Grid.Column="1"
+                        Content="Готово" Height="34" Padding="18,0"
+                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="1" Cursor="Hand" IsCancel="True"
+                        Click="OnCloseClicked" />
+                <Button x:Name="ReceiveAndContinueButton" Grid.Column="2"
+                        Content="↻ Принять ещё"
+                        Height="34" Padding="14,0" Margin="10,0,0,0"
+                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="1" Cursor="Hand"
+                        IsEnabled="False"
+                        ToolTip="Принять и продолжить приёмку (ячейка сохраняется)"
+                        Click="OnReceiveAndContinueClicked" />
+                <Button x:Name="ReceiveButton" Grid.Column="3"
+                        Content="✓ Принять"
+                        Height="34" Padding="20,0" Margin="10,0,0,0"
+                        Background="{StaticResource PrimaryBrush}" Foreground="White"
+                        BorderThickness="0" Cursor="Hand"
+                        FontWeight="SemiBold" IsDefault="True" IsEnabled="False"
+                        Click="OnReceiveClicked" />
+            </Grid>
+        </Border>
+
+        <!-- Recent receipts (history of this session) -->
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="14,10" Margin="0,12,0,0"
+                MinHeight="120" MaxHeight="180">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top"
+                           Text="История приёмок в этой сессии"
+                           Foreground="{StaticResource HeadingBrush}"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,6" />
+                <TextBlock x:Name="HistoryEmptyHint"
+                           DockPanel.Dock="Top"
+                           Text="Здесь будут появляться строки после каждой принятой позиции."
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="11.5" />
+                <ListBox x:Name="HistoryListBox"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         FontSize="12"
+                         Visibility="Collapsed"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="50" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding TimeStamp}"
+                                           Foreground="{StaticResource MutedBrush}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Description}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding QuantityLabel}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource PrimaryBrush}"
+                                           VerticalAlignment="Center"
+                                           Margin="10,0,0,0" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Form -->
+        <Border Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="18,16">
+            <StackPanel>
+                <!-- Row 1: Item -->
+                <TextBlock Text="Товар"
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="11.5" Margin="0,0,0,4" />
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0"
+                            Height="36"
+                            BorderBrush="{StaticResource LineBrush}"
+                            BorderThickness="1" CornerRadius="6"
+                            Background="#FAFBFD"
+                            Padding="10,0">
+                        <TextBlock x:Name="SelectedItemText"
+                                   Text="— не выбран —"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}" />
+                    </Border>
+                    <Button Grid.Column="1"
+                            x:Name="PickItemButton"
+                            Content="🔍 Выбрать товар"
+                            Height="36" Padding="14,0" Margin="8,0,0,0"
+                            Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                            BorderThickness="1" Cursor="Hand"
+                            Click="OnPickItemClicked" />
+                </Grid>
+
+                <!-- Row 2: Cell -->
+                <TextBlock Text="Ячейка склада"
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="11.5" Margin="0,0,0,4" />
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0"
+                            Height="36"
+                            BorderBrush="{StaticResource LineBrush}"
+                            BorderThickness="1" CornerRadius="6"
+                            Background="#FAFBFD"
+                            Padding="10,0">
+                        <TextBlock x:Name="SelectedCellText"
+                                   Text="— не выбрана —"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource MutedBrush}" />
+                    </Border>
+                    <Button Grid.Column="1"
+                            x:Name="PickCellButton"
+                            Content="🔍 Выбрать ячейку"
+                            Height="36" Padding="14,0" Margin="8,0,0,0"
+                            Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                            BorderThickness="1" Cursor="Hand"
+                            Click="OnPickCellClicked" />
+                </Grid>
+
+                <!-- Row 3: Quantity -->
+                <TextBlock Text="Количество к приёмке"
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="11.5" Margin="0,0,0,4" />
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="QuantityBox"
+                             Grid.Column="0"
+                             Height="36" Padding="10,0"
+                             VerticalContentAlignment="Center"
+                             BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                             FontSize="14" FontWeight="SemiBold"
+                             TextChanged="OnFormChanged" />
+                    <TextBlock x:Name="CurrentStockHint"
+                               Grid.Column="1"
+                               VerticalAlignment="Center"
+                               Margin="14,0,0,0"
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="11.5"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+    </DockPanel>
+</Window>

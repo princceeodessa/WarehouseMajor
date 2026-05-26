@@ -1,0 +1,107 @@
+<Window x:Class="WarehouseAutomatisaion.Desktop.Wpf.CellPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Выбор ячейки склада"
+        Height="600" Width="900"
+        WindowStartupLocation="CenterOwner"
+        Background="#F7F9FD"
+        FontFamily="Segoe UI"
+        FontSize="13">
+    <Window.Resources>
+        <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="LineBrush" Color="#E7ECF7" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#4F5BFF" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
+    </Window.Resources>
+
+    <DockPanel Margin="12" LastChildFill="True">
+
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="14,10" Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock Text="Найдите ячейку: введите код или название склада, или отсканируйте QR"
+                           Foreground="{StaticResource MutedBrush}" FontSize="11.5" />
+                <TextBox x:Name="SearchBox"
+                         Height="34" Padding="10,0"
+                         VerticalContentAlignment="Center"
+                         BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                         FontSize="13" Margin="0,8,0,0"
+                         TextChanged="OnSearchChanged" />
+            </StackPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10"
+                Padding="14,10" Margin="0,10,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource MutedBrush}" />
+                <Button x:Name="CancelButton" Grid.Column="1"
+                        Content="Отмена" Height="34" Padding="18,0"
+                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="1" Cursor="Hand" IsCancel="True"
+                        Click="OnCancelClicked" />
+                <Button x:Name="SelectButton" Grid.Column="2"
+                        Content="✓ Выбрать"
+                        Height="34" Padding="20,0" Margin="10,0,0,0"
+                        Background="{StaticResource PrimaryBrush}" Foreground="White"
+                        BorderThickness="0" Cursor="Hand"
+                        FontWeight="SemiBold" IsDefault="True" IsEnabled="False"
+                        Click="OnSelectClicked" />
+            </Grid>
+        </Border>
+
+        <Border Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1" CornerRadius="10">
+            <DataGrid x:Name="ResultsGrid"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      CanUserResizeRows="False"
+                      CanUserSortColumns="True"
+                      IsReadOnly="True"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="{StaticResource LineBrush}"
+                      BorderThickness="0" Background="Transparent"
+                      RowHeight="28" ColumnHeaderHeight="32"
+                      SelectionMode="Single" SelectionUnit="FullRow"
+                      EnableRowVirtualization="True"
+                      FontSize="12.5"
+                      SelectionChanged="OnSelectionChanged"
+                      MouseDoubleClick="OnResultDoubleClick">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="160" />
+                    <DataGridTextColumn Header="Склад" Binding="{Binding WarehouseName}" Width="220" />
+                    <DataGridTextColumn Header="Зона" Binding="{Binding ZoneLabel}" Width="140" />
+                    <DataGridTextColumn Header="Тип" Binding="{Binding CellType}" Width="120" />
+                    <DataGridTextColumn Header="Capacity"
+                                        Binding="{Binding Capacity, StringFormat=N2}"
+                                        Width="100">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="HorizontalAlignment" Value="Right" />
+                                <Setter Property="Padding" Value="0,0,8,0" />
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </DockPanel>
+</Window>

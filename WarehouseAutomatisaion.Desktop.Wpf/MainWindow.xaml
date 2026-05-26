@@ -344,6 +344,30 @@
                                 </Grid>
                             </Button>
 
+                            <!-- Sprint 4 (WMS приёмка): окно записи товара в ячейку -->
+                            <Button x:Name="NavReceiveButton"
+                                    Tag="receive"
+                                    AutomationProperties.Name="Приёмка"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE7B8;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Приёмка"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
                             <!-- Разделитель -->
                             <Border Height="1"
                                     Background="#E1E8F4"
