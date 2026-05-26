@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using WarehouseAutomatisaion.Application.Abstractions.Persistence;
 using WarehouseAutomatisaion.Application.Contracts.Vision;
 using WarehouseAutomatisaion.Application.Contracts.Warehouse;
+using WarehouseAutomatisaion.Application.Services;
 using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
@@ -22,6 +23,7 @@ public partial class ReceiveStockWindow : Window
     private readonly INomenclatureCatalogReader _catalogReader;
     private readonly IStorageCellCatalog _cellCatalog;
     private readonly IStockLocationRepository _stockLocations;
+    private readonly CellRecommendationService _recommender;
 
     private IReadOnlyList<NomenclatureRef>? _itemCatalog;
     private IReadOnlyList<StorageCell>? _cellCache;
@@ -40,6 +42,7 @@ public partial class ReceiveStockWindow : Window
         _catalogReader = catalogReader ?? throw new ArgumentNullException(nameof(catalogReader));
         _cellCatalog = cellCatalog ?? throw new ArgumentNullException(nameof(cellCatalog));
         _stockLocations = stockLocations ?? throw new ArgumentNullException(nameof(stockLocations));
+        _recommender = new CellRecommendationService(stockLocations, cellCatalog);
 
         Loaded += (_, _) => StatusText.Text = "Выберите товар и ячейку, затем введите количество.";
     }
@@ -74,6 +77,7 @@ public partial class ReceiveStockWindow : Window
                 SelectedItemText.Text = $"{_selectedItem.Code}   ·   {_selectedItem.Name}";
                 SelectedItemText.Foreground = System.Windows.Media.Brushes.Black;
                 await RefreshCurrentStockHintAsync();
+                await RefreshRecommendationsAsync();
                 UpdateButtons();
             }
         }
@@ -86,6 +90,62 @@ public partial class ReceiveStockWindow : Window
             PickItemButton.IsEnabled = true;
             PickItemButton.Content = "🔍 Выбрать товар";
         }
+    }
+
+    private async Task RefreshRecommendationsAsync()
+    {
+        if (_selectedItem is null || !Guid.TryParse(_selectedItem.Id, out var itemId))
+        {
+            RecommendationsPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        try
+        {
+            var recs = await _recommender.GetTopRecommendationsAsync(itemId, top: 3);
+            if (recs.Count == 0)
+            {
+                RecommendationsPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var chips = recs.Select(r => new RecommendationChip(r)).ToList();
+            RecommendationsList.ItemsSource = chips;
+            RecommendationsPanel.Visibility = Visibility.Visible;
+        }
+        catch
+        {
+            // тихо скрываем — рекомендации это nice-to-have
+            RecommendationsPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async void OnRecommendationClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn || btn.Tag is not RecommendationChip chip)
+        {
+            return;
+        }
+
+        _selectedCell = chip.Source.Cell;
+        SelectedCellText.Text = $"{_selectedCell.Code}   ·   {_selectedCell.WarehouseName}";
+        SelectedCellText.Foreground = System.Windows.Media.Brushes.Black;
+        StatusText.Text = $"✨ Подставлена ячейка из рекомендации: {chip.Source.Reason}";
+        await RefreshCurrentStockHintAsync();
+        UpdateButtons();
+    }
+
+    private sealed record RecommendationChip(CellRecommendation Source)
+    {
+        public string ChipIcon => Source.Kind switch
+        {
+            RecommendationKind.History => "📍",
+            RecommendationKind.SameZone => "🏷",
+            RecommendationKind.FreeStorage => "📦",
+            _ => "•"
+        };
+
+        public string ChipLabel => $"{Source.Cell.Code} · {Source.Cell.WarehouseName}";
     }
 
     private async void OnPickCellClicked(object sender, RoutedEventArgs e)
