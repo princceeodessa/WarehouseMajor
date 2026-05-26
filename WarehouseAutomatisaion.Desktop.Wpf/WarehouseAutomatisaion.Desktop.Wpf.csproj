@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\WarehouseAutomatisaion.Desktop\WarehouseAutomatisaion.Desktop.csproj" />
@@ -26,10 +26,10 @@
     <AssemblyName>Major</AssemblyName>
     <Title>Major</Title>
     <Product>Major</Product>
-    <Version>1.0.147</Version>
-    <AssemblyVersion>1.0.147.0</AssemblyVersion>
-    <FileVersion>1.0.147.0</FileVersion>
-    <InformationalVersion>1.0.147</InformationalVersion>
+    <Version>1.0.148</Version>
+    <AssemblyVersion>1.0.148.0</AssemblyVersion>
+    <FileVersion>1.0.148.0</FileVersion>
+    <InformationalVersion>1.0.148</InformationalVersion>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
