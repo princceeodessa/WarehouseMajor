@@ -1318,6 +1318,34 @@ CREATE TABLE IF NOT EXISTS app_warehouse_document_lines (
         FOREIGN KEY (document_id) REFERENCES app_warehouse_documents (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- app_invoice_match_overrides:
+-- Learning loop: оператор подтверждает или меняет AI-предложенный матч в окне
+-- «Распознать накладную», и эта связка (recognized_text → nomenclature_items.id)
+-- сохраняется здесь. При следующем распознавании любой накладной с похожим текстом
+-- override берётся как high-confidence match (Confidence=1.0, Kind=Override),
+-- минуя Levenshtein matcher. Система учится без переобучения модели.
+--
+-- usage_count + last_used_at_utc для weighted resolution когда normalized_text
+-- одинаков но связки разные (приоритет — последний использованный).
+CREATE TABLE IF NOT EXISTS app_invoice_match_overrides (
+    id CHAR(36) NOT NULL,
+    recognized_text VARCHAR(512) NOT NULL,
+    normalized_text VARCHAR(512) NOT NULL,
+    matched_item_id CHAR(36) NOT NULL,
+    matched_item_code VARCHAR(128) NULL,
+    matched_item_name VARCHAR(512) NULL,
+    supplier_name VARCHAR(256) NULL,
+    created_by_actor VARCHAR(128) NOT NULL,
+    usage_count INT UNSIGNED NOT NULL DEFAULT 1,
+    last_used_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_invoice_match_overrides PRIMARY KEY (id),
+    CONSTRAINT uq_app_invoice_match_overrides_normalized UNIQUE (normalized_text),
+    KEY idx_app_invoice_match_overrides_item (matched_item_id),
+    KEY idx_app_invoice_match_overrides_used (last_used_at_utc DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE IF NOT EXISTS app_warehouse_storage_cells (
     id CHAR(36) NOT NULL,
     warehouse_name VARCHAR(256) NOT NULL,

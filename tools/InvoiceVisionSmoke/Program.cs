@@ -102,11 +102,13 @@ WarehouseAutomatisaion.Application.Abstractions.Ai.IInvoiceVisionService visionS
 var backplane = new DesktopMySqlBackplaneService(dbOptions);
 var catalogReader = new MySqlNomenclatureCatalogReader(backplane);
 var matcher = new InvoiceLineMatcher();
+var overrideStore = new MySqlInvoiceMatchOverrideStore(backplane);
 var orchestrator = new InvoiceRecognitionService(
     visionService,
     catalogReader,
     matcher,
-    loggerFactory.CreateLogger<InvoiceRecognitionService>());
+    loggerFactory.CreateLogger<InvoiceRecognitionService>(),
+    overrideStore);
 
 // 4. Load image
 var bytes = await File.ReadAllBytesAsync(imagePath);

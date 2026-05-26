@@ -21,7 +21,10 @@ public sealed record MatchCandidate(
 
 public enum MatchKind
 {
-    /// <summary>Точное совпадение по коду (артикулу) — самый надёжный сигнал.</summary>
+    /// <summary>Override из learning loop — оператор уже подтвердил эту связку ранее. Самый надёжный сигнал.</summary>
+    Override,
+
+    /// <summary>Точное совпадение по коду (артикулу).</summary>
     ExactCode,
 
     /// <summary>Точное совпадение по названию (case-insensitive).</summary>

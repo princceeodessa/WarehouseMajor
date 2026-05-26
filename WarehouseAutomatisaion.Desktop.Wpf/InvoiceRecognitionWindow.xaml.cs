@@ -1,6 +1,9 @@
+using System.ComponentModel;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using WarehouseAutomatisaion.Application.Abstractions.Ai;
@@ -19,6 +22,8 @@ public partial class InvoiceRecognitionWindow : Window
     private InvoiceRecognitionPipelineFactory.Pipeline? _pipeline;
     private string? _selectedFilePath;
     private InvoiceRecognitionWithMatches? _lastRecognition;
+    private List<LineRowViewModel>? _currentRows;
+    private IReadOnlyList<NomenclatureRef>? _catalogCache;
 
     public InvoiceRecognitionWindow()
     {
@@ -136,15 +141,44 @@ public partial class InvoiceRecognitionWindow : Window
 
         try
         {
+            // Sprint 5 learning loop: для каждой вручную изменённой строки —
+            // сохраняем override в БД. В следующий раз AI распознавание любой
+            // накладной с похожим текстом возьмёт эту связку автоматически.
+            var overridesSaved = 0;
+            if (_currentRows is not null)
+            {
+                foreach (var row in _currentRows)
+                {
+                    if (!row.IsManuallyEdited || row.CurrentMatch is null) continue;
+                    try
+                    {
+                        await _pipeline.OverrideStore.SaveOverrideAsync(
+                            row.RecognizedName,
+                            row.CurrentMatch,
+                            Environment.UserName,
+                            _lastRecognition.Recognition.SupplierName);
+                        overridesSaved++;
+                    }
+                    catch
+                    {
+                        // best-effort — даже если override не сохранится, draft всё равно создадим
+                    }
+                }
+            }
+
             var draft = BuildDraft(_lastRecognition);
             var documentId = await _pipeline.DraftWriter.CreateDraftAsync(draft);
 
-            StatusText.Text = $"✅ Черновик приёмки сохранён (id={documentId}). Document_kind='receipt', status='draft' в app_warehouse_documents.";
+            StatusText.Text = $"✅ Черновик id={documentId}. Сохранено overrides для будущих накладных: {overridesSaved}.";
             SaveDraftButton.IsEnabled = false;
+
+            var learningSummary = overridesSaved > 0
+                ? $"\n\n🧠 Запомнено {overridesSaved} ручных матчей — в следующих накладных система применит их автоматически."
+                : string.Empty;
 
             MessageBox.Show(
                 this,
-                $"Черновик приёмки создан.\n\nID: {documentId}\nСтрок: {draft.Lines.Count}\n\nПосле OData-интеграции (Sprint 2) документ автоматически уйдёт в 1С.",
+                $"Черновик приёмки создан.\n\nID: {documentId}\nСтрок: {draft.Lines.Count}\n\nПосле OData-интеграции (Sprint 2) документ автоматически уйдёт в 1С.{learningSummary}",
                 "Сохранено",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -173,7 +207,7 @@ public partial class InvoiceRecognitionWindow : Window
 
     private void UpdateLines(IReadOnlyList<MatchedInvoiceLine> matches)
     {
-        var rows = matches.Select(m => new LineRowViewModel
+        _currentRows = matches.Select(m => new LineRowViewModel
         {
             LineNumber = m.Source.LineNumber,
             RecognizedName = m.Source.Name,
@@ -182,10 +216,54 @@ public partial class InvoiceRecognitionWindow : Window
             Unit = m.Source.Unit ?? string.Empty,
             Quantity = m.Source.Quantity,
             UnitPrice = m.Source.UnitPrice,
-            Total = m.Source.Total
+            Total = m.Source.Total,
+            OriginalMatch = m,
+            CurrentMatch = m.BestMatch,
+            IsManuallyEdited = false
         }).ToList();
 
-        LinesDataGrid.ItemsSource = rows;
+        LinesDataGrid.ItemsSource = _currentRows;
+        // MouseDoubleClick подвешиваем после ItemsSource — иначе AttachedEvent не сработает.
+        LinesDataGrid.MouseDoubleClick -= OnLineDoubleClick;
+        LinesDataGrid.MouseDoubleClick += OnLineDoubleClick;
+    }
+
+    private async void OnLineDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_pipeline is null || LinesDataGrid.SelectedItem is not LineRowViewModel row)
+        {
+            return;
+        }
+
+        // Lazy-load каталог при первом открытии picker'а (8893 строк × ~80 байт = ~700 KB).
+        if (_catalogCache is null)
+        {
+            try
+            {
+                StatusText.Text = "⏳ Загрузка каталога...";
+                _catalogCache = await Task.Run(() => _pipeline.Backplane.LoadNomenclatureRefs());
+            }
+            catch (Exception exception)
+            {
+                StatusText.Text = $"❌ Не удалось загрузить каталог: {exception.Message}";
+                return;
+            }
+        }
+
+        var picker = new NomenclaturePickerWindow(_catalogCache, row.RecognizedName, row.CurrentMatch)
+        {
+            Owner = Window.GetWindow(this)
+        };
+
+        if (picker.ShowDialog() == true && picker.SelectedItem is not null)
+        {
+            row.CurrentMatch = picker.SelectedItem;
+            row.IsManuallyEdited = true;
+            row.MatchSummary = $"✏ вручную: {picker.SelectedItem.Code} · {picker.SelectedItem.Name}";
+
+            var manualCount = _currentRows?.Count(r => r.IsManuallyEdited) ?? 0;
+            StatusText.Text = $"Изменено вручную: {manualCount}. При сохранении черновика выборы будут запомнены для будущих накладных.";
+        }
     }
 
     private static string FormatMatchSummary(MatchedInvoiceLine match)
@@ -234,10 +312,20 @@ public partial class InvoiceRecognitionWindow : Window
 
     private ReceiptDraft BuildDraft(InvoiceRecognitionWithMatches recognized)
     {
+        // Если оператор поменял match вручную (IsManuallyEdited) — используем его выбор,
+        // иначе fallback на BestMatch от AI/Matcher.
+        var rowsByLine = _currentRows?.ToDictionary(r => r.LineNumber, r => r);
+
         var lines = recognized.Matches.Select(m =>
         {
+            NomenclatureRef? effectiveMatch = m.BestMatch;
+            if (rowsByLine is not null && rowsByLine.TryGetValue(m.Source.LineNumber, out var row))
+            {
+                effectiveMatch = row.CurrentMatch ?? m.BestMatch;
+            }
+
             Guid? matchedId = null;
-            if (m.BestMatch is not null && Guid.TryParse(m.BestMatch.Id, out var parsed))
+            if (effectiveMatch is not null && Guid.TryParse(effectiveMatch.Id, out var parsed))
             {
                 matchedId = parsed;
             }
@@ -269,15 +357,38 @@ public partial class InvoiceRecognitionWindow : Window
             CommentText: $"Распознано {recognized.Matches.Count} строк через {recognized.Recognition.ProviderName} за {recognized.Recognition.Duration.TotalMilliseconds:N0} мс.");
     }
 
-    private sealed class LineRowViewModel
+    // Mutable INPC viewmodel — MatchSummary меняется при ручном выборе через picker.
+    private sealed class LineRowViewModel : INotifyPropertyChanged
     {
+        private string _matchSummary = string.Empty;
+        private bool _isManuallyEdited;
+
         public int LineNumber { get; init; }
         public string RecognizedName { get; init; } = string.Empty;
         public string RecognizedSku { get; init; } = string.Empty;
-        public string MatchSummary { get; init; } = string.Empty;
         public string Unit { get; init; } = string.Empty;
         public decimal Quantity { get; init; }
         public decimal? UnitPrice { get; init; }
         public decimal? Total { get; init; }
+
+        // Источник истины для save: original (от AI) и current (с возможным override).
+        public MatchedInvoiceLine OriginalMatch { get; init; } = null!;
+        public NomenclatureRef? CurrentMatch { get; set; }
+
+        public string MatchSummary
+        {
+            get => _matchSummary;
+            set { if (_matchSummary != value) { _matchSummary = value; OnPropertyChanged(); } }
+        }
+
+        public bool IsManuallyEdited
+        {
+            get => _isManuallyEdited;
+            set { if (_isManuallyEdited != value) { _isManuallyEdited = value; OnPropertyChanged(); } }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

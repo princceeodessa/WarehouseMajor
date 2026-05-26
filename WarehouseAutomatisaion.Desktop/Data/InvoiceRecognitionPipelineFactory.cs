@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using WarehouseAutomatisaion.Application.Abstractions.Ai;
 using WarehouseAutomatisaion.Application.Abstractions.Persistence;
+using WarehouseAutomatisaion.Application.Contracts.Vision;
 using WarehouseAutomatisaion.Application.Services;
 using WarehouseAutomatisaion.Infrastructure.Ai;
 using WarehouseAutomatisaion.Infrastructure.Options;
@@ -21,6 +22,7 @@ public static class InvoiceRecognitionPipelineFactory
     public sealed record Pipeline(
         InvoiceRecognitionService Orchestrator,
         IReceiptDraftWriter DraftWriter,
+        IInvoiceMatchOverrideStore OverrideStore,
         DesktopMySqlBackplaneService Backplane,
         string ProviderName);
 
@@ -48,15 +50,17 @@ public static class InvoiceRecognitionPipelineFactory
 
         var catalogReader = new MySqlNomenclatureCatalogReader(backplane);
         var matcher = new InvoiceLineMatcher();
+        var overrideStore = new MySqlInvoiceMatchOverrideStore(backplane);
         var orchestrator = new InvoiceRecognitionService(
             visionService,
             catalogReader,
             matcher,
-            loggerFactory.CreateLogger<InvoiceRecognitionService>());
+            loggerFactory.CreateLogger<InvoiceRecognitionService>(),
+            overrideStore);
 
         var draftWriter = new MySqlReceiptDraftWriter(backplane);
 
-        return new Pipeline(orchestrator, draftWriter, backplane, visionService.ProviderName);
+        return new Pipeline(orchestrator, draftWriter, overrideStore, backplane, visionService.ProviderName);
     }
 
     private static AiProvidersOptions? TryLoadAiProviders()

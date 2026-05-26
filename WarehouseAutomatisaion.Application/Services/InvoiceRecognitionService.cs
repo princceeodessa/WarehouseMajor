@@ -5,27 +5,31 @@ using WarehouseAutomatisaion.Application.Contracts.Vision;
 
 namespace WarehouseAutomatisaion.Application.Services;
 
-// Sprint 5 Task 17: orchestrator связывает три кубика
-//   IInvoiceVisionService   — распознавание фото
-//   InvoiceLineMatcher      — sопоставление строк с номенклатурой
-//   INomenclatureCatalogReader — загрузка каталога для matcher'а
-// Используется UI и smoke-tool. Один публичный метод.
+// Sprint 5 Task 17: orchestrator связывает четыре кубика
+//   IInvoiceVisionService           — распознавание фото
+//   InvoiceLineMatcher              — Levenshtein/exact/partial fallback matcher
+//   INomenclatureCatalogReader      — загрузка каталога для matcher'а
+//   IInvoiceMatchOverrideStore      — learning loop из подтверждений оператора
+// Используется UI и smoke-tool. Один публичный метод RecognizeAndMatchAsync.
 public sealed class InvoiceRecognitionService
 {
     private readonly IInvoiceVisionService _vision;
     private readonly INomenclatureCatalogReader _catalog;
     private readonly InvoiceLineMatcher _matcher;
+    private readonly IInvoiceMatchOverrideStore? _overrideStore;
     private readonly ILogger<InvoiceRecognitionService> _logger;
 
     public InvoiceRecognitionService(
         IInvoiceVisionService vision,
         INomenclatureCatalogReader catalog,
         InvoiceLineMatcher matcher,
-        ILogger<InvoiceRecognitionService> logger)
+        ILogger<InvoiceRecognitionService> logger,
+        IInvoiceMatchOverrideStore? overrideStore = null)
     {
         _vision = vision;
         _catalog = catalog;
         _matcher = matcher;
+        _overrideStore = overrideStore;
         _logger = logger;
     }
 
@@ -53,15 +57,60 @@ public sealed class InvoiceRecognitionService
             "Catalog loaded: {CatalogSize} items. Matching...",
             catalog.Count);
 
-        var matches = _matcher.Match(recognition.Lines, catalog);
+        var fallbackMatches = _matcher.Match(recognition.Lines, catalog);
 
-        var matchedCount = matches.Count(m => m.Kind != MatchKind.NoMatch);
+        // Learning loop: для каждой строки сначала проверяем overrides из БД.
+        // Если оператор уже подтверждал эту связку — берём её с Confidence=1.0,
+        // минуя Levenshtein. Если нет — используем результат matcher'а.
+        var finalMatches = new List<MatchedInvoiceLine>(fallbackMatches.Count);
+        var overridesApplied = 0;
+
+        for (var i = 0; i < fallbackMatches.Count; i++)
+        {
+            var fallback = fallbackMatches[i];
+            MatchedInvoiceLine resolved = fallback;
+
+            if (_overrideStore is not null && !string.IsNullOrWhiteSpace(fallback.Source.Name))
+            {
+                try
+                {
+                    var overrideMatch = await _overrideStore
+                        .FindOverrideAsync(fallback.Source.Name, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    if (overrideMatch is not null)
+                    {
+                        resolved = new MatchedInvoiceLine(
+                            Source: fallback.Source,
+                            BestMatch: overrideMatch,
+                            Alternatives: fallback.BestMatch is not null && fallback.BestMatch.Id != overrideMatch.Id
+                                ? new[] { new MatchCandidate(fallback.BestMatch, fallback.Confidence, fallback.Kind) }
+                                : Array.Empty<MatchCandidate>(),
+                            Kind: MatchKind.Override,
+                            Confidence: 1.0);
+                        overridesApplied++;
+                    }
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogWarning(
+                        exception,
+                        "Override lookup failed for line {LineNumber}, falling back to matcher",
+                        fallback.Source.LineNumber);
+                }
+            }
+
+            finalMatches.Add(resolved);
+        }
+
+        var matchedCount = finalMatches.Count(m => m.Kind != MatchKind.NoMatch);
         _logger.LogInformation(
-            "Matching done: {Matched}/{Total} lines matched",
+            "Matching done: {Matched}/{Total} lines matched ({Overrides} from learning loop)",
             matchedCount,
-            matches.Count);
+            finalMatches.Count,
+            overridesApplied);
 
-        return new InvoiceRecognitionWithMatches(recognition, matches);
+        return new InvoiceRecognitionWithMatches(recognition, finalMatches);
     }
 }
 
