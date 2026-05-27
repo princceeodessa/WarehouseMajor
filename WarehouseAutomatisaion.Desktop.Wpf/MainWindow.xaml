@@ -344,6 +344,30 @@
                                 </Grid>
                             </Button>
 
+                            <!-- Sprint 12 (AI Chat assistant): «Спроси склад» — chat с Claude tool use -->
+                            <Button x:Name="NavAssistantButton"
+                                    Tag="assistant"
+                                    AutomationProperties.Name="Спроси склад"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE8BD;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Спроси склад"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
                             <!-- Sprint 8 (AI loop closure): черновики AI-приёмок -->
                             <Button x:Name="NavReceiptDraftsButton"
                                     Tag="receipt-drafts"

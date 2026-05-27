@@ -1047,6 +1047,14 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new ReceiptDraftsWorkspaceView());
 
+        // Sprint 12 (AI Chat assistant): «Спроси склад» — chat с Claude tool use.
+        _sections["assistant"] = new SectionDefinition(
+            Key: "assistant",
+            Caption: "Спроси склад",
+            Subtitle: "AI помощник с доступом к остаткам, ячейкам и рекомендациям через Claude tool use.",
+            Closable: true,
+            Factory: () => new WarehouseAssistantView());
+
         _sections["catalog"] = new SectionDefinition(
             Key: "catalog",
             Caption: "Товары",
