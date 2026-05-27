@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
+using WarehouseAutomatisaion.Application.Abstractions.Persistence;
 using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
@@ -13,6 +14,7 @@ public partial class StockBalancesWorkspaceView : UserControl
 {
     private DesktopMySqlBackplaneService? _backplane;
     private MySqlStockLocationRepository? _stockLocations;
+    private IStockLocationBootstrapper? _stockLocationBootstrapper;
     private DispatcherTimer? _searchDebounceTimer;
     private bool _isInitialized;
 
@@ -36,6 +38,7 @@ public partial class StockBalancesWorkspaceView : UserControl
         }
 
         _stockLocations = new MySqlStockLocationRepository(_backplane);
+        _stockLocationBootstrapper = DesktopScanLookupFactory.TryCreate()?.StockLocationBootstrapper;
         LoadWarehouses();
         _isInitialized = true;
         ReloadStock();
@@ -199,6 +202,51 @@ public partial class StockBalancesWorkspaceView : UserControl
         {
             RefreshButton.Content = originalContent;
             RefreshButton.IsEnabled = true;
+        }
+    }
+
+    private async void OnBootstrapLocationsClicked(object sender, RoutedEventArgs e)
+    {
+        if (_stockLocationBootstrapper is null)
+        {
+            StatusText.Text = "Нет подключения к MySQL для инициализации адресных остатков.";
+            return;
+        }
+
+        var owner = Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow;
+        var confirmation = MessageBox.Show(
+            owner,
+            "Создать системную ячейку UNPLACED по каждому складу и положить туда текущие общие остатки?\n\n" +
+            "Это стартовый шаг WMS: после него товар можно будет перемещать из UNPLACED в реальные ячейки.",
+            "Старт WMS",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var originalContent = BootstrapLocationsButton.Content;
+        BootstrapLocationsButton.IsEnabled = false;
+        BootstrapLocationsButton.Content = "Инициализация...";
+
+        try
+        {
+            var result = await _stockLocationBootstrapper.BootstrapUnplacedAsync(Environment.UserName);
+            ReloadStock();
+            StatusText.Text =
+                $"WMS старт выполнен: источников {result.SourceRows:N0}, кол-во {result.SourceQuantity:N0}, " +
+                $"создано ячеек {result.CellsCreated:N0}, строк размещения затронуто {result.LocationsAffected:N0}.";
+        }
+        catch (Exception exception)
+        {
+            StatusText.Text = $"Ошибка инициализации WMS: {exception.Message}";
+        }
+        finally
+        {
+            BootstrapLocationsButton.Content = originalContent;
+            BootstrapLocationsButton.IsEnabled = true;
         }
     }
 

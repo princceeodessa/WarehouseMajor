@@ -40,6 +40,7 @@ public partial class MainWindow : Window
         "stock",
         "cells",
         "catalog",
+        "operation-log",
         "audit"
     };
 
@@ -769,18 +770,14 @@ public partial class MainWindow : Window
             {
                 // Release 1.0.129: pool warmup — открываем 3 connection'а
                 // параллельно, чтобы MySqlConnector pool накопил прогретые
-                // TLS-сессии. Первый клик пользователя через ~0.3 сек получит
-                // уже готовое соединение вместо 200 ms TLS-handshake.
+                // TLS-сессии. Пароль берём только из локальной конфигурации.
                 Parallel.For(0, 3, _ =>
                 {
                     try
                     {
-                        using var c = new MySqlConnector.MySqlConnection(
-                            "Server=147.45.108.97;Port=3306;Database=warehouse_automation;User Id=majorwarehause_app;Password=xfn0ZqwGkTzNaX_lqPBjMe178EqxY8G9LcZsE6IWa6Y;ConnectionTimeout=10;Pooling=true;MinimumPoolSize=3;");
-                        c.Open();
-                        using var ping = c.CreateCommand();
-                        ping.CommandText = "SELECT 1";
-                        ping.ExecuteScalar();
+                        WarehouseAutomatisaion.Desktop.Data.DesktopMySqlBackplaneService
+                            .TryCreateDefault()
+                            ?.PingBackplane();
                     }
                     catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Prewarm] pool: {ex.Message}"); }
                 });
@@ -935,12 +932,15 @@ public partial class MainWindow : Window
         _navButtonsByKey["warehouse"] = NavWarehouseButton;
 
         // Sprint 1 (WMS остатки): отдельная кнопка для живых остатков (app_warehouse_stock_balances).
+        _navButtonsByKey["scan"] = NavQuickScanButton;
         _navButtonsByKey["stock"] = NavStockBalancesButton;
 
         // Sprint 3 (WMS ячейки): кнопка для master-data ячеек склада.
         _navButtonsByKey["cells"] = NavStorageCellsButton;
 
-        // catalog (Товары) — общий пункт для всех 3 разделов, без выделения в сайдбаре.
+        // WMS pivot: номенклатура и журнал теперь часть основного складского сценария.
+        _navButtonsByKey["catalog"] = NavCatalogButton;
+        _navButtonsByKey["operation-log"] = NavOperationLogButton;
     }
 
     private void RegisterSections()
@@ -1040,6 +1040,13 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new StorageCellsWorkspaceView());
 
+        _sections["operation-log"] = new SectionDefinition(
+            Key: "operation-log",
+            Caption: "Журнал операций",
+            Subtitle: "История WMS-действий: сканы, приёмка, перемещения, инвентаризация и ошибки.",
+            Closable: true,
+            Factory: () => new WarehouseOperationLogWorkspaceView());
+
         // Sprint 8 (AI loop closure): черновики AI-распознанных накладных,
         // ожидающие разноски в ячейки склада.
         _sections["receipt-drafts"] = new SectionDefinition(
@@ -1059,8 +1066,8 @@ public partial class MainWindow : Window
 
         _sections["catalog"] = new SectionDefinition(
             Key: "catalog",
-            Caption: "Товары",
-            Subtitle: "Каталог товаров, категории и состояние наличия.",
+            Caption: "Номенклатура",
+            Subtitle: "Справочник номенклатуры для WMS: товары, артикулы, категории и состояние наличия.",
             Closable: true,
             Factory: () => new ProductsWorkspaceView(_salesWorkspace));
 
@@ -1689,6 +1696,12 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (string.Equals(sectionKey, "scan", StringComparison.OrdinalIgnoreCase))
+            {
+                OpenQuickScanDialog();
+                return;
+            }
+
             // Sprint 6 (WMS перемещение): тоже модальный диалог.
             if (string.Equals(sectionKey, "transfer", StringComparison.OrdinalIgnoreCase))
             {
@@ -1728,6 +1741,34 @@ public partial class MainWindow : Window
         var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
 
         var window = new ReceiveStockWindow(catalogReader, cellCatalog, stockLocations)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
+    private void OpenQuickScanDialog()
+    {
+        var backplane = WarehouseAutomatisaion.Desktop.Data.DesktopMySqlBackplaneService.TryCreateDefault();
+        var scanServices = WarehouseAutomatisaion.Desktop.Data.DesktopScanLookupFactory.TryCreate();
+        if (backplane is null || scanServices is null)
+        {
+            System.Windows.MessageBox.Show(
+                this,
+                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.",
+                "WMS скан",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
+        var window = new QuickScanWindow(
+            scanServices.ProductLookup,
+            scanServices.CellLookup,
+            stockLocations,
+            scanServices.OperationLogger,
+            _startupStatus.UserName)
         {
             Owner = this
         };

@@ -289,6 +289,30 @@
                                        FontWeight="SemiBold"
                                        Margin="6,0,0,8" />
 
+                            <!-- WMS быстрый скан: товар по штрихкоду / ячейка по QR -->
+                            <Button x:Name="NavQuickScanButton"
+                                    Tag="scan"
+                                    AutomationProperties.Name="WMS скан"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE8B6;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Скан"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
                             <!-- Sprint 1 (WMS остатки): живые остатки из app_warehouse_stock_balances -->
                             <Button x:Name="NavStockBalancesButton"
                                     Tag="stock"
@@ -331,6 +355,29 @@
                                                VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1"
                                                Text="Ячейки"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
+                            <Button x:Name="NavCatalogButton"
+                                    Tag="catalog"
+                                    AutomationProperties.Name="Номенклатура"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE8FD;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Номенклатура"
                                                FontSize="15"
                                                FontWeight="SemiBold"
                                                VerticalAlignment="Center" />
@@ -416,6 +463,29 @@
                                 </Grid>
                             </Button>
 
+                            <Button x:Name="NavOperationLogButton"
+                                    Tag="operation-log"
+                                    AutomationProperties.Name="Журнал операций"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE9D9;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Журнал"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
                             <!-- ====== AI ====== -->
                             <TextBlock Text="AI"
                                        Foreground="#A9B3C7"
@@ -476,13 +546,14 @@
                                     Background="#E1E8F4"
                                     Margin="6,18,6,12" />
 
-                            <!-- Сервисные иконки: Главная, Отчёты, Настройки -->
-                            <UniformGrid Columns="3" HorizontalAlignment="Center">
+                            <!-- Сервисные иконки: legacy-витрины скрыты, настройки остаются быстрым входом. -->
+                            <UniformGrid Columns="1" HorizontalAlignment="Center">
                                 <Button x:Name="NavDashboardButton"
                                         Tag="dashboard"
                                         AutomationProperties.Name="Главная"
                                         ToolTip="Главная"
                                         Style="{StaticResource MinorIconButtonStyle}"
+                                        Visibility="Collapsed"
                                         Click="HandleNavButtonClick">
                                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE80F;" FontSize="16" />
                                 </Button>
@@ -491,6 +562,7 @@
                                         AutomationProperties.Name="Отчёты"
                                         ToolTip="Отчёты"
                                         Style="{StaticResource MinorIconButtonStyle}"
+                                        Visibility="Collapsed"
                                         Click="HandleNavButtonClick">
                                     <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE9D2;" FontSize="16" />
                                 </Button>

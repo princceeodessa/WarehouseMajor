@@ -69,6 +69,18 @@
                         Cursor="Hand"
                         Click="OnRefreshClicked" />
 
+                <Button x:Name="BootstrapLocationsButton"
+                        Content="Старт WMS: UNPLACED"
+                        Height="30"
+                        Padding="14,0"
+                        Margin="10,0,0,0"
+                        Background="#FFFFFF"
+                        BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="1"
+                        Cursor="Hand"
+                        ToolTip="Создать системную ячейку UNPLACED и положить туда текущие общие остатки, чтобы потом перемещать их по реальным ячейкам"
+                        Click="OnBootstrapLocationsClicked" />
+
                 <Button x:Name="RecognizeInvoiceButton"
                         Content="🤖 Распознать накладную (AI)"
                         Height="30"
