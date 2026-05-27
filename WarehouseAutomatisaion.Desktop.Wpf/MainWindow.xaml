@@ -200,13 +200,19 @@
                                            VerticalAlignment="Center" />
                             </Grid>
                         </Border>
-                        <TextBlock x:Name="ApplicationNameText"
-                                   Text="Major"
-                                   Margin="12,0,0,0"
-                                   FontSize="19"
-                                   FontWeight="SemiBold"
-                                   Foreground="#1B2440"
-                                   VerticalAlignment="Center" />
+                        <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="ApplicationNameText"
+                                       Text="Major"
+                                       FontSize="19"
+                                       FontWeight="SemiBold"
+                                       Foreground="#1B2440" />
+                            <TextBlock Text="WMS"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       Foreground="#4F5BFF"
+                                       LineHeight="12"
+                                       Margin="0,-1,0,0" />
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
 
@@ -226,27 +232,21 @@
                                   VerticalScrollBarVisibility="Hidden"
                                   HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
-                            <!-- 1С УНФ-стиль: 3 крупных блока разделов -->
+                            <!-- WMS pivot: legacy блоки Продажи/Закупки/Склад скрыты, секции остаются
+                                 зарегистрированными для deep-link через history (но не показываются в sidebar). -->
                             <Button x:Name="NavSalesButton"
                                     Tag="section-sales"
                                     AutomationProperties.Name="Продажи"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="44" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               FontFamily="Segoe Fluent Icons"
-                                               Text="&#xE14C;"
-                                               FontSize="22"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Продажи"
-                                               FontSize="15"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="0" FontFamily="Segoe Fluent Icons" Text="&#xE14C;" FontSize="22" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Продажи" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </Grid>
                             </Button>
 
@@ -254,22 +254,15 @@
                                     Tag="section-purchasing"
                                     AutomationProperties.Name="Закупки"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="44" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               FontFamily="Segoe Fluent Icons"
-                                               Text="&#xE719;"
-                                               FontSize="22"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Закупки"
-                                               FontSize="15"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="0" FontFamily="Segoe Fluent Icons" Text="&#xE719;" FontSize="22" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Закупки" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </Grid>
                             </Button>
 
@@ -277,24 +270,24 @@
                                     Tag="section-warehouse"
                                     AutomationProperties.Name="Склад"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="44" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               FontFamily="Segoe Fluent Icons"
-                                               Text="&#xE7F8;"
-                                               FontSize="22"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Склад"
-                                               FontSize="15"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="0" FontFamily="Segoe Fluent Icons" Text="&#xE7F8;" FontSize="22" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Склад" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </Grid>
                             </Button>
+
+                            <!-- ====== СКЛАД (WMS core) ====== -->
+                            <TextBlock Text="СКЛАД"
+                                       Foreground="#A9B3C7"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       Margin="6,0,0,8" />
 
                             <!-- Sprint 1 (WMS остатки): живые остатки из app_warehouse_stock_balances -->
                             <Button x:Name="NavStockBalancesButton"
@@ -344,53 +337,12 @@
                                 </Grid>
                             </Button>
 
-                            <!-- Sprint 12 (AI Chat assistant): «Спроси склад» — chat с Claude tool use -->
-                            <Button x:Name="NavAssistantButton"
-                                    Tag="assistant"
-                                    AutomationProperties.Name="Спроси склад"
-                                    Style="{StaticResource MainSectionBlockButtonStyle}"
-                                    Click="HandleNavButtonClick">
-                                <Grid Margin="14,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="44" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               FontFamily="Segoe Fluent Icons"
-                                               Text="&#xE8BD;"
-                                               FontSize="22"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Спроси склад"
-                                               FontSize="15"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center" />
-                                </Grid>
-                            </Button>
-
-                            <!-- Sprint 8 (AI loop closure): черновики AI-приёмок -->
-                            <Button x:Name="NavReceiptDraftsButton"
-                                    Tag="receipt-drafts"
-                                    AutomationProperties.Name="Черновики AI"
-                                    Style="{StaticResource MainSectionBlockButtonStyle}"
-                                    Click="HandleNavButtonClick">
-                                <Grid Margin="14,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="44" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0"
-                                               FontFamily="Segoe Fluent Icons"
-                                               Text="&#xE8BD;"
-                                               FontSize="22"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Черновики AI"
-                                               FontSize="15"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center" />
-                                </Grid>
-                            </Button>
+                            <!-- ====== ОПЕРАЦИИ ====== -->
+                            <TextBlock Text="ОПЕРАЦИИ"
+                                       Foreground="#A9B3C7"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       Margin="6,16,0,8" />
 
                             <!-- Sprint 4 (WMS приёмка): окно записи товара в ячейку -->
                             <Button x:Name="NavReceiveButton"
@@ -464,10 +416,65 @@
                                 </Grid>
                             </Button>
 
+                            <!-- ====== AI ====== -->
+                            <TextBlock Text="AI"
+                                       Foreground="#A9B3C7"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       Margin="6,16,0,8" />
+
+                            <!-- Sprint 12 (AI Chat assistant): «Спроси склад» — chat с Claude tool use -->
+                            <Button x:Name="NavAssistantButton"
+                                    Tag="assistant"
+                                    AutomationProperties.Name="Спроси склад"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE8BD;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Спроси склад"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
+                            <!-- Sprint 8 (AI loop closure): черновики AI-приёмок -->
+                            <Button x:Name="NavReceiptDraftsButton"
+                                    Tag="receipt-drafts"
+                                    AutomationProperties.Name="Черновики AI"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE7C3;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Черновики AI"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
                             <!-- Разделитель -->
                             <Border Height="1"
                                     Background="#E1E8F4"
-                                    Margin="6,14,6,12" />
+                                    Margin="6,18,6,12" />
 
                             <!-- Сервисные иконки: Главная, Отчёты, Настройки -->
                             <UniformGrid Columns="3" HorizontalAlignment="Center">

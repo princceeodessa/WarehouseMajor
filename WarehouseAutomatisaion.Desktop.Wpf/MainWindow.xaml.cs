@@ -126,7 +126,9 @@ public partial class MainWindow : Window
         ApplyAuthorization();
         InitializeDatabaseStatus();
         InitializeUpdatePanel();
-        OpenSection("dashboard");
+        // WMS pivot: первая страница — Остатки (главная для оператора склада).
+        // Раньше был dashboard с накопителями legacy Закупки/Продажи.
+        OpenSection("stock");
 
         InitializeTrayIcon();
 
@@ -616,7 +618,7 @@ public partial class MainWindow : Window
             && WorkspaceTabs.SelectedItem is TabItem { Tag: string selectedKey }
             && string.Equals(selectedKey, "settings", StringComparison.OrdinalIgnoreCase))
         {
-            OpenSection("dashboard");
+            OpenSection("stock");
         }
     }
 
@@ -1615,7 +1617,7 @@ public partial class MainWindow : Window
 
         if (WorkspaceTabs.Items.Count == 0)
         {
-            OpenSection("dashboard");
+            OpenSection("stock");
             return;
         }
 
@@ -1629,7 +1631,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            OpenSection("dashboard");
+            OpenSection("stock");
         }
     }
 
