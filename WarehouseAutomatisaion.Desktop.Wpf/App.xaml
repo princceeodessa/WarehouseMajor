@@ -678,5 +678,132 @@
             <Setter Property="Background" Value="#FFFFFF" />
         </Style>
 
+        <!-- ===== Sprint 13: добавления для новых WMS/AI окон (Sprint 4..12) =====
+             Унифицируем повторяющиеся inline стили в одни ключи. -->
+
+        <!-- Card стандартного workspace окна (Background=White + Border=Line + r=12 + padding 14,12). -->
+        <Style x:Key="AppCardStyle" TargetType="{x:Type Border}">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E7ECF7" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="14,12" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+        </Style>
+
+        <Style x:Key="AppCardCompactStyle" TargetType="{x:Type Border}" BasedOn="{StaticResource AppCardStyle}">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="14,10" />
+        </Style>
+
+        <!-- Текст-подсказка (под input'ом / в footer'е). -->
+        <Style x:Key="AppMutedHintStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="#7A86A5" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- Heading заголовок секции внутри карточки. -->
+        <Style x:Key="AppSectionHeadingStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <!-- Primary action — синий filled. Alias к DialogPrimaryButtonStyle для понятности. -->
+        <Style x:Key="AppPrimaryButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource DialogPrimaryButtonStyle}">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="20,0" />
+        </Style>
+
+        <!-- Secondary action — белый outline. -->
+        <Style x:Key="AppSecondaryButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource DialogSecondaryButtonStyle}">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="18,0" />
+        </Style>
+
+        <!-- Danger action — для destructive (удалить, отменить с потерей). -->
+        <Style x:Key="AppDangerButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource AppSecondaryButtonStyle}">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#F5AEAE" />
+            <Setter Property="Foreground" Value="#D9534F" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FDECEC" />
+                    <Setter Property="BorderBrush" Value="#E58A8A" />
+                    <Setter Property="Foreground" Value="#B62D2A" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Suggestion chip — для chat empty state и quick-search вариантов. -->
+        <Style x:Key="AppSuggestionChipStyle" TargetType="{x:Type Button}">
+            <Setter Property="Margin" Value="0,4,8,0" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Background" Value="#F4F7FF" />
+            <Setter Property="BorderBrush" Value="#C8D1FF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#2F3F74" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="16"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E8EEFF" />
+                    <Setter Property="BorderBrush" Value="#A0AFFF" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Empty state — большой circle-icon + title + hint + CTA. Используется в workspace'ах
+             когда DataGrid пустой (например ещё нет ячеек, нет черновиков, нет приёмок). -->
+        <Style x:Key="AppEmptyStateIconBoxStyle" TargetType="{x:Type Border}">
+            <Setter Property="Width" Value="80" />
+            <Setter Property="Height" Value="80" />
+            <Setter Property="CornerRadius" Value="40" />
+            <Setter Property="Background" Value="#EEF2FF" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,0,18" />
+        </Style>
+
+        <Style x:Key="AppEmptyStateIconTextStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize" Value="36" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="AppEmptyStateTitleStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#17213A" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="AppEmptyStateHintStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="#7A86A5" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="MaxWidth" Value="480" />
+            <Setter Property="Margin" Value="0,0,0,16" />
+        </Style>
+
     </Application.Resources>
 </Application>

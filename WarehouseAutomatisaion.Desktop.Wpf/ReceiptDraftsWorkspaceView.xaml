@@ -73,11 +73,34 @@
                        FontSize="12" />
         </Border>
 
-        <!-- Grid -->
+        <!-- Grid + empty state -->
         <Border Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
                 BorderThickness="1" CornerRadius="12">
-            <DataGrid x:Name="DraftsGrid"
+            <Grid>
+                <!-- Empty state — показывается когда DraftsGrid.ItemsSource пустой -->
+                <Grid x:Name="EmptyStatePanel" Visibility="Collapsed">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="40">
+                        <Border Style="{StaticResource AppEmptyStateIconBoxStyle}">
+                            <TextBlock Style="{StaticResource AppEmptyStateIconTextStyle}" Text="🤖" />
+                        </Border>
+                        <TextBlock Style="{StaticResource AppEmptyStateTitleStyle}" Text="Черновиков AI пока нет" />
+                        <TextBlock Style="{StaticResource AppEmptyStateHintStyle}"
+                                   Text="Распознай первую накладную через Claude vision — она появится здесь как черновик и будет ждать разноски в ячейку склада." />
+                        <Button Content="🤖 Распознать накладную"
+                                HorizontalAlignment="Center"
+                                Height="38" Padding="20,0"
+                                Background="{StaticResource PrimaryBrush}"
+                                Foreground="White"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                FontWeight="SemiBold"
+                                FontSize="13"
+                                Click="OnRecognizeClicked" />
+                    </StackPanel>
+                </Grid>
+
+                <DataGrid x:Name="DraftsGrid"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
                       CanUserDeleteRows="False"
@@ -142,6 +165,7 @@
                     </DataGridTextColumn>
                 </DataGrid.Columns>
             </DataGrid>
+            </Grid>
         </Border>
     </DockPanel>
 </UserControl>

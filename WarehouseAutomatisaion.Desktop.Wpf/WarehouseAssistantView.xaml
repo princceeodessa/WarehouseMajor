@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:WarehouseAutomatisaion.Desktop.Wpf"
              mc:Ignorable="d"
              Background="#F7F9FD"
              Loaded="OnLoaded">
@@ -12,9 +13,46 @@
         <SolidColorBrush x:Key="PrimaryBrush" Color="#4F5BFF" />
         <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
         <SolidColorBrush x:Key="HeadingBrush" Color="#17213A" />
-        <SolidColorBrush x:Key="UserBubbleBrush" Color="#EEF2FF" />
-        <SolidColorBrush x:Key="AssistantBubbleBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="ToolBubbleBrush" Color="#F4F7FF" />
+
+        <!-- Typing dots — анимация opacity синхронно с offset через triple Storyboard -->
+        <Style x:Key="TypingDotStyle" TargetType="Ellipse">
+            <Setter Property="Width" Value="6" />
+            <Setter Property="Height" Value="6" />
+            <Setter Property="Fill" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Suggestion chip — для quick-start фраз -->
+        <Style x:Key="SuggestionChipStyle" TargetType="Button">
+            <Setter Property="Margin" Value="0,4,8,0" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Background" Value="#F4F7FF" />
+            <Setter Property="BorderBrush" Value="#C8D1FF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#2F3F74" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="16"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E8EEFF" />
+                    <Setter Property="BorderBrush" Value="#A0AFFF" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <DockPanel LastChildFill="True" Margin="16">
@@ -24,16 +62,34 @@
                 Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
                 BorderThickness="1" CornerRadius="12"
-                Padding="14,10" Margin="0,0,0,10">
+                Padding="14,12" Margin="0,0,0,10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="🤖 Спроси склад"
-                               Foreground="{StaticResource HeadingBrush}"
-                               FontSize="15" FontWeight="SemiBold" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🤖 Спроси склад"
+                                   Foreground="{StaticResource HeadingBrush}"
+                                   FontSize="16" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                        <Border x:Name="StatusBadge"
+                                Margin="10,0,0,0"
+                                Padding="8,2"
+                                Background="#E7F7EC"
+                                BorderBrush="#A6E0B6"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                VerticalAlignment="Center"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="StatusBadgeText"
+                                       Text="✓ Подключено"
+                                       Foreground="#2E7D3F"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold" />
+                        </Border>
+                    </StackPanel>
                     <TextBlock x:Name="HintText"
                                Foreground="{StaticResource MutedBrush}"
                                FontSize="11.5" Margin="0,4,0,0"
@@ -57,7 +113,7 @@
                 Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
                 BorderThickness="1" CornerRadius="12"
-                Padding="14,10" Margin="0,10,0,0">
+                Padding="14,12" Margin="0,10,0,0">
             <DockPanel LastChildFill="True">
                 <TextBlock x:Name="StatusText"
                            DockPanel.Dock="Top"
@@ -92,47 +148,175 @@
             </DockPanel>
         </Border>
 
-        <!-- Messages -->
+        <!-- Messages region -->
         <Border Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
                 BorderThickness="1" CornerRadius="12">
-            <ScrollViewer x:Name="MessagesScroll"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled"
-                          Padding="14">
-                <ItemsControl x:Name="MessagesList">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="0,6">
-                                <Border Background="{Binding BubbleBrush}"
-                                        BorderBrush="{StaticResource LineBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="10"
-                                        Padding="12,8"
-                                        HorizontalAlignment="{Binding Alignment}"
-                                        MaxWidth="700">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding RoleLabel}"
-                                                   FontSize="10.5"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{StaticResource MutedBrush}"
-                                                   Margin="0,0,0,3" />
-                                        <TextBlock Text="{Binding Body}"
-                                                   FontSize="13"
-                                                   TextWrapping="Wrap"
-                                                   Foreground="{StaticResource HeadingBrush}" />
-                                        <TextBlock Text="{Binding Footer}"
-                                                   FontSize="10.5"
-                                                   Foreground="{StaticResource MutedBrush}"
-                                                   Margin="0,4,0,0"
-                                                   Visibility="{Binding FooterVisibility}" />
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+            <Grid>
+                <!-- Empty state с suggestion chips — показывается когда история пустая -->
+                <Grid x:Name="EmptyStatePanel" Visibility="Visible">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="540" Margin="40">
+                        <Border Width="64" Height="64"
+                                Background="#EEF2FF"
+                                CornerRadius="32"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,16">
+                            <TextBlock Text="✨"
+                                       FontSize="32"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="Что нужно знать о складе?"
+                                   Foreground="{StaticResource HeadingBrush}"
+                                   FontSize="18" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,6" />
+                        <TextBlock Text="AI смотрит на твои остатки, ячейки и историю — отвечает на основе реальных данных, не выдумывает."
+                                   Foreground="{StaticResource MutedBrush}"
+                                   FontSize="12.5"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   Margin="0,0,0,18" />
+                        <TextBlock Text="Попробуй спросить:"
+                                   Foreground="{StaticResource MutedBrush}"
+                                   FontSize="11.5"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,0,0,4" />
+                        <WrapPanel HorizontalAlignment="Center">
+                            <Button Style="{StaticResource SuggestionChipStyle}"
+                                    Content="📦 сколько у нас в наличии лопат?"
+                                    Tag="сколько у нас в наличии лопат?"
+                                    Click="OnSuggestionClicked" />
+                            <Button Style="{StaticResource SuggestionChipStyle}"
+                                    Content="📍 где лежит крепёж?"
+                                    Tag="где лежит крепёж?"
+                                    Click="OnSuggestionClicked" />
+                            <Button Style="{StaticResource SuggestionChipStyle}"
+                                    Content="🗂 что в ячейке WH02-PCK-01-01-01-01?"
+                                    Tag="что в ячейке WH02-PCK-01-01-01-01?"
+                                    Click="OnSuggestionClicked" />
+                            <Button Style="{StaticResource SuggestionChipStyle}"
+                                    Content="🎯 куда положить новые шурупы?"
+                                    Tag="куда положить новые шурупы?"
+                                    Click="OnSuggestionClicked" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Message list -->
+                <ScrollViewer x:Name="MessagesScroll"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Padding="14"
+                              Visibility="Collapsed">
+                    <ItemsControl x:Name="MessagesList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,6" HorizontalAlignment="{Binding Alignment}">
+                                    <Border Background="{Binding BubbleBrush}"
+                                            BorderBrush="{Binding BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14,10"
+                                            MaxWidth="640">
+                                        <StackPanel>
+                                            <!-- Role label + actions -->
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Orientation="Horizontal" Grid.Column="0">
+                                                    <TextBlock Text="{Binding RoleIcon}"
+                                                               FontSize="11"
+                                                               Margin="0,0,5,0"
+                                                               VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding RoleLabel}"
+                                                               FontSize="10.5"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{Binding RoleLabelBrush}"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Typing indicator (3 dots) — показывается только когда IsTyping=True -->
+                                            <StackPanel x:Name="TypingPanel"
+                                                        Orientation="Horizontal"
+                                                        Visibility="{Binding TypingVisibility}"
+                                                        Margin="0,4,0,2">
+                                                <Ellipse Style="{StaticResource TypingDotStyle}">
+                                                    <Ellipse.RenderTransform>
+                                                        <TranslateTransform />
+                                                    </Ellipse.RenderTransform>
+                                                    <Ellipse.Triggers>
+                                                        <EventTrigger RoutedEvent="Loaded">
+                                                            <BeginStoryboard>
+                                                                <Storyboard RepeatBehavior="Forever">
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                                     From="0" To="-4" Duration="0:0:0.4"
+                                                                                     AutoReverse="True" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                    </Ellipse.Triggers>
+                                                </Ellipse>
+                                                <Ellipse Style="{StaticResource TypingDotStyle}">
+                                                    <Ellipse.RenderTransform>
+                                                        <TranslateTransform />
+                                                    </Ellipse.RenderTransform>
+                                                    <Ellipse.Triggers>
+                                                        <EventTrigger RoutedEvent="Loaded">
+                                                            <BeginStoryboard>
+                                                                <Storyboard RepeatBehavior="Forever" BeginTime="0:0:0.13">
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                                     From="0" To="-4" Duration="0:0:0.4"
+                                                                                     AutoReverse="True" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                    </Ellipse.Triggers>
+                                                </Ellipse>
+                                                <Ellipse Style="{StaticResource TypingDotStyle}">
+                                                    <Ellipse.RenderTransform>
+                                                        <TranslateTransform />
+                                                    </Ellipse.RenderTransform>
+                                                    <Ellipse.Triggers>
+                                                        <EventTrigger RoutedEvent="Loaded">
+                                                            <BeginStoryboard>
+                                                                <Storyboard RepeatBehavior="Forever" BeginTime="0:0:0.26">
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                                     From="0" To="-4" Duration="0:0:0.4"
+                                                                                     AutoReverse="True" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                    </Ellipse.Triggers>
+                                                </Ellipse>
+                                            </StackPanel>
+
+                                            <!-- Markdown-rendered body — Inlines генерируются через attached property -->
+                                            <TextBlock x:Name="BodyText"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{StaticResource HeadingBrush}"
+                                                       FontFamily="{Binding BodyFontFamily}"
+                                                       Visibility="{Binding BodyVisibility}"
+                                                       local:MarkdownInline.Text="{Binding Body}" />
+
+                                            <!-- Footer (time + provider + tool stats) -->
+                                            <TextBlock Text="{Binding Footer}"
+                                                       FontSize="10.5"
+                                                       Foreground="{StaticResource MutedBrush}"
+                                                       Margin="0,6,0,0"
+                                                       Visibility="{Binding FooterVisibility}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
         </Border>
     </DockPanel>
 </UserControl>

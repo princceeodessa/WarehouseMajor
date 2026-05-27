@@ -62,10 +62,14 @@ public partial class ReceiptDraftsWorkspaceView : UserControl
 
             if (drafts.Count == 0)
             {
-                StatusText.Text = "Черновиков нет. Распознайте накладную через 🤖 кнопку наверху или из раздела «Остатки».";
+                EmptyStatePanel.Visibility = Visibility.Visible;
+                DraftsGrid.Visibility = Visibility.Collapsed;
+                StatusText.Text = "Черновиков нет — самое время распознать первую накладную.";
             }
             else
             {
+                EmptyStatePanel.Visibility = Visibility.Collapsed;
+                DraftsGrid.Visibility = Visibility.Visible;
                 var totalQty = drafts.Sum(d => d.TotalQuantity);
                 var totalAmt = drafts.Sum(d => d.TotalAmount ?? 0m);
                 StatusText.Text = $"Черновиков: {drafts.Count}   ·   суммарно строк: {drafts.Sum(d => d.LinesCount):N0}   ·   " +

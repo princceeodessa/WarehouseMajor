@@ -94,11 +94,42 @@
                        FontSize="12" />
         </Border>
 
-        <!-- Cells DataGrid -->
+        <!-- Cells DataGrid + empty state -->
         <Border Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
                 BorderThickness="1"
                 CornerRadius="12">
+          <Grid>
+            <Grid x:Name="EmptyStatePanel" Visibility="Collapsed">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="40">
+                    <Border Style="{StaticResource AppEmptyStateIconBoxStyle}">
+                        <TextBlock Style="{StaticResource AppEmptyStateIconTextStyle}" Text="🗂" />
+                    </Border>
+                    <TextBlock Style="{StaticResource AppEmptyStateTitleStyle}" Text="Ячейки склада ещё не созданы" />
+                    <TextBlock Style="{StaticResource AppEmptyStateHintStyle}"
+                               Text="Добавь ячейки через «+ Новая ячейка» или импортируй из CSV. После этого их можно будет использовать в приёмке, перемещении и инвентаризации." />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Content="+ Новая ячейка"
+                                Height="38" Padding="20,0" Margin="0,0,10,0"
+                                Background="{StaticResource PrimaryBrush}"
+                                Foreground="White"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                FontWeight="SemiBold"
+                                FontSize="13"
+                                Click="OnNewCellClicked" />
+                        <Button Content="📤 Импорт CSV"
+                                Height="38" Padding="18,0"
+                                Background="#FFFFFF"
+                                BorderBrush="{StaticResource LineBrush}"
+                                BorderThickness="1"
+                                Cursor="Hand"
+                                FontWeight="SemiBold"
+                                FontSize="13"
+                                Click="OnImportCsvClicked" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
             <DataGrid x:Name="CellsDataGrid"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
@@ -146,6 +177,7 @@
                     </DataGridTextColumn>
                 </DataGrid.Columns>
             </DataGrid>
+          </Grid>
         </Border>
     </DockPanel>
 </UserControl>

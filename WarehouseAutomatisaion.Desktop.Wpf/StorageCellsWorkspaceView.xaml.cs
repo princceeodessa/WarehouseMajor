@@ -100,10 +100,14 @@ public partial class StorageCellsWorkspaceView : UserControl
 
             if (rows.Count == 0)
             {
-                StatusText.Text = "Ячеек ещё нет. Добавьте через «+ Новая ячейка» или импорт CSV (Task 21).";
+                EmptyStatePanel.Visibility = Visibility.Visible;
+                CellsDataGrid.Visibility = Visibility.Collapsed;
+                StatusText.Text = "Ячеек ещё нет — создайте первую через «+ Новая ячейка» или импорт.";
             }
             else
             {
+                EmptyStatePanel.Visibility = Visibility.Collapsed;
+                CellsDataGrid.Visibility = Visibility.Visible;
                 var distinctWarehouses = rows.Select(r => r.WarehouseName).Distinct().Count();
                 var distinctZones = rows.Where(r => !string.IsNullOrEmpty(r.ZoneLabel))
                     .Select(r => r.ZoneLabel).Distinct().Count();
