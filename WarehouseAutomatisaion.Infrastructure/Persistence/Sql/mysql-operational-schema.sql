@@ -1674,6 +1674,23 @@ CREATE TABLE IF NOT EXISTS app_saved_exports (
     CONSTRAINT pk_app_saved_exports PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Sprint 11 (AI embedding search): per-item vector embeddings для семантического
+-- поиска в InvoiceLineMatcher. Provider = "openai:text-embedding-3-small" → 1536 dim.
+-- Embedding хранится как raw bytes (LONGBLOB) — компактнее JSON/CSV.
+-- Cosine distance считаем на стороне Major (8893 items × 1536 float32 = ~54MB в RAM,
+-- легко влезает; MySQL Community 8.4 не имеет VEC_* функций).
+CREATE TABLE IF NOT EXISTS app_nomenclature_embeddings (
+    item_id CHAR(36) NOT NULL,
+    provider VARCHAR(64) NOT NULL,
+    dimensions INT NOT NULL DEFAULT 1536,
+    source_text VARCHAR(1024) NULL,
+    embedding LONGBLOB NOT NULL,
+    created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    CONSTRAINT pk_app_nomenclature_embeddings PRIMARY KEY (item_id, provider),
+    KEY idx_app_nomenclature_embeddings_provider (provider)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE INDEX ix_business_partners_roles ON business_partners (roles);
 CREATE INDEX ix_business_partners_name ON business_partners (name);
 CREATE INDEX ix_nomenclature_items_name ON nomenclature_items (name);

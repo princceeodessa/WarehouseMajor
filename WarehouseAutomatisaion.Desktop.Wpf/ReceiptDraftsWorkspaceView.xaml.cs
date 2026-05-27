@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using WarehouseAutomatisaion.Application.Contracts.Receiving;
+using WarehouseAutomatisaion.Application.Services;
 using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
@@ -143,5 +144,54 @@ public partial class ReceiptDraftsWorkspaceView : UserControl
     {
         RefreshButton.IsEnabled = false;
         RecognizeButton.IsEnabled = false;
+        RefreshEmbeddingsButton.IsEnabled = false;
+    }
+
+    // Sprint 11: refresh embeddings — пересчитать только недостающие. Для full rebuild
+    // (например при смене модели) пользователь может явно нажать Shift+Click — но пока
+    // оставляем missing-only для дешевизны.
+    private async void OnRefreshEmbeddingsClicked(object sender, RoutedEventArgs e)
+    {
+        var pipeline = InvoiceRecognitionPipelineFactory.TryCreate();
+        if (pipeline is null)
+        {
+            StatusText.Text = "❌ OpenAI / MySQL не настроены — embeddings не пересчитать.";
+            return;
+        }
+
+        var refresher = new NomenclatureEmbeddingRefresher(
+            pipeline.EmbeddingService,
+            pipeline.CatalogReader,
+            pipeline.EmbeddingStore);
+
+        try
+        {
+            RefreshEmbeddingsButton.IsEnabled = false;
+            var originalContent = RefreshEmbeddingsButton.Content;
+            RefreshEmbeddingsButton.Content = "⏳ AI считает...";
+
+            var progress = new Progress<RefreshProgress>(p =>
+            {
+                StatusText.Text = $"⏳ {p.Message}  ({p.Done}/{p.Total})";
+            });
+
+            var result = await Task.Run(() =>
+                refresher.RefreshMissingAsync(progress));
+
+            StatusText.Text = result.Failed == 0
+                ? $"✅ AI каталог обновлён. Embeddings посчитаны для {result.Processed} новых товаров (провайдер {result.Provider})."
+                : $"⚠ AI каталог: добавлено {result.Processed}, ошибок {result.Failed} (из {result.Total}).";
+
+            RefreshEmbeddingsButton.Content = originalContent;
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"❌ Ошибка обновления AI каталога: {ex.Message}";
+            RefreshEmbeddingsButton.Content = "🧠 Обновить AI каталог";
+        }
+        finally
+        {
+            RefreshEmbeddingsButton.IsEnabled = true;
+        }
     }
 }

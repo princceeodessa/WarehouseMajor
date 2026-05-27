@@ -36,6 +36,11 @@ public enum MatchKind
     /// <summary>Похожее название по нечёткому сравнению (Levenshtein / Jaccard).</summary>
     FuzzyName,
 
+    /// <summary>Семантический матч через embedding cosine similarity (Sprint 11).
+    /// Берётся когда название отличается лексически, но смысл совпадает —
+    /// например «Гайка шестигранная М6» vs «Гайка М6 hex DIN934».</summary>
+    SemanticName,
+
     /// <summary>Не удалось сопоставить.</summary>
     NoMatch
 }

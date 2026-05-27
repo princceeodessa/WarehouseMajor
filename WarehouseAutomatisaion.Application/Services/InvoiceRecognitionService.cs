@@ -17,6 +17,8 @@ public sealed class InvoiceRecognitionService
     private readonly INomenclatureCatalogReader _catalog;
     private readonly InvoiceLineMatcher _matcher;
     private readonly IInvoiceMatchOverrideStore? _overrideStore;
+    private readonly IEmbeddingService? _embeddingService;
+    private readonly INomenclatureEmbeddingStore? _embeddingStore;
     private readonly ILogger<InvoiceRecognitionService> _logger;
 
     public InvoiceRecognitionService(
@@ -24,12 +26,16 @@ public sealed class InvoiceRecognitionService
         INomenclatureCatalogReader catalog,
         InvoiceLineMatcher matcher,
         ILogger<InvoiceRecognitionService> logger,
-        IInvoiceMatchOverrideStore? overrideStore = null)
+        IInvoiceMatchOverrideStore? overrideStore = null,
+        IEmbeddingService? embeddingService = null,
+        INomenclatureEmbeddingStore? embeddingStore = null)
     {
         _vision = vision;
         _catalog = catalog;
         _matcher = matcher;
         _overrideStore = overrideStore;
+        _embeddingService = embeddingService;
+        _embeddingStore = embeddingStore;
         _logger = logger;
     }
 
@@ -57,7 +63,38 @@ public sealed class InvoiceRecognitionService
             "Catalog loaded: {CatalogSize} items. Matching...",
             catalog.Count);
 
-        var fallbackMatches = _matcher.Match(recognition.Lines, catalog);
+        // Sprint 11: если AI embeddings доступны — собираем контекст для семантического матчинга.
+        // Loaded только если есть и сервис, и store, и хотя бы один embedding в БД.
+        EmbeddingMatchContext? embeddingContext = null;
+        if (_embeddingService is not null && _embeddingStore is not null && recognition.Lines.Count > 0)
+        {
+            try
+            {
+                var provider = _embeddingService.ProviderName;
+                var catalogEmbeddings = await _embeddingStore.LoadAllAsync(provider, cancellationToken).ConfigureAwait(false);
+                if (catalogEmbeddings.Count > 0)
+                {
+                    var queries = recognition.Lines
+                        .Select(l => string.IsNullOrWhiteSpace(l.Sku) ? (l.Name ?? string.Empty) : $"{l.Sku} {l.Name}")
+                        .ToList();
+                    var lineVectors = await _embeddingService.EmbedBatchAsync(queries, cancellationToken).ConfigureAwait(false);
+                    embeddingContext = new EmbeddingMatchContext(catalogEmbeddings, lineVectors);
+                    _logger.LogInformation(
+                        "Semantic context: {Vectors} catalog vectors + {Queries} query vectors (provider {Provider})",
+                        catalogEmbeddings.Count, lineVectors.Count, provider);
+                }
+                else
+                {
+                    _logger.LogInformation("No embeddings in store for provider {Provider} — falling back to lexical match", provider);
+                }
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Embedding context build failed — falling back to lexical match");
+            }
+        }
+
+        var fallbackMatches = _matcher.Match(recognition.Lines, catalog, embeddingContext);
 
         // Learning loop: для каждой строки сначала проверяем overrides из БД.
         // Если оператор уже подтверждал эту связку — берём её с Confidence=1.0,

@@ -24,7 +24,10 @@ public static class InvoiceRecognitionPipelineFactory
         IReceiptDraftWriter DraftWriter,
         IInvoiceMatchOverrideStore OverrideStore,
         DesktopMySqlBackplaneService Backplane,
-        string ProviderName);
+        string ProviderName,
+        IEmbeddingService EmbeddingService,
+        INomenclatureEmbeddingStore EmbeddingStore,
+        INomenclatureCatalogReader CatalogReader);
 
     public static Pipeline? TryCreate(ILoggerFactory? loggerFactory = null)
     {
@@ -51,16 +54,29 @@ public static class InvoiceRecognitionPipelineFactory
         var catalogReader = new MySqlNomenclatureCatalogReader(backplane);
         var matcher = new InvoiceLineMatcher();
         var overrideStore = new MySqlInvoiceMatchOverrideStore(backplane);
+
+        // Sprint 11: подключаем embedding-сервис и store. Они опциональны для
+        // orchestrator'а (graceful fallback если в БД ещё нет embeddings).
+        var embeddingService = new OpenAiEmbeddingService(
+            new StaticOptionsMonitor<AiProvidersOptions>(aiOptions),
+            loggerFactory.CreateLogger<OpenAiEmbeddingService>());
+        var embeddingStore = new MySqlNomenclatureEmbeddingStore(backplane);
+
         var orchestrator = new InvoiceRecognitionService(
             visionService,
             catalogReader,
             matcher,
             loggerFactory.CreateLogger<InvoiceRecognitionService>(),
-            overrideStore);
+            overrideStore,
+            embeddingService,
+            embeddingStore);
 
         var draftWriter = new MySqlReceiptDraftWriter(backplane);
 
-        return new Pipeline(orchestrator, draftWriter, overrideStore, backplane, visionService.ProviderName);
+        return new Pipeline(
+            orchestrator, draftWriter, overrideStore, backplane,
+            visionService.ProviderName,
+            embeddingService, embeddingStore, catalogReader);
     }
 
     private static AiProvidersOptions? TryLoadAiProviders()

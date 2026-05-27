@@ -8,16 +8,20 @@ namespace WarehouseAutomatisaion.Application.Services;
 //   1. ExactCode    — точный match по коду/артикулу (если AI распознал SKU)
 //   2. ExactName    — точный match по нормализованному названию (без регистра, без пробелов в начале/конце)
 //   3. PartialName  — одно содержит другое как substring
-//   4. FuzzyName    — Levenshtein с порогом (для опечаток / разных формулировок)
-//   5. NoMatch      — оставляем для ручного выбора в UI
+//   4. SemanticName — embedding cosine ≥ 0.82 (Sprint 11, опционально)
+//   5. FuzzyName    — Levenshtein с порогом (для опечаток / разных формулировок)
+//   6. NoMatch      — оставляем для ручного выбора в UI
 public sealed class InvoiceLineMatcher
 {
     private const double FuzzyMatchThreshold = 0.65;
+    private const double SemanticStrongThreshold = 0.82;  // высокая уверенность — почти точный матч
+    private const double SemanticCandidateThreshold = 0.65; // достаточно для попадания в alternatives
     private const int MaxAlternatives = 5;
 
     public IReadOnlyList<MatchedInvoiceLine> Match(
         IReadOnlyList<InvoiceLineItem> recognizedLines,
-        IReadOnlyList<NomenclatureRef> catalog)
+        IReadOnlyList<NomenclatureRef> catalog,
+        EmbeddingMatchContext? embeddingContext = null)
     {
         if (recognizedLines.Count == 0)
         {
@@ -47,10 +51,34 @@ public sealed class InvoiceLineMatcher
             }
         }
 
-        var results = new List<MatchedInvoiceLine>(recognizedLines.Count);
-        foreach (var line in recognizedLines)
+        // Sprint 11: подготовим catalog embeddings для cosine search.
+        // Делаем массив параллельный catalog'у, чтобы за O(catalog) пройтись на каждый line.
+        List<(NomenclatureRef Item, float[] Vec)>? catalogVectors = null;
+        if (embeddingContext is not null && embeddingContext.CatalogEmbeddings.Count > 0)
         {
-            results.Add(MatchSingle(line, byCode, byNormalizedName, normalizedNames));
+            catalogVectors = new List<(NomenclatureRef, float[])>(embeddingContext.CatalogEmbeddings.Count);
+            foreach (var item in catalog)
+            {
+                if (Guid.TryParse(item.Id, out var itemId)
+                    && embeddingContext.CatalogEmbeddings.TryGetValue(itemId, out var vec))
+                {
+                    catalogVectors.Add((item, vec));
+                }
+            }
+        }
+
+        var results = new List<MatchedInvoiceLine>(recognizedLines.Count);
+        for (var i = 0; i < recognizedLines.Count; i++)
+        {
+            var line = recognizedLines[i];
+            float[]? lineVec = null;
+            if (embeddingContext is not null
+                && i < embeddingContext.LineEmbeddings.Count
+                && embeddingContext.LineEmbeddings[i] is { Length: > 0 } v)
+            {
+                lineVec = v;
+            }
+            results.Add(MatchSingle(line, byCode, byNormalizedName, normalizedNames, catalogVectors, lineVec));
         }
 
         return results;
@@ -60,7 +88,9 @@ public sealed class InvoiceLineMatcher
         InvoiceLineItem line,
         Dictionary<string, NomenclatureRef> byCode,
         Dictionary<string, NomenclatureRef> byNormalizedName,
-        List<(string Normalized, NomenclatureRef Item)> normalizedNames)
+        List<(string Normalized, NomenclatureRef Item)> normalizedNames,
+        List<(NomenclatureRef Item, float[] Vec)>? catalogVectors,
+        float[]? lineVec)
     {
         // 1. Точный код.
         if (!string.IsNullOrWhiteSpace(line.Sku)
@@ -87,8 +117,16 @@ public sealed class InvoiceLineMatcher
                 Confidence: 0.95);
         }
 
-        // 3 + 4. Partial / fuzzy.
+        // 3-5. Partial / Semantic / Fuzzy — все кандидаты в одну кучу, ranking по score.
         var candidates = ScoreCandidates(normalizedQuery, normalizedNames);
+
+        // Sprint 11: добавляем семантические кандидаты если есть embeddings.
+        if (catalogVectors is not null && lineVec is not null)
+        {
+            var semanticCandidates = ScoreSemanticCandidates(lineVec, catalogVectors);
+            candidates.AddRange(semanticCandidates);
+        }
+
         if (candidates.Count == 0)
         {
             return new MatchedInvoiceLine(
@@ -99,8 +137,19 @@ public sealed class InvoiceLineMatcher
                 Confidence: 0.0);
         }
 
-        var best = candidates[0];
-        var alternatives = candidates.Skip(1).Take(MaxAlternatives - 1).ToArray();
+        // Дедуплицируем по Item.Id, оставляя лучший score.
+        var bestByItemId = new Dictionary<string, MatchCandidate>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in candidates)
+        {
+            if (!bestByItemId.TryGetValue(c.Item.Id, out var existing) || c.Score > existing.Score)
+            {
+                bestByItemId[c.Item.Id] = c;
+            }
+        }
+
+        var ranked = bestByItemId.Values.OrderByDescending(c => c.Score).Take(MaxAlternatives).ToList();
+        var best = ranked[0];
+        var alternatives = ranked.Skip(1).ToArray();
 
         return new MatchedInvoiceLine(
             Source: line,
@@ -108,6 +157,66 @@ public sealed class InvoiceLineMatcher
             Alternatives: alternatives,
             Kind: best.Kind,
             Confidence: best.Score);
+    }
+
+    // Sprint 11: cosine similarity между line embedding и каталогом.
+    private static List<MatchCandidate> ScoreSemanticCandidates(
+        float[] lineVec,
+        List<(NomenclatureRef Item, float[] Vec)> catalogVectors)
+    {
+        var lineNorm = VectorNorm(lineVec);
+        if (lineNorm <= 0f)
+        {
+            return new List<MatchCandidate>();
+        }
+
+        var scored = new List<MatchCandidate>();
+        foreach (var (item, vec) in catalogVectors)
+        {
+            if (vec.Length != lineVec.Length)
+            {
+                continue;
+            }
+            var sim = CosineSimilarity(lineVec, vec, lineNorm);
+            if (sim < SemanticCandidateThreshold)
+            {
+                continue;
+            }
+            // Sprint 11 scoring: чистый cosine score. Сильные семантические матчи (>0.82)
+            // обходят PartialName/FuzzyName в финальном ranking.
+            scored.Add(new MatchCandidate(item, sim, MatchKind.SemanticName));
+        }
+
+        return scored.OrderByDescending(c => c.Score).Take(MaxAlternatives).ToList();
+    }
+
+    private static double CosineSimilarity(float[] a, float[] b, double normA)
+    {
+        // Pre-computed normA — экономит sqrt на каждой паре.
+        double dot = 0, normB = 0;
+        for (var i = 0; i < a.Length; i++)
+        {
+            dot += a[i] * b[i];
+            normB += b[i] * b[i];
+        }
+        normB = Math.Sqrt(normB);
+        if (normA <= 0 || normB <= 0)
+        {
+            return 0;
+        }
+        var sim = dot / (normA * normB);
+        // Clamp [0..1] — OpenAI embeddings нормализованы, отрицательные значения редкие но возможны.
+        return Math.Max(0, Math.Min(1, sim));
+    }
+
+    private static double VectorNorm(float[] v)
+    {
+        double sum = 0;
+        for (var i = 0; i < v.Length; i++)
+        {
+            sum += v[i] * v[i];
+        }
+        return Math.Sqrt(sum);
     }
 
     private static List<MatchCandidate> ScoreCandidates(

@@ -29,6 +29,10 @@ public sealed class OpenAiProviderOptions
     /// <summary>Модель. По умолчанию gpt-4o (multi-modal, vision-capable).</summary>
     public string Model { get; init; } = "gpt-4o";
 
+    /// <summary>Sprint 11: embedding-модель для семантического матчинга каталога.
+    /// По умолчанию text-embedding-3-small (1536 dim, $0.02/1M токенов).</summary>
+    public string EmbeddingModel { get; init; } = "text-embedding-3-small";
+
     /// <summary>Базовый URL API. Кастомный нужен только для прокси / Azure OpenAI.</summary>
     public string? BaseUrl { get; init; }
 
