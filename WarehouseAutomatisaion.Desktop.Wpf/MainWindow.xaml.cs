@@ -37,6 +37,7 @@ public partial class MainWindow : Window
         "finance",
         "purchasing",
         "warehouse",
+        "wms",
         "stock",
         "cells",
         "catalog",
@@ -127,9 +128,8 @@ public partial class MainWindow : Window
         ApplyAuthorization();
         InitializeDatabaseStatus();
         InitializeUpdatePanel();
-        // WMS pivot: первая страница — Остатки (главная для оператора склада).
-        // Раньше был dashboard с накопителями legacy Закупки/Продажи.
-        OpenSection("stock");
+        // WMS pivot: первая страница — единое рабочее место склада.
+        OpenSection("wms");
 
         InitializeTrayIcon();
 
@@ -619,7 +619,7 @@ public partial class MainWindow : Window
             && WorkspaceTabs.SelectedItem is TabItem { Tag: string selectedKey }
             && string.Equals(selectedKey, "settings", StringComparison.OrdinalIgnoreCase))
         {
-            OpenSection("stock");
+            OpenSection("wms");
         }
     }
 
@@ -931,16 +931,19 @@ public partial class MainWindow : Window
         _navButtonsByKey[NavigationCommandCatalog.WarehouseSectionKey] = NavWarehouseButton;
         _navButtonsByKey["warehouse"] = NavWarehouseButton;
 
-        // Sprint 1 (WMS остатки): отдельная кнопка для живых остатков (app_warehouse_stock_balances).
-        _navButtonsByKey["scan"] = NavQuickScanButton;
-        _navButtonsByKey["stock"] = NavStockBalancesButton;
-
-        // Sprint 3 (WMS ячейки): кнопка для master-data ячеек склада.
-        _navButtonsByKey["cells"] = NavStorageCellsButton;
-
-        // WMS pivot: номенклатура и журнал теперь часть основного складского сценария.
-        _navButtonsByKey["catalog"] = NavCatalogButton;
-        _navButtonsByKey["operation-log"] = NavOperationLogButton;
+        // WMS pivot: один видимый вход «Склад». Старые прямые ключи оставляем,
+        // но подсветка ведёт в общий блок, чтобы sidebar не расползался.
+        _navButtonsByKey["wms"] = NavWmsButton;
+        _navButtonsByKey["scan"] = NavWmsButton;
+        _navButtonsByKey["stock"] = NavWmsButton;
+        _navButtonsByKey["cells"] = NavWmsButton;
+        _navButtonsByKey["catalog"] = NavWmsButton;
+        _navButtonsByKey["receive"] = NavWmsButton;
+        _navButtonsByKey["transfer"] = NavWmsButton;
+        _navButtonsByKey["stocktake"] = NavWmsButton;
+        _navButtonsByKey["receipt-drafts"] = NavWmsButton;
+        _navButtonsByKey["operation-log"] = NavWmsButton;
+        _navButtonsByKey["assistant"] = NavWmsButton;
     }
 
     private void RegisterSections()
@@ -1021,6 +1024,13 @@ public partial class MainWindow : Window
             Subtitle: "Остатки, перемещения, резервы и инвентаризация.",
             Closable: true,
             Factory: () => new WarehouseWorkspaceView(_salesWorkspace));
+
+        _sections["wms"] = new SectionDefinition(
+            Key: "wms",
+            Caption: "Склад",
+            Subtitle: "Единое рабочее место WMS: сканирование, остатки, ячейки, операции и AI-помощник.",
+            Closable: false,
+            Factory: () => new WmsWorkspaceView(_salesWorkspace, _startupStatus.UserName));
 
         // Sprint 1 (WMS остатки): новая витрина живых остатков из app_warehouse_stock_balances.
         // В Sprint 2 источник заменится на pull через OData из 1С, UI остаётся без изменений.
@@ -1624,7 +1634,7 @@ public partial class MainWindow : Window
 
         if (WorkspaceTabs.Items.Count == 0)
         {
-            OpenSection("stock");
+            OpenSection("wms");
             return;
         }
 
@@ -1638,7 +1648,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            OpenSection("stock");
+            OpenSection("wms");
         }
     }
 

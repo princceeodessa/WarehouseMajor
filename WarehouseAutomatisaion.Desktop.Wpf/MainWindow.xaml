@@ -10,6 +10,7 @@
         MinWidth="1240"
         MinHeight="760"
         WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
         Background="#F7F9FF">
     <Window.Resources>
         <Style x:Key="SidebarNavButtonStyle" TargetType="Button">
@@ -282,11 +283,35 @@
                                 </Grid>
                             </Button>
 
-                            <!-- ====== СКЛАД (WMS core) ====== -->
+                            <Button x:Name="NavWmsButton"
+                                    Tag="wms"
+                                    AutomationProperties.Name="Склад"
+                                    Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Click="HandleNavButtonClick">
+                                <Grid Margin="14,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               FontFamily="Segoe Fluent Icons"
+                                               Text="&#xE7F8;"
+                                               FontSize="22"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Склад"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
+                            <!-- Legacy direct WMS entries are kept for deep links but hidden from sidebar. -->
                             <TextBlock Text="СКЛАД"
                                        Foreground="#A9B3C7"
                                        FontSize="10.5"
                                        FontWeight="SemiBold"
+                                       Visibility="Collapsed"
                                        Margin="6,0,0,8" />
 
                             <!-- WMS быстрый скан: товар по штрихкоду / ячейка по QR -->
@@ -294,6 +319,7 @@
                                     Tag="scan"
                                     AutomationProperties.Name="WMS скан"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
@@ -318,6 +344,7 @@
                                     Tag="stock"
                                     AutomationProperties.Name="Остатки"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
@@ -342,6 +369,7 @@
                                     Tag="cells"
                                     AutomationProperties.Name="Ячейки"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
@@ -365,6 +393,7 @@
                                     Tag="catalog"
                                     AutomationProperties.Name="Номенклатура"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
@@ -389,6 +418,7 @@
                                        Foreground="#A9B3C7"
                                        FontSize="10.5"
                                        FontWeight="SemiBold"
+                                       Visibility="Collapsed"
                                        Margin="6,16,0,8" />
 
                             <!-- Sprint 4 (WMS приёмка): окно записи товара в ячейку -->
@@ -396,6 +426,7 @@
                                     Tag="receive"
                                     AutomationProperties.Name="Приёмка"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
@@ -420,6 +451,7 @@
                                     Tag="transfer"
                                     AutomationProperties.Name="Перемещение"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
@@ -444,6 +476,7 @@
                                     Tag="stocktake"
                                     AutomationProperties.Name="Инвентаризация"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
@@ -467,6 +500,7 @@
                                     Tag="operation-log"
                                     AutomationProperties.Name="Журнал операций"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
@@ -491,6 +525,7 @@
                                        Foreground="#A9B3C7"
                                        FontSize="10.5"
                                        FontWeight="SemiBold"
+                                       Visibility="Collapsed"
                                        Margin="6,16,0,8" />
 
                             <!-- Sprint 12 (AI Chat assistant): «Спроси склад» — chat с Claude tool use -->
@@ -498,6 +533,7 @@
                                     Tag="assistant"
                                     AutomationProperties.Name="Спроси склад"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
@@ -522,6 +558,7 @@
                                     Tag="receipt-drafts"
                                     AutomationProperties.Name="Черновики AI"
                                     Style="{StaticResource MainSectionBlockButtonStyle}"
+                                    Visibility="Collapsed"
                                     Click="HandleNavButtonClick">
                                 <Grid Margin="14,0">
                                     <Grid.ColumnDefinitions>
