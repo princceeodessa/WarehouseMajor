@@ -26,10 +26,10 @@
     <AssemblyName>Major</AssemblyName>
     <Title>Major</Title>
     <Product>Major</Product>
-    <Version>1.0.151</Version>
-    <AssemblyVersion>1.0.151.0</AssemblyVersion>
-    <FileVersion>1.0.151.0</FileVersion>
-    <InformationalVersion>1.0.151</InformationalVersion>
+    <Version>1.0.152</Version>
+    <AssemblyVersion>1.0.152.0</AssemblyVersion>
+    <FileVersion>1.0.152.0</FileVersion>
+    <InformationalVersion>1.0.152</InformationalVersion>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
