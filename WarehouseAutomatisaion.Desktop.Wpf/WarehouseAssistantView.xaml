@@ -98,15 +98,16 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <Button x:Name="OpenConfigButton"
-                            Content="📂 Папка настроек"
+                            Content="⚙ Настроить AI"
                             Height="30" Padding="14,0"
                             Margin="0,0,8,0"
-                            Background="#FFFFFF"
-                            BorderBrush="{StaticResource LineBrush}"
-                            BorderThickness="1"
+                            Background="{StaticResource PrimaryBrush}"
+                            Foreground="White"
+                            BorderThickness="0"
                             Cursor="Hand"
+                            FontWeight="SemiBold"
                             Visibility="Collapsed"
-                            ToolTip="Открыть папку где должен лежать appsettings.local.json с API-ключами"
+                            ToolTip="Ввести API-ключи Anthropic / OpenAI"
                             Click="OnOpenConfigClicked" />
                     <Button x:Name="ClearButton"
                             Content="🗑 Очистить"

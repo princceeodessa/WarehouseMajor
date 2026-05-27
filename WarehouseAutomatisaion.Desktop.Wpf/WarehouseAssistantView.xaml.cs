@@ -192,53 +192,27 @@ public partial class WarehouseAssistantView : UserControl
         StatusText.Text = "История очищена. Можно начинать новый диалог.";
     }
 
-    // Sprint 13 fix: открыть папку %LOCALAPPDATA%\Major\ где должен лежать appsettings.local.json.
-    // Создаст папку если нет, затем откроет в Explorer.
+    // Sprint 13 fix #2: «Настроить AI» — открывает окно для ввода ключей,
+    // сразу применяет (reconnect chat без перезапуска Major).
     private void OnOpenConfigClicked(object sender, RoutedEventArgs e)
     {
-        var dir = WarehouseAutomatisaion.Desktop.Data.AppConfigLocator.UserConfigDirectory;
-        try
+        var window = new AiSettingsWindow { Owner = Window.GetWindow(this) };
+        if (window.ShowDialog() == true)
         {
-            // Если файла нет — создадим шаблон чтобы пользователь сразу понял формат.
-            var filePath = WarehouseAutomatisaion.Desktop.Data.AppConfigLocator.UserConfigFilePath;
-            if (!System.IO.File.Exists(filePath))
-            {
-                var template = """
-                {
-                  "AiProviders": {
-                    "Default": "Anthropic",
-                    "Anthropic": {
-                      "ApiKey": "ВСТАВЬ-СЮДА-АНТРОПИКОВСКИЙ-КЛЮЧ-НАЧИНАЮЩИЙСЯ-С-sk-ant-api03",
-                      "Model": "claude-opus-4-7",
-                      "MaxTokens": 8192,
-                      "EnableCaching": true,
-                      "TimeoutSeconds": 60
-                    },
-                    "OpenAi": {
-                      "ApiKey": "ВСТАВЬ-СЮДА-OPENAI-КЛЮЧ-НАЧИНАЮЩИЙСЯ-С-sk-proj-ИЛИ-sk-",
-                      "Model": "gpt-4o",
-                      "EmbeddingModel": "text-embedding-3-small",
-                      "MaxTokens": 4096,
-                      "TimeoutSeconds": 60
-                    }
-                  }
-                }
-                """;
-                System.IO.File.WriteAllText(filePath, template);
-                StatusText.Text = $"📝 Шаблон создан: {filePath}. Открой его, вставь ключи, перезапусти Major.";
-            }
+            // Перезагружаем chat factory с новыми ключами.
+            _chat = null;
+            _bubbles.Clear();
+            _history.Clear();
+            EmptyStatePanel.Visibility = Visibility.Visible;
+            MessagesScroll.Visibility = Visibility.Collapsed;
+            OpenConfigButton.Visibility = Visibility.Collapsed;
+            _isInitialized = false;
+            OnLoaded(this, new RoutedEventArgs());
 
-            // Открыть folder в Explorer и выделить файл.
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            if (_chat is not null)
             {
-                FileName = "explorer.exe",
-                Arguments = System.IO.File.Exists(filePath) ? $"/select,\"{filePath}\"" : $"\"{dir}\"",
-                UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = $"❌ Не удалось открыть папку: {ex.Message}. Путь: {dir}";
+                StatusText.Text = $"✓ AI подключён ({_chat.ProviderName}). Можно спрашивать.";
+            }
         }
     }
 
