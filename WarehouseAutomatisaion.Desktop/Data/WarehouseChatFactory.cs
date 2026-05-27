@@ -56,31 +56,21 @@ public static class WarehouseChatFactory
 
     private static AiProvidersOptions? TryLoadAiProviders()
     {
-        var candidates = new[]
+        var found = AppConfigLocator.TryReadAiProvidersSection();
+        if (found is null)
         {
-            Path.Combine(AppContext.BaseDirectory, "appsettings.local.json"),
-            Path.GetFullPath(Path.Combine(
-                AppContext.BaseDirectory, "..", "..", "..", "WarehouseAutomatisaion.Desktop.Wpf", "appsettings.local.json")),
-        };
-
-        foreach (var path in candidates)
-        {
-            if (!File.Exists(path)) continue;
-            try
-            {
-                using var stream = File.OpenRead(path);
-                using var document = JsonDocument.Parse(stream);
-                if (!document.RootElement.TryGetProperty("AiProviders", out var section))
-                {
-                    continue;
-                }
-                return JsonSerializer.Deserialize<AiProvidersOptions>(
-                    section.GetRawText(),
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            }
-            catch { /* try next */ }
+            return null;
         }
-        return null;
+        try
+        {
+            return JsonSerializer.Deserialize<AiProvidersOptions>(
+                found.Value.SectionJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private sealed class StaticMonitor<T> : IOptionsMonitor<T>

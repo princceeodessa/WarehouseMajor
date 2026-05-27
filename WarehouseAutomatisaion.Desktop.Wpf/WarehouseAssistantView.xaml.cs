@@ -51,7 +51,19 @@ public partial class WarehouseAssistantView : UserControl
         var bundle = WarehouseChatFactory.TryCreate();
         if (bundle is null)
         {
-            StatusText.Text = "❌ Claude API не настроен. Добавь AiProviders:Anthropic:ApiKey в appsettings.local.json.";
+            // Диагностика — показать пользователю КОНКРЕТНЫЙ путь куда положить ключи.
+            var foundConfig = WarehouseAutomatisaion.Desktop.Data.AppConfigLocator.FindLocalConfigPath();
+            var targetPath = WarehouseAutomatisaion.Desktop.Data.AppConfigLocator.UserConfigFilePath;
+
+            if (foundConfig is null)
+            {
+                StatusText.Text = $"❌ Не найден файл appsettings.local.json. Создай его по пути: {targetPath}";
+            }
+            else
+            {
+                StatusText.Text = $"❌ Файл {foundConfig} найден, но секция AiProviders:Anthropic:ApiKey пустая или отсутствует. Открой файл и добавь ключ.";
+            }
+
             InputBox.IsEnabled = false;
             SendButton.IsEnabled = false;
             StatusBadge.Visibility = Visibility.Visible;
@@ -59,6 +71,12 @@ public partial class WarehouseAssistantView : UserControl
             StatusBadge.Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xF4, 0xE3));
             StatusBadge.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD9, 0xA3));
             StatusBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0xB7, 0x66, 0x00));
+
+            // Кнопка «Папка настроек» — открывает Explorer на нужный folder.
+            OpenConfigButton.Visibility = Visibility.Visible;
+
+            // Обновляем hint в empty state.
+            HintText.Text = $"AI выключен — нужен Anthropic API ключ. Нажми «📂 Папка настроек» чтобы открыть {targetPath}";
             return;
         }
 
@@ -172,6 +190,56 @@ public partial class WarehouseAssistantView : UserControl
         EmptyStatePanel.Visibility = Visibility.Visible;
         MessagesScroll.Visibility = Visibility.Collapsed;
         StatusText.Text = "История очищена. Можно начинать новый диалог.";
+    }
+
+    // Sprint 13 fix: открыть папку %LOCALAPPDATA%\Major\ где должен лежать appsettings.local.json.
+    // Создаст папку если нет, затем откроет в Explorer.
+    private void OnOpenConfigClicked(object sender, RoutedEventArgs e)
+    {
+        var dir = WarehouseAutomatisaion.Desktop.Data.AppConfigLocator.UserConfigDirectory;
+        try
+        {
+            // Если файла нет — создадим шаблон чтобы пользователь сразу понял формат.
+            var filePath = WarehouseAutomatisaion.Desktop.Data.AppConfigLocator.UserConfigFilePath;
+            if (!System.IO.File.Exists(filePath))
+            {
+                var template = """
+                {
+                  "AiProviders": {
+                    "Default": "Anthropic",
+                    "Anthropic": {
+                      "ApiKey": "ВСТАВЬ-СЮДА-АНТРОПИКОВСКИЙ-КЛЮЧ-НАЧИНАЮЩИЙСЯ-С-sk-ant-api03",
+                      "Model": "claude-opus-4-7",
+                      "MaxTokens": 8192,
+                      "EnableCaching": true,
+                      "TimeoutSeconds": 60
+                    },
+                    "OpenAi": {
+                      "ApiKey": "ВСТАВЬ-СЮДА-OPENAI-КЛЮЧ-НАЧИНАЮЩИЙСЯ-С-sk-proj-ИЛИ-sk-",
+                      "Model": "gpt-4o",
+                      "EmbeddingModel": "text-embedding-3-small",
+                      "MaxTokens": 4096,
+                      "TimeoutSeconds": 60
+                    }
+                  }
+                }
+                """;
+                System.IO.File.WriteAllText(filePath, template);
+                StatusText.Text = $"📝 Шаблон создан: {filePath}. Открой его, вставь ключи, перезапусти Major.";
+            }
+
+            // Открыть folder в Explorer и выделить файл.
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = System.IO.File.Exists(filePath) ? $"/select,\"{filePath}\"" : $"\"{dir}\"",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"❌ Не удалось открыть папку: {ex.Message}. Путь: {dir}";
+        }
     }
 
     private void AddBubble(ChatBubble bubble)

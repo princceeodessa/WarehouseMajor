@@ -96,15 +96,27 @@
                                TextWrapping="Wrap"
                                Text="Спрашивай по-русски: «сколько у нас лопат?», «где лежит товар X?», «куда положить Y?», «что в ячейке Z?»" />
                 </StackPanel>
-                <Button Grid.Column="1"
-                        x:Name="ClearButton"
-                        Content="🗑 Очистить"
-                        Height="30" Padding="14,0"
-                        Background="#FFFFFF"
-                        BorderBrush="{StaticResource LineBrush}"
-                        BorderThickness="1"
-                        Cursor="Hand"
-                        Click="OnClearClicked" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="OpenConfigButton"
+                            Content="📂 Папка настроек"
+                            Height="30" Padding="14,0"
+                            Margin="0,0,8,0"
+                            Background="#FFFFFF"
+                            BorderBrush="{StaticResource LineBrush}"
+                            BorderThickness="1"
+                            Cursor="Hand"
+                            Visibility="Collapsed"
+                            ToolTip="Открыть папку где должен лежать appsettings.local.json с API-ключами"
+                            Click="OnOpenConfigClicked" />
+                    <Button x:Name="ClearButton"
+                            Content="🗑 Очистить"
+                            Height="30" Padding="14,0"
+                            Background="#FFFFFF"
+                            BorderBrush="{StaticResource LineBrush}"
+                            BorderThickness="1"
+                            Cursor="Hand"
+                            Click="OnClearClicked" />
+                </StackPanel>
             </Grid>
         </Border>
 

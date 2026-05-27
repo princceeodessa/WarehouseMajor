@@ -81,12 +81,7 @@ public static class InvoiceRecognitionPipelineFactory
 
     private static AiProvidersOptions? TryLoadAiProviders()
     {
-        var candidates = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "appsettings.local.json"),
-            Path.GetFullPath(Path.Combine(
-                AppContext.BaseDirectory, "..", "..", "..", "WarehouseAutomatisaion.Desktop.Wpf", "appsettings.local.json")),
-        };
+        var candidates = AppConfigLocator.CandidatePaths;
 
         foreach (var path in candidates)
         {
