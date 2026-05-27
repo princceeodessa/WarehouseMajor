@@ -43,14 +43,33 @@ Subagent `sql-schema-reviewer` проверяет это автоматичес�
 
 `BackplaneService` — единая точка чтения для UI слоя. Кастомные SQL вне него = code smell.
 
-## Sales lines gap (активная инициатива)
+## Sales lines gap (известная проблема, blocked на 1С)
 
-`onec_sales_document_lines` содержит ~92k строк ТЧ из 1С, но `app_sales_document_lines` НЕ наполняется → **97% документов в UI показывают 0₽**.
+В UI 96.7% заказов (`order`) и 99.7% счетов (`invoice`) **без строк** —
+сумма документа = 0₽. Снимок 2026-05-27:
 
-- Диагностика: skill `/sales-lines-gap-diag` — снимок onec/app и diff в `exports_gap_1c_<date>/`
-- Артефакты: `exports_gap_1c_20260503*` (исторические замеры)
+| document_kind | total | with_lines | gap |
+|---|---|---|---|
+| order | 21295 | 712 | **96.7%** |
+| invoice | 711 | 2 | **99.7%** |
 
-При предложении читать `app_sales_document_lines` — всегда упоминай что таблица сейчас пустая.
+**Источника для backfill нет**:
+- `onec_sales_document_lines` как таблица **не существует**. `onec_*` —
+  generic snapshot store (`onec_object_snapshots`, `onec_tabular_section_rows`)
+  и они пусты (0 строк).
+- Legacy `sales_order_lines` / `sales_invoice_lines` / `sales_shipment_lines`
+  тоже пустые (0 строк во всех).
+
+Старый skill `/sales-lines-gap-diag` и упоминания «92k строк» из MEMORY.md
+устарели. Подробности — в `tmp/sales_gap_diag_2026-05-27.md`.
+
+**Пути закрытия gap'а** (все требуют решения вне Major):
+1. Программист 1С опубликует OData / REST / View с тч → код для тяги.
+2. Импорт ТЧ из Excel-выгрузок (если бухгалтерия их даёт).
+3. AI распознавание расходных накладных (как для приходных в Sprint 5/8).
+
+При предложении читать `app_sales_document_lines` — всегда упоминай что
+таблица сейчас неполная, источник заблокирован публикацией 1С.
 
 ## Release process
 
