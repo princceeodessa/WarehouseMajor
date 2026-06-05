@@ -1066,11 +1066,11 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new ReceiptDraftsWorkspaceView());
 
-        // Sprint 12 (AI Chat assistant): «Спроси склад» — chat с Claude tool use.
+        // WMS AI assistant: локальная LLM через 1C/Ollama API + точные WMS-инструменты.
         _sections["assistant"] = new SectionDefinition(
             Key: "assistant",
-            Caption: "Спроси склад",
-            Subtitle: "AI помощник с доступом к остаткам, ячейкам и рекомендациям через Claude tool use.",
+            Caption: "Чат помощник",
+            Subtitle: "AI помощник с доступом к 1C/Ollama аналитике, остаткам, ячейкам и рекомендациям WMS.",
             Closable: true,
             Factory: () => new WarehouseAssistantView());
 

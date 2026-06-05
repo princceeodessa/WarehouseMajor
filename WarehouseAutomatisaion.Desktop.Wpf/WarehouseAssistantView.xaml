@@ -14,7 +14,6 @@
         <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
         <SolidColorBrush x:Key="HeadingBrush" Color="#17213A" />
 
-        <!-- Typing dots — анимация opacity синхронно с offset через triple Storyboard -->
         <Style x:Key="TypingDotStyle" TargetType="Ellipse">
             <Setter Property="Width" Value="6" />
             <Setter Property="Height" Value="6" />
@@ -23,7 +22,6 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
-        <!-- Suggestion chip — для quick-start фраз -->
         <Style x:Key="SuggestionChipStyle" TargetType="Button">
             <Setter Property="Margin" Value="0,4,8,0" />
             <Setter Property="Padding" Value="12,6" />
@@ -56,83 +54,121 @@
     </UserControl.Resources>
 
     <DockPanel LastChildFill="True" Margin="16">
-
-        <!-- Header -->
         <Border DockPanel.Dock="Top"
                 Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
-                BorderThickness="1" CornerRadius="12"
-                Padding="14,12" Margin="0,0,0,10">
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="16,13"
+                Margin="0,0,0,10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
+
                 <StackPanel Grid.Column="0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="🤖 Спроси склад"
-                                   Foreground="{StaticResource HeadingBrush}"
-                                   FontSize="16" FontWeight="SemiBold"
-                                   VerticalAlignment="Center" />
-                        <Border x:Name="StatusBadge"
-                                Margin="10,0,0,0"
-                                Padding="8,2"
-                                Background="#E7F7EC"
-                                BorderBrush="#A6E0B6"
+                        <Border Width="34"
+                                Height="34"
+                                Background="#EEF2FF"
+                                BorderBrush="#C8D1FF"
                                 BorderThickness="1"
                                 CornerRadius="10"
-                                VerticalAlignment="Center"
-                                Visibility="Collapsed">
-                            <TextBlock x:Name="StatusBadgeText"
-                                       Text="✓ Подключено"
-                                       Foreground="#2E7D3F"
-                                       FontSize="10.5"
-                                       FontWeight="SemiBold" />
+                                Margin="0,0,10,0">
+                            <TextBlock FontFamily="Segoe Fluent Icons"
+                                       Text="&#xE8BD;"
+                                       Foreground="{StaticResource PrimaryBrush}"
+                                       FontSize="18"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
                         </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Чат помощник"
+                                       Foreground="{StaticResource HeadingBrush}"
+                                       FontSize="18"
+                                       FontWeight="SemiBold" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Border x:Name="StatusBadge"
+                                        Padding="8,2"
+                                        Background="#E7F7EC"
+                                        BorderBrush="#A6E0B6"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Visibility="Collapsed">
+                                    <TextBlock x:Name="StatusBadgeText"
+                                               Text="Подключено"
+                                               Foreground="#2E7D3F"
+                                               FontSize="10.5"
+                                               FontWeight="SemiBold" />
+                                </Border>
+                                <TextBlock x:Name="HintText"
+                                           Foreground="{StaticResource MutedBrush}"
+                                           FontSize="11.5"
+                                           Margin="8,1,0,0"
+                                           TextWrapping="Wrap"
+                                           Text="Локальная LLM через 1C/Ollama API + точные WMS-инструменты по остаткам, ячейкам и размещению." />
+                            </StackPanel>
+                        </StackPanel>
                     </StackPanel>
-                    <TextBlock x:Name="HintText"
-                               Foreground="{StaticResource MutedBrush}"
-                               FontSize="11.5" Margin="0,4,0,0"
-                               TextWrapping="Wrap"
-                               Text="Спрашивай по-русски: «сколько у нас лопат?», «где лежит товар X?», «куда положить Y?», «что в ячейке Z?»" />
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="OpenConfigButton"
-                            Content="⚙ Настроить AI"
-                            Height="30" Padding="14,0"
+                            Height="32"
+                            Padding="14,0"
                             Margin="0,0,8,0"
-                            Background="{StaticResource PrimaryBrush}"
-                            Foreground="White"
-                            BorderThickness="0"
-                            Cursor="Hand"
-                            FontWeight="SemiBold"
-                            Visibility="Collapsed"
-                            ToolTip="Ввести API-ключи Anthropic / OpenAI"
-                            Click="OnOpenConfigClicked" />
-                    <Button x:Name="ClearButton"
-                            Content="🗑 Очистить"
-                            Height="30" Padding="14,0"
                             Background="#FFFFFF"
                             BorderBrush="{StaticResource LineBrush}"
                             BorderThickness="1"
                             Cursor="Hand"
-                            Click="OnClearClicked" />
+                            FontWeight="SemiBold"
+                            ToolTip="Открыть папку локальных настроек Major"
+                            Click="OnOpenConfigClicked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe Fluent Icons"
+                                       Text="&#xE713;"
+                                       FontSize="13"
+                                       Margin="0,0,7,0"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="Настройки" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ClearButton"
+                            Height="32"
+                            Padding="14,0"
+                            Background="#FFFFFF"
+                            BorderBrush="{StaticResource LineBrush}"
+                            BorderThickness="1"
+                            Cursor="Hand"
+                            Click="OnClearClicked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe Fluent Icons"
+                                       Text="&#xE74D;"
+                                       FontSize="13"
+                                       Margin="0,0,7,0"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="Очистить" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- Input footer -->
         <Border DockPanel.Dock="Bottom"
                 Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
-                BorderThickness="1" CornerRadius="12"
-                Padding="14,12" Margin="0,10,0,0">
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="14,12"
+                Margin="0,10,0,0">
             <DockPanel LastChildFill="True">
                 <TextBlock x:Name="StatusText"
                            DockPanel.Dock="Top"
                            Foreground="{StaticResource MutedBrush}"
                            FontSize="11.5"
-                           Margin="0,0,0,6" />
+                           Margin="0,0,0,6"
+                           Text="Готов к вопросу." />
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -140,83 +176,102 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="InputBox"
                              Grid.Column="0"
-                             Height="42" Padding="12,0"
+                             Height="44"
+                             Padding="12,0"
                              VerticalContentAlignment="Center"
-                             BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                             BorderBrush="{StaticResource LineBrush}"
+                             BorderThickness="1"
                              FontSize="13"
                              AcceptsReturn="False"
                              KeyDown="OnInputKeyDown" />
                     <Button Grid.Column="1"
                             x:Name="SendButton"
-                            Content="Отправить ↵"
-                            Height="42" Padding="20,0" Margin="8,0,0,0"
+                            Height="44"
+                            Padding="20,0"
+                            Margin="8,0,0,0"
                             Background="{StaticResource PrimaryBrush}"
                             Foreground="White"
                             BorderThickness="0"
                             Cursor="Hand"
                             FontWeight="SemiBold"
                             IsDefault="True"
-                            Click="OnSendClicked" />
+                            Click="OnSendClicked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Отправить" VerticalAlignment="Center" />
+                            <TextBlock FontFamily="Segoe Fluent Icons"
+                                       Text="&#xE724;"
+                                       FontSize="12"
+                                       Margin="8,1,0,0"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
             </DockPanel>
         </Border>
 
-        <!-- Messages region -->
         <Border Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
-                BorderThickness="1" CornerRadius="12">
+                BorderThickness="1"
+                CornerRadius="12">
             <Grid>
-                <!-- Empty state с suggestion chips — показывается когда история пустая -->
                 <Grid x:Name="EmptyStatePanel" Visibility="Visible">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="540" Margin="40">
-                        <Border Width="64" Height="64"
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                MaxWidth="680"
+                                Margin="40">
+                        <Border Width="66"
+                                Height="66"
                                 Background="#EEF2FF"
-                                CornerRadius="32"
+                                BorderBrush="#C8D1FF"
+                                BorderThickness="1"
+                                CornerRadius="20"
                                 HorizontalAlignment="Center"
                                 Margin="0,0,0,16">
-                            <TextBlock Text="✨"
+                            <TextBlock FontFamily="Segoe Fluent Icons"
+                                       Text="&#xE8BD;"
+                                       Foreground="{StaticResource PrimaryBrush}"
                                        FontSize="32"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Text="Что нужно знать о складе?"
+                        <TextBlock Text="Спроси склад нормальным языком"
                                    Foreground="{StaticResource HeadingBrush}"
-                                   FontSize="18" FontWeight="SemiBold"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"
                                    HorizontalAlignment="Center"
                                    Margin="0,0,0,6" />
-                        <TextBlock Text="AI смотрит на твои остатки, ячейки и историю — отвечает на основе реальных данных, не выдумывает."
+                        <TextBlock Text="Помощник отвечает по двум источникам: точные WMS-данные берёт из Major, а аналитику по 1C отправляет в локальную модель на сервере."
                                    Foreground="{StaticResource MutedBrush}"
                                    FontSize="12.5"
                                    TextWrapping="Wrap"
                                    TextAlignment="Center"
                                    Margin="0,0,0,18" />
-                        <TextBlock Text="Попробуй спросить:"
+                        <TextBlock Text="Быстрые вопросы:"
                                    Foreground="{StaticResource MutedBrush}"
                                    FontSize="11.5"
                                    HorizontalAlignment="Center"
                                    Margin="0,0,0,4" />
                         <WrapPanel HorizontalAlignment="Center">
                             <Button Style="{StaticResource SuggestionChipStyle}"
-                                    Content="📦 сколько у нас в наличии лопат?"
-                                    Tag="сколько у нас в наличии лопат?"
+                                    Content="Какие товары залежались?"
+                                    Tag="Какие товары залежались и что лучше продвигать?"
                                     Click="OnSuggestionClicked" />
                             <Button Style="{StaticResource SuggestionChipStyle}"
-                                    Content="📍 где лежит крепёж?"
-                                    Tag="где лежит крепёж?"
+                                    Content="Где риск дефицита?"
+                                    Tag="Какие позиции могут закончиться быстрее всего?"
                                     Click="OnSuggestionClicked" />
                             <Button Style="{StaticResource SuggestionChipStyle}"
-                                    Content="🗂 что в ячейке WH02-PCK-01-01-01-01?"
-                                    Tag="что в ячейке WH02-PCK-01-01-01-01?"
+                                    Content="Где лежит крепёж?"
+                                    Tag="Где лежит крепёж?"
                                     Click="OnSuggestionClicked" />
                             <Button Style="{StaticResource SuggestionChipStyle}"
-                                    Content="🎯 куда положить новые шурупы?"
-                                    Tag="куда положить новые шурупы?"
+                                    Content="Что в ячейке WH02-PCK-01-01-01-01?"
+                                    Tag="Что в ячейке WH02-PCK-01-01-01-01?"
                                     Click="OnSuggestionClicked" />
                         </WrapPanel>
                     </StackPanel>
                 </Grid>
 
-                <!-- Message list -->
                 <ScrollViewer x:Name="MessagesScroll"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
@@ -231,9 +286,8 @@
                                             BorderThickness="1"
                                             CornerRadius="12"
                                             Padding="14,10"
-                                            MaxWidth="640">
+                                            MaxWidth="820">
                                         <StackPanel>
-                                            <!-- Role label + actions -->
                                             <Grid Margin="0,0,0,4">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
@@ -241,8 +295,9 @@
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Orientation="Horizontal" Grid.Column="0">
                                                     <TextBlock Text="{Binding RoleIcon}"
-                                                               FontSize="11"
-                                                               Margin="0,0,5,0"
+                                                               FontFamily="Segoe Fluent Icons"
+                                                               FontSize="12"
+                                                               Margin="0,0,6,0"
                                                                VerticalAlignment="Center" />
                                                     <TextBlock Text="{Binding RoleLabel}"
                                                                FontSize="10.5"
@@ -252,7 +307,6 @@
                                                 </StackPanel>
                                             </Grid>
 
-                                            <!-- Typing indicator (3 dots) — показывается только когда IsTyping=True -->
                                             <StackPanel x:Name="TypingPanel"
                                                         Orientation="Horizontal"
                                                         Visibility="{Binding TypingVisibility}"
@@ -307,7 +361,6 @@
                                                 </Ellipse>
                                             </StackPanel>
 
-                                            <!-- Markdown-rendered body — Inlines генерируются через attached property -->
                                             <TextBlock x:Name="BodyText"
                                                        FontSize="13"
                                                        TextWrapping="Wrap"
@@ -316,7 +369,6 @@
                                                        Visibility="{Binding BodyVisibility}"
                                                        local:MarkdownInline.Text="{Binding Body}" />
 
-                                            <!-- Footer (time + provider + tool stats) -->
                                             <TextBlock Text="{Binding Footer}"
                                                        FontSize="10.5"
                                                        Foreground="{StaticResource MutedBrush}"

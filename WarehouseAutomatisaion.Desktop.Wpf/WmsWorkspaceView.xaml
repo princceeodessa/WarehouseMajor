@@ -3,7 +3,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:local="clr-namespace:WarehouseAutomatisaion.Desktop.Wpf"
              mc:Ignorable="d"
              Background="#F7F9FD"
              Loaded="OnLoaded">
@@ -14,10 +13,11 @@
         <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
         <SolidColorBrush x:Key="HeadingBrush" Color="#17213A" />
 
-        <Style x:Key="WmsModeButtonStyle" TargetType="{x:Type Button}">
-            <Setter Property="Height" Value="40" />
-            <Setter Property="Padding" Value="12,0" />
-            <Setter Property="Margin" Value="0,0,8,8" />
+        <Style x:Key="WmsSectionButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Height" Value="42" />
+            <Setter Property="MinWidth" Value="146" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="Margin" Value="0,0,8,0" />
             <Setter Property="Background" Value="#FFFFFF" />
             <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -30,7 +30,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8"
+                                CornerRadius="10"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
                         </Border>
@@ -50,165 +50,87 @@
     </UserControl.Resources>
 
     <Grid Margin="16">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="340" />
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-        <DockPanel Grid.Column="0" LastChildFill="True" Margin="0,0,12,0">
-            <Border DockPanel.Dock="Top"
-                    Background="{StaticResource CardBrush}"
-                    BorderBrush="{StaticResource LineBrush}"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="16,12"
-                    Margin="0,0,0,10">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Склад"
-                                   Foreground="{StaticResource HeadingBrush}"
-                                   FontSize="20"
-                                   FontWeight="SemiBold" />
-                        <TextBlock x:Name="ModeSubtitleText"
-                                   Text="Единое рабочее место WMS: сканирование, остатки, ячейки, операции и журнал."
-                                   Foreground="{StaticResource MutedBrush}"
-                                   FontSize="12"
-                                   Margin="0,4,0,0"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
-                    <Border Grid.Column="1"
-                            Background="#EEF2FF"
-                            BorderBrush="#C8D1FF"
-                            BorderThickness="1"
-                            CornerRadius="14"
-                            Padding="10,5"
-                            VerticalAlignment="Center">
-                        <TextBlock Text="Одно окно"
-                                   Foreground="#2F3F74"
-                                   FontSize="11"
-                                   FontWeight="SemiBold" />
-                    </Border>
-                </Grid>
-            </Border>
-
-            <Border DockPanel.Dock="Top"
-                    Background="{StaticResource CardBrush}"
-                    BorderBrush="{StaticResource LineBrush}"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="12,10"
-                    Margin="0,0,0,10">
-                <WrapPanel>
-                    <Button x:Name="ModeScanButton" Tag="scan" Style="{StaticResource WmsModeButtonStyle}" Click="OnModeClicked">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8B6;" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Скан" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ModeStockButton" Tag="stock" Style="{StaticResource WmsModeButtonStyle}" Click="OnModeClicked">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE73E;" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Остатки" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ModeCellsButton" Tag="cells" Style="{StaticResource WmsModeButtonStyle}" Click="OnModeClicked">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE71D;" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Ячейки" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ModeCatalogButton" Tag="catalog" Style="{StaticResource WmsModeButtonStyle}" Click="OnModeClicked">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8FD;" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Номенклатура" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ModeReceiveButton" Tag="receive" Style="{StaticResource WmsModeButtonStyle}" Click="OnModeClicked">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7B8;" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Приёмка" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ModeTransferButton" Tag="transfer" Style="{StaticResource WmsModeButtonStyle}" Click="OnModeClicked">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8AB;" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Перемещение" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ModeStockTakeButton" Tag="stocktake" Style="{StaticResource WmsModeButtonStyle}" Click="OnModeClicked">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xF0E3;" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Инвентаризация" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ModeDraftsButton" Tag="receipt-drafts" Style="{StaticResource WmsModeButtonStyle}" Click="OnModeClicked">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7C3;" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="AI черновики" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="ModeLogButton" Tag="operation-log" Style="{StaticResource WmsModeButtonStyle}" Click="OnModeClicked">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE9D9;" Margin="0,0,8,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Журнал" FontWeight="SemiBold" />
-                        </StackPanel>
-                    </Button>
-                </WrapPanel>
-            </Border>
-
-            <Border Background="{StaticResource CardBrush}"
-                    BorderBrush="{StaticResource LineBrush}"
-                    BorderThickness="1"
-                    CornerRadius="12">
-                <ContentControl x:Name="ModeContentHost" />
-            </Border>
-        </DockPanel>
-
-        <Border Grid.Column="1"
+        <Border Grid.Row="0"
                 Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
                 BorderThickness="1"
                 CornerRadius="12"
-                ClipToBounds="True">
-            <DockPanel LastChildFill="True">
-                <Border DockPanel.Dock="Top"
-                        Background="#111827"
-                        Padding="12,10">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="44" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0"
-                                Width="34"
-                                Height="34"
-                                Background="#1F2937"
-                                BorderBrush="#374151"
-                                BorderThickness="1"
-                                CornerRadius="8">
-                            <TextBlock FontFamily="Segoe Fluent Icons"
-                                       Text="&#xE8BD;"
-                                       Foreground="#FF5A3D"
-                                       FontSize="18"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="AI помощник"
-                                       Foreground="#F9FAFB"
-                                       FontWeight="SemiBold" />
-                            <TextBlock Text="Всегда рядом, не отдельной вкладкой"
-                                       Foreground="#9CA3AF"
-                                       FontSize="11" />
-                        </StackPanel>
-                    </Grid>
+                Padding="16,12"
+                Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock x:Name="ModeTitleText"
+                               Text="Склад"
+                               Foreground="{StaticResource HeadingBrush}"
+                               FontSize="20"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="ModeSubtitleText"
+                               Text="WMS без перегруза: чат, операции, остатки, ячейки и контроль в одном окне."
+                               Foreground="{StaticResource MutedBrush}"
+                               FontSize="12"
+                               Margin="0,4,0,0"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+                <Border Grid.Column="1"
+                        Background="#EEF2FF"
+                        BorderBrush="#C8D1FF"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="10,5"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="WMS"
+                               Foreground="#2F3F74"
+                               FontSize="11"
+                               FontWeight="SemiBold" />
                 </Border>
-                <local:WarehouseAssistantView />
-            </DockPanel>
+            </Grid>
         </Border>
+
+        <Border Grid.Row="1"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="10"
+                Margin="0,0,0,10">
+            <WrapPanel>
+                <Button x:Name="ModeAssistantButton" Tag="assistant" Style="{StaticResource WmsSectionButtonStyle}" Click="OnModeClicked">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8BD;" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Чат помощник" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="ModeWorkButton" Tag="work" Style="{StaticResource WmsSectionButtonStyle}" Click="OnModeClicked">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7C3;" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Работа" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="ModeDataButton" Tag="data" Style="{StaticResource WmsSectionButtonStyle}" Click="OnModeClicked">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8FD;" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Данные" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="ModeControlButton" Tag="control" Style="{StaticResource WmsSectionButtonStyle}" Click="OnModeClicked">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE9D9;" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Контроль" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Button>
+            </WrapPanel>
+        </Border>
+
+        <ContentControl Grid.Row="2" x:Name="ModeContentHost" />
     </Grid>
 </UserControl>

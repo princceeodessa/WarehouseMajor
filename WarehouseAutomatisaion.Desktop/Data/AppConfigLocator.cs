@@ -60,6 +60,12 @@ public static class AppConfigLocator
     /// Возвращает (json-text-of-section, source-path) или null если не найдено.</summary>
     public static (string SectionJson, string SourcePath)? TryReadAiProvidersSection()
     {
+        return TryReadSection("AiProviders");
+    }
+
+    /// <summary>Прочитать произвольную верхнеуровневую секцию из найденного appsettings.local.json.</summary>
+    public static (string SectionJson, string SourcePath)? TryReadSection(string sectionName)
+    {
         foreach (var path in CandidatePaths)
         {
             if (!File.Exists(path))
@@ -71,7 +77,7 @@ public static class AppConfigLocator
             {
                 using var stream = File.OpenRead(path);
                 using var document = JsonDocument.Parse(stream);
-                if (document.RootElement.TryGetProperty("AiProviders", out var section))
+                if (document.RootElement.TryGetProperty(sectionName, out var section))
                 {
                     return (section.GetRawText(), path);
                 }

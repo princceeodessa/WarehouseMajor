@@ -528,7 +528,7 @@
                                        Visibility="Collapsed"
                                        Margin="6,16,0,8" />
 
-                            <!-- Sprint 12 (AI Chat assistant): «Спроси склад» — chat с Claude tool use -->
+                            <!-- WMS AI assistant: локальная LLM через 1C/Ollama API + точные WMS-инструменты -->
                             <Button x:Name="NavAssistantButton"
                                     Tag="assistant"
                                     AutomationProperties.Name="Спроси склад"

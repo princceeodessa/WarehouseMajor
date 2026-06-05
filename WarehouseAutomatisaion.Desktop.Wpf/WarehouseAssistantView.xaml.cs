@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -9,12 +10,8 @@ using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-// Sprint 12 + 13: окно «Спроси склад» с Claude tool use.
-// Sprint 13 polish: typing dots, markdown light rendering, лучшие tool-call bubbles,
-// suggestion chips на пустом экране, status badge.
 public partial class WarehouseAssistantView : UserControl
 {
-    // Цвета 3 ролей.
     private static readonly SolidColorBrush UserBubble = new(Color.FromRgb(0xEE, 0xF2, 0xFF));
     private static readonly SolidColorBrush UserBorder = new(Color.FromRgb(0xC8, 0xD1, 0xFF));
     private static readonly SolidColorBrush UserLabel = new(Color.FromRgb(0x2F, 0x3F, 0x74));
@@ -51,38 +48,28 @@ public partial class WarehouseAssistantView : UserControl
         var bundle = WarehouseChatFactory.TryCreate();
         if (bundle is null)
         {
-            // Диагностика — показать пользователю КОНКРЕТНЫЙ путь куда положить ключи.
-            var foundConfig = WarehouseAutomatisaion.Desktop.Data.AppConfigLocator.FindLocalConfigPath();
-            var targetPath = WarehouseAutomatisaion.Desktop.Data.AppConfigLocator.UserConfigFilePath;
-
-            if (foundConfig is null)
-            {
-                StatusText.Text = $"❌ Не найден файл appsettings.local.json. Создай его по пути: {targetPath}";
-            }
-            else
-            {
-                StatusText.Text = $"❌ Файл {foundConfig} найден, но секция AiProviders:Anthropic:ApiKey пустая или отсутствует. Открой файл и добавь ключ.";
-            }
-
+            StatusText.Text = "Помощник отключён в OneCSyncAssistant.";
+            HintText.Text = "Проверь секцию OneCSyncAssistant в appsettings.local.json.";
             InputBox.IsEnabled = false;
             SendButton.IsEnabled = false;
             StatusBadge.Visibility = Visibility.Visible;
-            StatusBadgeText.Text = "⚠ Не подключено";
+            StatusBadgeText.Text = "Отключено";
             StatusBadge.Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xF4, 0xE3));
             StatusBadge.BorderBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xD9, 0xA3));
             StatusBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0xB7, 0x66, 0x00));
-
-            // Кнопка «Папка настроек» — открывает Explorer на нужный folder.
-            OpenConfigButton.Visibility = Visibility.Visible;
-
-            // Обновляем hint в empty state.
-            HintText.Text = $"AI выключен — нужен Anthropic API ключ. Нажми «📂 Папка настроек» чтобы открыть {targetPath}";
+            _isInitialized = true;
             return;
         }
 
         _chat = bundle.Chat;
-        StatusText.Text = $"Готов к работе. Провайдер: {_chat.ProviderName}";
+        StatusText.Text = $"Готов к вопросу. Провайдер: {_chat.ProviderName}";
         StatusBadge.Visibility = Visibility.Visible;
+        StatusBadgeText.Text = bundle.Backplane is null
+            ? "1C/Ollama"
+            : "1C/Ollama + WMS";
+        HintText.Text = bundle.Backplane is null
+            ? "Подключён 1C/Ollama API. Точные вопросы по ячейкам включатся после подключения MySQL Major."
+            : "Подключены 1C/Ollama API и точные WMS-инструменты Major.";
         _isInitialized = true;
     }
 
@@ -102,7 +89,7 @@ public partial class WarehouseAssistantView : UserControl
 
     private void OnSuggestionClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is Button btn && btn.Tag is string suggestion)
+        if (sender is Button { Tag: string suggestion })
         {
             InputBox.Text = suggestion;
             _ = SendCurrentInputAsync();
@@ -126,34 +113,26 @@ public partial class WarehouseAssistantView : UserControl
         InputBox.IsEnabled = false;
         SendButton.IsEnabled = false;
 
-        // Переключаемся с empty state на messages list при первом сообщении.
         if (_bubbles.Count == 0)
         {
             EmptyStatePanel.Visibility = Visibility.Collapsed;
             MessagesScroll.Visibility = Visibility.Visible;
         }
 
-        // 1. Эхо user-сообщения.
         AddBubble(BuildUserBubble(text));
-
-        // 2. Typing indicator вместо текста.
         var thinking = BuildThinkingBubble();
         AddBubble(thinking);
 
-        StatusText.Text = "⏳ Claude думает...";
+        StatusText.Text = "Модель считает ответ. Для 1C/Ollama это может занять до нескольких минут...";
 
         try
         {
             var response = await _chat.SendAsync(_history, text);
-
-            // Обновим compressed history.
             _history.Add(new ChatMessage(ChatRole.User, text));
             _history.Add(new ChatMessage(ChatRole.Assistant, response.Text));
 
-            // Убираем typing bubble.
             _bubbles.Remove(thinking);
 
-            // Tool calls — отдельный bubble за каждую группу вызовов в одной итерации.
             foreach (var msg in response.AppendedHistory)
             {
                 if (msg.Role == ChatRole.Assistant && msg.ToolCalls is { Count: > 0 } calls)
@@ -162,18 +141,17 @@ public partial class WarehouseAssistantView : UserControl
                 }
             }
 
-            // Финальный assistant reply.
             AddBubble(BuildAssistantBubble(
                 response.Text,
-                footer: $"⏱ {response.Duration.TotalSeconds:F1}с  ·  🔧 {response.ToolCallsCount} tool calls  ·  {response.ProviderName}"));
+                footer: $"{response.Duration.TotalSeconds:F1} с · {response.ToolCallsCount} инструментов · {response.ProviderName}"));
 
-            StatusText.Text = $"Готово ({response.Duration.TotalSeconds:F1}с, {response.ToolCallsCount} tool calls).";
+            StatusText.Text = $"Готово за {response.Duration.TotalSeconds:F1} с. Источник: {response.ProviderName}.";
         }
         catch (Exception ex)
         {
             _bubbles.Remove(thinking);
             AddBubble(BuildErrorBubble(ex.Message));
-            StatusText.Text = $"❌ {ex.Message}";
+            StatusText.Text = ex.Message;
         }
         finally
         {
@@ -189,30 +167,24 @@ public partial class WarehouseAssistantView : UserControl
         _history.Clear();
         EmptyStatePanel.Visibility = Visibility.Visible;
         MessagesScroll.Visibility = Visibility.Collapsed;
-        StatusText.Text = "История очищена. Можно начинать новый диалог.";
+        StatusText.Text = "История очищена. Можно начать новый диалог.";
     }
 
-    // Sprint 13 fix #2: «Настроить AI» — открывает окно для ввода ключей,
-    // сразу применяет (reconnect chat без перезапуска Major).
     private void OnOpenConfigClicked(object sender, RoutedEventArgs e)
     {
-        var window = new AiSettingsWindow { Owner = Window.GetWindow(this) };
-        if (window.ShowDialog() == true)
+        var directory = AppConfigLocator.UserConfigDirectory;
+        try
         {
-            // Перезагружаем chat factory с новыми ключами.
-            _chat = null;
-            _bubbles.Clear();
-            _history.Clear();
-            EmptyStatePanel.Visibility = Visibility.Visible;
-            MessagesScroll.Visibility = Visibility.Collapsed;
-            OpenConfigButton.Visibility = Visibility.Collapsed;
-            _isInitialized = false;
-            OnLoaded(this, new RoutedEventArgs());
-
-            if (_chat is not null)
+            Process.Start(new ProcessStartInfo
             {
-                StatusText.Text = $"✓ AI подключён ({_chat.ProviderName}). Можно спрашивать.";
-            }
+                FileName = directory,
+                UseShellExecute = true
+            });
+            StatusText.Text = $"Открыта папка настроек: {directory}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Не удалось открыть папку настроек: {ex.Message}";
         }
     }
 
@@ -224,7 +196,7 @@ public partial class WarehouseAssistantView : UserControl
     }
 
     private static ChatBubble BuildUserBubble(string text) => new(
-        RoleIcon: "👤",
+        RoleIcon: "\uE77B",
         RoleLabel: "Вы",
         RoleLabelBrush: UserLabel,
         Body: text,
@@ -238,8 +210,8 @@ public partial class WarehouseAssistantView : UserControl
         BodyFontFamily: DefaultFont);
 
     private static ChatBubble BuildThinkingBubble() => new(
-        RoleIcon: "🤖",
-        RoleLabel: "Claude",
+        RoleIcon: "\uE8BD",
+        RoleLabel: "Помощник",
         RoleLabelBrush: AssistantLabel,
         Body: string.Empty,
         BubbleBrush: AssistantBubble,
@@ -252,8 +224,8 @@ public partial class WarehouseAssistantView : UserControl
         BodyFontFamily: DefaultFont);
 
     private static ChatBubble BuildAssistantBubble(string text, string footer) => new(
-        RoleIcon: "🤖",
-        RoleLabel: "Claude",
+        RoleIcon: "\uE8BD",
+        RoleLabel: "Помощник",
         RoleLabelBrush: AssistantLabel,
         Body: text,
         BubbleBrush: AssistantBubble,
@@ -267,16 +239,16 @@ public partial class WarehouseAssistantView : UserControl
 
     private static ChatBubble BuildToolCallBubble(IReadOnlyList<ChatToolCall> calls)
     {
-        var body = string.Join("\n", calls.Select(c => $"`{c.ToolName}({c.ArgumentsJson})`"));
+        var body = string.Join("\n", calls.Select(c => $"{c.ToolName}({c.ArgumentsJson})"));
         return new ChatBubble(
-            RoleIcon: "🔧",
+            RoleIcon: "\uE713",
             RoleLabel: "Инструмент",
             RoleLabelBrush: ToolLabel,
             Body: body,
             BubbleBrush: ToolBubble,
             BorderBrush: ToolBorder,
             Alignment: HorizontalAlignment.Left,
-            Footer: $"Вызов{(calls.Count > 1 ? "ы" : string.Empty)} серверного API",
+            Footer: calls.Count > 1 ? "Локальные WMS-запросы" : "Локальный WMS-запрос",
             FooterVisibility: Visibility.Visible,
             TypingVisibility: Visibility.Collapsed,
             BodyVisibility: Visibility.Visible,
@@ -284,7 +256,7 @@ public partial class WarehouseAssistantView : UserControl
     }
 
     private static ChatBubble BuildErrorBubble(string message) => new(
-        RoleIcon: "❌",
+        RoleIcon: "\uE783",
         RoleLabel: "Ошибка",
         RoleLabelBrush: new SolidColorBrush(Color.FromRgb(0xD9, 0x53, 0x4F)),
         Body: message,
