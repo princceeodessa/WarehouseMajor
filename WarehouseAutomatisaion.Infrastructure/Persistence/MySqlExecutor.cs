@@ -24,6 +24,11 @@ public sealed class MySqlExecutor
         _options = options;
     }
 
+    public MySqlExecutor(MySqlPersistenceOptions options)
+        : this(new FixedOptionsMonitor(options))
+    {
+    }
+
     public MySqlPersistenceOptions CurrentOptions => _options.CurrentValue;
 
     public async Task<MySqlConnection> OpenConnectionAsync(CancellationToken cancellationToken)
@@ -64,4 +69,18 @@ public sealed class MySqlExecutor
     }
 
     public static int DefaultCommandTimeoutSeconds => CommandTimeoutSeconds;
+
+    private sealed class FixedOptionsMonitor : IOptionsMonitor<MySqlPersistenceOptions>
+    {
+        public FixedOptionsMonitor(MySqlPersistenceOptions options)
+        {
+            CurrentValue = options;
+        }
+
+        public MySqlPersistenceOptions CurrentValue { get; }
+
+        public MySqlPersistenceOptions Get(string? name) => CurrentValue;
+
+        public IDisposable? OnChange(Action<MySqlPersistenceOptions, string?> listener) => null;
+    }
 }

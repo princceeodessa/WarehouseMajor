@@ -186,6 +186,7 @@ public partial class ProductDocumentsWindow : Window
             "supplierreturn" => "Возврат поставщику",
             "transferorder" => "Заказ на перемещение",
             "writeoff" => "Списание",
+            "write_off" => "Списание",
             "inventory" => "Инвентаризация",
             "reservation" => "Резервирование",
             "discrepancy" => "Расхождение",

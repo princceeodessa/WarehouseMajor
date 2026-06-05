@@ -13,4 +13,6 @@ public sealed class OneCIntegrationOptions
     public bool SimulateResponses { get; init; } = true;
 
     public int SyncIntervalMinutes { get; init; } = 15;
+
+    public int SyncIntervalSeconds { get; init; } = 0;
 }

@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Инвентаризация ячейки"
-        Height="700" Width="940"
+        Height="760" Width="1360"
         WindowStartupLocation="CenterOwner"
         Background="#F7F9FD"
         FontFamily="Segoe UI"
@@ -32,7 +32,7 @@
                 <TextBlock Text="📋 Инвентаризация ячейки"
                            Foreground="{StaticResource HeadingBrush}"
                            FontSize="16" FontWeight="SemiBold" />
-                <TextBlock Text="Выберите ячейку, впишите фактическое количество в колонку «Факт» — система покажет дельту и применит корректировки."
+                <TextBlock Text="Пересчитайте каждую позицию. Для любого расхождения проверьте другие ячейки, выберите решение и укажите причину — без этого проведение заблокировано."
                            Foreground="{StaticResource MutedBrush}"
                            FontSize="11.5" Margin="0,4,0,0"
                            TextWrapping="Wrap" />
@@ -127,7 +127,7 @@
                            TextWrapping="Wrap"
                            Margin="0,0,12,0" />
                 <Button x:Name="CloseButton" Grid.Column="1"
-                        Content="Готово" Height="34" Padding="18,0"
+                        Content="Закрыть" Height="34" Padding="18,0"
                         Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
                         BorderThickness="1" Cursor="Hand" IsCancel="True"
                         Click="OnCloseClicked" />
@@ -140,7 +140,7 @@
                         ToolTip="Подставить системные значения как фактические (быстрая отметка «всё сошлось»)"
                         Click="OnMatchAllClicked" />
                 <Button x:Name="ApplyButton" Grid.Column="3"
-                        Content="✓ Применить факт"
+                        Content="✓ Провести инвентаризацию"
                         Height="34" Padding="20,0" Margin="10,0,0,0"
                         Background="{StaticResource PrimaryBrush}" Foreground="White"
                         BorderThickness="0" Cursor="Hand"
@@ -217,6 +217,54 @@
                             </Style>
                         </DataGridTextColumn.CellStyle>
                     </DataGridTextColumn>
+                    <DataGridTemplateColumn Header="Проверка" Width="125">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Другие ячейки"
+                                        Height="24"
+                                        Padding="8,0"
+                                        Margin="3"
+                                        Background="#FFFFFF"
+                                        BorderBrush="{StaticResource LineBrush}"
+                                        BorderThickness="1"
+                                        Cursor="Hand"
+                                        Click="OnCheckOtherCellsClicked" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Где проверено" Width="150">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding InvestigationCellCode}"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding InvestigationCellCode}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Решение по расхождению" Width="210">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ComboBox ItemsSource="{Binding AvailableResolutions}"
+                                          SelectedItem="{Binding ResolutionCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          IsEnabled="{Binding HasDifference}"
+                                          Margin="3"
+                                          MinHeight="24" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Причина / комментарий" Width="220">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBox Text="{Binding Reason, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         IsEnabled="{Binding HasDifference}"
+                                         Margin="3"
+                                         Padding="6,2"
+                                         BorderBrush="{StaticResource LineBrush}"
+                                         BorderThickness="1" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>

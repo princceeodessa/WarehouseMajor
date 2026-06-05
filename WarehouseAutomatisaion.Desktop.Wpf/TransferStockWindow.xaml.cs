@@ -20,6 +20,8 @@ public partial class TransferStockWindow : Window
 {
     private readonly IStorageCellCatalog _cellCatalog;
     private readonly IStockLocationRepository _stockLocations;
+    private readonly IWarehouseStockOperationService _stockOperations;
+    private readonly string _actor;
 
     private IReadOnlyList<StorageCell>? _cellCache;
 
@@ -31,11 +33,15 @@ public partial class TransferStockWindow : Window
 
     public TransferStockWindow(
         IStorageCellCatalog cellCatalog,
-        IStockLocationRepository stockLocations)
+        IStockLocationRepository stockLocations,
+        IWarehouseStockOperationService stockOperations,
+        string actor)
     {
         InitializeComponent();
         _cellCatalog = cellCatalog ?? throw new ArgumentNullException(nameof(cellCatalog));
         _stockLocations = stockLocations ?? throw new ArgumentNullException(nameof(stockLocations));
+        _stockOperations = stockOperations ?? throw new ArgumentNullException(nameof(stockOperations));
+        _actor = string.IsNullOrWhiteSpace(actor) ? "Кладовщик" : actor.Trim();
 
         Loaded += (_, _) => StatusText.Text = "Выберите ячейку-источник, позицию из неё и ячейку-приёмник.";
     }
@@ -150,8 +156,8 @@ public partial class TransferStockWindow : Window
         {
             _selectedSourceLocation = loc;
             SelectedItemText.Text = $"{loc.ItemCode}  ·  {loc.ItemName}";
-            SourceQtyHint.Text = $"Доступно в источнике: {loc.Quantity:N3} (резерв {loc.ReservedQuantity:N3}).";
-            MoveAllButton.IsEnabled = loc.Quantity > 0;
+            SourceQtyHint.Text = $"Доступно в источнике: {loc.AvailableQuantity:N3} (всего {loc.Quantity:N3}, резерв {loc.ReservedQuantity:N3}).";
+            MoveAllButton.IsEnabled = loc.AvailableQuantity > 0;
             await RefreshTargetHintAsync();
         }
         else
@@ -176,7 +182,7 @@ public partial class TransferStockWindow : Window
         {
             return;
         }
-        QuantityBox.Text = _selectedSourceLocation.Quantity.ToString("0.###", CultureInfo.InvariantCulture);
+        QuantityBox.Text = _selectedSourceLocation.AvailableQuantity.ToString("0.###", CultureInfo.InvariantCulture);
     }
 
     private async Task RefreshTargetHintAsync()
@@ -223,9 +229,9 @@ public partial class TransferStockWindow : Window
             return;
         }
 
-        if (qty > _selectedSourceLocation.Quantity)
+        if (qty > _selectedSourceLocation.AvailableQuantity)
         {
-            StatusText.Text = $"❌ В источнике только {_selectedSourceLocation.Quantity:N3} — больше переместить нельзя.";
+            StatusText.Text = $"❌ Доступно только {_selectedSourceLocation.AvailableQuantity:N3}; резерв {_selectedSourceLocation.ReservedQuantity:N3}.";
             return;
         }
 
@@ -235,47 +241,34 @@ public partial class TransferStockWindow : Window
             return;
         }
 
-        Guid? targetWarehouseNodeId = TryParseGuid(_targetCell.WarehouseNodeId);
-
         try
         {
             TransferButton.IsEnabled = false;
             StatusText.Text = $"⏳ Перемещение {qty:N3} ед. товара...";
 
-            // 1) Уменьшаем source
-            var newSourceQty = _selectedSourceLocation.Quantity - qty;
-            await _stockLocations.UpsertAsync(new StockLocationUpsert(
+            var result = await _stockOperations.TransferAsync(new StockTransferRequest(
                 ItemId: _selectedSourceLocation.ItemId,
-                ItemCode: _selectedSourceLocation.ItemCode,
-                ItemName: _selectedSourceLocation.ItemName,
-                WarehouseNodeId: _selectedSourceLocation.WarehouseNodeId,
-                WarehouseName: _selectedSourceLocation.WarehouseName,
-                StorageCellId: _sourceCell.Id,
-                StorageCellCode: _sourceCell.Code,
-                Quantity: newSourceQty,
-                ReservedQuantity: _selectedSourceLocation.ReservedQuantity));
+                SourceCellId: _sourceCell.Id,
+                TargetCellId: _targetCell.Id,
+                Quantity: qty,
+                Actor: _actor));
 
-            // 2) Прибавляем к target (читаем существующую если есть)
-            var targetLocations = await _stockLocations.GetByCellAsync(_targetCell.Id);
-            var existingTarget = targetLocations.FirstOrDefault(loc => loc.ItemId == _selectedSourceLocation.ItemId);
-            var newTargetQty = (existingTarget?.Quantity ?? 0m) + qty;
-            var preservedReserved = existingTarget?.ReservedQuantity ?? 0m;
+            if (!result.Succeeded)
+            {
+                StatusText.Text = $"❌ {result.Message}";
+                return;
+            }
 
-            await _stockLocations.UpsertAsync(new StockLocationUpsert(
-                ItemId: _selectedSourceLocation.ItemId,
-                ItemCode: _selectedSourceLocation.ItemCode,
-                ItemName: _selectedSourceLocation.ItemName,
-                WarehouseNodeId: targetWarehouseNodeId,
-                WarehouseName: _targetCell.WarehouseName,
-                StorageCellId: _targetCell.Id,
-                StorageCellCode: _targetCell.Code,
-                Quantity: newTargetQty,
-                ReservedQuantity: preservedReserved));
-
-            AddHistoryEntry(_selectedSourceLocation, _sourceCell, _targetCell, qty, newSourceQty, newTargetQty);
+            AddHistoryEntry(
+                _selectedSourceLocation,
+                _sourceCell,
+                _targetCell,
+                qty,
+                result.SourceQuantity,
+                result.TargetQuantity);
 
             StatusText.Text = $"✅ Перемещено {qty:N3} ед. «{_selectedSourceLocation.ItemName}»: " +
-                              $"«{_sourceCell.Code}» (стало {newSourceQty:N3}) → «{_targetCell.Code}» (стало {newTargetQty:N3})";
+                              $"«{_sourceCell.Code}» (стало {result.SourceQuantity:N3}) → «{_targetCell.Code}» (стало {result.TargetQuantity:N3})";
 
             // Обновляем грид и подсказки.
             await LoadSourceContentAsync();
@@ -298,11 +291,11 @@ public partial class TransferStockWindow : Window
         var hasTarget = _targetCell is not null;
         var hasItem = _selectedSourceLocation is not null;
         var hasQty = TryParseQuantity(QuantityBox.Text, out var q) && q > 0;
-        var withinAvailable = !hasItem || q <= (_selectedSourceLocation?.Quantity ?? 0m);
+        var withinAvailable = !hasItem || q <= (_selectedSourceLocation?.AvailableQuantity ?? 0m);
         var differentCells = !hasSource || !hasTarget || _sourceCell!.Id != _targetCell!.Id;
 
         TransferButton.IsEnabled = hasSource && hasTarget && hasItem && hasQty && withinAvailable && differentCells;
-        MoveAllButton.IsEnabled = hasItem && (_selectedSourceLocation?.Quantity ?? 0m) > 0;
+        MoveAllButton.IsEnabled = hasItem && (_selectedSourceLocation?.AvailableQuantity ?? 0m) > 0;
     }
 
     private static bool TryParseQuantity(string? text, out decimal value)
@@ -314,15 +307,6 @@ public partial class TransferStockWindow : Window
         }
         var normalized = text.Trim().Replace(',', '.');
         return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
-    }
-
-    private static Guid? TryParseGuid(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return null;
-        }
-        return Guid.TryParse(text, out var g) ? g : (Guid?)null;
     }
 
     private void AddHistoryEntry(

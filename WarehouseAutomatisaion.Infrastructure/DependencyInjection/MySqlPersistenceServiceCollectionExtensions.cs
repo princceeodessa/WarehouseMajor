@@ -27,6 +27,7 @@ public static class MySqlPersistenceServiceCollectionExtensions
         services.AddScoped<IShipmentPickingService, MySqlShipmentPickingService>();
         services.AddScoped<IWarehouseOperationLogReader, MySqlWarehouseOperationLogReader>();
         services.AddScoped<IStockLocationBootstrapper, MySqlStockLocationBootstrapper>();
+        services.AddScoped<IWarehouseStockOperationService, MySqlWarehouseStockOperationService>();
 
         return services;
     }

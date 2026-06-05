@@ -19,7 +19,9 @@ public sealed class OneCSynchronizationBackgroundService(
         while (!stoppingToken.IsCancellationRequested)
         {
             var options = optionsMonitor.CurrentValue;
-            var interval = TimeSpan.FromMinutes(Math.Max(1, options.SyncIntervalMinutes));
+            var interval = options.SyncIntervalSeconds > 0
+                ? TimeSpan.FromSeconds(Math.Max(5, options.SyncIntervalSeconds))
+                : TimeSpan.FromMinutes(Math.Max(1, options.SyncIntervalMinutes));
 
             if (options.AutoSyncEnabled)
             {

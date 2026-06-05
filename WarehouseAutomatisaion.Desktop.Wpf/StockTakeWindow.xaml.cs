@@ -27,19 +27,26 @@ public partial class StockTakeWindow : Window
 {
     private readonly IStorageCellCatalog _cellCatalog;
     private readonly IStockLocationRepository _stockLocations;
+    private readonly IWarehouseStockOperationService _stockOperations;
+    private readonly string _actor;
     private readonly IShelfInventoryVisionService? _shelfVision;
     private IReadOnlyList<StorageCell>? _cellCache;
     private StorageCell? _selectedCell;
     private readonly ObservableCollection<StockTakeRow> _rows = new();
+    private bool _completed;
 
     public StockTakeWindow(
         IStorageCellCatalog cellCatalog,
         IStockLocationRepository stockLocations,
+        IWarehouseStockOperationService stockOperations,
+        string actor,
         IShelfInventoryVisionService? shelfVision = null)
     {
         InitializeComponent();
         _cellCatalog = cellCatalog ?? throw new ArgumentNullException(nameof(cellCatalog));
         _stockLocations = stockLocations ?? throw new ArgumentNullException(nameof(stockLocations));
+        _stockOperations = stockOperations ?? throw new ArgumentNullException(nameof(stockOperations));
+        _actor = string.IsNullOrWhiteSpace(actor) ? "Кладовщик" : actor.Trim();
         _shelfVision = shelfVision;
 
         InventoryGrid.ItemsSource = _rows;
@@ -129,7 +136,9 @@ public partial class StockTakeWindow : Window
 
     private void OnRowChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(StockTakeRow.ActualQuantityText))
+        if (e.PropertyName is nameof(StockTakeRow.ActualQuantityText)
+            or nameof(StockTakeRow.ResolutionCode)
+            or nameof(StockTakeRow.Reason))
         {
             UpdateActionButtons();
         }
@@ -147,6 +156,15 @@ public partial class StockTakeWindow : Window
 
     private void OnCloseClicked(object sender, RoutedEventArgs e)
     {
+        if (!_completed && _selectedCell is not null && _rows.Any(row => row.HasValidActual))
+        {
+            var message = CanCommitInventory()
+                ? "Факт заполнен, но инвентаризация ещё не проведена. Нажмите «Провести инвентаризацию»."
+                : "Нельзя закончить инвентаризацию: заполните факт по всем строкам и обоснуйте каждое расхождение.";
+            MessageBox.Show(this, message, "Инвентаризация не завершена", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
         DialogResult = true;
         Close();
     }
@@ -158,21 +176,28 @@ public partial class StockTakeWindow : Window
             return;
         }
 
-        var changes = _rows.Where(r => r.HasValidActual && r.HasDifference).ToList();
-        if (changes.Count == 0)
+        if (_rows.Any(row => !row.HasValidActual))
         {
-            StatusText.Text = "Изменений нет — ничего не применяем.";
+            StatusText.Text = "❌ Укажите фактическое количество по каждой строке.";
             return;
         }
 
+        var unresolved = _rows.Where(row => row.HasDifference && !row.IsResolved).ToArray();
+        if (unresolved.Length > 0)
+        {
+            StatusText.Text = $"❌ Не обоснованы расхождения: {string.Join(", ", unresolved.Take(4).Select(row => row.ItemCode))}.";
+            return;
+        }
+
+        var changes = _rows.Where(r => r.HasDifference).ToList();
         var confirm = MessageBox.Show(
             this,
-            $"Будет применено корректировок: {changes.Count}\n\n" +
+            $"Ячейка: {_selectedCell.Code}\nПозиций пересчитано: {_rows.Count}\nРасхождений: {changes.Count}\n\n" +
             string.Join("\n", changes.Take(8).Select(r =>
-                $"• {r.ItemCode}  {r.ItemName}:  {r.SystemQuantity:N3} → {r.ActualQuantityValue:N3}  ({r.DiffLabel})"))
+                $"• {r.ItemCode}: {r.SystemQuantity:N3} → {r.ActualQuantityValue:N3} ({r.DiffLabel}); {r.ResolutionCode}; {r.Reason}"))
             + (changes.Count > 8 ? $"\n…и ещё {changes.Count - 8}" : "")
-            + "\n\nПрименить?",
-            "Подтверждение инвентаризации",
+            + "\n\nПровести инвентаризацию?",
+            "Проведение инвентаризации",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
 
@@ -185,39 +210,41 @@ public partial class StockTakeWindow : Window
         {
             ApplyButton.IsEnabled = false;
             MatchAllButton.IsEnabled = false;
-            StatusText.Text = $"⏳ Применяем {changes.Count} корректировок...";
+            StatusText.Text = $"⏳ Проводим инвентаризацию «{_selectedCell.Code}»...";
 
-            var ok = 0;
-            var failed = 0;
+            var result = await _stockOperations.CommitCellInventoryAsync(new CellInventoryCommitRequest(
+                CellId: _selectedCell.Id,
+                CellCode: _selectedCell.Code,
+                WarehouseName: _selectedCell.WarehouseName,
+                Actor: _actor,
+                Lines: _rows.Select(row => new CellInventoryLineInput(
+                    StockLocationId: row.Source.Id,
+                    ItemId: row.Source.ItemId,
+                    ItemCode: row.Source.ItemCode,
+                    ItemName: row.Source.ItemName,
+                    SystemQuantity: row.SystemQuantity,
+                    ActualQuantity: row.ActualQuantityValue,
+                    ReservedQuantity: row.Source.ReservedQuantity,
+                    ResolutionCode: row.HasDifference ? row.ResolutionCode : "match",
+                    Reason: row.HasDifference ? row.Reason : "Факт соответствует системе",
+                    InvestigationCellCode: row.InvestigationCellCode)).ToArray()));
 
-            foreach (var row in changes)
+            if (!result.Succeeded)
             {
-                try
-                {
-                    await _stockLocations.UpsertAsync(new StockLocationUpsert(
-                        ItemId: row.Source.ItemId,
-                        ItemCode: row.Source.ItemCode,
-                        ItemName: row.Source.ItemName,
-                        WarehouseNodeId: row.Source.WarehouseNodeId,
-                        WarehouseName: row.Source.WarehouseName,
-                        StorageCellId: row.Source.StorageCellId,
-                        StorageCellCode: row.Source.StorageCellCode,
-                        Quantity: row.ActualQuantityValue,
-                        ReservedQuantity: row.Source.ReservedQuantity));
-                    ok++;
-                }
-                catch
-                {
-                    failed++;
-                }
+                StatusText.Text = $"❌ {result.Message}";
+                return;
             }
 
-            StatusText.Text = failed == 0
-                ? $"✅ Применено {ok} корректировок. Ячейка обновлена."
-                : $"⚠ Применено {ok} из {changes.Count}. Ошибок: {failed}.";
-
-            // Перезагружаем — синхронизация с БД.
-            await LoadInventoryAsync();
+            _completed = true;
+            MessageBox.Show(
+                this,
+                $"{result.Message}\n\nДокумент: {result.DocumentNumber}\n" +
+                $"Недостача: {result.ShortageQuantity:N3}\nИзлишек: {result.SurplusQuantity:N3}",
+                "Инвентаризация проведена",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            DialogResult = true;
+            Close();
         }
         catch (Exception ex)
         {
@@ -232,10 +259,58 @@ public partial class StockTakeWindow : Window
     private void UpdateActionButtons()
     {
         var hasRows = _rows.Count > 0;
-        var hasValidChanges = _rows.Any(r => r.HasValidActual && r.HasDifference);
-        ApplyButton.IsEnabled = hasValidChanges;
+        ApplyButton.IsEnabled = CanCommitInventory();
         MatchAllButton.IsEnabled = hasRows;
         PhotoInventoryButton.IsEnabled = hasRows && _shelfVision is not null;
+    }
+
+    private bool CanCommitInventory()
+    {
+        return _rows.Count > 0
+               && _rows.All(row => row.HasValidActual)
+               && _rows.Where(row => row.HasDifference).All(row => row.IsResolved);
+    }
+
+    private async void OnCheckOtherCellsClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: StockTakeRow row })
+        {
+            return;
+        }
+
+        try
+        {
+            var locations = await _stockLocations.GetByItemAsync(row.Source.ItemId);
+            var otherLocations = locations
+                .Where(location => location.StorageCellId != row.Source.StorageCellId && location.Quantity > 0)
+                .OrderByDescending(location => location.Quantity)
+                .ToArray();
+
+            if (otherLocations.Length == 0)
+            {
+                row.InvestigationCellCode = "Других ячеек с остатком нет";
+                MessageBox.Show(
+                    this,
+                    "В других ячейках положительный остаток этого товара не найден.",
+                    row.ItemCode,
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            row.InvestigationCellCode = string.Join(", ", otherLocations.Take(5).Select(location => location.StorageCellCode));
+            MessageBox.Show(
+                this,
+                string.Join("\n", otherLocations.Take(12).Select(location =>
+                    $"{location.StorageCellCode} · {location.WarehouseName}: {location.Quantity:N3}")),
+                $"Другие ячейки: {row.ItemCode}",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"❌ Не удалось проверить другие ячейки: {ex.Message}";
+        }
     }
 
     private async void OnPhotoInventoryClicked(object sender, RoutedEventArgs e)
@@ -408,6 +483,18 @@ public partial class StockTakeWindow : Window
     // Row VM — INotifyPropertyChanged нужен чтобы DataGrid обновлял колонки «Δ» при правке «Факт».
     public sealed class StockTakeRow : INotifyPropertyChanged
     {
+        public static IReadOnlyList<string> ResolutionOptions { get; } =
+        [
+            "Списание недостачи",
+            "Найдено в другой ячейке",
+            "Излишек подтверждён пересчётом",
+            "Ошибка прежнего размещения",
+            "Ошибка учёта / документа",
+            "Иная подтверждённая причина"
+        ];
+
+        public IReadOnlyList<string> AvailableResolutions => ResolutionOptions;
+
         public StockLocation Source { get; }
         public string ItemCode => Source.ItemCode;
         public string ItemName => Source.ItemName;
@@ -427,6 +514,58 @@ public partial class StockTakeWindow : Window
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(DiffLabel));
                 OnPropertyChanged(nameof(DiffSign));
+                OnPropertyChanged(nameof(HasDifference));
+                OnPropertyChanged(nameof(IsResolved));
+            }
+        }
+
+        private string _resolutionCode = string.Empty;
+        public string ResolutionCode
+        {
+            get => _resolutionCode;
+            set
+            {
+                if (_resolutionCode == value)
+                {
+                    return;
+                }
+
+                _resolutionCode = value ?? string.Empty;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsResolved));
+            }
+        }
+
+        private string _reason = string.Empty;
+        public string Reason
+        {
+            get => _reason;
+            set
+            {
+                if (_reason == value)
+                {
+                    return;
+                }
+
+                _reason = value ?? string.Empty;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsResolved));
+            }
+        }
+
+        private string _investigationCellCode = string.Empty;
+        public string InvestigationCellCode
+        {
+            get => _investigationCellCode;
+            set
+            {
+                if (_investigationCellCode == value)
+                {
+                    return;
+                }
+
+                _investigationCellCode = value ?? string.Empty;
+                OnPropertyChanged();
             }
         }
 
@@ -447,6 +586,11 @@ public partial class StockTakeWindow : Window
 
         public bool HasDifference =>
             HasValidActual && ActualQuantityValue != SystemQuantity;
+
+        public bool IsResolved =>
+            !HasDifference
+            || !string.IsNullOrWhiteSpace(ResolutionCode)
+            && !string.IsNullOrWhiteSpace(Reason);
 
         public string DiffLabel
         {
@@ -490,6 +634,9 @@ public partial class StockTakeWindow : Window
         public void SetActualEqualSystem()
         {
             ActualQuantityText = SystemQuantity.ToString("0.###", CultureInfo.InvariantCulture);
+            ResolutionCode = string.Empty;
+            Reason = string.Empty;
+            InvestigationCellCode = string.Empty;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

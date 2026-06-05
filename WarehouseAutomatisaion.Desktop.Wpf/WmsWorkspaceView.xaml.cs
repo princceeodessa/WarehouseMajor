@@ -70,6 +70,7 @@ public partial class WmsWorkspaceView : UserControl
                     new HubAction("scan", "Скан", "Быстрый поиск товара или ячейки по штрихкоду/QR.", "\uE8B6"),
                     new HubAction("receive", "Приёмка", "Положить поступивший товар в ячейку.", "\uE7B8"),
                     new HubAction("transfer", "Перемещение", "Перенести товар между ячейками.", "\uE8AB"),
+                    new HubAction("assembly", "Сборка", "Списать товар из ячейки по основанию сборки.", "\uE7C3"),
                     new HubAction("stocktake", "Инвентаризация", "Сверить факт по выбранной ячейке.", "\uF0E3")
                 ]),
             "data" => CreateHubView(
@@ -103,6 +104,11 @@ public partial class WmsWorkspaceView : UserControl
                 "Перенос товара из одной ячейки в другую с контролем доступного количества.",
                 "Открыть перемещение",
                 OpenTransferStockDialog),
+            "assembly" => CreateOperationLauncher(
+                "Сборка / списание",
+                "Списание товара из ячейки на основании сборки, покупки или перемещения.",
+                "Открыть сборку",
+                OpenAssemblyWriteOffDialog),
             "stocktake" => CreateOperationLauncher(
                 "Инвентаризация ячейки",
                 "Сверка факта с системой по выбранной ячейке, включая AI-проверку фото полки.",
@@ -413,7 +419,14 @@ public partial class WmsWorkspaceView : UserControl
 
         var cellCatalog = new MySqlStorageCellCatalog(backplane);
         var stockLocations = new MySqlStockLocationRepository(backplane);
-        var window = new TransferStockWindow(cellCatalog, stockLocations);
+        var stockOperations = WarehouseStockOperationFactory.TryCreate();
+        if (stockOperations is null)
+        {
+            ShowConnectionWarning("Перемещение между ячейками");
+            return;
+        }
+
+        var window = new TransferStockWindow(cellCatalog, stockLocations, stockOperations, _actorUserName);
         ShowFullScreenOperation(window);
     }
 
@@ -428,8 +441,42 @@ public partial class WmsWorkspaceView : UserControl
 
         var cellCatalog = new MySqlStorageCellCatalog(backplane);
         var stockLocations = new MySqlStockLocationRepository(backplane);
+        var stockOperations = WarehouseStockOperationFactory.TryCreate();
+        if (stockOperations is null)
+        {
+            ShowConnectionWarning("Инвентаризация");
+            return;
+        }
+
         var shelfVision = ShelfVisionFactory.TryCreate();
-        var window = new StockTakeWindow(cellCatalog, stockLocations, shelfVision);
+        var window = new StockTakeWindow(
+            cellCatalog,
+            stockLocations,
+            stockOperations,
+            _actorUserName,
+            shelfVision);
+        ShowFullScreenOperation(window);
+    }
+
+    private void OpenAssemblyWriteOffDialog()
+    {
+        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
+        if (backplane is null)
+        {
+            ShowConnectionWarning("Сборка / списание");
+            return;
+        }
+
+        var stockOperations = WarehouseStockOperationFactory.TryCreate();
+        if (stockOperations is null)
+        {
+            ShowConnectionWarning("Сборка / списание");
+            return;
+        }
+
+        var cellCatalog = new MySqlStorageCellCatalog(backplane);
+        var stockLocations = new MySqlStockLocationRepository(backplane);
+        var window = new AssemblyWriteOffWindow(cellCatalog, stockLocations, stockOperations, _actorUserName);
         ShowFullScreenOperation(window);
     }
 
@@ -474,7 +521,7 @@ public partial class WmsWorkspaceView : UserControl
 
     private static string GetParentSectionKey(string key) => key.ToLowerInvariant() switch
     {
-        "scan" or "receive" or "transfer" or "stocktake" => "work",
+        "scan" or "receive" or "transfer" or "assembly" or "stocktake" => "work",
         "stock" or "cells" or "catalog" => "data",
         "receipt-drafts" or "operation-log" => "control",
         _ => key
@@ -492,6 +539,7 @@ public partial class WmsWorkspaceView : UserControl
         "catalog" => "Номенклатура",
         "receive" => "Приёмка товара",
         "transfer" => "Перемещение",
+        "assembly" => "Сборка / списание",
         "stocktake" => "Инвентаризация",
         "receipt-drafts" => "AI черновики",
         "operation-log" => "Журнал WMS",
@@ -510,6 +558,7 @@ public partial class WmsWorkspaceView : UserControl
         "catalog" => "Номенклатура, артикулы и карточки товаров для WMS.",
         "receive" => "Приёмка товара в ячейку.",
         "transfer" => "Перемещение товара между ячейками.",
+        "assembly" => "Списание товара из ячейки по основанию сборки.",
         "stocktake" => "Инвентаризация ячейки и AI-проверка по фото.",
         "receipt-drafts" => "AI-черновики приходных накладных, готовые к разноске по ячейкам.",
         "operation-log" => "История WMS-действий и технических событий.",

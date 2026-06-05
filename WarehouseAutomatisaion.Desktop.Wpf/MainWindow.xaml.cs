@@ -1802,8 +1802,23 @@ public partial class MainWindow : Window
 
         var cellCatalog = new WarehouseAutomatisaion.Desktop.Data.MySqlStorageCellCatalog(backplane);
         var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
+        var stockOperations = WarehouseAutomatisaion.Desktop.Data.WarehouseStockOperationFactory.TryCreate();
+        if (stockOperations is null)
+        {
+            System.Windows.MessageBox.Show(
+                this,
+                "Не удалось создать транзакционный сервис складских операций.",
+                "Перемещение между ячейками",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
 
-        var window = new TransferStockWindow(cellCatalog, stockLocations)
+        var window = new TransferStockWindow(
+            cellCatalog,
+            stockLocations,
+            stockOperations,
+            _startupStatus.UserName)
         {
             Owner = this
         };
@@ -1828,11 +1843,27 @@ public partial class MainWindow : Window
 
         var cellCatalog = new WarehouseAutomatisaion.Desktop.Data.MySqlStorageCellCatalog(backplane);
         var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
+        var stockOperations = WarehouseAutomatisaion.Desktop.Data.WarehouseStockOperationFactory.TryCreate();
+        if (stockOperations is null)
+        {
+            System.Windows.MessageBox.Show(
+                this,
+                "Не удалось создать транзакционный сервис складских операций.",
+                "Инвентаризация",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
 
         // Sprint 10: Claude shelf vision (optional — null если ключ не настроен).
         var shelfVision = WarehouseAutomatisaion.Desktop.Data.ShelfVisionFactory.TryCreate();
 
-        var window = new StockTakeWindow(cellCatalog, stockLocations, shelfVision)
+        var window = new StockTakeWindow(
+            cellCatalog,
+            stockLocations,
+            stockOperations,
+            _startupStatus.UserName,
+            shelfVision)
         {
             Owner = this
         };
