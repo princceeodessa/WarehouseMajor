@@ -18,7 +18,7 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 //
 // Кнопка «Принять ещё» — для серийной приёмки одной ячейки (склад грузит партию):
 // после успешной операции ячейка остаётся выбранной, товар и qty очищаются.
-public partial class ReceiveStockWindow : Window
+public partial class ReceiveStockWindow : Window, IHostedWmsOperationWindow
 {
     private readonly INomenclatureCatalogReader _catalogReader;
     private readonly IStorageCellCatalog _cellCatalog;
@@ -33,6 +33,10 @@ public partial class ReceiveStockWindow : Window
 
     private readonly List<HistoryEntry> _history = new();
 
+    public Window? DialogOwnerOverride { get; set; }
+
+    public Action? HostCloseRequested { get; set; }
+
     public ReceiveStockWindow(
         INomenclatureCatalogReader catalogReader,
         IStorageCellCatalog cellCatalog,
@@ -44,6 +48,7 @@ public partial class ReceiveStockWindow : Window
         _stockLocations = stockLocations ?? throw new ArgumentNullException(nameof(stockLocations));
         _recommender = new CellRecommendationService(stockLocations, cellCatalog);
 
+        StatusText.Text = "Выберите товар и ячейку, затем введите количество.";
         Loaded += (_, _) => StatusText.Text = "Выберите товар и ячейку, затем введите количество.";
     }
 
@@ -68,7 +73,7 @@ public partial class ReceiveStockWindow : Window
                 recognizedText: _selectedItem?.Name ?? string.Empty,
                 initialSelection: _selectedItem)
             {
-                Owner = this
+                Owner = GetDialogOwner()
             };
 
             if (picker.ShowDialog() == true && picker.SelectedItem is not null)
@@ -167,7 +172,7 @@ public partial class ReceiveStockWindow : Window
                 _cellCache,
                 initialSearch: _selectedCell?.Code)
             {
-                Owner = this
+                Owner = GetDialogOwner()
             };
 
             if (picker.ShowDialog() == true && picker.SelectedCell is not null)
@@ -207,8 +212,7 @@ public partial class ReceiveStockWindow : Window
 
     private void OnCloseClicked(object sender, RoutedEventArgs e)
     {
-        DialogResult = true;
-        Close();
+        CloseHostedOrWindow();
     }
 
     private async Task ReceiveAsync(bool continueAfter)
@@ -375,6 +379,25 @@ public partial class ReceiveStockWindow : Window
         HistoryListBox.ItemsSource = _history;
         HistoryListBox.Visibility = Visibility.Visible;
         HistoryEmptyHint.Visibility = Visibility.Collapsed;
+    }
+
+    private Window GetDialogOwner()
+    {
+        return DialogOwnerOverride
+               ?? System.Windows.Application.Current?.MainWindow
+               ?? this;
+    }
+
+    private void CloseHostedOrWindow()
+    {
+        if (HostCloseRequested is not null)
+        {
+            HostCloseRequested.Invoke();
+            return;
+        }
+
+        DialogResult = true;
+        Close();
     }
 
     private sealed record HistoryEntry(string TimeStamp, string Description, string QuantityLabel);

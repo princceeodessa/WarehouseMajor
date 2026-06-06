@@ -17,6 +17,7 @@ public partial class WmsWorkspaceView : UserControl
     private readonly SalesWorkspace _salesWorkspace;
     private readonly string _actorUserName;
     private readonly Dictionary<string, FrameworkElement> _viewCache = new(StringComparer.OrdinalIgnoreCase);
+    private string _activeModeKey = "assistant";
     private bool _isLoaded;
 
     public WmsWorkspaceView(SalesWorkspace salesWorkspace, string actorUserName)
@@ -34,7 +35,17 @@ public partial class WmsWorkspaceView : UserControl
         }
 
         _isLoaded = true;
-        SelectMode("assistant");
+        SelectMode(_activeModeKey);
+    }
+
+    public void ActivateMode(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return;
+        }
+
+        SelectMode(key);
     }
 
     private void OnModeClicked(object sender, RoutedEventArgs e)
@@ -47,10 +58,12 @@ public partial class WmsWorkspaceView : UserControl
 
     private void SelectMode(string key)
     {
-        ModeContentHost.Content = GetOrCreateView(key);
-        ModeTitleText.Text = GetModeTitle(key);
-        ModeSubtitleText.Text = GetModeSubtitle(key);
-        ApplyModeSelection(GetParentSectionKey(key));
+        var normalizedKey = string.IsNullOrWhiteSpace(key) ? "assistant" : key.Trim();
+        _activeModeKey = normalizedKey;
+        ModeContentHost.Content = GetOrCreateView(normalizedKey);
+        ModeTitleText.Text = GetModeTitle(normalizedKey);
+        ModeSubtitleText.Text = GetModeSubtitle(normalizedKey);
+        ApplyModeSelection(GetParentSectionKey(normalizedKey));
     }
 
     private FrameworkElement GetOrCreateView(string key)
@@ -94,26 +107,10 @@ public partial class WmsWorkspaceView : UserControl
             "catalog" => new ProductsWorkspaceView(_salesWorkspace),
             "receipt-drafts" => new ReceiptDraftsWorkspaceView(),
             "operation-log" => new WarehouseOperationLogWorkspaceView(),
-            "receive" => CreateOperationLauncher(
-                "Приёмка товара",
-                "Быстрая запись товара в ячейку. Операция открывается полноэкранно поверх текущего рабочего места.",
-                "Открыть приёмку",
-                OpenReceiveStockDialog),
-            "transfer" => CreateOperationLauncher(
-                "Перемещение между ячейками",
-                "Перенос товара из одной ячейки в другую с контролем доступного количества.",
-                "Открыть перемещение",
-                OpenTransferStockDialog),
-            "assembly" => CreateOperationLauncher(
-                "Сборка / списание",
-                "Списание товара из ячейки на основании сборки, покупки или перемещения.",
-                "Открыть сборку",
-                OpenAssemblyWriteOffDialog),
-            "stocktake" => CreateOperationLauncher(
-                "Инвентаризация ячейки",
-                "Сверка факта с системой по выбранной ячейке, включая AI-проверку фото полки.",
-                "Открыть инвентаризацию",
-                OpenStockTakeDialog),
+            "receive" => CreateReceiveStockView(),
+            "transfer" => CreateTransferStockView(),
+            "assembly" => CreateAssemblyWriteOffView(),
+            "stocktake" => CreateStockTakeView(),
             _ => CreateInfoView("Раздел не найден", "Такой режим склада пока не зарегистрирован.")
         };
 
@@ -275,85 +272,104 @@ public partial class WmsWorkspaceView : UserControl
             _actorUserName);
     }
 
-    private FrameworkElement CreateOperationLauncher(
-        string title,
-        string description,
-        string actionText,
-        Action action)
+    private FrameworkElement CreateReceiveStockView()
     {
-        var button = new Button
+        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
+        if (backplane is null)
         {
-            Content = actionText,
-            Height = 42,
-            Padding = new Thickness(22, 0, 22, 0),
-            Background = BrushFromHex("#4F5BFF"),
-            Foreground = Brushes.White,
-            BorderThickness = new Thickness(0),
-            FontWeight = FontWeights.SemiBold,
-            Cursor = System.Windows.Input.Cursors.Hand,
-            HorizontalAlignment = HorizontalAlignment.Left
-        };
-        button.Click += (_, _) => action();
+            return CreateInfoView(
+                "Приёмка недоступна",
+                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.");
+        }
 
-        var backButton = new Button
-        {
-            Content = "Назад к работе",
-            Height = 38,
-            Padding = new Thickness(16, 0, 16, 0),
-            Background = Brushes.White,
-            BorderBrush = BrushFromHex("#E7ECF7"),
-            BorderThickness = new Thickness(1),
-            Foreground = BrushFromHex("#17213A"),
-            FontWeight = FontWeights.SemiBold,
-            Cursor = System.Windows.Input.Cursors.Hand,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Margin = new Thickness(0, 0, 10, 0)
-        };
-        backButton.Click += (_, _) => SelectMode("work");
+        var catalogReader = new MySqlNomenclatureCatalogReader(backplane);
+        var cellCatalog = new MySqlStorageCellCatalog(backplane);
+        var stockLocations = new MySqlStockLocationRepository(backplane);
+        return HostOperationWindow(new ReceiveStockWindow(catalogReader, cellCatalog, stockLocations));
+    }
 
-        return new Grid
+    private FrameworkElement CreateTransferStockView()
+    {
+        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
+        var stockOperations = WarehouseStockOperationFactory.TryCreate();
+        if (backplane is null || stockOperations is null)
         {
-            Background = BrushFromHex("#F7F9FD"),
-            Children =
-            {
-                new Border
-                {
-                    Background = Brushes.White,
-                    BorderBrush = BrushFromHex("#E7ECF7"),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(12),
-                    Padding = new Thickness(22),
-                    Width = 600,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Child = new StackPanel
-                    {
-                        Children =
-                        {
-                            new TextBlock
-                            {
-                                Text = title,
-                                FontSize = 22,
-                                FontWeight = FontWeights.SemiBold,
-                                Foreground = BrushFromHex("#17213A")
-                            },
-                            new TextBlock
-                            {
-                                Text = description,
-                                TextWrapping = TextWrapping.Wrap,
-                                Margin = new Thickness(0, 8, 0, 18),
-                                Foreground = BrushFromHex("#7A86A5")
-                            },
-                            new StackPanel
-                            {
-                                Orientation = Orientation.Horizontal,
-                                Children = { backButton, button }
-                            }
-                        }
-                    }
-                }
-            }
-        };
+            return CreateInfoView(
+                "Перемещение недоступно",
+                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.");
+        }
+
+        var cellCatalog = new MySqlStorageCellCatalog(backplane);
+        var stockLocations = new MySqlStockLocationRepository(backplane);
+        return HostOperationWindow(new TransferStockWindow(
+            cellCatalog,
+            stockLocations,
+            stockOperations,
+            _actorUserName));
+    }
+
+    private FrameworkElement CreateAssemblyWriteOffView()
+    {
+        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
+        var stockOperations = WarehouseStockOperationFactory.TryCreate();
+        if (backplane is null || stockOperations is null)
+        {
+            return CreateInfoView(
+                "Сборка недоступна",
+                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.");
+        }
+
+        var cellCatalog = new MySqlStorageCellCatalog(backplane);
+        var stockLocations = new MySqlStockLocationRepository(backplane);
+        return HostOperationWindow(new AssemblyWriteOffWindow(
+            cellCatalog,
+            stockLocations,
+            stockOperations,
+            _actorUserName));
+    }
+
+    private FrameworkElement CreateStockTakeView()
+    {
+        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
+        var stockOperations = WarehouseStockOperationFactory.TryCreate();
+        if (backplane is null || stockOperations is null)
+        {
+            return CreateInfoView(
+                "Инвентаризация недоступна",
+                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.");
+        }
+
+        var cellCatalog = new MySqlStorageCellCatalog(backplane);
+        var stockLocations = new MySqlStockLocationRepository(backplane);
+        var shelfVision = ShelfVisionFactory.TryCreate();
+        return HostOperationWindow(new StockTakeWindow(
+            cellCatalog,
+            stockLocations,
+            stockOperations,
+            _actorUserName,
+            shelfVision));
+    }
+
+    private FrameworkElement HostOperationWindow(Window window)
+    {
+        if (window is not IHostedWmsOperationWindow hosted)
+        {
+            return CreateInfoView("Операция недоступна", "Форма не поддерживает встроенный режим WMS.");
+        }
+
+        hosted.DialogOwnerOverride = Window.GetWindow(this) ?? System.Windows.Application.Current?.MainWindow;
+        hosted.HostCloseRequested = () => SelectMode("work");
+
+        var content = window.Content;
+        window.Content = null;
+        if (content is not FrameworkElement element)
+        {
+            return CreateInfoView("Операция недоступна", "Не удалось загрузить содержимое формы.");
+        }
+
+        element.HorizontalAlignment = HorizontalAlignment.Stretch;
+        element.VerticalAlignment = VerticalAlignment.Stretch;
+        return element;
     }
 
     private static FrameworkElement CreateInfoView(string title, string description)
@@ -390,113 +406,6 @@ public partial class WmsWorkspaceView : UserControl
                 }
             }
         };
-    }
-
-    private void OpenReceiveStockDialog()
-    {
-        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
-        if (backplane is null)
-        {
-            ShowConnectionWarning("Приёмка товара");
-            return;
-        }
-
-        var catalogReader = new MySqlNomenclatureCatalogReader(backplane);
-        var cellCatalog = new MySqlStorageCellCatalog(backplane);
-        var stockLocations = new MySqlStockLocationRepository(backplane);
-        var window = new ReceiveStockWindow(catalogReader, cellCatalog, stockLocations);
-        ShowFullScreenOperation(window);
-    }
-
-    private void OpenTransferStockDialog()
-    {
-        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
-        if (backplane is null)
-        {
-            ShowConnectionWarning("Перемещение между ячейками");
-            return;
-        }
-
-        var cellCatalog = new MySqlStorageCellCatalog(backplane);
-        var stockLocations = new MySqlStockLocationRepository(backplane);
-        var stockOperations = WarehouseStockOperationFactory.TryCreate();
-        if (stockOperations is null)
-        {
-            ShowConnectionWarning("Перемещение между ячейками");
-            return;
-        }
-
-        var window = new TransferStockWindow(cellCatalog, stockLocations, stockOperations, _actorUserName);
-        ShowFullScreenOperation(window);
-    }
-
-    private void OpenStockTakeDialog()
-    {
-        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
-        if (backplane is null)
-        {
-            ShowConnectionWarning("Инвентаризация");
-            return;
-        }
-
-        var cellCatalog = new MySqlStorageCellCatalog(backplane);
-        var stockLocations = new MySqlStockLocationRepository(backplane);
-        var stockOperations = WarehouseStockOperationFactory.TryCreate();
-        if (stockOperations is null)
-        {
-            ShowConnectionWarning("Инвентаризация");
-            return;
-        }
-
-        var shelfVision = ShelfVisionFactory.TryCreate();
-        var window = new StockTakeWindow(
-            cellCatalog,
-            stockLocations,
-            stockOperations,
-            _actorUserName,
-            shelfVision);
-        ShowFullScreenOperation(window);
-    }
-
-    private void OpenAssemblyWriteOffDialog()
-    {
-        var backplane = DesktopMySqlBackplaneService.TryCreateDefault();
-        if (backplane is null)
-        {
-            ShowConnectionWarning("Сборка / списание");
-            return;
-        }
-
-        var stockOperations = WarehouseStockOperationFactory.TryCreate();
-        if (stockOperations is null)
-        {
-            ShowConnectionWarning("Сборка / списание");
-            return;
-        }
-
-        var cellCatalog = new MySqlStorageCellCatalog(backplane);
-        var stockLocations = new MySqlStockLocationRepository(backplane);
-        var window = new AssemblyWriteOffWindow(cellCatalog, stockLocations, stockOperations, _actorUserName);
-        ShowFullScreenOperation(window);
-    }
-
-    private void ShowFullScreenOperation(Window window)
-    {
-        var owner = Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow;
-        window.Owner = owner;
-        window.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        window.WindowState = WindowState.Maximized;
-        window.ShowDialog();
-    }
-
-    private void ShowConnectionWarning(string title)
-    {
-        MessageBox.Show(
-            Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow,
-            "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.",
-            title,
-            MessageBoxButton.OK,
-            MessageBoxImage.Warning);
     }
 
     private void ApplyModeSelection(string activeKey)

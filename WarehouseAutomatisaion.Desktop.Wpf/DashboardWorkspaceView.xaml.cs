@@ -155,7 +155,7 @@ public partial class DashboardWorkspaceView : UserControl
         [
             NavigationCard("Заказы", "Просмотр и управление заказами клиентов", "sales", "#6C63FF", "#F0EDFF", "\uE14C"),
             NavigationCard("Клиенты", "База клиентов и контакты", "customers", "#59C36A", "#EBF9EF", "\uE716"),
-            NavigationCard("Склад", "Остатки и складские документы", "warehouse", "#FF9F1A", "#FFF4E3", "\uE8A5"),
+            NavigationCard("Склад", "WMS: ячейки, остатки, операции и AI", "wms", "#FF9F1A", "#FFF4E3", "\uE8A5"),
             NavigationCard("Отгрузки", "Управление отгрузками и доставкой", "shipments", "#4F8CFF", "#EEF4FF", "\uEC47"),
             NavigationCard("Товары", "Каталог товаров и остатки на складах", "catalog", "#7B68EE", "#F1EEFF", "\uEECA")
         ];
@@ -171,7 +171,7 @@ public partial class DashboardWorkspaceView : UserControl
         return
         [
             UrgentTask("Просроченные заказы", "Заказы, срок выполнения которых истек", overdueOrders, "sales", "#FF5F6D", "#FFF0F2", "\uEA39"),
-            UrgentTask("Расходные накладные", "Последние документы отгрузки", expenseInvoices, "warehouse", "#FF9F1A", "#FFF4E3", "\uE8C7"),
+            UrgentTask("Складские операции", "WMS-экран для приёмки, перемещения и контроля", expenseInvoices, "wms", "#FF9F1A", "#FFF4E3", "\uE8C7"),
             UrgentTask("Отгрузки с задержкой", "Отгрузки, задержанные более 1 дня", delayedShipments, "shipments", "#4F8CFF", "#EEF4FF", "\uEC47"),
             UrgentTask("Низкий остаток товаров", "Товары с остатком ниже контрольного уровня", lowStockItems, "catalog", "#7B68EE", "#F1EEFF", "\uEECA")
         ];
@@ -216,7 +216,7 @@ public partial class DashboardWorkspaceView : UserControl
         return
         [
             QuickAction("Обработать просроченные заказы", $"{overdueOrders} заказов требуют внимания", "Открыть заказы", "sales", "#FF5F6D", "#FFF0F2", "\uEA39"),
-            QuickAction("Открыть расходные накладные", $"{expenseInvoices} документов доступны на складе", "Открыть склад", "warehouse", "#FF9F1A", "#FFF4E3", "\uE8C7"),
+            QuickAction("Открыть WMS", $"{expenseInvoices} документов доступны для складской проверки", "Открыть склад", "wms", "#FF9F1A", "#FFF4E3", "\uE8C7"),
             QuickAction("Подтвердить отгрузки", $"{shipmentCandidates} отгрузки ожидают подтверждения", "Перейти к отгрузкам", "shipments", "#4F8CFF", "#EEF4FF", "\uEC47"),
             QuickAction("Проверить остатки товаров", $"{stockChecks} товаров с низким остатком", "Проверить остатки", "catalog", "#7B68EE", "#F1EEFF", "\uEECA"),
             QuickAction("Сформировать отчет", "Анализ продаж и основных показателей", "Открыть отчеты", "audit", "#59C36A", "#EBF9EF", "\uE9D2")
@@ -571,7 +571,7 @@ public partial class DashboardWorkspaceView : UserControl
         var stockBalances = GetCurrentStockBalances();
         if (stockBalances.Any(item => Matches(query, item.ItemCode, item.ItemName, item.Warehouse, item.Status)))
         {
-            return "warehouse";
+            return "stock";
         }
 
         return null;

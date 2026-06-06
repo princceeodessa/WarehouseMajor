@@ -6,7 +6,7 @@ using WarehouseAutomatisaion.Application.Contracts.Warehouse;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
 
-public partial class AssemblyWriteOffWindow : Window
+public partial class AssemblyWriteOffWindow : Window, IHostedWmsOperationWindow
 {
     private readonly IStorageCellCatalog _cellCatalog;
     private readonly IStockLocationRepository _stockLocations;
@@ -16,6 +16,10 @@ public partial class AssemblyWriteOffWindow : Window
     private IReadOnlyList<StorageCell>? _cellCache;
     private StorageCell? _selectedCell;
     private StockLocation? _selectedLocation;
+
+    public Window? DialogOwnerOverride { get; set; }
+
+    public Action? HostCloseRequested { get; set; }
 
     public AssemblyWriteOffWindow(
         IStorageCellCatalog cellCatalog,
@@ -29,6 +33,7 @@ public partial class AssemblyWriteOffWindow : Window
         _stockOperations = stockOperations;
         _actor = string.IsNullOrWhiteSpace(actor) ? "Кладовщик" : actor.Trim();
         ReasonBox.SelectedIndex = 0;
+        StatusText.Text = "Выберите ячейку и позицию для списания по сборке.";
         Loaded += (_, _) => StatusText.Text = "Выберите ячейку и позицию для списания по сборке.";
     }
 
@@ -38,7 +43,7 @@ public partial class AssemblyWriteOffWindow : Window
         {
             PickCellButton.IsEnabled = false;
             _cellCache ??= await _cellCatalog.GetAllAsync();
-            var picker = new CellPickerWindow(_cellCache, _selectedCell?.Code) { Owner = this };
+            var picker = new CellPickerWindow(_cellCache, _selectedCell?.Code) { Owner = GetDialogOwner() };
             if (picker.ShowDialog() == true && picker.SelectedCell is not null)
             {
                 _selectedCell = picker.SelectedCell;
@@ -153,8 +158,7 @@ public partial class AssemblyWriteOffWindow : Window
 
     private void OnCloseClicked(object sender, RoutedEventArgs e)
     {
-        DialogResult = true;
-        Close();
+        CloseHostedOrWindow();
     }
 
     private void UpdateButton()
@@ -179,5 +183,24 @@ public partial class AssemblyWriteOffWindow : Window
         value = 0;
         return !string.IsNullOrWhiteSpace(text)
                && decimal.TryParse(text.Trim().Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out value);
+    }
+
+    private Window GetDialogOwner()
+    {
+        return DialogOwnerOverride
+               ?? System.Windows.Application.Current?.MainWindow
+               ?? this;
+    }
+
+    private void CloseHostedOrWindow()
+    {
+        if (HostCloseRequested is not null)
+        {
+            HostCloseRequested.Invoke();
+            return;
+        }
+
+        DialogResult = true;
+        Close();
     }
 }

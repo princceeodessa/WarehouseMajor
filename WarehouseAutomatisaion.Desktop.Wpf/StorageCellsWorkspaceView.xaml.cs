@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,18 +12,37 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 
 // Sprint 3 Task 20: workspace «Ячейки склада».
 // CRUD-список ячеек из app_warehouse_storage_cells.
-// Открытие редактора по двойному клику или кнопке «Редактировать».
 public partial class StorageCellsWorkspaceView : UserControl
 {
+    private static readonly IReadOnlyList<EditorOption> BaseCellTypeOptions =
+    [
+        new(CellTypes.Storage, "Хранение"),
+        new(CellTypes.Receiving, "Приёмка"),
+        new(CellTypes.Shipping, "Отгрузка"),
+        new(CellTypes.Quarantine, "Карантин"),
+        new(CellTypes.Defective, "Брак"),
+        new(CellTypes.Production, "Производство")
+    ];
+
+    private static readonly IReadOnlyList<EditorOption> BaseStatusOptions =
+    [
+        new(CellStatuses.Active, "Активна"),
+        new(CellStatuses.Reserved, "Зарезервирована"),
+        new(CellStatuses.Blocked, "Заблокирована"),
+        new(CellStatuses.Maintenance, "Обслуживание")
+    ];
+
     private DesktopMySqlBackplaneService? _backplane;
     private MySqlStorageCellCatalog? _catalog;
     private MySqlStockLocationRepository? _stockLocations;
     private bool _isInitialized;
     private string? _selectedWarehouseFilter;
+    private Guid? _editingId;
 
     public StorageCellsWorkspaceView()
     {
         InitializeComponent();
+        HideEditor();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -35,7 +55,7 @@ public partial class StorageCellsWorkspaceView : UserControl
         _backplane = DesktopMySqlBackplaneService.TryCreateDefault();
         if (_backplane is null)
         {
-            StatusText.Text = "❌ Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.";
+            StatusText.Text = "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.";
             DisableActions();
             return;
         }
@@ -59,9 +79,11 @@ public partial class StorageCellsWorkspaceView : UserControl
         {
             new(null, "Все склады"),
         };
-        foreach (var s in summaries)
+        foreach (var summary in summaries)
         {
-            var name = string.IsNullOrWhiteSpace(s.WarehouseName) ? "(без имени)" : s.WarehouseName!;
+            var name = string.IsNullOrWhiteSpace(summary.WarehouseName)
+                ? "(без имени)"
+                : summary.WarehouseName!;
             items.Add(new WarehouseFilterOption(name, name));
         }
 
@@ -81,19 +103,19 @@ public partial class StorageCellsWorkspaceView : UserControl
         try
         {
             var cells = await _catalog.GetAllAsync(_selectedWarehouseFilter);
-            var rows = cells.Select(c => new CellRowViewModel
+            var rows = cells.Select(cell => new CellRowViewModel
             {
-                Source = c,
-                Code = c.Code,
-                WarehouseName = c.WarehouseName,
-                ZoneLabel = string.IsNullOrWhiteSpace(c.ZoneName)
-                    ? (c.ZoneCode ?? string.Empty)
-                    : $"{c.ZoneCode} · {c.ZoneName}",
-                AddressLabel = $"R{c.RowNo:D2}-К{c.RackNo:D2}-П{c.ShelfNo:D2}-Я{c.CellNo:D2}",
-                CellType = c.CellType ?? string.Empty,
-                Capacity = c.Capacity,
-                StatusText = c.StatusText ?? string.Empty,
-                CommentText = c.CommentText ?? string.Empty,
+                Source = cell,
+                Code = cell.Code,
+                WarehouseName = cell.WarehouseName,
+                ZoneLabel = string.IsNullOrWhiteSpace(cell.ZoneName)
+                    ? cell.ZoneCode ?? string.Empty
+                    : $"{cell.ZoneCode} · {cell.ZoneName}",
+                AddressLabel = $"Р{cell.RowNo:D2}-С{cell.RackNo:D2}-П{cell.ShelfNo:D2}-Я{cell.CellNo:D2}",
+                CellTypeDisplay = DisplayCellType(cell.CellType),
+                Capacity = cell.Capacity,
+                StatusDisplay = DisplayStatus(cell.StatusText),
+                CommentText = cell.CommentText ?? string.Empty,
             }).ToList();
 
             CellsDataGrid.ItemsSource = rows;
@@ -102,21 +124,21 @@ public partial class StorageCellsWorkspaceView : UserControl
             {
                 EmptyStatePanel.Visibility = Visibility.Visible;
                 CellsDataGrid.Visibility = Visibility.Collapsed;
-                StatusText.Text = "Ячеек ещё нет — создайте первую через «+ Новая ячейка» или импорт.";
+                StatusText.Text = "Ячеек ещё нет. Создайте первую ячейку или импортируйте CSV.";
             }
             else
             {
                 EmptyStatePanel.Visibility = Visibility.Collapsed;
                 CellsDataGrid.Visibility = Visibility.Visible;
-                var distinctWarehouses = rows.Select(r => r.WarehouseName).Distinct().Count();
-                var distinctZones = rows.Where(r => !string.IsNullOrEmpty(r.ZoneLabel))
-                    .Select(r => r.ZoneLabel).Distinct().Count();
-                StatusText.Text = $"Ячеек: {rows.Count}   ·   складов: {distinctWarehouses}   ·   зон: {distinctZones}";
+                var distinctWarehouses = rows.Select(row => row.WarehouseName).Distinct().Count();
+                var distinctZones = rows.Where(row => !string.IsNullOrEmpty(row.ZoneLabel))
+                    .Select(row => row.ZoneLabel).Distinct().Count();
+                StatusText.Text = $"Ячеек: {rows.Count:N0}   ·   складов: {distinctWarehouses:N0}   ·   зон: {distinctZones:N0}";
             }
         }
         catch (Exception exception)
         {
-            StatusText.Text = $"❌ Ошибка загрузки: {exception.Message}";
+            StatusText.Text = $"Ошибка загрузки: {exception.Message}";
         }
     }
 
@@ -146,47 +168,24 @@ public partial class StorageCellsWorkspaceView : UserControl
         DeleteCellButton.IsEnabled = hasSelection;
     }
 
-    private async void OnCellDoubleClick(object sender, MouseButtonEventArgs e)
+    private void OnCellDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (CellsDataGrid.SelectedItem is not CellRowViewModel selected || _stockLocations is null)
+        if (CellsDataGrid.SelectedItem is CellRowViewModel selected)
         {
-            return;
-        }
-
-        // Двойной клик в строке таблицы — показываем что лежит в ячейке (Фаза A).
-        // Чтобы редактировать ячейку — кнопка «✎ Редактировать» в toolbar.
-        try
-        {
-            StatusText.Text = $"⏳ Загрузка содержимого ячейки {selected.Code}...";
-            var locations = await _stockLocations.GetByCellAsync(selected.Source.Id);
-
-            var popup = new StockLocationsPopupWindow(
-                header: $"Содержимое ячейки {selected.Code}",
-                subheader: $"{selected.WarehouseName}   ·   {selected.ZoneLabel}   ·   {selected.AddressLabel}",
-                locations: locations)
-            {
-                Owner = Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow
-            };
-            popup.ShowDialog();
-
-            StatusText.Text = $"Ячейка {selected.Code}: позиций {locations.Count}";
-        }
-        catch (Exception exception)
-        {
-            StatusText.Text = $"❌ Не удалось загрузить содержимое: {exception.Message}";
+            ShowEditor(selected.Source);
         }
     }
 
     private void OnNewCellClicked(object sender, RoutedEventArgs e)
     {
-        OpenEditor(source: null);
+        ShowEditor(source: null);
     }
 
     private void OnEditCellClicked(object sender, RoutedEventArgs e)
     {
         if (CellsDataGrid.SelectedItem is CellRowViewModel selected)
         {
-            OpenEditor(selected.Source);
+            ShowEditor(selected.Source);
         }
     }
 
@@ -212,12 +211,13 @@ public partial class StorageCellsWorkspaceView : UserControl
         try
         {
             await _catalog.DeleteAsync(selected.Source.Id);
+            HideEditor();
             ReloadCells();
-            StatusText.Text = $"✅ Ячейка «{selected.Code}» удалена.";
+            StatusText.Text = $"Ячейка «{selected.Code}» удалена.";
         }
         catch (Exception exception)
         {
-            StatusText.Text = $"❌ Не удалось удалить: {exception.Message}";
+            StatusText.Text = $"Не удалось удалить: {exception.Message}";
         }
     }
 
@@ -229,7 +229,7 @@ public partial class StorageCellsWorkspaceView : UserControl
             return;
         }
 
-        var cells = rows.Select(r => r.Source).ToList();
+        var cells = rows.Select(row => row.Source).ToList();
         if (cells.Count == 0)
         {
             MessageBox.Show(
@@ -292,9 +292,9 @@ public partial class StorageCellsWorkspaceView : UserControl
             var confirmation = MessageBox.Show(
                 Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow,
                 $"Файл: {Path.GetFileName(dialog.FileName)}\n\n" +
-                $"К импорту: {requestsCount} строк\n" +
-                $"Ошибок в парсинге: {errorsCount}\n\n" +
-                "Существующие ячейки (по сочетанию склад + код) будут обновлены, новые — созданы.\n\n" +
+                $"К импорту: {requestsCount:N0} строк\n" +
+                $"Ошибок в парсинге: {errorsCount:N0}\n\n" +
+                "Существующие ячейки по сочетанию склад + код будут обновлены, новые будут созданы.\n\n" +
                 "Продолжить?",
                 "Подтверждение импорта",
                 MessageBoxButton.YesNo,
@@ -306,18 +306,18 @@ public partial class StorageCellsWorkspaceView : UserControl
             }
 
             ImportCsvButton.IsEnabled = false;
-            ImportCsvButton.Content = "⏳ Импорт...";
-            StatusText.Text = $"⏳ Импорт {requestsCount} ячеек...";
+            ImportCsvButton.Content = "Импорт...";
+            StatusText.Text = $"Импорт {requestsCount:N0} ячеек...";
 
             var importResult = await Task.Run(() => _backplane.BulkUpsertStorageCells(result.Requests));
 
             ReloadCells();
 
             var resultMessage =
-                $"✅ Импорт завершён.\n\n" +
-                $"Добавлено новых: {importResult.Inserted}\n" +
-                $"Обновлено существующих: {importResult.Updated}\n" +
-                $"Ошибок: {importResult.Failed + errorsCount}";
+                $"Импорт завершён.\n\n" +
+                $"Добавлено новых: {importResult.Inserted:N0}\n" +
+                $"Обновлено существующих: {importResult.Updated:N0}\n" +
+                $"Ошибок: {importResult.Failed + errorsCount:N0}";
 
             if (importResult.Errors.Count > 0)
             {
@@ -331,11 +331,11 @@ public partial class StorageCellsWorkspaceView : UserControl
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
 
-            StatusText.Text = $"✅ Импортировано: {importResult.Inserted + importResult.Updated} (новых: {importResult.Inserted}, обновлено: {importResult.Updated})";
+            StatusText.Text = $"Импортировано: {importResult.Inserted + importResult.Updated:N0} (новых: {importResult.Inserted:N0}, обновлено: {importResult.Updated:N0})";
         }
         catch (Exception exception)
         {
-            StatusText.Text = $"❌ Ошибка импорта: {exception.Message}";
+            StatusText.Text = $"Ошибка импорта: {exception.Message}";
             MessageBox.Show(
                 Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow,
                 $"Не удалось импортировать: {exception.Message}",
@@ -346,26 +346,268 @@ public partial class StorageCellsWorkspaceView : UserControl
         finally
         {
             ImportCsvButton.IsEnabled = true;
-            ImportCsvButton.Content = "📤 Импорт CSV";
+            ImportCsvButton.Content = "Импорт CSV";
         }
     }
 
-    private void OpenEditor(StorageCell? source)
+    private void ShowEditor(StorageCell? source)
     {
         if (_catalog is null)
         {
             return;
         }
 
-        var editor = new StorageCellEditorWindow(_catalog, source)
-        {
-            Owner = Window.GetWindow(this) ?? System.Windows.Application.Current.MainWindow
-        };
+        _editingId = source?.Id;
+        EditorColumn.Width = new GridLength(430);
+        EditorPanel.Visibility = Visibility.Visible;
 
-        if (editor.ShowDialog() == true)
+        EditorTitleText.Text = source is null ? "Новая ячейка" : $"Ячейка {source.Code}";
+        EditorSubtitleText.Text = source is null
+            ? "Заполните склад, код и адрес хранения. Ячейка сразу появится в приёмке, перемещении и инвентаризации."
+            : "Редактирование выполняется прямо в разделе ячеек, без отдельного окна.";
+        EditorStatusText.Text = source is null ? "Новая запись." : "Изменения ещё не сохранены.";
+
+        CellTypeCombo.ItemsSource = EnsureOption(BaseCellTypeOptions, source?.CellType);
+        CellTypeCombo.DisplayMemberPath = nameof(EditorOption.DisplayName);
+        CellTypeCombo.SelectedValuePath = nameof(EditorOption.Value);
+        StatusCombo.ItemsSource = EnsureOption(BaseStatusOptions, source?.StatusText);
+        StatusCombo.DisplayMemberPath = nameof(EditorOption.DisplayName);
+        StatusCombo.SelectedValuePath = nameof(EditorOption.Value);
+
+        if (source is null)
         {
+            WarehouseNameBox.Text = ResolveDefaultWarehouseName();
+            CodeBox.Clear();
+            ZoneCodeBox.Clear();
+            ZoneNameBox.Clear();
+            RowNoBox.Text = "0";
+            RackNoBox.Text = "0";
+            ShelfNoBox.Text = "0";
+            CellNoBox.Text = "0";
+            CellTypeCombo.SelectedValue = CellTypes.Storage;
+            StatusCombo.SelectedValue = CellStatuses.Active;
+            CapacityBox.Text = "0";
+            CommentBox.Clear();
+            AuditText.Text = "Новая запись.";
+        }
+        else
+        {
+            WarehouseNameBox.Text = source.WarehouseName;
+            CodeBox.Text = source.Code;
+            ZoneCodeBox.Text = source.ZoneCode ?? string.Empty;
+            ZoneNameBox.Text = source.ZoneName ?? string.Empty;
+            RowNoBox.Text = source.RowNo.ToString(CultureInfo.InvariantCulture);
+            RackNoBox.Text = source.RackNo.ToString(CultureInfo.InvariantCulture);
+            ShelfNoBox.Text = source.ShelfNo.ToString(CultureInfo.InvariantCulture);
+            CellNoBox.Text = source.CellNo.ToString(CultureInfo.InvariantCulture);
+            CellTypeCombo.SelectedValue = source.CellType ?? CellTypes.Storage;
+            StatusCombo.SelectedValue = source.StatusText ?? CellStatuses.Active;
+            CapacityBox.Text = source.Capacity.ToString("0.####", CultureInfo.InvariantCulture);
+            CommentBox.Text = source.CommentText ?? string.Empty;
+            AuditText.Text =
+                $"Создана: {source.CreatedAtUtc:dd.MM.yyyy HH:mm} UTC   ·   обновлена: {source.UpdatedAtUtc:dd.MM.yyyy HH:mm} UTC   ·   id={source.Id}";
+        }
+
+        WarehouseNameBox.Focus();
+        WarehouseNameBox.SelectAll();
+    }
+
+    private void HideEditor()
+    {
+        _editingId = null;
+        EditorPanel.Visibility = Visibility.Collapsed;
+        EditorColumn.Width = new GridLength(0);
+    }
+
+    private void OnCancelEditClicked(object sender, RoutedEventArgs e)
+    {
+        HideEditor();
+    }
+
+    private async void OnSaveCellClicked(object sender, RoutedEventArgs e)
+    {
+        if (_catalog is null)
+        {
+            return;
+        }
+
+        if (!TryBuildRequest(out var request, out var error))
+        {
+            EditorStatusText.Text = error;
+            return;
+        }
+
+        SaveCellButton.IsEnabled = false;
+        EditorStatusText.Text = "Сохранение...";
+
+        try
+        {
+            if (_editingId.HasValue)
+            {
+                await _catalog.UpdateAsync(_editingId.Value, request);
+                StatusText.Text = $"Ячейка «{request.Code}» обновлена.";
+            }
+            else
+            {
+                _ = await _catalog.CreateAsync(request);
+                StatusText.Text = $"Ячейка «{request.Code}» создана.";
+            }
+
+            HideEditor();
             ReloadCells();
         }
+        catch (Exception exception)
+        {
+            EditorStatusText.Text = $"Не удалось сохранить: {exception.Message}";
+        }
+        finally
+        {
+            SaveCellButton.IsEnabled = true;
+        }
+    }
+
+    private bool TryBuildRequest(out StorageCellRequest request, out string error)
+    {
+        request = null!;
+        error = string.Empty;
+
+        var warehouseName = WarehouseNameBox.Text.Trim();
+        if (string.IsNullOrEmpty(warehouseName))
+        {
+            error = "Поле «Склад» обязательно.";
+            return false;
+        }
+
+        var code = CodeBox.Text.Trim();
+        if (string.IsNullOrEmpty(code))
+        {
+            error = "Поле «Код ячейки» обязательно.";
+            return false;
+        }
+
+        if (!TryParseInt(RowNoBox.Text, out var row, "Ряд", out error)) return false;
+        if (!TryParseInt(RackNoBox.Text, out var rack, "Стеллаж", out error)) return false;
+        if (!TryParseInt(ShelfNoBox.Text, out var shelf, "Полка", out error)) return false;
+        if (!TryParseInt(CellNoBox.Text, out var cell, "Ячейка", out error)) return false;
+        if (!TryParseDecimal(CapacityBox.Text, out var capacity, out error)) return false;
+
+        request = new StorageCellRequest(
+            Code: code,
+            WarehouseNodeId: null,
+            WarehouseName: warehouseName,
+            ZoneCode: NullIfEmpty(ZoneCodeBox.Text),
+            ZoneName: NullIfEmpty(ZoneNameBox.Text),
+            RowNo: row,
+            RackNo: rack,
+            ShelfNo: shelf,
+            CellNo: cell,
+            CellType: GetSelectedValue(CellTypeCombo),
+            Capacity: capacity,
+            StatusText: GetSelectedValue(StatusCombo),
+            CommentText: NullIfEmpty(CommentBox.Text));
+
+        return true;
+    }
+
+    private string ResolveDefaultWarehouseName()
+    {
+        if (!string.IsNullOrWhiteSpace(_selectedWarehouseFilter))
+        {
+            return _selectedWarehouseFilter!;
+        }
+
+        var rows = (CellsDataGrid.ItemsSource as IEnumerable<CellRowViewModel>)?.ToArray() ?? [];
+        return rows.Select(row => row.WarehouseName).Distinct(StringComparer.OrdinalIgnoreCase).Take(2).Count() == 1
+            ? rows[0].WarehouseName
+            : string.Empty;
+    }
+
+    private static IReadOnlyList<EditorOption> EnsureOption(
+        IReadOnlyList<EditorOption> options,
+        string? currentValue)
+    {
+        if (string.IsNullOrWhiteSpace(currentValue)
+            || options.Any(option => option.Value.Equals(currentValue, StringComparison.OrdinalIgnoreCase)))
+        {
+            return options;
+        }
+
+        return options.Concat([new EditorOption(currentValue.Trim(), currentValue.Trim())]).ToArray();
+    }
+
+    private static string? GetSelectedValue(ComboBox comboBox)
+    {
+        return comboBox.SelectedItem is EditorOption option ? option.Value : null;
+    }
+
+    private static string DisplayCellType(string? value)
+    {
+        return DisplayOption(BaseCellTypeOptions, value, "Не задан");
+    }
+
+    private static string DisplayStatus(string? value)
+    {
+        return DisplayOption(BaseStatusOptions, value, "Не задан");
+    }
+
+    private static string DisplayOption(
+        IReadOnlyList<EditorOption> options,
+        string? value,
+        string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        var option = options.FirstOrDefault(item =>
+            item.Value.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase));
+        return option?.DisplayName ?? value.Trim();
+    }
+
+    private static bool TryParseInt(string text, out int value, string fieldName, out string error)
+    {
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            value = 0;
+            return true;
+        }
+
+        if (int.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
+        {
+            return true;
+        }
+
+        error = $"Поле «{fieldName}» должно быть целым числом.";
+        value = 0;
+        return false;
+    }
+
+    private static bool TryParseDecimal(string text, out decimal value, out string error)
+    {
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            value = 0m;
+            return true;
+        }
+
+        var normalized = text.Trim().Replace(',', '.');
+        if (decimal.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out value))
+        {
+            return true;
+        }
+
+        error = "Поле «Вместимость» должно быть числом.";
+        value = 0m;
+        return false;
+    }
+
+    private static string? NullIfEmpty(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
 
     private void DisableActions()
@@ -376,6 +618,7 @@ public partial class StorageCellsWorkspaceView : UserControl
         ImportCsvButton.IsEnabled = false;
         PrintLabelsButton.IsEnabled = false;
         RefreshButton.IsEnabled = false;
+        HideEditor();
     }
 
     private sealed class CellRowViewModel
@@ -385,11 +628,13 @@ public partial class StorageCellsWorkspaceView : UserControl
         public string WarehouseName { get; init; } = string.Empty;
         public string ZoneLabel { get; init; } = string.Empty;
         public string AddressLabel { get; init; } = string.Empty;
-        public string CellType { get; init; } = string.Empty;
+        public string CellTypeDisplay { get; init; } = string.Empty;
         public decimal Capacity { get; init; }
-        public string StatusText { get; init; } = string.Empty;
+        public string StatusDisplay { get; init; } = string.Empty;
         public string CommentText { get; init; } = string.Empty;
     }
 
     private sealed record WarehouseFilterOption(string? Value, string DisplayName);
+
+    private sealed record EditorOption(string Value, string DisplayName);
 }

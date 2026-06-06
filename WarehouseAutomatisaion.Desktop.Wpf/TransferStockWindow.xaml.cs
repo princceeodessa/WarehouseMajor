@@ -16,7 +16,7 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 //
 // Если qty == source.Quantity (полное перемещение), source-позиция остаётся
 // с quantity=0 (не удаляем — оставляем для аудита кто-куда-сколько перемещал).
-public partial class TransferStockWindow : Window
+public partial class TransferStockWindow : Window, IHostedWmsOperationWindow
 {
     private readonly IStorageCellCatalog _cellCatalog;
     private readonly IStockLocationRepository _stockLocations;
@@ -31,6 +31,10 @@ public partial class TransferStockWindow : Window
 
     private readonly List<HistoryEntry> _history = new();
 
+    public Window? DialogOwnerOverride { get; set; }
+
+    public Action? HostCloseRequested { get; set; }
+
     public TransferStockWindow(
         IStorageCellCatalog cellCatalog,
         IStockLocationRepository stockLocations,
@@ -43,6 +47,7 @@ public partial class TransferStockWindow : Window
         _stockOperations = stockOperations ?? throw new ArgumentNullException(nameof(stockOperations));
         _actor = string.IsNullOrWhiteSpace(actor) ? "Кладовщик" : actor.Trim();
 
+        StatusText.Text = "Выберите ячейку-источник, позицию из неё и ячейку-приёмник.";
         Loaded += (_, _) => StatusText.Text = "Выберите ячейку-источник, позицию из неё и ячейку-приёмник.";
     }
 
@@ -101,7 +106,7 @@ public partial class TransferStockWindow : Window
             }
 
             var initial = role == "source" ? _sourceCell?.Code : _targetCell?.Code;
-            var picker = new CellPickerWindow(_cellCache, initialSearch: initial) { Owner = this };
+            var picker = new CellPickerWindow(_cellCache, initialSearch: initial) { Owner = GetDialogOwner() };
             if (picker.ShowDialog() == true && picker.SelectedCell is not null)
             {
                 return picker.SelectedCell;
@@ -210,8 +215,7 @@ public partial class TransferStockWindow : Window
 
     private void OnCloseClicked(object sender, RoutedEventArgs e)
     {
-        DialogResult = true;
-        Close();
+        CloseHostedOrWindow();
     }
 
     private async void OnTransferClicked(object sender, RoutedEventArgs e)
@@ -331,6 +335,25 @@ public partial class TransferStockWindow : Window
         HistoryListBox.ItemsSource = _history;
         HistoryListBox.Visibility = Visibility.Visible;
         HistoryEmptyHint.Visibility = Visibility.Collapsed;
+    }
+
+    private Window GetDialogOwner()
+    {
+        return DialogOwnerOverride
+               ?? System.Windows.Application.Current?.MainWindow
+               ?? this;
+    }
+
+    private void CloseHostedOrWindow()
+    {
+        if (HostCloseRequested is not null)
+        {
+            HostCloseRequested.Invoke();
+            return;
+        }
+
+        DialogResult = true;
+        Close();
     }
 
     private sealed record HistoryEntry(string TimeStamp, string Description);

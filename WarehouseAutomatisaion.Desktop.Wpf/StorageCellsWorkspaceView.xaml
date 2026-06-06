@@ -7,18 +7,49 @@
              Background="#F7F9FD"
              Loaded="OnLoaded">
     <UserControl.Resources>
-        <SolidColorBrush x:Key="PageBrush" Color="#F7F9FD" />
         <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="LineBrush" Color="#E7ECF7" />
         <SolidColorBrush x:Key="PrimaryBrush" Color="#4F5BFF" />
         <SolidColorBrush x:Key="TextBrush" Color="#17213A" />
         <SolidColorBrush x:Key="MutedBrush" Color="#7A86A5" />
         <SolidColorBrush x:Key="DangerBrush" Color="#E76F51" />
+
+        <Style x:Key="ToolbarButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="Margin" Value="8,0,0,0" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="EditorLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Margin" Value="0,0,0,5" />
+        </Style>
+
+        <Style x:Key="EditorTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style x:Key="EditorComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
     </UserControl.Resources>
 
     <DockPanel LastChildFill="True" Margin="16">
-
-        <!-- Toolbar -->
         <Border DockPanel.Dock="Top"
                 Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
@@ -26,62 +57,58 @@
                 CornerRadius="12"
                 Padding="14,10"
                 Margin="0,0,0,10">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="Склад:" Foreground="{StaticResource MutedBrush}"
-                           VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox x:Name="WarehouseFilterCombo"
-                          MinWidth="220" Height="30"
-                          SelectionChanged="OnFilterChanged" />
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Склад:" Foreground="{StaticResource MutedBrush}"
+                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <ComboBox x:Name="WarehouseFilterCombo"
+                              MinWidth="220" Height="30"
+                              SelectionChanged="OnFilterChanged" />
 
-                <Button x:Name="NewCellButton"
-                        Content="+ Новая ячейка"
-                        Height="30" Padding="14,0" Margin="20,0,0,0"
-                        Background="{StaticResource PrimaryBrush}" Foreground="White"
-                        BorderThickness="0" Cursor="Hand"
-                        FontWeight="SemiBold"
-                        Click="OnNewCellClicked" />
+                    <Button x:Name="NewCellButton"
+                            Content="Новая ячейка"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Margin="20,0,0,0"
+                            Background="{StaticResource PrimaryBrush}"
+                            Foreground="White"
+                            BorderThickness="0"
+                            Click="OnNewCellClicked" />
 
-                <Button x:Name="EditCellButton"
-                        Content="✎ Редактировать"
-                        Height="30" Padding="14,0" Margin="8,0,0,0"
-                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
-                        BorderThickness="1" Cursor="Hand"
-                        IsEnabled="False"
-                        Click="OnEditCellClicked" />
+                    <Button x:Name="EditCellButton"
+                            Content="Редактировать"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            IsEnabled="False"
+                            Click="OnEditCellClicked" />
 
-                <Button x:Name="DeleteCellButton"
-                        Content="🗑 Удалить"
-                        Height="30" Padding="14,0" Margin="8,0,0,0"
-                        Background="#FFFFFF" BorderBrush="{StaticResource DangerBrush}"
-                        BorderThickness="1" Foreground="{StaticResource DangerBrush}"
-                        Cursor="Hand"
-                        IsEnabled="False"
-                        Click="OnDeleteCellClicked" />
+                    <Button x:Name="DeleteCellButton"
+                            Content="Удалить"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            BorderBrush="{StaticResource DangerBrush}"
+                            Foreground="{StaticResource DangerBrush}"
+                            IsEnabled="False"
+                            Click="OnDeleteCellClicked" />
+                </StackPanel>
 
-                <Button x:Name="ImportCsvButton"
-                        Content="📤 Импорт CSV"
-                        Height="30" Padding="14,0" Margin="20,0,0,0"
-                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
-                        BorderThickness="1" Cursor="Hand"
-                        Click="OnImportCsvClicked" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="ImportCsvButton"
+                            Content="Импорт CSV"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Margin="0"
+                            Click="OnImportCsvClicked" />
 
-                <Button x:Name="PrintLabelsButton"
-                        Content="🖨 QR-этикетки"
-                        Height="30" Padding="14,0" Margin="8,0,0,0"
-                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
-                        BorderThickness="1" Cursor="Hand"
-                        Click="OnPrintLabelsClicked" />
+                    <Button x:Name="PrintLabelsButton"
+                            Content="QR-этикетки"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Click="OnPrintLabelsClicked" />
 
-                <Button x:Name="RefreshButton"
-                        Content="↻ Обновить"
-                        Height="30" Padding="14,0" Margin="8,0,0,0"
-                        Background="#FFFFFF" BorderBrush="{StaticResource LineBrush}"
-                        BorderThickness="1" Cursor="Hand"
-                        Click="OnRefreshClicked" />
-            </StackPanel>
+                    <Button x:Name="RefreshButton"
+                            Content="Обновить"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Click="OnRefreshClicked" />
+                </StackPanel>
+            </DockPanel>
         </Border>
 
-        <!-- Status -->
         <Border DockPanel.Dock="Bottom"
                 Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource LineBrush}"
@@ -91,93 +118,266 @@
                 Margin="0,10,0,0">
             <TextBlock x:Name="StatusText"
                        Foreground="{StaticResource MutedBrush}"
-                       FontSize="12" />
+                       FontSize="12"
+                       TextWrapping="Wrap" />
         </Border>
 
-        <!-- Cells DataGrid + empty state -->
-        <Border Background="{StaticResource CardBrush}"
-                BorderBrush="{StaticResource LineBrush}"
-                BorderThickness="1"
-                CornerRadius="12">
-          <Grid>
-            <Grid x:Name="EmptyStatePanel" Visibility="Collapsed">
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="40">
-                    <Border Style="{StaticResource AppEmptyStateIconBoxStyle}">
-                        <TextBlock Style="{StaticResource AppEmptyStateIconTextStyle}" Text="🗂" />
-                    </Border>
-                    <TextBlock Style="{StaticResource AppEmptyStateTitleStyle}" Text="Ячейки склада ещё не созданы" />
-                    <TextBlock Style="{StaticResource AppEmptyStateHintStyle}"
-                               Text="Добавь ячейки через «+ Новая ячейка» или импортируй из CSV. После этого их можно будет использовать в приёмке, перемещении и инвентаризации." />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button Content="+ Новая ячейка"
-                                Height="38" Padding="20,0" Margin="0,0,10,0"
-                                Background="{StaticResource PrimaryBrush}"
-                                Foreground="White"
-                                BorderThickness="0"
-                                Cursor="Hand"
-                                FontWeight="SemiBold"
-                                FontSize="13"
-                                Click="OnNewCellClicked" />
-                        <Button Content="📤 Импорт CSV"
-                                Height="38" Padding="18,0"
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="EditorColumn" Width="0" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Background="{StaticResource CardBrush}"
+                    BorderBrush="{StaticResource LineBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                <Grid>
+                    <Grid x:Name="EmptyStatePanel" Visibility="Collapsed">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="40">
+                            <Border Style="{StaticResource AppEmptyStateIconBoxStyle}">
+                                <TextBlock Style="{StaticResource AppEmptyStateIconTextStyle}" Text="□" />
+                            </Border>
+                            <TextBlock Style="{StaticResource AppEmptyStateTitleStyle}" Text="Ячейки склада ещё не созданы" />
+                            <TextBlock Style="{StaticResource AppEmptyStateHintStyle}"
+                                       Text="Добавьте первую ячейку или импортируйте CSV. После этого ячейки будут доступны в приёмке, перемещении и инвентаризации." />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button Content="Новая ячейка"
+                                        Height="38" Padding="20,0" Margin="0,0,10,0"
+                                        Background="{StaticResource PrimaryBrush}"
+                                        Foreground="White"
+                                        BorderThickness="0"
+                                        Cursor="Hand"
+                                        FontWeight="SemiBold"
+                                        FontSize="13"
+                                        Click="OnNewCellClicked" />
+                                <Button Content="Импорт CSV"
+                                        Height="38" Padding="18,0"
+                                        Background="#FFFFFF"
+                                        BorderBrush="{StaticResource LineBrush}"
+                                        BorderThickness="1"
+                                        Cursor="Hand"
+                                        FontWeight="SemiBold"
+                                        FontSize="13"
+                                        Click="OnImportCsvClicked" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+
+                    <DataGrid x:Name="CellsDataGrid"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              CanUserSortColumns="True"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="{StaticResource LineBrush}"
+                              BorderThickness="0"
+                              Background="Transparent"
+                              RowHeight="30"
+                              ColumnHeaderHeight="34"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
+                              EnableRowVirtualization="True"
+                              EnableColumnVirtualization="True"
+                              FontSize="12.5"
+                              SelectionChanged="OnCellSelectionChanged"
+                              MouseDoubleClick="OnCellDoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="130" />
+                            <DataGridTextColumn Header="Склад" Binding="{Binding WarehouseName}" Width="200" />
+                            <DataGridTextColumn Header="Зона" Binding="{Binding ZoneLabel}" Width="140" />
+                            <DataGridTextColumn Header="Адрес" Binding="{Binding AddressLabel}" Width="130" />
+                            <DataGridTextColumn Header="Тип" Binding="{Binding CellTypeDisplay}" Width="130" />
+                            <DataGridTextColumn Header="Вместимость"
+                                                Binding="{Binding Capacity, StringFormat=N2}"
+                                                Width="110">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                        <Setter Property="Padding" Value="0,0,8,0" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Статус" Binding="{Binding StatusDisplay}" Width="130" />
+                            <DataGridTextColumn Header="Комментарий" Binding="{Binding CommentText}" Width="*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                                        <Setter Property="FontSize" Value="11.5" />
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <Border x:Name="EditorPanel"
+                    Grid.Column="1"
+                    Visibility="Collapsed"
+                    Background="{StaticResource CardBrush}"
+                    BorderBrush="{StaticResource LineBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="18"
+                    Margin="10,0,0,0">
+                <DockPanel LastChildFill="True">
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock x:Name="EditorTitleText"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextBrush}" />
+                            <TextBlock x:Name="EditorSubtitleText"
+                                       Margin="0,4,0,0"
+                                       Foreground="{StaticResource MutedBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="Закрыть"
+                                Height="30"
+                                Padding="12,0"
                                 Background="#FFFFFF"
                                 BorderBrush="{StaticResource LineBrush}"
                                 BorderThickness="1"
                                 Cursor="Hand"
-                                FontWeight="SemiBold"
-                                FontSize="13"
-                                Click="OnImportCsvClicked" />
-                    </StackPanel>
-                </StackPanel>
-            </Grid>
-            <DataGrid x:Name="CellsDataGrid"
-                      AutoGenerateColumns="False"
-                      CanUserAddRows="False"
-                      CanUserDeleteRows="False"
-                      CanUserResizeRows="False"
-                      CanUserSortColumns="True"
-                      IsReadOnly="True"
-                      HeadersVisibility="Column"
-                      GridLinesVisibility="Horizontal"
-                      HorizontalGridLinesBrush="{StaticResource LineBrush}"
-                      BorderThickness="0"
-                      Background="Transparent"
-                      RowHeight="28"
-                      ColumnHeaderHeight="32"
-                      SelectionMode="Single"
-                      SelectionUnit="FullRow"
-                      EnableRowVirtualization="True"
-                      FontSize="12.5"
-                      SelectionChanged="OnCellSelectionChanged"
-                      MouseDoubleClick="OnCellDoubleClick">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Код" Binding="{Binding Code}" Width="130" />
-                    <DataGridTextColumn Header="Склад" Binding="{Binding WarehouseName}" Width="200" />
-                    <DataGridTextColumn Header="Зона" Binding="{Binding ZoneLabel}" Width="140" />
-                    <DataGridTextColumn Header="Адрес" Binding="{Binding AddressLabel}" Width="120" />
-                    <DataGridTextColumn Header="Тип" Binding="{Binding CellType}" Width="100" />
-                    <DataGridTextColumn Header="Capacity"
-                                        Binding="{Binding Capacity, StringFormat=N2}"
-                                        Width="100">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="HorizontalAlignment" Value="Right" />
-                                <Setter Property="Padding" Value="0,0,8,0" />
-                            </Style>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
-                    <DataGridTextColumn Header="Статус" Binding="{Binding StatusText}" Width="100" />
-                    <DataGridTextColumn Header="Комментарий" Binding="{Binding CommentText}" Width="*">
-                        <DataGridTextColumn.ElementStyle>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
-                                <Setter Property="FontSize" Value="11.5" />
-                            </Style>
-                        </DataGridTextColumn.ElementStyle>
-                    </DataGridTextColumn>
-                </DataGrid.Columns>
-            </DataGrid>
-          </Grid>
-        </Border>
+                                Click="OnCancelEditClicked" />
+                    </Grid>
+
+                    <Border DockPanel.Dock="Bottom"
+                            BorderBrush="{StaticResource LineBrush}"
+                            BorderThickness="0,1,0,0"
+                            Padding="0,14,0,0"
+                            Margin="0,14,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="EditorStatusText"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+                            <Button x:Name="SaveCellButton"
+                                    Grid.Column="1"
+                                    Content="Сохранить"
+                                    Height="36"
+                                    Padding="20,0"
+                                    Background="{StaticResource PrimaryBrush}"
+                                    Foreground="White"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    FontWeight="SemiBold"
+                                    IsDefault="True"
+                                    Click="OnSaveCellClicked" />
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="Склад *" Style="{StaticResource EditorLabelStyle}" />
+                            <TextBox x:Name="WarehouseNameBox"
+                                     Style="{StaticResource EditorTextBoxStyle}"
+                                     Margin="0,0,0,10" />
+
+                            <TextBlock Text="Код ячейки *" Style="{StaticResource EditorLabelStyle}" />
+                            <TextBox x:Name="CodeBox"
+                                     Style="{StaticResource EditorTextBoxStyle}"
+                                     Margin="0,0,0,10" />
+
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Код зоны" Style="{StaticResource EditorLabelStyle}" />
+                                    <TextBox x:Name="ZoneCodeBox" Style="{StaticResource EditorTextBoxStyle}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Название зоны" Style="{StaticResource EditorLabelStyle}" />
+                                    <TextBox x:Name="ZoneNameBox" Style="{StaticResource EditorTextBoxStyle}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Адрес" Style="{StaticResource EditorLabelStyle}" />
+                            <UniformGrid Columns="4" Margin="0,0,0,10">
+                                <StackPanel Margin="0,0,8,0">
+                                    <TextBlock Text="Ряд" Style="{StaticResource EditorLabelStyle}" />
+                                    <TextBox x:Name="RowNoBox" Style="{StaticResource EditorTextBoxStyle}" Text="0" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,8,0">
+                                    <TextBlock Text="Стеллаж" Style="{StaticResource EditorLabelStyle}" />
+                                    <TextBox x:Name="RackNoBox" Style="{StaticResource EditorTextBoxStyle}" Text="0" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,8,0">
+                                    <TextBlock Text="Полка" Style="{StaticResource EditorLabelStyle}" />
+                                    <TextBox x:Name="ShelfNoBox" Style="{StaticResource EditorTextBoxStyle}" Text="0" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Ячейка" Style="{StaticResource EditorLabelStyle}" />
+                                    <TextBox x:Name="CellNoBox" Style="{StaticResource EditorTextBoxStyle}" Text="0" />
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Тип" Style="{StaticResource EditorLabelStyle}" />
+                                    <ComboBox x:Name="CellTypeCombo"
+                                              Style="{StaticResource EditorComboBoxStyle}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Статус" Style="{StaticResource EditorLabelStyle}" />
+                                    <ComboBox x:Name="StatusCombo"
+                                              Style="{StaticResource EditorComboBoxStyle}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Вместимость" Style="{StaticResource EditorLabelStyle}" />
+                            <TextBox x:Name="CapacityBox"
+                                     Style="{StaticResource EditorTextBoxStyle}"
+                                     Text="0"
+                                     Margin="0,0,0,4" />
+                            <TextBlock Text="Например: объём, вес или лимит мест в ячейке."
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontSize="11.5"
+                                       Margin="0,0,0,10" />
+
+                            <TextBlock Text="Комментарий" Style="{StaticResource EditorLabelStyle}" />
+                            <TextBox x:Name="CommentBox"
+                                     Style="{StaticResource EditorTextBoxStyle}"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     Height="86"
+                                     VerticalContentAlignment="Top"
+                                     Padding="10,7"
+                                     Margin="0,0,0,10" />
+
+                            <TextBlock x:Name="AuditText"
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontSize="11"
+                                       FontStyle="Italic"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
     </DockPanel>
 </UserControl>

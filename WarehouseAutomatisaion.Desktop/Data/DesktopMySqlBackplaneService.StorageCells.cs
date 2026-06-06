@@ -253,7 +253,7 @@ public sealed partial class DesktopMySqlBackplaneService
                 {
                     findCommand.CommandText = findSql;
                     findCommand.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
-                    findCommand.Parameters.AddWithValue("@warehouse_name", request.WarehouseName);
+                    findCommand.Parameters.AddWithValue("@warehouse_name", NormalizeWarehouseName(request.WarehouseName));
                     findCommand.Parameters.AddWithValue("@code", request.Code);
                     using var reader = findCommand.ExecuteReader();
                     if (reader.Read())
@@ -312,8 +312,9 @@ public sealed partial class DesktopMySqlBackplaneService
 
     private static void BindRequestParameters(MySqlCommand command, Guid id, StorageCellRequest request, bool includeQr)
     {
+        var warehouseName = NormalizeWarehouseName(request.WarehouseName);
         command.Parameters.AddWithValue("@id", id.ToString());
-        command.Parameters.AddWithValue("@warehouse_name", request.WarehouseName);
+        command.Parameters.AddWithValue("@warehouse_name", warehouseName);
         command.Parameters.AddWithValue("@code", request.Code);
         command.Parameters.AddWithValue("@zone_code", (object?)request.ZoneCode ?? DBNull.Value);
         command.Parameters.AddWithValue("@zone_name", (object?)request.ZoneName ?? DBNull.Value);
@@ -331,7 +332,7 @@ public sealed partial class DesktopMySqlBackplaneService
             // MWH (MajorWarehouse) формат QR-payload — совместим с TsdScanValueParser в WarehouseAutomatisaion.Tsd.
             // Формат: MWH|v=1|type=cell|warehouse=<url-encoded>|cell=<url-encoded code>
             // Pipe-separated key=value, UTF-8 значения URL-encoded для безопасной передачи через QR.
-            command.Parameters.AddWithValue("@qr_payload", BuildMwhCellPayload(request.WarehouseName, request.Code));
+            command.Parameters.AddWithValue("@qr_payload", BuildMwhCellPayload(warehouseName, request.Code));
         }
     }
 
@@ -342,6 +343,7 @@ public sealed partial class DesktopMySqlBackplaneService
     /// </summary>
     public static string BuildMwhCellPayload(string warehouseName, string cellCode)
     {
+        warehouseName = NormalizeWarehouseName(warehouseName);
         var parts = new[]
         {
             "MWH",
@@ -351,6 +353,14 @@ public sealed partial class DesktopMySqlBackplaneService
             $"cell={Uri.EscapeDataString(cellCode ?? string.Empty)}"
         };
         return string.Join("|", parts);
+    }
+
+    private static string NormalizeWarehouseName(string? warehouseName)
+    {
+        return (warehouseName ?? string.Empty)
+            .Trim()
+            .Replace('Ё', 'Е')
+            .Replace('ё', 'е');
     }
 
     private static StorageCell ReadStorageCellRow(MySqlDataReader reader)

@@ -142,11 +142,11 @@ public static class NavigationCommandCatalog
         {
             new NavigationGroup("Склад", new[]
             {
-                new NavigationCommand("Заказы на перемещение", IconCart, BluePrimary, BlueSoft, "warehouse", "transfers"),
-                new NavigationCommand("Перемещения", IconTransfer, IndigoPrimary, IndigoSoft, "warehouse", "transfers"),
-                new NavigationCommand("Инвентаризации", IconInventory, GreenPrimary, GreenSoft, "warehouse", "inventory"),
-                new NavigationCommand("Пересортица", IconAdjust, OrangePrimary, OrangeSoft, "warehouse", "cellstorage"),
-                new NavigationCommand("Списания", IconWriteOff, RedPrimary, RedSoft, "warehouse", "writeoffs"),
+                new NavigationCommand("Остатки", IconCart, BluePrimary, BlueSoft, "wms", "stock"),
+                new NavigationCommand("Перемещения", IconTransfer, IndigoPrimary, IndigoSoft, "wms", "transfer"),
+                new NavigationCommand("Инвентаризация", IconInventory, GreenPrimary, GreenSoft, "wms", "stocktake"),
+                new NavigationCommand("Ячейки", IconAdjust, OrangePrimary, OrangeSoft, "wms", "cells"),
+                new NavigationCommand("Сборка / списание", IconWriteOff, RedPrimary, RedSoft, "wms", "assembly"),
             }),
             new NavigationGroup("Товары и услуги", new[]
             {

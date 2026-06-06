@@ -928,11 +928,10 @@ public partial class MainWindow : Window
         _navButtonsByKey[NavigationCommandCatalog.PurchasingSectionKey] = NavPurchasingButton;
         _navButtonsByKey["purchasing"] = NavPurchasingButton;
 
-        _navButtonsByKey[NavigationCommandCatalog.WarehouseSectionKey] = NavWarehouseButton;
-        _navButtonsByKey["warehouse"] = NavWarehouseButton;
-
-        // WMS pivot: один видимый вход «Склад». Старые прямые ключи оставляем,
-        // но подсветка ведёт в общий блок, чтобы sidebar не расползался.
+        // WMS pivot: один видимый вход «Склад». Старые ключи warehouse/section-warehouse
+        // оставляем как алиасы, но подсветка и открытие ведут в новый WMS.
+        _navButtonsByKey[NavigationCommandCatalog.WarehouseSectionKey] = NavWmsButton;
+        _navButtonsByKey["warehouse"] = NavWmsButton;
         _navButtonsByKey["wms"] = NavWmsButton;
         _navButtonsByKey["scan"] = NavWmsButton;
         _navButtonsByKey["stock"] = NavWmsButton;
@@ -1017,13 +1016,6 @@ public partial class MainWindow : Window
             Subtitle: "Поставщики, закупочные заказы и приемка.",
             Closable: true,
             Factory: () => new PurchasingWorkspaceView(_salesWorkspace));
-
-        _sections["warehouse"] = new SectionDefinition(
-            Key: "warehouse",
-            Caption: "Склад",
-            Subtitle: "Остатки, перемещения, резервы и инвентаризация.",
-            Closable: true,
-            Factory: () => new WarehouseWorkspaceView(_salesWorkspace));
 
         _sections["wms"] = new SectionDefinition(
             Key: "wms",
@@ -1113,12 +1105,6 @@ public partial class MainWindow : Window
             Closable: true,
             Factory: () => new SectionOverviewView(NavigationCommandCatalog.Purchasing));
 
-        _sections[NavigationCommandCatalog.WarehouseSectionKey] = new SectionDefinition(
-            Key: NavigationCommandCatalog.WarehouseSectionKey,
-            Caption: "Склад",
-            Subtitle: "Витрина раздела «Склад».",
-            Closable: true,
-            Factory: () => new SectionOverviewView(NavigationCommandCatalog.Warehouse));
     }
 
     /// <summary>
@@ -1130,6 +1116,12 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrWhiteSpace(sectionKey) || string.IsNullOrWhiteSpace(subSectionKey))
         {
+            return;
+        }
+
+        if (IsWarehouseAlias(sectionKey) || string.Equals(sectionKey, "wms", StringComparison.OrdinalIgnoreCase))
+        {
+            OpenWmsMode(MapWarehouseSubSectionToWmsMode(subSectionKey));
             return;
         }
 
@@ -1175,6 +1167,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (IsWarehouseAlias(sectionKey) || string.Equals(sectionKey, "wms", StringComparison.OrdinalIgnoreCase))
+        {
+            OpenWmsMode(MapWarehouseSubSectionToWmsMode(subSectionKey));
+            return;
+        }
+
         var tabKey = $"{sectionKey}:{subSectionKey}";
         OpenWorkspaceEditorTab(
             tabKey,
@@ -1185,7 +1183,6 @@ public partial class MainWindow : Window
                 FrameworkElement view = sectionKey.ToLowerInvariant() switch
                 {
                     "purchasing" => new PurchasingWorkspaceView(_salesWorkspace),
-                    "warehouse" => new WarehouseWorkspaceView(_salesWorkspace),
                     "products" or "catalog" => new ProductsWorkspaceView(_salesWorkspace),
                     "customers" => new ContractorsWorkspaceView(_salesWorkspace),
                     _ => new ContractorsWorkspaceView(_salesWorkspace)
@@ -1230,6 +1227,13 @@ public partial class MainWindow : Window
 
     internal void OpenSection(string sectionKey)
     {
+        if (string.IsNullOrWhiteSpace(sectionKey))
+        {
+            return;
+        }
+
+        sectionKey = NormalizeSectionKey(sectionKey);
+
         if (!CanOpenSection(sectionKey))
         {
             return;
@@ -1256,6 +1260,56 @@ public partial class MainWindow : Window
         ApplySelection(sectionKey);
         ReleaseInactiveSectionContent(sectionKey);
         PruneInactiveSectionTabs(sectionKey);
+    }
+
+    internal void OpenWmsMode(string modeKey)
+    {
+        OpenSection("wms");
+
+        if (!_tabsByKey.TryGetValue("wms", out var tab))
+        {
+            return;
+        }
+
+        var content = tab.Content;
+        if (content is ScrollViewer scrollViewer)
+        {
+            content = scrollViewer.Content;
+        }
+
+        if (content is WmsWorkspaceView wms)
+        {
+            wms.ActivateMode(modeKey);
+        }
+    }
+
+    private static string NormalizeSectionKey(string sectionKey)
+    {
+        return IsWarehouseAlias(sectionKey) ? "wms" : sectionKey;
+    }
+
+    private static bool IsWarehouseAlias(string sectionKey)
+    {
+        return string.Equals(sectionKey, "warehouse", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(sectionKey, NavigationCommandCatalog.WarehouseSectionKey, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string MapWarehouseSubSectionToWmsMode(string subSectionKey)
+    {
+        return subSectionKey.ToLowerInvariant() switch
+        {
+            "scan" => "scan",
+            "receive" or "receipts" => "receive",
+            "transfers" or "transfer" => "transfer",
+            "inventory" or "stocktake" => "stocktake",
+            "cellstorage" or "cells" => "cells",
+            "writeoffs" or "writeoff" or "assembly" => "assembly",
+            "stock" or "balances" => "stock",
+            "catalog" or "products" => "catalog",
+            "receipt-drafts" => "receipt-drafts",
+            "operation-log" => "operation-log",
+            _ => "work"
+        };
     }
 
     private bool CanOpenSection(string sectionKey)
@@ -1698,176 +1752,14 @@ public partial class MainWindow : Window
     {
         if (sender is WpfButton button && button.Tag is string sectionKey)
         {
-            // Sprint 4 (WMS приёмка): «Приёмка» — это модальный диалог, а не вкладка.
-            // Открываем его поверх текущего workspace и не пушим в навигационную историю табов.
-            if (string.Equals(sectionKey, "receive", StringComparison.OrdinalIgnoreCase))
+            if (sectionKey is "receive" or "scan" or "transfer" or "stocktake")
             {
-                OpenReceiveStockDialog();
-                return;
-            }
-
-            if (string.Equals(sectionKey, "scan", StringComparison.OrdinalIgnoreCase))
-            {
-                OpenQuickScanDialog();
-                return;
-            }
-
-            // Sprint 6 (WMS перемещение): тоже модальный диалог.
-            if (string.Equals(sectionKey, "transfer", StringComparison.OrdinalIgnoreCase))
-            {
-                OpenTransferStockDialog();
-                return;
-            }
-
-            // Sprint 7 (WMS инвентаризация): модальный диалог.
-            if (string.Equals(sectionKey, "stocktake", StringComparison.OrdinalIgnoreCase))
-            {
-                OpenStockTakeDialog();
+                OpenWmsMode(sectionKey);
                 return;
             }
 
             OpenSection(sectionKey);
         }
-    }
-
-    // Sprint 4: модальное окно приёмки. Строим зависимости через DesktopMySqlBackplaneService напрямую,
-    // потому что окно живёт коротко — не нужно регистрировать в DI как singleton.
-    private void OpenReceiveStockDialog()
-    {
-        var backplane = WarehouseAutomatisaion.Desktop.Data.DesktopMySqlBackplaneService.TryCreateDefault();
-        if (backplane is null)
-        {
-            System.Windows.MessageBox.Show(
-                this,
-                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.",
-                "Приёмка товара",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
-            return;
-        }
-
-        var catalogReader = new WarehouseAutomatisaion.Desktop.Data.MySqlNomenclatureCatalogReader(backplane);
-        var cellCatalog = new WarehouseAutomatisaion.Desktop.Data.MySqlStorageCellCatalog(backplane);
-        var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
-
-        var window = new ReceiveStockWindow(catalogReader, cellCatalog, stockLocations)
-        {
-            Owner = this
-        };
-        window.ShowDialog();
-    }
-
-    private void OpenQuickScanDialog()
-    {
-        var backplane = WarehouseAutomatisaion.Desktop.Data.DesktopMySqlBackplaneService.TryCreateDefault();
-        var scanServices = WarehouseAutomatisaion.Desktop.Data.DesktopScanLookupFactory.TryCreate();
-        if (backplane is null || scanServices is null)
-        {
-            System.Windows.MessageBox.Show(
-                this,
-                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.",
-                "WMS скан",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
-            return;
-        }
-
-        var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
-        var window = new QuickScanWindow(
-            scanServices.ProductLookup,
-            scanServices.CellLookup,
-            stockLocations,
-            scanServices.OperationLogger,
-            _startupStatus.UserName)
-        {
-            Owner = this
-        };
-        window.ShowDialog();
-    }
-
-    // Sprint 6: модальное окно перемещения между ячейками.
-    private void OpenTransferStockDialog()
-    {
-        var backplane = WarehouseAutomatisaion.Desktop.Data.DesktopMySqlBackplaneService.TryCreateDefault();
-        if (backplane is null)
-        {
-            System.Windows.MessageBox.Show(
-                this,
-                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.",
-                "Перемещение между ячейками",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
-            return;
-        }
-
-        var cellCatalog = new WarehouseAutomatisaion.Desktop.Data.MySqlStorageCellCatalog(backplane);
-        var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
-        var stockOperations = WarehouseAutomatisaion.Desktop.Data.WarehouseStockOperationFactory.TryCreate();
-        if (stockOperations is null)
-        {
-            System.Windows.MessageBox.Show(
-                this,
-                "Не удалось создать транзакционный сервис складских операций.",
-                "Перемещение между ячейками",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
-            return;
-        }
-
-        var window = new TransferStockWindow(
-            cellCatalog,
-            stockLocations,
-            stockOperations,
-            _startupStatus.UserName)
-        {
-            Owner = this
-        };
-        window.ShowDialog();
-    }
-
-    // Sprint 7: модальное окно инвентаризации одной ячейки.
-    // Sprint 10: + опциональный AI Claude shelf vision для распознавания фото полки.
-    private void OpenStockTakeDialog()
-    {
-        var backplane = WarehouseAutomatisaion.Desktop.Data.DesktopMySqlBackplaneService.TryCreateDefault();
-        if (backplane is null)
-        {
-            System.Windows.MessageBox.Show(
-                this,
-                "Нет подключения к MySQL. Проверьте RemoteDatabase в appsettings.local.json.",
-                "Инвентаризация",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
-            return;
-        }
-
-        var cellCatalog = new WarehouseAutomatisaion.Desktop.Data.MySqlStorageCellCatalog(backplane);
-        var stockLocations = new WarehouseAutomatisaion.Desktop.Data.MySqlStockLocationRepository(backplane);
-        var stockOperations = WarehouseAutomatisaion.Desktop.Data.WarehouseStockOperationFactory.TryCreate();
-        if (stockOperations is null)
-        {
-            System.Windows.MessageBox.Show(
-                this,
-                "Не удалось создать транзакционный сервис складских операций.",
-                "Инвентаризация",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
-            return;
-        }
-
-        // Sprint 10: Claude shelf vision (optional — null если ключ не настроен).
-        var shelfVision = WarehouseAutomatisaion.Desktop.Data.ShelfVisionFactory.TryCreate();
-
-        var window = new StockTakeWindow(
-            cellCatalog,
-            stockLocations,
-            stockOperations,
-            _startupStatus.UserName,
-            shelfVision)
-        {
-            Owner = this
-        };
-        window.ShowDialog();
     }
 
     private void HandleWorkspaceTabsSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1995,7 +1887,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var key = _navHistory[_navHistoryIndex];
+        var key = NormalizeSectionKey(_navHistory[_navHistoryIndex]);
         if (!_tabsByKey.TryGetValue(key, out var tab))
         {
             // Вкладка уже закрыта — открыть заново (только секции)
@@ -2047,17 +1939,18 @@ public partial class MainWindow : Window
         // 1. Избранное — сначала
         foreach (var key in _favoriteTabs)
         {
-            var caption = ResolveHistoryCaption(key);
-            if (!string.IsNullOrWhiteSpace(caption) && added.Add(key))
+            var normalizedKey = NormalizeSectionKey(key);
+            var caption = ResolveHistoryCaption(normalizedKey);
+            if (!string.IsNullOrWhiteSpace(caption) && added.Add(normalizedKey))
             {
-                items.Add(new HistoryEntryViewModel(key, caption, ""));
+                items.Add(new HistoryEntryViewModel(normalizedKey, caption, ""));
             }
         }
 
         // 2. История посещений в обратном порядке (свежие сверху)
         for (var i = _navHistory.Count - 1; i >= 0; i--)
         {
-            var key = _navHistory[i];
+            var key = NormalizeSectionKey(_navHistory[i]);
             if (!added.Add(key))
             {
                 continue;
@@ -2085,6 +1978,8 @@ public partial class MainWindow : Window
 
     private string ResolveHistoryCaption(string key)
     {
+        key = NormalizeSectionKey(key);
+
         if (_tabsByKey.TryGetValue(key, out var tab))
         {
             var caption = ResolveTabCaption(tab);
@@ -2109,6 +2004,8 @@ public partial class MainWindow : Window
         HistoryPopup.IsOpen = false;
         if (sender is WpfButton button && button.Tag is string key)
         {
+            key = NormalizeSectionKey(key);
+
             if (_tabsByKey.ContainsKey(key))
             {
                 // tab уже открыт — просто переключусь

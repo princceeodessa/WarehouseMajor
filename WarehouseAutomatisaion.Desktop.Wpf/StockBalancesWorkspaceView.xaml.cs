@@ -1,8 +1,10 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using WarehouseAutomatisaion.Application.Abstractions.Persistence;
+using WarehouseAutomatisaion.Application.Contracts.Warehouse;
 using WarehouseAutomatisaion.Desktop.Data;
 
 namespace WarehouseAutomatisaion.Desktop.Wpf;
@@ -15,6 +17,7 @@ public partial class StockBalancesWorkspaceView : UserControl
     private DesktopMySqlBackplaneService? _backplane;
     private MySqlStockLocationRepository? _stockLocations;
     private IStockLocationBootstrapper? _stockLocationBootstrapper;
+    private IWmsReadinessReader? _readinessReader;
     private DispatcherTimer? _searchDebounceTimer;
     private bool _isInitialized;
 
@@ -23,7 +26,7 @@ public partial class StockBalancesWorkspaceView : UserControl
         InitializeComponent();
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         if (_isInitialized)
         {
@@ -39,9 +42,11 @@ public partial class StockBalancesWorkspaceView : UserControl
 
         _stockLocations = new MySqlStockLocationRepository(_backplane);
         _stockLocationBootstrapper = DesktopScanLookupFactory.TryCreate()?.StockLocationBootstrapper;
+        _readinessReader = WmsReadinessFactory.TryCreate();
         LoadWarehouses();
         _isInitialized = true;
         ReloadStock();
+        await RefreshReadinessAsync();
     }
 
     private async void OnStockRowDoubleClick(object sender, MouseButtonEventArgs e)
@@ -192,6 +197,7 @@ public partial class StockBalancesWorkspaceView : UserControl
             var affected = await Task.Run(() => _backplane.RefreshStockBalancesProjection());
             LoadWarehouses();
             ReloadStock();
+            await RefreshReadinessAsync();
             StatusText.Text = $"Проекция обновлена (затронуто {affected:N0} строк)   ·   " + StatusText.Text;
         }
         catch (Exception ex)
@@ -235,6 +241,7 @@ public partial class StockBalancesWorkspaceView : UserControl
         {
             var result = await _stockLocationBootstrapper.BootstrapUnplacedAsync(Environment.UserName);
             ReloadStock();
+            await RefreshReadinessAsync();
             StatusText.Text =
                 $"WMS старт выполнен: источников {result.SourceRows:N0}, кол-во {result.SourceQuantity:N0}, " +
                 $"создано ячеек {result.CellsCreated:N0}, строк размещения затронуто {result.LocationsAffected:N0}.";
@@ -248,6 +255,123 @@ public partial class StockBalancesWorkspaceView : UserControl
             BootstrapLocationsButton.Content = originalContent;
             BootstrapLocationsButton.IsEnabled = true;
         }
+    }
+
+    private async void OnRefreshReadinessClicked(object sender, RoutedEventArgs e)
+    {
+        await RefreshReadinessAsync();
+    }
+
+    private async Task RefreshReadinessAsync()
+    {
+        if (_readinessReader is null)
+        {
+            ApplyReadinessUnavailable("Нет подключения к MySQL.");
+            return;
+        }
+
+        try
+        {
+            ReadinessSubtitleText.Text = "Проверяю остатки и адресное хранение...";
+            var snapshot = await _readinessReader.ReadAsync();
+            ApplyReadiness(snapshot);
+        }
+        catch (Exception exception)
+        {
+            ApplyReadinessUnavailable(exception.Message);
+        }
+    }
+
+    private void ApplyReadiness(WmsReadinessSnapshot snapshot)
+    {
+        ReadinessCellsText.Text = $"{snapshot.RealCellCount:N0}";
+        ReadinessUnplacedText.Text = $"{snapshot.UnplacedQuantity:N0}";
+        ReadinessPlacedText.Text = $"{snapshot.RealLocationQuantity:N0}";
+        ReadinessMismatchText.Text = snapshot.MismatchedPairs == 0
+            ? "0"
+            : $"{snapshot.MismatchedPairs:N0} / {snapshot.AbsoluteDifference:N1}";
+
+        var projectionUtc = NormalizeUtc(snapshot.LatestBalanceProjectionUtc);
+        var projectionIsStale = !projectionUtc.HasValue
+                                || DateTime.UtcNow - projectionUtc.Value > TimeSpan.FromHours(24);
+        var projectionLabel = projectionUtc.HasValue
+            ? projectionUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+            : "нет данных";
+
+        if (!snapshot.HasRealCells || !snapshot.HasUnplacedStart)
+        {
+            SetReadinessPalette("#FFF0F2", "#F2A8B1");
+            ReadinessTitleText.Text = "WMS не готов к пилоту";
+            ReadinessSubtitleText.Text =
+                $"Нужны реальные ячейки и стартовый остаток UNPLACED. Проекция 1С: {projectionLabel}.";
+            return;
+        }
+
+        if (projectionIsStale)
+        {
+            SetReadinessPalette("#FFF8E8", "#F0D58A");
+            ReadinessTitleText.Text = "Структура готова, данные 1С устарели";
+            ReadinessSubtitleText.Text =
+                $"Перед пилотом обновите остатки. Последняя проекция: {projectionLabel}.";
+            return;
+        }
+
+        if (snapshot.MismatchedPairs > 0)
+        {
+            SetReadinessPalette("#FFF8E8", "#F0D58A");
+            ReadinessTitleText.Text = snapshot.HasOnlyExpectedNegativeMismatch
+                ? "Готово к пилоту с оговоркой"
+                : "Нужно сверить адресные остатки";
+            ReadinessSubtitleText.Text = snapshot.HasOnlyExpectedNegativeMismatch
+                ? $"Расхождение создают {snapshot.NegativeBalanceRows:N0} отрицательных остатков из 1С ({snapshot.NegativeBalanceQuantity:N1})."
+                : $"Не совпадает {snapshot.MismatchedPairs:N0} товарных позиций; абсолютная разница {snapshot.AbsoluteDifference:N1}.";
+            return;
+        }
+
+        SetReadinessPalette("#EAF8F0", "#A8D9BB");
+        ReadinessTitleText.Text = snapshot.IsReadyForFullCutover
+            ? "WMS готов к полному переходу"
+            : "WMS готов к пилотному размещению";
+        ReadinessSubtitleText.Text = snapshot.HasPlacedInRealCells
+            ? $"Адресные остатки совпадают с 1С. Проекция: {projectionLabel}."
+            : $"Начните перенос из UNPLACED в реальные ячейки. Проекция: {projectionLabel}.";
+    }
+
+    private void ApplyReadinessUnavailable(string message)
+    {
+        SetReadinessPalette("#FFF0F2", "#F2A8B1");
+        ReadinessTitleText.Text = "Готовность WMS не проверена";
+        ReadinessSubtitleText.Text = message;
+        ReadinessCellsText.Text = "—";
+        ReadinessUnplacedText.Text = "—";
+        ReadinessPlacedText.Text = "—";
+        ReadinessMismatchText.Text = "—";
+    }
+
+    private void SetReadinessPalette(string background, string border)
+    {
+        ReadinessBanner.Background = BrushFromHex(background);
+        ReadinessBanner.BorderBrush = BrushFromHex(border);
+    }
+
+    private static DateTime? NormalizeUtc(DateTime? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value,
+            DateTimeKind.Local => value.Value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+        };
+    }
+
+    private static Brush BrushFromHex(string value)
+    {
+        return (Brush)new BrushConverter().ConvertFromString(value)!;
     }
 
     private sealed record WarehouseFilterOption(string? WarehouseNodeId, string DisplayName);

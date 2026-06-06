@@ -25,6 +25,10 @@ public sealed class MySqlStockLocationBootstrapper : IStockLocationBootstrapper
         var source = await ReadSourceSummaryAsync(connection, transaction, cancellationToken);
         var cellsCreated = await EnsureUnplacedCellsAsync(connection, transaction, cancellationToken);
         var locationsAffected = await UpsertUnplacedLocationsAsync(connection, transaction, cancellationToken);
+        locationsAffected += await ReconcileExistingUnplacedLocationsAsync(
+            connection,
+            transaction,
+            cancellationToken);
         var operationId = Guid.NewGuid();
 
         await WriteOperationLogAsync(
@@ -118,7 +122,8 @@ public sealed class MySqlStockLocationBootstrapper : IStockLocationBootstrapper
                 WHERE quantity <> 0 OR reserved_quantity <> 0
             ) src
             LEFT JOIN app_warehouse_storage_cells existing
-                ON existing.warehouse_name = src.warehouse_name
+                ON REPLACE(LOWER(TRIM(existing.warehouse_name)), 'ё', 'е')
+                 = REPLACE(LOWER(TRIM(src.warehouse_name)), 'ё', 'е')
                AND existing.code = @cell_code
             WHERE existing.id IS NULL;
             """);
@@ -174,23 +179,37 @@ public sealed class MySqlStockLocationBootstrapper : IStockLocationBootstrapper
                     GREATEST(b.reserved_quantity - COALESCE(placed.placed_reserved_quantity, 0), 0) AS unplaced_reserved_quantity
                 FROM app_warehouse_stock_balances b
                 JOIN (
-                    SELECT warehouse_name, MIN(id) AS storage_cell_id
+                    SELECT
+                        REPLACE(LOWER(TRIM(warehouse_name)), 'ё', 'е') AS warehouse_key,
+                        MIN(id) AS storage_cell_id
                     FROM app_warehouse_storage_cells
                     WHERE code = @cell_code
-                    GROUP BY warehouse_name
-                ) c ON c.warehouse_name = COALESCE(NULLIF(b.warehouse_name, ''), CONCAT('Склад ', b.warehouse_node_id))
+                    GROUP BY REPLACE(LOWER(TRIM(warehouse_name)), 'ё', 'е')
+                ) c ON c.warehouse_key = REPLACE(
+                    LOWER(TRIM(COALESCE(NULLIF(b.warehouse_name, ''), CONCAT('Склад ', b.warehouse_node_id)))),
+                    'ё',
+                    'е')
                 LEFT JOIN (
                     SELECT
                         item_id,
-                        COALESCE(NULLIF(warehouse_node_id, ''), warehouse_name) AS warehouse_key,
+                        REPLACE(
+                            LOWER(TRIM(COALESCE(NULLIF(warehouse_name, ''), CONCAT('Склад ', warehouse_node_id)))),
+                            'ё',
+                            'е') AS warehouse_key,
                         SUM(quantity) AS placed_quantity,
                         SUM(reserved_quantity) AS placed_reserved_quantity
                     FROM app_warehouse_stock_locations
                     WHERE storage_cell_code <> @cell_code
-                    GROUP BY item_id, COALESCE(NULLIF(warehouse_node_id, ''), warehouse_name)
+                    GROUP BY item_id, REPLACE(
+                        LOWER(TRIM(COALESCE(NULLIF(warehouse_name, ''), CONCAT('Склад ', warehouse_node_id)))),
+                        'ё',
+                        'е')
                 ) placed
                     ON placed.item_id = b.item_id
-                   AND placed.warehouse_key = COALESCE(NULLIF(b.warehouse_node_id, ''), COALESCE(NULLIF(b.warehouse_name, ''), CONCAT('Склад ', b.warehouse_node_id)))
+                   AND placed.warehouse_key = REPLACE(
+                       LOWER(TRIM(COALESCE(NULLIF(b.warehouse_name, ''), CONCAT('Склад ', b.warehouse_node_id)))),
+                       'ё',
+                       'е')
                 WHERE b.quantity <> 0 OR b.reserved_quantity <> 0
             ) calc
             ON DUPLICATE KEY UPDATE
@@ -203,6 +222,68 @@ public sealed class MySqlStockLocationBootstrapper : IStockLocationBootstrapper
                 reserved_quantity = VALUES(reserved_quantity),
                 last_movement_at_utc = UTC_TIMESTAMP(6),
                 updated_at_utc = UTC_TIMESTAMP(6);
+            """);
+
+        command.Parameters.AddWithValue("@cell_code", UnplacedCellCode);
+        return await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<int> ReconcileExistingUnplacedLocationsAsync(
+        MySqlConnection connection,
+        MySqlTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        await using var command = CreateCommand(connection, transaction, """
+            UPDATE app_warehouse_stock_locations location
+            LEFT JOIN (
+                SELECT
+                    item_id,
+                    REPLACE(LOWER(TRIM(warehouse_name)), 'ё', 'е') AS warehouse_key,
+                    SUM(quantity) AS balance_quantity,
+                    SUM(reserved_quantity) AS balance_reserved_quantity
+                FROM app_warehouse_stock_balances
+                GROUP BY item_id, REPLACE(LOWER(TRIM(warehouse_name)), 'ё', 'е')
+            ) balance
+                ON balance.item_id = location.item_id
+               AND balance.warehouse_key = REPLACE(LOWER(TRIM(location.warehouse_name)), 'ё', 'е')
+            LEFT JOIN (
+                SELECT
+                    item_id,
+                    REPLACE(LOWER(TRIM(warehouse_name)), 'ё', 'е') AS warehouse_key,
+                    SUM(quantity) AS placed_quantity,
+                    SUM(reserved_quantity) AS placed_reserved_quantity
+                FROM app_warehouse_stock_locations
+                WHERE storage_cell_code <> @cell_code
+                GROUP BY item_id, REPLACE(LOWER(TRIM(warehouse_name)), 'ё', 'е')
+            ) placed
+                ON placed.item_id = location.item_id
+               AND placed.warehouse_key = REPLACE(LOWER(TRIM(location.warehouse_name)), 'ё', 'е')
+            SET
+                location.quantity = GREATEST(
+                    COALESCE(balance.balance_quantity, 0) - COALESCE(placed.placed_quantity, 0),
+                    0),
+                location.reserved_quantity = LEAST(
+                    GREATEST(
+                        COALESCE(balance.balance_quantity, 0) - COALESCE(placed.placed_quantity, 0),
+                        0),
+                    GREATEST(
+                        COALESCE(balance.balance_reserved_quantity, 0) - COALESCE(placed.placed_reserved_quantity, 0),
+                        0)),
+                location.last_movement_at_utc = UTC_TIMESTAMP(6),
+                location.updated_at_utc = UTC_TIMESTAMP(6)
+            WHERE location.storage_cell_code = @cell_code
+              AND (
+                  location.quantity <> GREATEST(
+                      COALESCE(balance.balance_quantity, 0) - COALESCE(placed.placed_quantity, 0),
+                      0)
+                  OR location.reserved_quantity <> LEAST(
+                      GREATEST(
+                          COALESCE(balance.balance_quantity, 0) - COALESCE(placed.placed_quantity, 0),
+                          0),
+                      GREATEST(
+                          COALESCE(balance.balance_reserved_quantity, 0) - COALESCE(placed.placed_reserved_quantity, 0),
+                          0))
+              );
             """);
 
         command.Parameters.AddWithValue("@cell_code", UnplacedCellCode);

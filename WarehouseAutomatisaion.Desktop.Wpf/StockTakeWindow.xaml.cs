@@ -23,7 +23,7 @@ namespace WarehouseAutomatisaion.Desktop.Wpf;
 //
 // Out-of-scope сейчас: добавление позиций которых в системе нет
 // (для них есть приёмка). Out-of-scope: история факт-актов / документы.
-public partial class StockTakeWindow : Window
+public partial class StockTakeWindow : Window, IHostedWmsOperationWindow
 {
     private readonly IStorageCellCatalog _cellCatalog;
     private readonly IStockLocationRepository _stockLocations;
@@ -34,6 +34,10 @@ public partial class StockTakeWindow : Window
     private StorageCell? _selectedCell;
     private readonly ObservableCollection<StockTakeRow> _rows = new();
     private bool _completed;
+
+    public Window? DialogOwnerOverride { get; set; }
+
+    public Action? HostCloseRequested { get; set; }
 
     public StockTakeWindow(
         IStorageCellCatalog cellCatalog,
@@ -50,6 +54,13 @@ public partial class StockTakeWindow : Window
         _shelfVision = shelfVision;
 
         InventoryGrid.ItemsSource = _rows;
+        StatusText.Text = "Выберите ячейку, чтобы загрузить её содержимое для инвентаризации.";
+        if (_shelfVision is null)
+        {
+            PhotoHintText.Text = "Claude API не настроен. Чтобы включить AI инвентаризацию по фото — добавьте Anthropic.ApiKey в appsettings.local.json.";
+            PhotoInventoryButton.IsEnabled = false;
+        }
+
         Loaded += (_, _) =>
         {
             StatusText.Text = "Выберите ячейку, чтобы загрузить её содержимое для инвентаризации.";
@@ -76,7 +87,7 @@ public partial class StockTakeWindow : Window
                 return;
             }
 
-            var picker = new CellPickerWindow(_cellCache, initialSearch: _selectedCell?.Code) { Owner = this };
+            var picker = new CellPickerWindow(_cellCache, initialSearch: _selectedCell?.Code) { Owner = GetDialogOwner() };
             if (picker.ShowDialog() == true && picker.SelectedCell is not null)
             {
                 _selectedCell = picker.SelectedCell;
@@ -161,12 +172,11 @@ public partial class StockTakeWindow : Window
             var message = CanCommitInventory()
                 ? "Факт заполнен, но инвентаризация ещё не проведена. Нажмите «Провести инвентаризацию»."
                 : "Нельзя закончить инвентаризацию: заполните факт по всем строкам и обоснуйте каждое расхождение.";
-            MessageBox.Show(this, message, "Инвентаризация не завершена", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(GetDialogOwner(), message, "Инвентаризация не завершена", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
-        DialogResult = true;
-        Close();
+        CloseHostedOrWindow();
     }
 
     private async void OnApplyClicked(object sender, RoutedEventArgs e)
@@ -191,7 +201,7 @@ public partial class StockTakeWindow : Window
 
         var changes = _rows.Where(r => r.HasDifference).ToList();
         var confirm = MessageBox.Show(
-            this,
+            GetDialogOwner(),
             $"Ячейка: {_selectedCell.Code}\nПозиций пересчитано: {_rows.Count}\nРасхождений: {changes.Count}\n\n" +
             string.Join("\n", changes.Take(8).Select(r =>
                 $"• {r.ItemCode}: {r.SystemQuantity:N3} → {r.ActualQuantityValue:N3} ({r.DiffLabel}); {r.ResolutionCode}; {r.Reason}"))
@@ -237,14 +247,13 @@ public partial class StockTakeWindow : Window
 
             _completed = true;
             MessageBox.Show(
-                this,
+                GetDialogOwner(),
                 $"{result.Message}\n\nДокумент: {result.DocumentNumber}\n" +
                 $"Недостача: {result.ShortageQuantity:N3}\nИзлишек: {result.SurplusQuantity:N3}",
                 "Инвентаризация проведена",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
-            DialogResult = true;
-            Close();
+            CloseHostedOrWindow();
         }
         catch (Exception ex)
         {
@@ -290,7 +299,7 @@ public partial class StockTakeWindow : Window
             {
                 row.InvestigationCellCode = "Других ячеек с остатком нет";
                 MessageBox.Show(
-                    this,
+                    GetDialogOwner(),
                     "В других ячейках положительный остаток этого товара не найден.",
                     row.ItemCode,
                     MessageBoxButton.OK,
@@ -300,7 +309,7 @@ public partial class StockTakeWindow : Window
 
             row.InvestigationCellCode = string.Join(", ", otherLocations.Take(5).Select(location => location.StorageCellCode));
             MessageBox.Show(
-                this,
+                GetDialogOwner(),
                 string.Join("\n", otherLocations.Take(12).Select(location =>
                     $"{location.StorageCellCode} · {location.WarehouseName}: {location.Quantity:N3}")),
                 $"Другие ячейки: {row.ItemCode}",
@@ -328,7 +337,7 @@ public partial class StockTakeWindow : Window
             Multiselect = false
         };
 
-        if (dialog.ShowDialog(this) != true)
+        if (dialog.ShowDialog(GetDialogOwner()) != true)
         {
             return;
         }
@@ -478,6 +487,25 @@ public partial class StockTakeWindow : Window
             ".webp" => "image/webp",
             _ => "image/jpeg"
         };
+    }
+
+    private Window GetDialogOwner()
+    {
+        return DialogOwnerOverride
+               ?? System.Windows.Application.Current?.MainWindow
+               ?? this;
+    }
+
+    private void CloseHostedOrWindow()
+    {
+        if (HostCloseRequested is not null)
+        {
+            HostCloseRequested.Invoke();
+            return;
+        }
+
+        DialogResult = true;
+        Close();
     }
 
     // Row VM — INotifyPropertyChanged нужен чтобы DataGrid обновлял колонки «Δ» при правке «Факт».
