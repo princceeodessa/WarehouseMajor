@@ -36,7 +36,9 @@ public partial class StorageCellsWorkspaceView : UserControl
     private MySqlStorageCellCatalog? _catalog;
     private MySqlStockLocationRepository? _stockLocations;
     private bool _isInitialized;
+    private bool _isLoadingEditor;
     private string? _selectedWarehouseFilter;
+    private IReadOnlyList<WarehouseFilterOption> _warehouseEditorOptions = Array.Empty<WarehouseFilterOption>();
     private Guid? _editingId;
 
     public StorageCellsWorkspaceView()
@@ -74,16 +76,31 @@ public partial class StorageCellsWorkspaceView : UserControl
             return;
         }
 
+        var warehouseNames = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var summaries = _backplane.LoadStockWarehouses();
-        var items = new List<WarehouseFilterOption>
-        {
-            new(null, "Все склады"),
-        };
         foreach (var summary in summaries)
         {
-            var name = string.IsNullOrWhiteSpace(summary.WarehouseName)
-                ? "(без имени)"
-                : summary.WarehouseName!;
+            if (!string.IsNullOrWhiteSpace(summary.WarehouseName))
+            {
+                warehouseNames.Add(summary.WarehouseName.Trim());
+            }
+        }
+
+        foreach (var cell in _backplane.LoadStorageCells())
+        {
+            if (!string.IsNullOrWhiteSpace(cell.WarehouseName))
+            {
+                warehouseNames.Add(cell.WarehouseName.Trim());
+            }
+        }
+
+        var items = new List<WarehouseFilterOption>
+        {
+            new(null, "Все склады")
+        };
+
+        foreach (var name in warehouseNames)
+        {
             items.Add(new WarehouseFilterOption(name, name));
         }
 
@@ -91,6 +108,11 @@ public partial class StorageCellsWorkspaceView : UserControl
         WarehouseFilterCombo.DisplayMemberPath = nameof(WarehouseFilterOption.DisplayName);
         WarehouseFilterCombo.SelectedValuePath = nameof(WarehouseFilterOption.Value);
         WarehouseFilterCombo.SelectedIndex = 0;
+
+        _warehouseEditorOptions = items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Value))
+            .ToArray();
+        WarehouseNameCombo.ItemsSource = _warehouseEditorOptions;
     }
 
     private async void ReloadCells()
@@ -111,7 +133,7 @@ public partial class StorageCellsWorkspaceView : UserControl
                 ZoneLabel = string.IsNullOrWhiteSpace(cell.ZoneName)
                     ? cell.ZoneCode ?? string.Empty
                     : $"{cell.ZoneCode} · {cell.ZoneName}",
-                AddressLabel = $"Р{cell.RowNo:D2}-С{cell.RackNo:D2}-П{cell.ShelfNo:D2}-Я{cell.CellNo:D2}",
+                AddressLabel = $"С{cell.RackNo:D2}-Э{cell.ShelfNo:D2}-Р{cell.RowNo:D2}",
                 CellTypeDisplay = DisplayCellType(cell.CellType),
                 Capacity = cell.Capacity,
                 StatusDisplay = DisplayStatus(cell.StatusText),
@@ -360,10 +382,11 @@ public partial class StorageCellsWorkspaceView : UserControl
         _editingId = source?.Id;
         EditorColumn.Width = new GridLength(430);
         EditorPanel.Visibility = Visibility.Visible;
+        _isLoadingEditor = true;
 
         EditorTitleText.Text = source is null ? "Новая ячейка" : $"Ячейка {source.Code}";
         EditorSubtitleText.Text = source is null
-            ? "Заполните склад, код и адрес хранения. Ячейка сразу появится в приёмке, перемещении и инвентаризации."
+            ? "Выберите склад и заполните адрес хранения. Код ячейки сформируется автоматически."
             : "Редактирование выполняется прямо в разделе ячеек, без отдельного окна.";
         EditorStatusText.Text = source is null ? "Новая запись." : "Изменения ещё не сохранены.";
 
@@ -374,16 +397,18 @@ public partial class StorageCellsWorkspaceView : UserControl
         StatusCombo.DisplayMemberPath = nameof(EditorOption.DisplayName);
         StatusCombo.SelectedValuePath = nameof(EditorOption.Value);
 
+        var warehouseName = source?.WarehouseName ?? ResolveDefaultWarehouseName();
+        WarehouseNameCombo.ItemsSource = EnsureWarehouseOption(_warehouseEditorOptions, warehouseName);
+
         if (source is null)
         {
-            WarehouseNameBox.Text = ResolveDefaultWarehouseName();
+            WarehouseNameCombo.SelectedValue = warehouseName;
             CodeBox.Clear();
             ZoneCodeBox.Clear();
             ZoneNameBox.Clear();
-            RowNoBox.Text = "0";
             RackNoBox.Text = "0";
             ShelfNoBox.Text = "0";
-            CellNoBox.Text = "0";
+            RowNoBox.Text = "0";
             CellTypeCombo.SelectedValue = CellTypes.Storage;
             StatusCombo.SelectedValue = CellStatuses.Active;
             CapacityBox.Text = "0";
@@ -392,14 +417,13 @@ public partial class StorageCellsWorkspaceView : UserControl
         }
         else
         {
-            WarehouseNameBox.Text = source.WarehouseName;
+            WarehouseNameCombo.SelectedValue = source.WarehouseName;
             CodeBox.Text = source.Code;
             ZoneCodeBox.Text = source.ZoneCode ?? string.Empty;
             ZoneNameBox.Text = source.ZoneName ?? string.Empty;
-            RowNoBox.Text = source.RowNo.ToString(CultureInfo.InvariantCulture);
             RackNoBox.Text = source.RackNo.ToString(CultureInfo.InvariantCulture);
             ShelfNoBox.Text = source.ShelfNo.ToString(CultureInfo.InvariantCulture);
-            CellNoBox.Text = source.CellNo.ToString(CultureInfo.InvariantCulture);
+            RowNoBox.Text = source.RowNo.ToString(CultureInfo.InvariantCulture);
             CellTypeCombo.SelectedValue = source.CellType ?? CellTypes.Storage;
             StatusCombo.SelectedValue = source.StatusText ?? CellStatuses.Active;
             CapacityBox.Text = source.Capacity.ToString("0.####", CultureInfo.InvariantCulture);
@@ -408,8 +432,13 @@ public partial class StorageCellsWorkspaceView : UserControl
                 $"Создана: {source.CreatedAtUtc:dd.MM.yyyy HH:mm} UTC   ·   обновлена: {source.UpdatedAtUtc:dd.MM.yyyy HH:mm} UTC   ·   id={source.Id}";
         }
 
-        WarehouseNameBox.Focus();
-        WarehouseNameBox.SelectAll();
+        _isLoadingEditor = false;
+        if (source is null)
+        {
+            UpdateGeneratedCode();
+        }
+
+        WarehouseNameCombo.Focus();
     }
 
     private void HideEditor()
@@ -471,24 +500,24 @@ public partial class StorageCellsWorkspaceView : UserControl
         request = null!;
         error = string.Empty;
 
-        var warehouseName = WarehouseNameBox.Text.Trim();
+        var warehouseName = GetSelectedWarehouseName();
         if (string.IsNullOrEmpty(warehouseName))
         {
-            error = "Поле «Склад» обязательно.";
+            error = "Выберите склад из списка.";
             return false;
         }
 
+        UpdateGeneratedCode();
         var code = CodeBox.Text.Trim();
         if (string.IsNullOrEmpty(code))
         {
-            error = "Поле «Код ячейки» обязательно.";
+            error = "Заполните зону, стеллаж, этаж и ряд — код ячейки сформируется автоматически.";
             return false;
         }
 
+        if (!TryParseRack(RackNoBox.Text, out var rack, out error)) return false;
+        if (!TryParseInt(ShelfNoBox.Text, out var shelf, "Этаж", out error)) return false;
         if (!TryParseInt(RowNoBox.Text, out var row, "Ряд", out error)) return false;
-        if (!TryParseInt(RackNoBox.Text, out var rack, "Стеллаж", out error)) return false;
-        if (!TryParseInt(ShelfNoBox.Text, out var shelf, "Полка", out error)) return false;
-        if (!TryParseInt(CellNoBox.Text, out var cell, "Ячейка", out error)) return false;
         if (!TryParseDecimal(CapacityBox.Text, out var capacity, out error)) return false;
 
         request = new StorageCellRequest(
@@ -500,7 +529,7 @@ public partial class StorageCellsWorkspaceView : UserControl
             RowNo: row,
             RackNo: rack,
             ShelfNo: shelf,
-            CellNo: cell,
+            CellNo: 0,
             CellType: GetSelectedValue(CellTypeCombo),
             Capacity: capacity,
             StatusText: GetSelectedValue(StatusCombo),
@@ -519,7 +548,113 @@ public partial class StorageCellsWorkspaceView : UserControl
         var rows = (CellsDataGrid.ItemsSource as IEnumerable<CellRowViewModel>)?.ToArray() ?? [];
         return rows.Select(row => row.WarehouseName).Distinct(StringComparer.OrdinalIgnoreCase).Take(2).Count() == 1
             ? rows[0].WarehouseName
-            : string.Empty;
+            : _warehouseEditorOptions.Count == 1
+                ? _warehouseEditorOptions[0].Value ?? string.Empty
+                : string.Empty;
+    }
+
+    private void OnCellCodePartChanged(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingEditor)
+        {
+            return;
+        }
+
+        UpdateGeneratedCode();
+    }
+
+    private void UpdateGeneratedCode()
+    {
+        if (!AreCellCodeControlsReady())
+        {
+            return;
+        }
+
+        CodeBox.Text = BuildGeneratedCellCode();
+    }
+
+    private string BuildGeneratedCellCode()
+    {
+        var zone = NormalizeCodePart(!string.IsNullOrWhiteSpace(ZoneCodeBox.Text)
+            ? ZoneCodeBox.Text
+            : ZoneNameBox.Text);
+        var rack = NormalizeCodePart(RackNoBox.Text);
+        var floor = NormalizeCodePart(ShelfNoBox.Text);
+        var row = NormalizeCodePart(RowNoBox.Text);
+
+        if (string.IsNullOrWhiteSpace(zone)
+            || string.IsNullOrWhiteSpace(rack)
+            || string.IsNullOrWhiteSpace(floor)
+            || string.IsNullOrWhiteSpace(row))
+        {
+            return string.Empty;
+        }
+
+        return string.Join("-", new[] { zone, rack, floor, row });
+    }
+
+    private bool AreCellCodeControlsReady()
+    {
+        return CodeBox is not null
+            && ZoneCodeBox is not null
+            && ZoneNameBox is not null
+            && RackNoBox is not null
+            && ShelfNoBox is not null
+            && RowNoBox is not null;
+    }
+
+    private static string NormalizeCodePart(string? value)
+    {
+        var trimmed = value?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed == "0")
+        {
+            return string.Empty;
+        }
+
+        var result = new List<char>(trimmed.Length);
+        var lastWasSeparator = false;
+        foreach (var ch in trimmed)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                result.Add(char.ToUpperInvariant(ch));
+                lastWasSeparator = false;
+                continue;
+            }
+
+            if (lastWasSeparator)
+            {
+                continue;
+            }
+
+            result.Add('-');
+            lastWasSeparator = true;
+        }
+
+        return new string(result.ToArray()).Trim('-');
+    }
+
+    private string GetSelectedWarehouseName()
+    {
+        if (WarehouseNameCombo.SelectedItem is WarehouseFilterOption option)
+        {
+            return option.Value?.Trim() ?? string.Empty;
+        }
+
+        return (WarehouseNameCombo.SelectedValue as string)?.Trim() ?? string.Empty;
+    }
+
+    private static IReadOnlyList<WarehouseFilterOption> EnsureWarehouseOption(
+        IReadOnlyList<WarehouseFilterOption> options,
+        string? currentValue)
+    {
+        if (string.IsNullOrWhiteSpace(currentValue)
+            || options.Any(option => option.Value?.Equals(currentValue.Trim(), StringComparison.OrdinalIgnoreCase) == true))
+        {
+            return options;
+        }
+
+        return options.Concat([new WarehouseFilterOption(currentValue.Trim(), currentValue.Trim())]).ToArray();
     }
 
     private static IReadOnlyList<EditorOption> EnsureOption(
@@ -580,6 +715,44 @@ public partial class StorageCellsWorkspaceView : UserControl
         }
 
         error = $"Поле «{fieldName}» должно быть целым числом.";
+        value = 0;
+        return false;
+    }
+
+    private static bool TryParseRack(string text, out int value, out string error)
+    {
+        error = string.Empty;
+        var trimmed = text.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            value = 0;
+            return true;
+        }
+
+        if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
+        {
+            return true;
+        }
+
+        if (trimmed.Length == 1 && char.IsLetter(trimmed[0]))
+        {
+            var letter = char.ToUpperInvariant(trimmed[0]);
+            if (letter is >= 'A' and <= 'Z')
+            {
+                value = letter - 'A' + 1;
+                return true;
+            }
+
+            const string russianRackLetters = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЭЮЯ";
+            var index = russianRackLetters.IndexOf(letter);
+            if (index >= 0)
+            {
+                value = index + 1;
+                return true;
+            }
+        }
+
+        error = "Поле «Стеллаж» должно быть числом или одной буквой.";
         value = 0;
         return false;
     }

@@ -286,14 +286,24 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
                             <TextBlock Text="Склад *" Style="{StaticResource EditorLabelStyle}" />
-                            <TextBox x:Name="WarehouseNameBox"
-                                     Style="{StaticResource EditorTextBoxStyle}"
-                                     Margin="0,0,0,10" />
+                            <ComboBox x:Name="WarehouseNameCombo"
+                                      Style="{StaticResource EditorComboBoxStyle}"
+                                      DisplayMemberPath="DisplayName"
+                                      SelectedValuePath="Value"
+                                      SelectionChanged="OnCellCodePartChanged"
+                                      Margin="0,0,0,10" />
 
                             <TextBlock Text="Код ячейки *" Style="{StaticResource EditorLabelStyle}" />
                             <TextBox x:Name="CodeBox"
                                      Style="{StaticResource EditorTextBoxStyle}"
-                                     Margin="0,0,0,10" />
+                                     IsReadOnly="True"
+                                     Background="#F8FAFF"
+                                     ToolTip="Код формируется автоматически из зоны, стеллажа, этажа и ряда."
+                                     Margin="0,0,0,4" />
+                            <TextBlock Text="Формируется автоматически: зона-стеллаж-этаж-ряд."
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontSize="11.5"
+                                       Margin="0,0,0,10" />
 
                             <Grid Margin="0,0,0,10">
                                 <Grid.ColumnDefinitions>
@@ -303,31 +313,40 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock Text="Код зоны" Style="{StaticResource EditorLabelStyle}" />
-                                    <TextBox x:Name="ZoneCodeBox" Style="{StaticResource EditorTextBoxStyle}" />
+                                    <TextBox x:Name="ZoneCodeBox"
+                                             Style="{StaticResource EditorTextBoxStyle}"
+                                             TextChanged="OnCellCodePartChanged" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="Название зоны" Style="{StaticResource EditorLabelStyle}" />
-                                    <TextBox x:Name="ZoneNameBox" Style="{StaticResource EditorTextBoxStyle}" />
+                                    <TextBox x:Name="ZoneNameBox"
+                                             Style="{StaticResource EditorTextBoxStyle}"
+                                             TextChanged="OnCellCodePartChanged" />
                                 </StackPanel>
                             </Grid>
 
                             <TextBlock Text="Адрес" Style="{StaticResource EditorLabelStyle}" />
-                            <UniformGrid Columns="4" Margin="0,0,0,10">
-                                <StackPanel Margin="0,0,8,0">
-                                    <TextBlock Text="Ряд" Style="{StaticResource EditorLabelStyle}" />
-                                    <TextBox x:Name="RowNoBox" Style="{StaticResource EditorTextBoxStyle}" Text="0" />
-                                </StackPanel>
+                            <UniformGrid Columns="3" Margin="0,0,0,10">
                                 <StackPanel Margin="0,0,8,0">
                                     <TextBlock Text="Стеллаж" Style="{StaticResource EditorLabelStyle}" />
-                                    <TextBox x:Name="RackNoBox" Style="{StaticResource EditorTextBoxStyle}" Text="0" />
+                                    <TextBox x:Name="RackNoBox"
+                                             Style="{StaticResource EditorTextBoxStyle}"
+                                             Text="0"
+                                             TextChanged="OnCellCodePartChanged" />
                                 </StackPanel>
                                 <StackPanel Margin="0,0,8,0">
-                                    <TextBlock Text="Полка" Style="{StaticResource EditorLabelStyle}" />
-                                    <TextBox x:Name="ShelfNoBox" Style="{StaticResource EditorTextBoxStyle}" Text="0" />
+                                    <TextBlock Text="Этаж" Style="{StaticResource EditorLabelStyle}" />
+                                    <TextBox x:Name="ShelfNoBox"
+                                             Style="{StaticResource EditorTextBoxStyle}"
+                                             Text="0"
+                                             TextChanged="OnCellCodePartChanged" />
                                 </StackPanel>
                                 <StackPanel>
-                                    <TextBlock Text="Ячейка" Style="{StaticResource EditorLabelStyle}" />
-                                    <TextBox x:Name="CellNoBox" Style="{StaticResource EditorTextBoxStyle}" Text="0" />
+                                    <TextBlock Text="Ряд" Style="{StaticResource EditorLabelStyle}" />
+                                    <TextBox x:Name="RowNoBox"
+                                             Style="{StaticResource EditorTextBoxStyle}"
+                                             Text="0"
+                                             TextChanged="OnCellCodePartChanged" />
                                 </StackPanel>
                             </UniformGrid>
 

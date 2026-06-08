@@ -27,7 +27,7 @@ public static class WarehouseCellStoragePreparationPlan
                 ? "Администратор"
                 : "Нет доступа к настройке",
             DataMode: sharedDatabaseEnabled ? "Общая база" : "Локальные данные",
-            AddressMask: "Склад-Зона-Ряд-Стеллаж-Полка-Ячейка",
+            AddressMask: "Склад-Зона-Стеллаж-Этаж-Ряд",
             QrMode: "Подготовлен, не обязателен",
             WarehouseCount: normalizedWarehouses.Length,
             WarehousesPreview: BuildWarehousesPreview(normalizedWarehouses),

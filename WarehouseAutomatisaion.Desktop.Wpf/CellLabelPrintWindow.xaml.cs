@@ -149,7 +149,7 @@ public partial class CellLabelPrintWindow : Window
 
         if (!string.IsNullOrWhiteSpace(cell.ZoneCode) || cell.RowNo > 0 || cell.RackNo > 0)
         {
-            var addressLabel = $"R{cell.RowNo:D2}-К{cell.RackNo:D2}-П{cell.ShelfNo:D2}-Я{cell.CellNo:D2}";
+            var addressLabel = $"С{cell.RackNo:D2}-Э{cell.ShelfNo:D2}-Р{cell.RowNo:D2}";
             if (!string.IsNullOrWhiteSpace(cell.ZoneCode))
             {
                 addressLabel = $"{cell.ZoneCode} · {addressLabel}";

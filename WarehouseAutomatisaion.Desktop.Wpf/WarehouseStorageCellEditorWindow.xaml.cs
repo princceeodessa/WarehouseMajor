@@ -11,6 +11,7 @@ public partial class WarehouseStorageCellEditorWindow : Window
     private static readonly CultureInfo RuCulture = CultureInfo.GetCultureInfo("ru-RU");
 
     private readonly WarehouseStorageCellRecord _draft;
+    private bool _isLoading;
 
     public WarehouseStorageCellEditorWindow(
         IReadOnlyList<string> warehouses,
@@ -24,6 +25,7 @@ public partial class WarehouseStorageCellEditorWindow : Window
         Title = string.IsNullOrWhiteSpace(_draft.Code) ? "Новая ячейка" : $"Ячейка {_draft.Code}";
         HeaderTitleText.Text = string.IsNullOrWhiteSpace(_draft.Code) ? "Новая ячейка" : "Карточка ячейки";
         WarehouseComboBox.ItemsSource = warehouses
+            .Concat([_draft.Warehouse])
             .Where(item => !string.IsNullOrWhiteSpace(item))
             .Select(Ui)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -43,38 +45,42 @@ public partial class WarehouseStorageCellEditorWindow : Window
 
     private void LoadDraft()
     {
+        _isLoading = true;
         SelectComboValue(WarehouseComboBox, Ui(_draft.Warehouse));
         CodeTextBox.Text = Ui(_draft.Code);
         ZoneCodeTextBox.Text = string.IsNullOrWhiteSpace(_draft.ZoneCode) ? "STG" : Ui(_draft.ZoneCode);
         ZoneNameTextBox.Text = string.IsNullOrWhiteSpace(_draft.ZoneName) ? "Хранение" : Ui(_draft.ZoneName);
         SelectComboValue(CellTypeComboBox, string.IsNullOrWhiteSpace(_draft.CellType) ? "Штучная" : Ui(_draft.CellType));
         SelectComboValue(StatusComboBox, string.IsNullOrWhiteSpace(_draft.Status) ? "Активна" : Ui(_draft.Status));
-        RowTextBox.Text = Math.Max(1, _draft.Row).ToString("N0", RuCulture);
         RackTextBox.Text = Math.Max(1, _draft.Rack).ToString("N0", RuCulture);
         ShelfTextBox.Text = Math.Max(1, _draft.Shelf).ToString("N0", RuCulture);
-        CellTextBox.Text = Math.Max(1, _draft.Cell).ToString("N0", RuCulture);
+        RowTextBox.Text = Math.Max(1, _draft.Row).ToString("N0", RuCulture);
         CapacityTextBox.Text = _draft.Capacity > 0m ? _draft.Capacity.ToString("N0", RuCulture) : "40";
         QrPayloadTextBox.Text = Ui(_draft.QrPayload);
         CommentTextBox.Text = Ui(_draft.Comment);
+        _isLoading = false;
+        if (string.IsNullOrWhiteSpace(_draft.Code))
+        {
+            UpdateGeneratedCode();
+        }
     }
 
     private void HandleSaveClick(object sender, RoutedEventArgs e)
     {
         ValidationText.Text = string.Empty;
 
-        var warehouse = WarehouseComboBox.Text.Trim();
+        var warehouse = (WarehouseComboBox.SelectedItem as string ?? WarehouseComboBox.Text).Trim();
         if (string.IsNullOrWhiteSpace(warehouse))
         {
             ValidationText.Text = "Укажите склад.";
             return;
         }
 
-        if (!TryParsePositiveInt(RowTextBox.Text, out var row)
-            || !TryParsePositiveInt(RackTextBox.Text, out var rack)
+        if (!TryParseRack(RackTextBox.Text, out var rack)
             || !TryParsePositiveInt(ShelfTextBox.Text, out var shelf)
-            || !TryParsePositiveInt(CellTextBox.Text, out var cell))
+            || !TryParsePositiveInt(RowTextBox.Text, out var row))
         {
-            ValidationText.Text = "Ряд, стеллаж, полка и место должны быть положительными числами.";
+            ValidationText.Text = "Стеллаж должен быть числом или одной буквой, этаж и ряд — положительными числами.";
             return;
         }
 
@@ -84,11 +90,13 @@ public partial class WarehouseStorageCellEditorWindow : Window
             return;
         }
 
+        UpdateGeneratedCode();
         var code = CodeTextBox.Text.Trim();
         var zoneCode = string.IsNullOrWhiteSpace(ZoneCodeTextBox.Text) ? "STG" : ZoneCodeTextBox.Text.Trim().ToUpperInvariant();
         if (string.IsNullOrWhiteSpace(code))
         {
-            code = $"{zoneCode}-{row:00}-{rack:00}-{shelf:00}-{cell:00}";
+            ValidationText.Text = "Заполните зону, стеллаж, этаж и ряд — код сформируется автоматически.";
+            return;
         }
 
         var payload = WarehouseCellStoragePreparationPlan.BuildCellQrPayload(warehouse, code.ToUpperInvariant());
@@ -102,7 +110,7 @@ public partial class WarehouseStorageCellEditorWindow : Window
             Row = row,
             Rack = rack,
             Shelf = shelf,
-            Cell = cell,
+            Cell = 0,
             CellType = string.IsNullOrWhiteSpace(CellTypeComboBox.Text) ? "Штучная" : CellTypeComboBox.Text.Trim(),
             Capacity = capacity,
             Status = string.IsNullOrWhiteSpace(StatusComboBox.Text) ? "Активна" : StatusComboBox.Text.Trim(),
@@ -116,6 +124,74 @@ public partial class WarehouseStorageCellEditorWindow : Window
     private void HandleCancelClick(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
+    }
+
+    private void HandleAddressPartChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        UpdateGeneratedCode();
+    }
+
+    private void UpdateGeneratedCode()
+    {
+        if (CodeTextBox is null
+            || ZoneCodeTextBox is null
+            || ZoneNameTextBox is null
+            || RackTextBox is null
+            || ShelfTextBox is null
+            || RowTextBox is null)
+        {
+            return;
+        }
+
+        var zone = NormalizeCodePart(!string.IsNullOrWhiteSpace(ZoneCodeTextBox.Text)
+            ? ZoneCodeTextBox.Text
+            : ZoneNameTextBox.Text);
+        var rack = NormalizeCodePart(RackTextBox.Text);
+        var floor = NormalizeCodePart(ShelfTextBox.Text);
+        var row = NormalizeCodePart(RowTextBox.Text);
+
+        CodeTextBox.Text = string.IsNullOrWhiteSpace(zone)
+            || string.IsNullOrWhiteSpace(rack)
+            || string.IsNullOrWhiteSpace(floor)
+            || string.IsNullOrWhiteSpace(row)
+                ? string.Empty
+                : string.Join("-", new[] { zone, rack, floor, row });
+    }
+
+    private static string NormalizeCodePart(string? value)
+    {
+        var trimmed = value?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed == "0")
+        {
+            return string.Empty;
+        }
+
+        var result = new List<char>(trimmed.Length);
+        var lastWasSeparator = false;
+        foreach (var ch in trimmed)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                result.Add(char.ToUpperInvariant(ch));
+                lastWasSeparator = false;
+                continue;
+            }
+
+            if (lastWasSeparator)
+            {
+                continue;
+            }
+
+            result.Add('-');
+            lastWasSeparator = true;
+        }
+
+        return new string(result.ToArray()).Trim('-');
     }
 
     private static void SelectComboValue(ComboBox comboBox, string value)
@@ -148,6 +224,38 @@ public partial class WarehouseStorageCellEditorWindow : Window
         return (int.TryParse(value, NumberStyles.Integer, RuCulture, out result)
                 || int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
                && result > 0;
+    }
+
+    private static bool TryParseRack(string value, out int result)
+    {
+        value = value.Replace('\u00A0', ' ').Replace(" ", string.Empty);
+        if ((int.TryParse(value, NumberStyles.Integer, RuCulture, out result)
+             || int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
+            && result > 0)
+        {
+            return true;
+        }
+
+        if (value.Length == 1 && char.IsLetter(value[0]))
+        {
+            var letter = char.ToUpperInvariant(value[0]);
+            if (letter is >= 'A' and <= 'Z')
+            {
+                result = letter - 'A' + 1;
+                return true;
+            }
+
+            const string russianRackLetters = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЭЮЯ";
+            var index = russianRackLetters.IndexOf(letter);
+            if (index >= 0)
+            {
+                result = index + 1;
+                return true;
+            }
+        }
+
+        result = 0;
+        return false;
     }
 
     private static bool TryParseDecimal(string value, out decimal result)

@@ -52,20 +52,23 @@
 
                 <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,14">
                     <TextBlock Text="Склад" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="WarehouseComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
+                    <ComboBox x:Name="WarehouseComboBox" Style="{StaticResource InputStyle}" IsEditable="False" />
                 </StackPanel>
                 <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,14">
                     <TextBlock Text="Код ячейки" Style="{StaticResource FieldLabelStyle}" />
-                    <TextBox x:Name="CodeTextBox" Style="{StaticResource InputStyle}" />
+                    <TextBox x:Name="CodeTextBox"
+                             Style="{StaticResource InputStyle}"
+                             IsReadOnly="True"
+                             ToolTip="Код формируется автоматически из зоны, стеллажа, этажа и ряда." />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,14">
                     <TextBlock Text="Код зоны" Style="{StaticResource FieldLabelStyle}" />
-                    <TextBox x:Name="ZoneCodeTextBox" Style="{StaticResource InputStyle}" />
+                    <TextBox x:Name="ZoneCodeTextBox" Style="{StaticResource InputStyle}" TextChanged="HandleAddressPartChanged" />
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,14">
                     <TextBlock Text="Зона" Style="{StaticResource FieldLabelStyle}" />
-                    <TextBox x:Name="ZoneNameTextBox" Style="{StaticResource InputStyle}" />
+                    <TextBox x:Name="ZoneNameTextBox" Style="{StaticResource InputStyle}" TextChanged="HandleAddressPartChanged" />
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,14">
@@ -77,22 +80,18 @@
                     <ComboBox x:Name="StatusComboBox" Style="{StaticResource InputStyle}" IsEditable="True" />
                 </StackPanel>
 
-                <UniformGrid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Columns="4" Margin="0,0,0,14">
-                    <StackPanel Margin="0,0,10,0">
-                        <TextBlock Text="Ряд" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox x:Name="RowTextBox" Style="{StaticResource InputStyle}" />
-                    </StackPanel>
+                <UniformGrid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Columns="3" Margin="0,0,0,14">
                     <StackPanel Margin="0,0,10,0">
                         <TextBlock Text="Стеллаж" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox x:Name="RackTextBox" Style="{StaticResource InputStyle}" />
+                        <TextBox x:Name="RackTextBox" Style="{StaticResource InputStyle}" TextChanged="HandleAddressPartChanged" />
                     </StackPanel>
                     <StackPanel Margin="0,0,10,0">
-                        <TextBlock Text="Полка" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox x:Name="ShelfTextBox" Style="{StaticResource InputStyle}" />
+                        <TextBlock Text="Этаж" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="ShelfTextBox" Style="{StaticResource InputStyle}" TextChanged="HandleAddressPartChanged" />
                     </StackPanel>
                     <StackPanel>
-                        <TextBlock Text="Место" Style="{StaticResource FieldLabelStyle}" />
-                        <TextBox x:Name="CellTextBox" Style="{StaticResource InputStyle}" />
+                        <TextBlock Text="Ряд" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="RowTextBox" Style="{StaticResource InputStyle}" TextChanged="HandleAddressPartChanged" />
                     </StackPanel>
                 </UniformGrid>
 
