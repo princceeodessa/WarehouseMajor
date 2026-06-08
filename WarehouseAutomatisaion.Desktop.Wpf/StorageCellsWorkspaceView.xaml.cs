@@ -38,7 +38,7 @@ public partial class StorageCellsWorkspaceView : UserControl
     private bool _isInitialized;
     private bool _isLoadingEditor;
     private string? _selectedWarehouseFilter;
-    private IReadOnlyList<WarehouseFilterOption> _warehouseEditorOptions = Array.Empty<WarehouseFilterOption>();
+    private IReadOnlyList<string> _warehouseEditorOptions = Array.Empty<string>();
     private Guid? _editingId;
 
     public StorageCellsWorkspaceView()
@@ -76,24 +76,7 @@ public partial class StorageCellsWorkspaceView : UserControl
             return;
         }
 
-        var warehouseNames = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        var summaries = _backplane.LoadStockWarehouses();
-        foreach (var summary in summaries)
-        {
-            if (!string.IsNullOrWhiteSpace(summary.WarehouseName))
-            {
-                warehouseNames.Add(summary.WarehouseName.Trim());
-            }
-        }
-
-        foreach (var cell in _backplane.LoadStorageCells())
-        {
-            if (!string.IsNullOrWhiteSpace(cell.WarehouseName))
-            {
-                warehouseNames.Add(cell.WarehouseName.Trim());
-            }
-        }
-
+        var warehouseNames = _backplane.LoadWarehouseNames();
         var items = new List<WarehouseFilterOption>
         {
             new(null, "Все склады")
@@ -109,9 +92,7 @@ public partial class StorageCellsWorkspaceView : UserControl
         WarehouseFilterCombo.SelectedValuePath = nameof(WarehouseFilterOption.Value);
         WarehouseFilterCombo.SelectedIndex = 0;
 
-        _warehouseEditorOptions = items
-            .Where(item => !string.IsNullOrWhiteSpace(item.Value))
-            .ToArray();
+        _warehouseEditorOptions = warehouseNames;
         WarehouseNameCombo.ItemsSource = _warehouseEditorOptions;
     }
 
@@ -402,7 +383,7 @@ public partial class StorageCellsWorkspaceView : UserControl
 
         if (source is null)
         {
-            WarehouseNameCombo.SelectedValue = warehouseName;
+            WarehouseNameCombo.SelectedItem = warehouseName;
             CodeBox.Clear();
             ZoneCodeBox.Clear();
             ZoneNameBox.Clear();
@@ -417,7 +398,7 @@ public partial class StorageCellsWorkspaceView : UserControl
         }
         else
         {
-            WarehouseNameCombo.SelectedValue = source.WarehouseName;
+            WarehouseNameCombo.SelectedItem = source.WarehouseName;
             CodeBox.Text = source.Code;
             ZoneCodeBox.Text = source.ZoneCode ?? string.Empty;
             ZoneNameBox.Text = source.ZoneName ?? string.Empty;
@@ -549,7 +530,7 @@ public partial class StorageCellsWorkspaceView : UserControl
         return rows.Select(row => row.WarehouseName).Distinct(StringComparer.OrdinalIgnoreCase).Take(2).Count() == 1
             ? rows[0].WarehouseName
             : _warehouseEditorOptions.Count == 1
-                ? _warehouseEditorOptions[0].Value ?? string.Empty
+                ? _warehouseEditorOptions[0]
                 : string.Empty;
     }
 
@@ -636,25 +617,28 @@ public partial class StorageCellsWorkspaceView : UserControl
 
     private string GetSelectedWarehouseName()
     {
-        if (WarehouseNameCombo.SelectedItem is WarehouseFilterOption option)
+        if (WarehouseNameCombo.SelectedItem is string selected)
         {
-            return option.Value?.Trim() ?? string.Empty;
+            return selected.Trim();
         }
 
         return (WarehouseNameCombo.SelectedValue as string)?.Trim() ?? string.Empty;
     }
 
-    private static IReadOnlyList<WarehouseFilterOption> EnsureWarehouseOption(
-        IReadOnlyList<WarehouseFilterOption> options,
+    private static IReadOnlyList<string> EnsureWarehouseOption(
+        IReadOnlyList<string> options,
         string? currentValue)
     {
         if (string.IsNullOrWhiteSpace(currentValue)
-            || options.Any(option => option.Value?.Equals(currentValue.Trim(), StringComparison.OrdinalIgnoreCase) == true))
+            || options.Any(option => option.Equals(currentValue.Trim(), StringComparison.OrdinalIgnoreCase)))
         {
             return options;
         }
 
-        return options.Concat([new WarehouseFilterOption(currentValue.Trim(), currentValue.Trim())]).ToArray();
+        return options.Concat([currentValue.Trim()])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
     }
 
     private static IReadOnlyList<EditorOption> EnsureOption(

@@ -64,6 +64,64 @@ public sealed partial class DesktopMySqlBackplaneService
         }
     }
 
+    public IReadOnlyList<string> LoadWarehouseNames()
+    {
+        try
+        {
+            EnsureDatabaseAndSchema();
+
+            using var connection = DesktopMySqlCommandRunner.CreateOpenConnection(
+                _options,
+                useDatabase: true,
+                MysqlConnectTimeoutSeconds,
+                MysqlStorageCellsCommandTimeoutSeconds);
+
+            const string sql = """
+                SELECT name
+                FROM (
+                    SELECT name
+                    FROM warehouse_nodes
+                    WHERE name IS NOT NULL AND TRIM(name) <> ''
+
+                    UNION
+
+                    SELECT warehouse_name AS name
+                    FROM app_warehouse_stock_balances
+                    WHERE warehouse_name IS NOT NULL AND TRIM(warehouse_name) <> ''
+
+                    UNION
+
+                    SELECT warehouse_name AS name
+                    FROM app_warehouse_storage_cells
+                    WHERE warehouse_name IS NOT NULL AND TRIM(warehouse_name) <> ''
+                ) AS warehouses
+                ORDER BY name;
+                """;
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
+
+            var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var name = NormalizeWarehouseName(reader.GetString(0));
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    names.Add(name);
+                }
+            }
+
+            return names.ToArray();
+        }
+        catch (Exception exception)
+        {
+            TryWriteErrorLog(exception);
+            return Array.Empty<string>();
+        }
+    }
+
     public StorageCell? GetStorageCellById(Guid id)
     {
         try
