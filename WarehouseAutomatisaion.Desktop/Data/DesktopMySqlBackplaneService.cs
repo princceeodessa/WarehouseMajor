@@ -1804,6 +1804,24 @@ public sealed partial class DesktopMySqlBackplaneService
                 AND INDEX_NAME = 'ix_purchasing_lines_kind_doc');
         SET @warehouse_ddl = IF(@warehouse_index_missing, 'CREATE INDEX ix_purchasing_lines_kind_doc ON app_purchasing_document_lines (document_kind, document_id)', 'DO 0');
         PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
+
+        -- WMS ячейки: уникальность кода в пределах склада (бэкстоп для пред-проверки
+        -- в CreateStorageCell/UpdateStorageCell). CREATE TABLE IF NOT EXISTS не доносит
+        -- констрейнт до существующих баз — добавляем через миграцию. Если в базе уже
+        -- есть дубли (warehouse_name, code), индекс не ставим, чтобы не уронить
+        -- EnsureDatabaseAndSchema: защита остаётся на пред-проверке, дубли чистятся руками.
+        SET @warehouse_index_missing = (
+            SELECT COUNT(*) = 0 FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = @warehouse_schema_name AND TABLE_NAME = 'app_warehouse_storage_cells'
+                AND INDEX_NAME = 'uq_app_warehouse_storage_cells_warehouse_code');
+        SET @warehouse_cells_duplicates = (
+            SELECT COUNT(*) FROM (
+                SELECT warehouse_name, code
+                FROM app_warehouse_storage_cells
+                GROUP BY warehouse_name, code
+                HAVING COUNT(*) > 1) AS warehouse_cell_dups);
+        SET @warehouse_ddl = IF(@warehouse_index_missing AND @warehouse_cells_duplicates = 0, 'ALTER TABLE app_warehouse_storage_cells ADD CONSTRAINT uq_app_warehouse_storage_cells_warehouse_code UNIQUE (warehouse_name, code)', 'DO 0');
+        PREPARE warehouse_stmt FROM @warehouse_ddl; EXECUTE warehouse_stmt; DEALLOCATE PREPARE warehouse_stmt;
         """;
 }
 

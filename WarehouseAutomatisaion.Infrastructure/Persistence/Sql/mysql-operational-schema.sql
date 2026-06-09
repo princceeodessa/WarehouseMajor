@@ -1363,7 +1363,8 @@ CREATE TABLE IF NOT EXISTS app_warehouse_storage_cells (
     comment_text TEXT NULL,
     created_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at_utc DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    CONSTRAINT pk_app_warehouse_storage_cells PRIMARY KEY (id)
+    CONSTRAINT pk_app_warehouse_storage_cells PRIMARY KEY (id),
+    CONSTRAINT uq_app_warehouse_storage_cells_warehouse_code UNIQUE (warehouse_name, code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- app_warehouse_stock_locations:
@@ -1713,4 +1714,3 @@ CREATE INDEX ix_app_audit_events_module_logged_at ON app_audit_events (module_co
 CREATE INDEX ix_app_audit_events_actor_logged_at ON app_audit_events (actor_user_name, logged_at_utc);
 CREATE INDEX ix_app_document_attachments_entity ON app_document_attachments (module_code, entity_type, entity_id);
 CREATE INDEX ix_app_saved_exports_module_created_at ON app_saved_exports (module_code, created_at_utc);
-

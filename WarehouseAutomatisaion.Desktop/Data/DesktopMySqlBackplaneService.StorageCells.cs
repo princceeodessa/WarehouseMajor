@@ -174,6 +174,8 @@ public sealed partial class DesktopMySqlBackplaneService
             MysqlConnectTimeoutSeconds,
             MysqlStorageCellsCommandTimeoutSeconds);
 
+        EnsureStorageCellCodeIsAvailable(connection, request.WarehouseName, request.Code);
+
         const string sql = """
             INSERT INTO app_warehouse_storage_cells (
                 id, warehouse_name, code,
@@ -197,7 +199,17 @@ public sealed partial class DesktopMySqlBackplaneService
         command.CommandText = sql;
         command.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
         BindRequestParameters(command, id, request, includeQr: true);
-        command.ExecuteNonQuery();
+
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (MySqlException ex) when (ex.ErrorCode == MySqlErrorCode.DuplicateKeyEntry)
+        {
+            // Гонка между пред-проверкой и INSERT: UNIQUE-индекс сработал — отдаём
+            // то же дружелюбное сообщение вместо сырого "Duplicate entry ... for key".
+            throw new InvalidOperationException(BuildDuplicateCellMessage(request.WarehouseName, request.Code), ex);
+        }
 
         return id;
     }
@@ -211,6 +223,8 @@ public sealed partial class DesktopMySqlBackplaneService
             useDatabase: true,
             MysqlConnectTimeoutSeconds,
             MysqlStorageCellsCommandTimeoutSeconds);
+
+        EnsureStorageCellCodeIsAvailable(connection, request.WarehouseName, request.Code, id);
 
         // QR payload пересобираем при Update — warehouse_name или code могли измениться,
         // и handheld должен видеть актуальные данные.
@@ -231,11 +245,48 @@ public sealed partial class DesktopMySqlBackplaneService
             WHERE id = @id;
             """;
 
-        using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        command.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
-        BindRequestParameters(command, id, request, includeQr: true);
-        command.ExecuteNonQuery();
+        // storage_cell_code и warehouse_name денормализованы в app_warehouse_stock_locations —
+        // при переименовании ячейки или смене склада копии обновляем атомарно с ячейкой,
+        // иначе остатки и ТСД продолжат показывать старый код.
+        const string syncLocationsSql = """
+            UPDATE app_warehouse_stock_locations
+            SET storage_cell_code = @code,
+                warehouse_name = @warehouse_name,
+                updated_at_utc = UTC_TIMESTAMP(6)
+            WHERE storage_cell_id = @id;
+            """;
+
+        using var transaction = connection.BeginTransaction();
+
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = sql;
+            command.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
+            BindRequestParameters(command, id, request, includeQr: true);
+
+            try
+            {
+                command.ExecuteNonQuery();
+            }
+            catch (MySqlException ex) when (ex.ErrorCode == MySqlErrorCode.DuplicateKeyEntry)
+            {
+                throw new InvalidOperationException(BuildDuplicateCellMessage(request.WarehouseName, request.Code), ex);
+            }
+        }
+
+        using (var syncCommand = connection.CreateCommand())
+        {
+            syncCommand.Transaction = transaction;
+            syncCommand.CommandText = syncLocationsSql;
+            syncCommand.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
+            syncCommand.Parameters.AddWithValue("@id", id.ToString());
+            syncCommand.Parameters.AddWithValue("@code", NormalizeCellCode(request.Code));
+            syncCommand.Parameters.AddWithValue("@warehouse_name", NormalizeWarehouseName(request.WarehouseName));
+            syncCommand.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
     }
 
     public StorageCellBulkImportResult BulkUpsertStorageCells(IReadOnlyList<StorageCellRequest> requests)
@@ -312,11 +363,11 @@ public sealed partial class DesktopMySqlBackplaneService
                     findCommand.CommandText = findSql;
                     findCommand.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
                     findCommand.Parameters.AddWithValue("@warehouse_name", NormalizeWarehouseName(request.WarehouseName));
-                    findCommand.Parameters.AddWithValue("@code", request.Code);
+                    findCommand.Parameters.AddWithValue("@code", NormalizeCellCode(request.Code));
                     using var reader = findCommand.ExecuteReader();
                     if (reader.Read())
                     {
-                        existingId = Guid.Parse(reader.GetString(0));
+                        existingId = ReadGuid(reader, 0);
                     }
                 }
 
@@ -359,21 +410,69 @@ public sealed partial class DesktopMySqlBackplaneService
             MysqlConnectTimeoutSeconds,
             MysqlStorageCellsCommandTimeoutSeconds);
 
-        const string sql = "DELETE FROM app_warehouse_storage_cells WHERE id = @id;";
+        using var transaction = connection.BeginTransaction();
 
-        using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        command.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
-        command.Parameters.AddWithValue("@id", id.ToString());
-        command.ExecuteNonQuery();
+        // Ячейку с товаром удалять нельзя — строки размещения осиротеют молча,
+        // и остаток «повиснет» в несуществующей ячейке.
+        const string stockCheckSql = """
+            SELECT COALESCE(SUM(quantity), 0), COALESCE(SUM(reserved_quantity), 0)
+            FROM app_warehouse_stock_locations
+            WHERE storage_cell_id = @id;
+            """;
+
+        using (var checkCommand = connection.CreateCommand())
+        {
+            checkCommand.Transaction = transaction;
+            checkCommand.CommandText = stockCheckSql;
+            checkCommand.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
+            checkCommand.Parameters.AddWithValue("@id", id.ToString());
+
+            using var reader = checkCommand.ExecuteReader();
+            if (reader.Read())
+            {
+                var quantity = reader.GetDecimal(0);
+                var reserved = reader.GetDecimal(1);
+                if (quantity > 0 || reserved > 0)
+                {
+                    throw new InvalidOperationException(
+                        $"В ячейке остаток {quantity:0.####} (в резерве {reserved:0.####}). " +
+                        "Перед удалением переместите товар в другую ячейку.");
+                }
+            }
+        }
+
+        // Нулевые строки размещения подчищаем вместе с ячейкой.
+        using (var cleanupCommand = connection.CreateCommand())
+        {
+            cleanupCommand.Transaction = transaction;
+            cleanupCommand.CommandText = "DELETE FROM app_warehouse_stock_locations WHERE storage_cell_id = @id;";
+            cleanupCommand.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
+            cleanupCommand.Parameters.AddWithValue("@id", id.ToString());
+            cleanupCommand.ExecuteNonQuery();
+        }
+
+        using (var deleteCommand = connection.CreateCommand())
+        {
+            deleteCommand.Transaction = transaction;
+            deleteCommand.CommandText = "DELETE FROM app_warehouse_storage_cells WHERE id = @id;";
+            deleteCommand.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
+            deleteCommand.Parameters.AddWithValue("@id", id.ToString());
+            deleteCommand.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
     }
 
     private static void BindRequestParameters(MySqlCommand command, Guid id, StorageCellRequest request, bool includeQr)
     {
         var warehouseName = NormalizeWarehouseName(request.WarehouseName);
+        // Trim обязателен: коллация utf8mb4_0900_ai_ci — NO PAD, для MySQL "A-01 " и "A-01"
+        // разные значения. Без нормализации пробел обходит и пред-проверку дублей,
+        // и UNIQUE-индекс, и попадает в QR-payload.
+        var code = NormalizeCellCode(request.Code);
         command.Parameters.AddWithValue("@id", id.ToString());
         command.Parameters.AddWithValue("@warehouse_name", warehouseName);
-        command.Parameters.AddWithValue("@code", request.Code);
+        command.Parameters.AddWithValue("@code", code);
         command.Parameters.AddWithValue("@zone_code", (object?)request.ZoneCode ?? DBNull.Value);
         command.Parameters.AddWithValue("@zone_name", (object?)request.ZoneName ?? DBNull.Value);
         command.Parameters.AddWithValue("@row_no", request.RowNo);
@@ -390,8 +489,43 @@ public sealed partial class DesktopMySqlBackplaneService
             // MWH (MajorWarehouse) формат QR-payload — совместим с TsdScanValueParser в WarehouseAutomatisaion.Tsd.
             // Формат: MWH|v=1|type=cell|warehouse=<url-encoded>|cell=<url-encoded code>
             // Pipe-separated key=value, UTF-8 значения URL-encoded для безопасной передачи через QR.
-            command.Parameters.AddWithValue("@qr_payload", BuildMwhCellPayload(warehouseName, request.Code));
+            command.Parameters.AddWithValue("@qr_payload", BuildMwhCellPayload(warehouseName, code));
         }
+    }
+
+    private static void EnsureStorageCellCodeIsAvailable(
+        MySqlConnection connection,
+        string warehouseName,
+        string code,
+        Guid? excludedId = null)
+    {
+        const string sql = """
+            SELECT id
+            FROM app_warehouse_storage_cells
+            WHERE warehouse_name = @warehouse_name
+              AND code = @code
+              AND (@excluded_id IS NULL OR id <> @excluded_id)
+            LIMIT 1;
+            """;
+
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.CommandTimeout = MysqlStorageCellsCommandTimeoutSeconds;
+        command.Parameters.AddWithValue("@warehouse_name", NormalizeWarehouseName(warehouseName));
+        command.Parameters.AddWithValue("@code", NormalizeCellCode(code));
+        command.Parameters.AddWithValue(
+            "@excluded_id",
+            excludedId.HasValue ? excludedId.Value.ToString() : DBNull.Value);
+
+        if (command.ExecuteScalar() is not null)
+        {
+            throw new InvalidOperationException(BuildDuplicateCellMessage(warehouseName, code));
+        }
+    }
+
+    private static string BuildDuplicateCellMessage(string warehouseName, string code)
+    {
+        return $"Ячейка «{NormalizeCellCode(code)}» уже существует на складе «{NormalizeWarehouseName(warehouseName)}».";
     }
 
     /// <summary>
@@ -421,10 +555,15 @@ public sealed partial class DesktopMySqlBackplaneService
             .Replace('ё', 'е');
     }
 
+    private static string NormalizeCellCode(string? code)
+    {
+        return (code ?? string.Empty).Trim();
+    }
+
     private static StorageCell ReadStorageCellRow(MySqlDataReader reader)
     {
         return new StorageCell(
-            Id: Guid.Parse(reader.GetString(reader.GetOrdinal("id"))),
+            Id: ReadGuid(reader, reader.GetOrdinal("id")),
             Code: reader.GetString(reader.GetOrdinal("code")),
             WarehouseNodeId: null,
             WarehouseName: reader.GetString(reader.GetOrdinal("warehouse_name")),
