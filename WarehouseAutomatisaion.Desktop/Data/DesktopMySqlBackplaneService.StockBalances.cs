@@ -67,12 +67,15 @@ public sealed partial class DesktopMySqlBackplaneService
 
             while (reader.Read())
             {
+                // id/item_id/warehouse_node_id — CHAR(36): MySqlConnector мапит их в Guid,
+                // GetString кидает InvalidCastException → catch → пустые «Остатки».
+                // ReadString (GetValue-based) — безопасен для Guid и string.
                 rows.Add(new WarehouseStockRow(
-                    Id: reader.GetString(ordId),
-                    ItemId: reader.GetString(ordItemId),
+                    Id: ReadString(reader, ordId),
+                    ItemId: ReadString(reader, ordItemId),
                     ItemCode: reader.IsDBNull(ordItemCode) ? null : reader.GetString(ordItemCode),
                     ItemName: reader.IsDBNull(ordItemName) ? null : reader.GetString(ordItemName),
-                    WarehouseNodeId: reader.GetString(ordWhId),
+                    WarehouseNodeId: ReadString(reader, ordWhId),
                     WarehouseName: reader.IsDBNull(ordWhName) ? null : reader.GetString(ordWhName),
                     Quantity: reader.GetDecimal(ordQty),
                     ReservedQuantity: reader.GetDecimal(ordReserved),
@@ -125,8 +128,9 @@ public sealed partial class DesktopMySqlBackplaneService
 
             while (reader.Read())
             {
+                // warehouse_node_id — CHAR(36) → Guid в MySqlConnector, GetString падает.
                 rows.Add(new WarehouseStockSummary(
-                    WarehouseNodeId: reader.GetString(ordWhId),
+                    WarehouseNodeId: ReadString(reader, ordWhId),
                     WarehouseName: reader.IsDBNull(ordWhName) ? null : reader.GetString(ordWhName),
                     ItemsCount: reader.GetInt32(ordCount),
                     TotalQuantity: reader.IsDBNull(ordTotal) ? 0m : reader.GetDecimal(ordTotal)));
